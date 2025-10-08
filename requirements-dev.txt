@@ -1,0 +1,11 @@
+# Development dependencies
+pytest>=7.0
+pytest-cov
+black
+isort
+mypy
+flake8
+
+# Optional dependencies for examples
+matplotlib>=3.5.0
+jupyter
