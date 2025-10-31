@@ -39,6 +39,11 @@ examples = [
     "matplotlib>=3.5.0",
     "jupyter",
 ]
+docs = [
+    "mkdocs>=1.5",
+    "mkdocs-material>=9.4",
+    "mkdocstrings[python]>=0.24",
+]
 
 [project.scripts]
 bioneuron-cli = "bioneuronai.core:cli_loop"

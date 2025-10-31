@@ -1,141 +1,95 @@
 # BioNeuronAI
 
-**生物啟發的新穎性檢測神經網路**
+[繁體中文](#繁體中文) | [English](#english)
 
-BioNeuronAI 是一個實現了 Hebbian 學習機制的生物啟發神經元模型，具有短期輸入記憶和新穎性評分功能。本項目為 AI 助手提供了新穎性門控機制，可整合強化學習循環、檢索增強生成(RAG)管道和工具門控。
+---
 
-## ✨ 特性
+## 繁體中文
 
-- 🧠 **Hebbian 學習**: 實現生物啟發的突觸可塑性
-- 🔄 **短期記憶**: 神經元具有可配置的輸入記憶長度
-- 📊 **新穎性檢測**: 自動計算輸入模式的新穎性評分
-- 🔗 **層級架構**: 支援多層神經網路構建
-- 🧪 **易於測試**: 完整的測試套件覆蓋
-- 📦 **模組化設計**: 清晰的 API 和可擴展架構
+**生物啟發的新穎性檢測與安全協同框架**
 
-## 🚀 快速開始
+BioNeuronAI 實現 Hebbian 學習機制與新穎性評估，並整合認證、SQLi、IDOR 等安全模組，
+支援 RAG、工具閘門、儀表板觀測與強化學習流程。
 
-### 安裝
+### ✨ 特性
 
-```bash
-# 克隆倉庫
-git clone https://github.com/kyle0527/BioNeuronai.git
-cd BioNeuronai
+- 🧠 **Hebbian 學習**：具備突觸可塑性與短期記憶佇列。
+- 🔍 **新穎性評分**：提供 0~1 區間的探索強度指標。
+- 🛡️ **安全模組**：增強認證、SQLi、IDOR 偵測全覆蓋。
+- 🛠️ **多語工具鏈**：所有註解與提示皆含 `[ZH]/[EN]` 雙語標籤。
+- 📚 **文件系統**：MkDocs 自動生成 API、白皮書與教程。
 
-# 安裝（開發模式）
-pip install -e .
-
-# 安裝開發依賴
-pip install -r requirements-dev.txt
-```
-
-### 基本使用
-
-```python
-from bioneuronai.core import BioNeuron, BioNet
-
-# 創建單一神經元
-neuron = BioNeuron(num_inputs=2, threshold=0.6, learning_rate=0.05)
-
-# 前向傳播
-output = neuron.forward([0.8, 0.6])
-print(f"輸出: {output}")
-
-# Hebbian 學習
-neuron.hebbian_learn([0.8, 0.6], target_output=1.0)
-
-# 新穎性檢測
-novelty = neuron.novelty_score()
-print(f"新穎性評分: {novelty}")
-
-# 使用多層網路
-net = BioNet()
-l2_out, l1_out = net.forward([0.5, 0.8])
-net.learn([0.5, 0.8])
-```
-
-### 命令行界面
+### 🚀 快速開始
 
 ```bash
-# 啟動互動式 CLI
+# 安裝核心、開發與文件依賴
+pip install -e .[dev,docs]
+
+# 啟動 CLI 示範
 bioneuron-cli
+
+# 啟動文件站點
+mkdocs serve
 ```
 
-## 📖 範例
-
-查看 `examples/` 目錄中的詳細範例：
+### 🧪 測試
 
 ```bash
-python examples/basic_demo.py
-```
-
-## 🧪 測試
-
-```bash
-# 執行所有測試
 pytest tests/ -v
-
-# 測試涵蓋率
 pytest tests/ --cov=bioneuronai
 ```
 
-## 📚 API 文檔
+### 📚 文件重點
 
-### BioNeuron
+- 技術白皮書：`docs/whitepaper.md`
+- API 參考：`docs/api/`
+- 教程：`docs/tutorials/`（涵蓋 RAG、工具閘門、儀表板、強化學習）
 
-```python
-BioNeuron(
-    num_inputs: int,           # 輸入維度
-    threshold: float = 0.8,    # 激活閾值
-    learning_rate: float = 0.01, # 學習率
-    memory_len: int = 5,       # 記憶長度
-    seed: int | None = None    # 隨機種子
-)
+更多細節請參考 [CHANGELOG](CHANGELOG.md)。
+
+---
+
+## English
+
+**Bio-inspired novelty gating with safety-aligned modules.**
+
+BioNeuronAI implements Hebbian learning with novelty scoring while integrating
+authentication hardening, SQL injection, and IDOR detection modules. It includes
+ready-to-follow guides for RAG pipelines, tool gating, dashboards, and
+reinforcement learning loops.
+
+### ✨ Features
+
+- 🧠 **Hebbian Learning** with short-term memory buffers.
+- 🔍 **Novelty Scoring** delivering normalized curiosity signals.
+- 🛡️ **Safety Modules** covering enhanced auth, SQLi, and IDOR detection.
+- 🛠️ **Bilingual Tooling** where prompts and comments follow `[ZH]/[EN]` labels.
+- 📚 **Documentation Suite** powered by MkDocs with auto-generated API pages.
+
+### 🚀 Quickstart
+
+```bash
+# Install package with development & docs extras
+pip install -e .[dev,docs]
+
+# Launch the interactive CLI demo
+bioneuron-cli
+
+# Serve the documentation locally
+mkdocs serve
 ```
 
-**主要方法:**
-- `forward(inputs)`: 前向傳播
-- `hebbian_learn(inputs, output)`: Hebbian 學習更新
-- `novelty_score()`: 計算新穎性評分
+### 🧪 Testing
 
-### BioLayer & BioNet
-
-- `BioLayer`: 多神經元層級抽象
-- `BioNet`: 預定義的雙層網路架構
-
-## 🛠️ 開發
-
-### 項目結構
-
-```
-BioNeuronai/
-├── src/bioneuronai/     # 核心代碼
-│   ├── __init__.py
-│   └── core.py          # 主要實現
-├── tests/               # 測試套件
-│   └── test_core.py
-├── examples/            # 使用範例
-│   └── basic_demo.py
-├── pyproject.toml       # 項目配置
-└── README.md
+```bash
+pytest tests/ -v
+pytest tests/ --cov=bioneuronai
 ```
 
-### 貢獻指南
+### 📚 Documentation Highlights
 
-1. Fork 此倉庫
-2. 創建功能分支: `git checkout -b feature/amazing-feature`
-3. 提交更改: `git commit -m 'Add amazing feature'`
-4. 推送到分支: `git push origin feature/amazing-feature`
-5. 提交 Pull Request
+- Technical whitepaper: `docs/whitepaper.md`
+- API reference: `docs/api/`
+- Tutorials: `docs/tutorials/` (RAG, tool gating, dashboard, RL)
 
-## 📄 授權
-
-本項目採用 MIT 授權 - 查看 [LICENSE](LICENSE) 文件了解詳情。
-
-## 🔮 未來發展
-
-- [ ] 集成強化學習模組
-- [ ] RAG 管道整合
-- [ ] 可視化工具
-- [ ] 性能優化
-- [ ] 更多神經元類型
+See the [CHANGELOG](CHANGELOG.md) for release history and upgrade notes.
