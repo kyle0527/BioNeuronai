@@ -1,0 +1,6 @@
+blank_issues_enabled: false
+dependency_label: dependencies
+contact_links:
+  - name: Documentation
+    url: https://github.com/kyle0527/BioNeuronai/tree/main/docs
+    about: Check the latest BioNeuronAI documentation before filing an issue.

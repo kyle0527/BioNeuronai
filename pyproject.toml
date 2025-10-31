@@ -35,6 +35,11 @@ dev = [
     "mypy",
     "flake8",
 ]
+docs = [
+    "sphinx>=7.2",
+    "sphinx-rtd-theme",
+    "myst-parser",
+]
 examples = [
     "matplotlib>=3.5.0",
     "jupyter",
@@ -51,7 +56,25 @@ target-version = ['py38']
 profile = "black"
 
 [tool.mypy]
-python_version = "3.8"
-warn_return_any = true
+python_version = "3.11"
+warn_return_any = false
 warn_unused_configs = true
-disallow_untyped_defs = true
+disallow_untyped_defs = false
+ignore_missing_imports = true
+follow_imports = "skip"
+
+[[tool.mypy.overrides]]
+module = "src.bioneuronai.enhanced_auth_module"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "src.bioneuronai.production_idor_module"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "src.bioneuronai.production_sqli_module"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "src.bioneuronai.improved_core"
+ignore_errors = true

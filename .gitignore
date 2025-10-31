@@ -1,0 +1,8 @@
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.ai_learning_data/
+.coverage
+.pytest_cache/
+docs/_build/

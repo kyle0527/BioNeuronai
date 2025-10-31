@@ -1,5 +1,7 @@
 from __future__ import annotations
+
 from typing import List, Sequence, Tuple
+
 import numpy as np
 
 
@@ -65,6 +67,7 @@ class BioLayer:
 
 class BioNet:
     """Two-layer demo 2 -> 3 -> 3; returns (l2_out, l1_out)."""
+
     def __init__(self) -> None:
         self.layer1 = BioLayer(3, 2)
         self.layer2 = BioLayer(3, 3)
@@ -94,7 +97,9 @@ def cli_loop() -> None:
             print("格式錯誤，請再輸入")
             continue
         outputs, _ = net.forward([a, b])
-        print(f"\u8f38\u51fa：{outputs} | novelty={net.layer1.neurons[0].novelty_score():.3f}")
+        print(
+            f"\u8f38\u51fa：{outputs} | novelty={net.layer1.neurons[0].novelty_score():.3f}"
+        )
         net.learn([a, b])
 
 

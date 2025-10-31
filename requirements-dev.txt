@@ -6,6 +6,7 @@ isort
 mypy
 flake8
 
-# Optional dependencies for examples
-matplotlib>=3.5.0
-jupyter
+# Documentation
+sphinx>=7.2
+sphinx-rtd-theme
+myst-parser

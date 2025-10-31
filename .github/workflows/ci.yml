@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .[dev,docs]
+
+      - name: Run tests
+        run: pytest tests/ -v
+
+      - name: Run coverage suite
+        run: pytest tests/ --cov=bioneuronai
+
+      - name: Run formatters and type checks
+        run: |
+          black --check .
+          isort --check-only .
+          mypy src
+
+      - name: Build documentation
+        run: sphinx-build -b html docs docs/_build/html
+
+      - name: Generate Smart Learning Assistant report
+        run: python smart_assistant.py --workspace src/bioneuronai --non-interactive --output smart_report.json
+
+      - name: Upload Smart Learning Assistant report
+        uses: actions/upload-artifact@v4
+        with:
+          name: smart-learning-assistant-report
+          path: smart_report.json
