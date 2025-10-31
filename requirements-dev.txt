@@ -5,6 +5,7 @@ black
 isort
 mypy
 flake8
+httpx>=0.25
 
 # Optional dependencies for examples
 matplotlib>=3.5.0

@@ -33,9 +33,14 @@ from aiva_common.schemas import (
 )
 from aiva_common.utils import get_logger, new_id
 
-from ..common.base_function_module import BaseFunctionModule, DetectionEngineProtocol
+from ..common.base_function_module import BaseFunctionModule
 from ..common.detection_config import IDORConfig
 from ..common.unified_smart_detection_manager import UnifiedSmartDetectionManager
+from .base import (
+    DetectionEngineProtocol,
+    fetch_baseline_response,
+    send_target_request,
+)
 
 logger = get_logger(__name__)
 
@@ -65,7 +70,9 @@ class ProductionHorizontalIDOREngine(DetectionEngineProtocol):
             return findings
 
         # 獲取原始響應作為基準
-        baseline_response = await self._get_baseline_response(target, client)
+        baseline_response = await fetch_baseline_response(
+            client, target, logger=logger
+        )
         if not baseline_response:
             return findings
 
@@ -81,7 +88,11 @@ class ProductionHorizontalIDOREngine(DetectionEngineProtocol):
                         target, param_name, test_value
                     )
                     
-                    test_response = await self._send_request(modified_target, client)
+                    test_response = await send_target_request(
+                        client,
+                        modified_target,
+                        follow_redirects=False,
+                    )
                     
                     # 分析響應
                     analysis = self._analyze_horizontal_response(
@@ -144,30 +155,6 @@ class ProductionHorizontalIDOREngine(DetectionEngineProtocol):
         
         param_lower = param_name.lower()
         return any(indicator in param_lower for indicator in id_indicators)
-
-    async def _get_baseline_response(
-        self, target: FunctionTaskTarget, client: httpx.AsyncClient
-    ) -> httpx.Response | None:
-        """獲取基準響應"""
-        try:
-            return await self._send_request(target, client)
-        except Exception as e:
-            logger.error(f"無法獲取基準響應: {e}")
-            return None
-
-    async def _send_request(
-        self, target: FunctionTaskTarget, client: httpx.AsyncClient
-    ) -> httpx.Response:
-        """發送請求"""
-        if target.method.upper() == "GET":
-            return await client.get(str(target.url), timeout=15.0, follow_redirects=False)
-        elif target.method.upper() == "POST":
-            return await client.post(str(target.url), timeout=15.0, follow_redirects=False)
-        else:
-            # 其他HTTP方法
-            return await client.request(
-                target.method, str(target.url), timeout=15.0, follow_redirects=False
-            )
 
     def _generate_test_ids(self, original_ids: dict[str, str]) -> list[str]:
         """生成測試ID"""
@@ -399,7 +386,11 @@ class ProductionVerticalIDOREngine(DetectionEngineProtocol):
             try:
                 # 構建管理員路徑請求
                 admin_target = self._create_admin_target(target, admin_path)
-                response = await self._send_request(admin_target, client)
+                response = await send_target_request(
+                    client,
+                    admin_target,
+                    follow_redirects=False,
+                )
                 
                 # 分析響應
                 analysis = self._analyze_vertical_response(response, admin_path)
@@ -469,10 +460,6 @@ class ProductionVerticalIDOREngine(DetectionEngineProtocol):
                 self.parameter = None
         
         return AdminTarget(admin_url, target.method)
-
-    async def _send_request(self, target, client: httpx.AsyncClient) -> httpx.Response:
-        """發送請求"""
-        return await client.get(str(target.url), timeout=15.0, follow_redirects=False)
 
     def _analyze_vertical_response(
         self, response: httpx.Response, admin_path: str

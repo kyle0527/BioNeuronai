@@ -32,9 +32,15 @@ from aiva_common.schemas import (
 )
 from aiva_common.utils import get_logger, new_id
 
-from ..common.base_function_module import BaseFunctionModule, DetectionEngineProtocol
+from ..common.base_function_module import BaseFunctionModule
 from ..common.detection_config import SQLiConfig
 from ..common.unified_smart_detection_manager import UnifiedSmartDetectionManager
+from .base import (
+    DetectionEngineProtocol,
+    fetch_baseline_response,
+    send_parameter_payload_request,
+    send_target_request,
+)
 
 logger = get_logger(__name__)
 
@@ -69,7 +75,9 @@ class ProductionUnionSQLiEngine(DetectionEngineProtocol):
         union_payloads = self._generate_union_payloads(column_count)
 
         # 3. 獲取基準響應
-        baseline_response = await self._get_baseline_response(target, client)
+        baseline_response = await fetch_baseline_response(
+            client, target, logger=logger
+        )
         if not baseline_response:
             return findings
 
@@ -97,7 +105,9 @@ class ProductionUnionSQLiEngine(DetectionEngineProtocol):
         for col_num in range(1, 11):  # 檢測 1-10 列
             try:
                 payload = f"' ORDER BY {col_num}--"
-                response = await self._send_payload_request(target, payload, client)
+                response = await send_parameter_payload_request(
+                    client, target, payload
+                )
                 
                 # 檢查是否出現錯誤，表示列數已超出
                 if self._has_database_error(response.text):
@@ -157,30 +167,6 @@ class ProductionUnionSQLiEngine(DetectionEngineProtocol):
         
         return payloads
 
-    async def _get_baseline_response(
-        self, target: FunctionTaskTarget, client: httpx.AsyncClient
-    ) -> httpx.Response | None:
-        """獲取基準響應"""
-        try:
-            if target.method.upper() == "GET":
-                return await client.get(str(target.url), timeout=10.0)
-            else:
-                return await client.post(str(target.url), timeout=10.0)
-        except Exception as e:
-            logger.error(f"無法獲取基準響應: {e}")
-            return None
-
-    async def _send_payload_request(
-        self, target: FunctionTaskTarget, payload: str, client: httpx.AsyncClient
-    ) -> httpx.Response:
-        """發送包含 payload 的請求"""
-        if target.method.upper() == "GET":
-            params = {target.parameter: payload}
-            return await client.get(str(target.url), params=params, timeout=15.0)
-        else:
-            data = {target.parameter: payload}
-            return await client.post(str(target.url), data=data, timeout=15.0)
-
     async def _test_union_payload(
         self,
         target: FunctionTaskTarget,
@@ -191,7 +177,9 @@ class ProductionUnionSQLiEngine(DetectionEngineProtocol):
     ) -> FindingPayload | None:
         """測試單個 Union payload"""
         try:
-            response = await self._send_payload_request(target, payload, client)
+            response = await send_parameter_payload_request(
+                client, target, payload
+            )
             
             # 分析響應
             analysis_result = self._analyze_union_response(
@@ -359,11 +347,15 @@ class ProductionBooleanSQLiEngine(DetectionEngineProtocol):
         for true_payload, false_payload in boolean_pairs:
             try:
                 # 發送 TRUE 條件請求
-                true_response = await self._send_payload_request(target, true_payload, client)
+                true_response = await send_parameter_payload_request(
+                    client, target, true_payload
+                )
                 await self._delay_between_requests()
                 
                 # 發送 FALSE 條件請求
-                false_response = await self._send_payload_request(target, false_payload, client)
+                false_response = await send_parameter_payload_request(
+                    client, target, false_payload
+                )
                 
                 # 分析響應差異
                 if self._has_boolean_injection(true_response, false_response):
@@ -393,17 +385,6 @@ class ProductionBooleanSQLiEngine(DetectionEngineProtocol):
             ("' AND ASCII(SUBSTRING((SELECT version()),1,1))>50--", 
              "' AND ASCII(SUBSTRING((SELECT version()),1,1))>200--"),
         ]
-
-    async def _send_payload_request(
-        self, target: FunctionTaskTarget, payload: str, client: httpx.AsyncClient
-    ) -> httpx.Response:
-        """發送包含 payload 的請求"""
-        if target.method.upper() == "GET":
-            params = {target.parameter: payload}
-            return await client.get(str(target.url), params=params, timeout=15.0)
-        else:
-            data = {target.parameter: payload}
-            return await client.post(str(target.url), data=data, timeout=15.0)
 
     async def _delay_between_requests(self) -> None:
         """請求間延遲，避免被防護機制阻擋"""
@@ -575,10 +556,7 @@ class ProductionTimeSQLiEngine(DetectionEngineProtocol):
         for _ in range(3):  # 測量3次
             try:
                 start_time = time.time()
-                if target.method.upper() == "GET":
-                    await client.get(str(target.url), timeout=20.0)
-                else:
-                    await client.post(str(target.url), timeout=20.0)
+                await send_target_request(client, target, timeout=20.0)
                 end_time = time.time()
                 
                 times.append(end_time - start_time)
@@ -597,12 +575,12 @@ class ProductionTimeSQLiEngine(DetectionEngineProtocol):
         try:
             start_time = time.time()
             
-            if target.method.upper() == "GET":
-                params = {target.parameter: payload}
-                await client.get(str(target.url), params=params, timeout=30.0)
-            else:
-                data = {target.parameter: payload}
-                await client.post(str(target.url), data=data, timeout=30.0)
+            await send_parameter_payload_request(
+                client,
+                target,
+                payload,
+                timeout=30.0,
+            )
             
             end_time = time.time()
             return end_time - start_time

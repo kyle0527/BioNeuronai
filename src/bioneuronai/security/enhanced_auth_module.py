@@ -29,9 +29,10 @@ from aiva_common.schemas import (
 )
 from aiva_common.utils import get_logger, new_id
 
-from ..common.base_function_module import BaseFunctionModule, DetectionEngineProtocol
+from ..common.base_function_module import BaseFunctionModule
 from ..common.detection_config import AuthConfig
 from ..common.unified_smart_detection_manager import UnifiedSmartDetectionManager
+from .base import DetectionEngineProtocol
 
 logger = get_logger(__name__)
 

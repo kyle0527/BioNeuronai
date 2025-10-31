@@ -24,6 +24,7 @@ classifiers = [
 requires-python = ">=3.8"
 dependencies = [
     "numpy>=1.21.0",
+    "httpx>=0.25",
 ]
 
 [project.optional-dependencies]
@@ -43,6 +44,11 @@ examples = [
 [project.scripts]
 bioneuron-cli = "bioneuronai.core:cli_loop"
 
+[project.entry-points."bioneuronai.modules"]
+production-sqli = "bioneuronai.security.production_sqli_module:ProductionSQLiModule"
+production-idor = "bioneuronai.security.production_idor_module:ProductionIDORModule"
+enhanced-auth = "bioneuronai.security.enhanced_auth_module:EnhancedAuthModule"
+
 [tool.black]
 line-length = 88
 target-version = ['py38']
@@ -55,3 +61,6 @@ python_version = "3.8"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
