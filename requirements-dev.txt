@@ -1,6 +1,7 @@
 # Development dependencies
 pytest>=7.0
 pytest-cov
+typer>=0.9.0
 black
 isort
 mypy
@@ -9,3 +10,4 @@ flake8
 # Optional dependencies for examples
 matplotlib>=3.5.0
 jupyter
+streamlit>=1.25.0

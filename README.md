@@ -56,23 +56,54 @@ net.learn([0.5, 0.8])
 
 ### 命令行界面
 
+`bioneuron-cli` 現在使用 [Typer](https://typer.tiangolo.com/) 架構，提供批次處理、互動式選單與統計顯示。
+
 ```bash
-# 啟動互動式 CLI
-bioneuron-cli
+# 檢視可用子命令與參數
+bioneuron-cli --help
+
+# 互動式選單：單筆推論、檢視統計、載入批次檔
+bioneuron-cli interactive
+
+# 從批次檔讀取兩個數字一組的資料
+bioneuron-cli batch data/samples.txt
+
+# 立即顯示目前權重與平均新穎性
+bioneuron-cli stats
 ```
+
+![CLI 選單截圖](docs/images/cli-menu.svg)
 
 ## 📖 範例
 
 查看 `examples/` 目錄中的詳細範例：
 
+- `examples/basic_demo.py`: 基礎前向傳播與學習範例
+- `examples/streamlit_dashboard.py`: 即時視覺化儀表板
+
 ```bash
-python examples/basic_demo.py
+# 本地啟動 Streamlit 儀表板
+pip install "bioneuronai[examples]"
+streamlit run examples/streamlit_dashboard.py
 ```
+
+![Streamlit 儀表板](docs/images/dashboard.svg)
+
+#### Docker 快速啟動
+
+```bash
+docker run --rm -it -p 8501:8501 \
+  -v "$(pwd)":/app -w /app python:3.11-slim \
+  bash -lc "pip install --no-cache-dir 'bioneuronai[examples]' && \
+            streamlit run examples/streamlit_dashboard.py --server.headless true"
+```
+
+訪問 <http://localhost:8501> 即可看到即時輸出、新穎性曲線與安全模組掃描進度。若使用本機環境，執行 `streamlit run examples/streamlit_dashboard.py` 並依照側欄操作即可。
 
 ## 🧪 測試
 
 ```bash
-# 執行所有測試
+# 執行所有測試（含 CLI 端到端驗證）
 pytest tests/ -v
 
 # 測試涵蓋率
