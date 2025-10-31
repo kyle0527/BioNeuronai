@@ -42,6 +42,9 @@ logger = get_logger(__name__)
 class ProductionUnionSQLiEngine(DetectionEngineProtocol):
     """生產級聯合查詢型 SQL 注入檢測引擎"""
 
+    def __init__(self, concurrency_limit: int = 10) -> None:
+        self._request_semaphore = asyncio.Semaphore(concurrency_limit)
+
     def get_engine_name(self) -> str:
         return "Production Union-based SQLi Detection Engine"
 
@@ -162,9 +165,9 @@ class ProductionUnionSQLiEngine(DetectionEngineProtocol):
     ) -> httpx.Response | None:
         """獲取基準響應"""
         try:
-            if target.method.upper() == "GET":
-                return await client.get(str(target.url), timeout=10.0)
-            else:
+            async with self._request_semaphore:
+                if target.method.upper() == "GET":
+                    return await client.get(str(target.url), timeout=10.0)
                 return await client.post(str(target.url), timeout=10.0)
         except Exception as e:
             logger.error(f"無法獲取基準響應: {e}")
@@ -174,10 +177,10 @@ class ProductionUnionSQLiEngine(DetectionEngineProtocol):
         self, target: FunctionTaskTarget, payload: str, client: httpx.AsyncClient
     ) -> httpx.Response:
         """發送包含 payload 的請求"""
-        if target.method.upper() == "GET":
-            params = {target.parameter: payload}
-            return await client.get(str(target.url), params=params, timeout=15.0)
-        else:
+        async with self._request_semaphore:
+            if target.method.upper() == "GET":
+                params = {target.parameter: payload}
+                return await client.get(str(target.url), params=params, timeout=15.0)
             data = {target.parameter: payload}
             return await client.post(str(target.url), data=data, timeout=15.0)
 
@@ -338,6 +341,9 @@ class ProductionUnionSQLiEngine(DetectionEngineProtocol):
 class ProductionBooleanSQLiEngine(DetectionEngineProtocol):
     """生產級布林型 SQL 注入檢測引擎"""
 
+    def __init__(self, concurrency_limit: int = 10) -> None:
+        self._request_semaphore = asyncio.Semaphore(concurrency_limit)
+
     def get_engine_name(self) -> str:
         return "Production Boolean-based SQLi Detection Engine"
 
@@ -398,10 +404,10 @@ class ProductionBooleanSQLiEngine(DetectionEngineProtocol):
         self, target: FunctionTaskTarget, payload: str, client: httpx.AsyncClient
     ) -> httpx.Response:
         """發送包含 payload 的請求"""
-        if target.method.upper() == "GET":
-            params = {target.parameter: payload}
-            return await client.get(str(target.url), params=params, timeout=15.0)
-        else:
+        async with self._request_semaphore:
+            if target.method.upper() == "GET":
+                params = {target.parameter: payload}
+                return await client.get(str(target.url), params=params, timeout=15.0)
             data = {target.parameter: payload}
             return await client.post(str(target.url), data=data, timeout=15.0)
 
@@ -518,6 +524,9 @@ class ProductionBooleanSQLiEngine(DetectionEngineProtocol):
 class ProductionTimeSQLiEngine(DetectionEngineProtocol):
     """生產級時間型 SQL 注入檢測引擎"""
 
+    def __init__(self, concurrency_limit: int = 5) -> None:
+        self._request_semaphore = asyncio.Semaphore(concurrency_limit)
+
     def get_engine_name(self) -> str:
         return "Production Time-based SQLi Detection Engine"
 
@@ -571,16 +580,17 @@ class ProductionTimeSQLiEngine(DetectionEngineProtocol):
     ) -> float | None:
         """測量基準響應時間（多次測量取平均值）"""
         times = []
-        
+
         for _ in range(3):  # 測量3次
             try:
                 start_time = time.time()
-                if target.method.upper() == "GET":
-                    await client.get(str(target.url), timeout=20.0)
-                else:
-                    await client.post(str(target.url), timeout=20.0)
+                async with self._request_semaphore:
+                    if target.method.upper() == "GET":
+                        await client.get(str(target.url), timeout=20.0)
+                    else:
+                        await client.post(str(target.url), timeout=20.0)
                 end_time = time.time()
-                
+
                 times.append(end_time - start_time)
                 await asyncio.sleep(0.5)  # 間隔測量
                 
@@ -596,14 +606,15 @@ class ProductionTimeSQLiEngine(DetectionEngineProtocol):
         """測量包含 payload 的請求響應時間"""
         try:
             start_time = time.time()
-            
-            if target.method.upper() == "GET":
-                params = {target.parameter: payload}
-                await client.get(str(target.url), params=params, timeout=30.0)
-            else:
-                data = {target.parameter: payload}
-                await client.post(str(target.url), data=data, timeout=30.0)
-            
+
+            async with self._request_semaphore:
+                if target.method.upper() == "GET":
+                    params = {target.parameter: payload}
+                    await client.get(str(target.url), params=params, timeout=30.0)
+                else:
+                    data = {target.parameter: payload}
+                    await client.post(str(target.url), data=data, timeout=30.0)
+
             end_time = time.time()
             return end_time - start_time
             
