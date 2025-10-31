@@ -69,6 +69,13 @@ bioneuron-cli
 python examples/basic_demo.py
 ```
 
+## 🌐 官方網站與資源
+
+- [GitHub Pages 官方網站](docs/index.md)：最新版本公告、發展路線圖與使用者故事。
+- [案例研究與量化成效報告](docs/case-study.md)：新穎性閘門與安全模組的實務成效。
+- [社群活動規劃](docs/community-engagement.md)：黑客松、工作坊資訊與贊助方案。
+- [產業/學術 PoC 流程](docs/poc-process.md)：合作流程、部署需求與支援範圍。
+
 ## 🧪 測試
 
 ```bash
