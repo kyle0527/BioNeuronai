@@ -29,15 +29,19 @@ from aiva_common.schemas import (
 )
 from aiva_common.utils import get_logger, new_id
 
-from ..common.base_function_module import BaseFunctionModule, DetectionEngineProtocol
-from ..common.detection_config import AuthConfig
-from ..common.unified_smart_detection_manager import UnifiedSmartDetectionManager
+from .common.base_function_module import BaseFunctionModule, DetectionEngineProtocol
+from .common.detection_config import AuthConfig
+from .common.unified_smart_detection_manager import UnifiedSmartDetectionManager
+from .security.novelty_analyzer import NoveltyAnalyzer
 
 logger = get_logger(__name__)
 
 
 class WeakCredentialEngine(DetectionEngineProtocol):
     """弱憑證檢測引擎 - 檢測弱密碼和默認憑證"""
+
+    def __init__(self) -> None:
+        self.novelty_analyzer = NoveltyAnalyzer(use_improved=True, novelty_threshold=0.3)
 
     def get_engine_name(self) -> str:
         return "Weak Credential Detection Engine"
@@ -51,6 +55,10 @@ class WeakCredentialEngine(DetectionEngineProtocol):
         """檢測弱憑證和默認密碼"""
         findings: list[FindingPayload] = []
 
+        self.novelty_analyzer.reset()
+        baseline_response = await client.get(str(task.target.url), timeout=10.0, follow_redirects=True)
+        self.novelty_analyzer.learn_normal(baseline_response)
+
         # 常見弱憑證組合 (用戶名:密碼)
         weak_credentials = [
             ("admin", "admin"), ("admin", "password"), ("admin", "123456"),
@@ -63,7 +71,7 @@ class WeakCredentialEngine(DetectionEngineProtocol):
         target = task.target
         
         # 檢測登錄表單字段
-        login_fields = await self._identify_login_fields(target, client)
+        login_fields = await self._identify_login_fields(target, client, baseline_response)
         if not login_fields:
             return findings
 
@@ -88,36 +96,43 @@ class WeakCredentialEngine(DetectionEngineProtocol):
                     follow_redirects=True
                 )
 
-                # 多維度檢測成功登錄
-                if await self._is_successful_login(response, username):
-                        vulnerability = Vulnerability(
-                            name=VulnerabilityType.WEAK_AUTHENTICATION,
-                            severity=Severity.LOW,
-                            confidence=Confidence.HIGH
-                        )
+                analysis = self._analyze_login_response(response, username)
 
-                        evidence = FindingEvidence(
-                            payload=f"弱憑證：{username}:{password}",
-                            response=response.text[:500],
-                            response_time_delta=response.elapsed.total_seconds()
-                        )
+                if analysis["success"]:
+                    vulnerability = Vulnerability(
+                        name=VulnerabilityType.WEAK_AUTHENTICATION,
+                        severity=Severity.LOW,
+                        confidence=analysis["confidence"],
+                    )
 
-                        finding = FindingPayload(
-                            finding_id=new_id("finding"),
-                            task_id=task.task_id,
-                            scan_id=task.scan_id,
-                            status="detected",
-                            vulnerability=vulnerability,
-                            target=FindingTarget(
-                                url=str(target.url),
-                                parameter="credentials",
-                                method="POST"
-                            ),
-                            evidence=evidence
-                        )
-                        findings.append(finding)
-                        logger.info(f"發現弱憑證: {username}:{password}")
-                        break
+                    evidence_text = response.text[:500]
+                    evidence_details = "; ".join(analysis["evidence"])
+                    evidence = FindingEvidence(
+                        payload=f"弱憑證：{username}:{password}",
+                        response=f"{evidence_text}\nNovelty: {analysis['novelty_score']:.2f}; {evidence_details}",
+                        response_time_delta=response.elapsed.total_seconds()
+                    )
+
+                    finding = FindingPayload(
+                        finding_id=new_id("finding"),
+                        task_id=task.task_id,
+                        scan_id=task.scan_id,
+                        status="detected",
+                        vulnerability=vulnerability,
+                        target=FindingTarget(
+                            url=str(target.url),
+                            parameter="credentials",
+                            method="POST"
+                        ),
+                        evidence=evidence
+                    )
+                    findings.append(finding)
+                    logger.info(f"發現弱憑證: {username}:{password}")
+                    break
+                elif analysis.get("manual_review"):
+                    logger.info(
+                        "弱憑證檢測偵測到高新穎度響應，建議人工覆核"
+                    )
 
             except Exception as e:
                 logger.debug(f"弱憑證檢測錯誤 ({username}): {e}")
@@ -126,11 +141,14 @@ class WeakCredentialEngine(DetectionEngineProtocol):
         return findings
 
     async def _identify_login_fields(
-        self, target: FunctionTaskTarget, client: httpx.AsyncClient
+        self,
+        target: FunctionTaskTarget,
+        client: httpx.AsyncClient,
+        initial_response: httpx.Response | None = None,
     ) -> dict[str, str]:
         """識別登錄表單字段"""
         try:
-            response = await client.get(str(target.url), timeout=10.0)
+            response = initial_response or await client.get(str(target.url), timeout=10.0)
             html_content = response.text.lower()
             
             fields = {}
@@ -216,54 +234,65 @@ class WeakCredentialEngine(DetectionEngineProtocol):
             logger.debug(f"獲取CSRF token失敗: {e}")
             return None
 
-    async def _is_successful_login(
-        self, response: httpx.Response, username: str
-    ) -> bool:
-        """多維度判斷是否成功登錄"""
-        # 1. HTTP狀態碼檢查
-        if response.status_code in [200, 302, 301]:
-            response_text = response.text.lower()
-            
-            # 2. 成功指標檢查
-            success_indicators = [
-                "dashboard", "welcome", "profile", "logout", "admin panel",
-                "儀表板", "歡迎", "個人資料", "登出", "管理面板",
-                "successfully logged", "login successful", "welcome back",
-                f"welcome {username.lower()}", f"hello {username.lower()}"
-            ]
-            
-            # 3. 失敗指標檢查 (如果存在失敗指標，則不是成功登錄)
-            failure_indicators = [
-                "invalid", "incorrect", "failed", "error", "wrong",
-                "無效", "錯誤", "失敗", "不正確",
-                "login failed", "authentication failed", "access denied"
-            ]
-            
-            # 4. 重定向檢查
-            if response.status_code in [302, 301]:
-                location = response.headers.get("location", "").lower()
-                if any(indicator in location for indicator in ["dashboard", "admin", "profile", "home"]):
-                    return True
-            
-            # 5. 響應內容檢查
-            has_success = any(indicator in response_text for indicator in success_indicators)
-            has_failure = any(indicator in response_text for indicator in failure_indicators)
-            
-            # 6. Cookie檢查 (會話cookie通常表示成功登錄)
-            session_cookies = ["session", "auth", "token", "jsessionid", "phpsessid"]
-            has_session_cookie = any(cookie in response.cookies for cookie in session_cookies)
-            
-            return has_success and not has_failure or has_session_cookie
-            
-        return False
-        """判斷是否成功登錄"""
-        success_indicators = [
-            "dashboard", "welcome", "logout", "profile",
-            "歡迎", "儀表板", "成功登錄"
-        ]
+    def _basic_login_success(self, response: httpx.Response, username: str) -> bool:
+        """基本的成功登入判斷邏輯。"""
+        if response.status_code not in {200, 301, 302}:
+            return False
 
         response_text = response.text.lower()
-        return any(indicator in response_text for indicator in success_indicators)
+        success_indicators = [
+            "dashboard", "welcome", "profile", "logout", "admin panel",
+            "儀表板", "歡迎", "個人資料", "登出", "管理面板",
+            "successfully logged", "login successful", "welcome back",
+            f"welcome {username.lower()}", f"hello {username.lower()}"
+        ]
+        failure_indicators = [
+            "invalid", "incorrect", "failed", "error", "wrong",
+            "無效", "錯誤", "失敗", "不正確",
+            "login failed", "authentication failed", "access denied"
+        ]
+
+        if response.status_code in {301, 302}:
+            location = response.headers.get("location", "").lower()
+            if any(indicator in location for indicator in ["dashboard", "admin", "profile", "home"]):
+                return True
+
+        has_success = any(indicator in response_text for indicator in success_indicators)
+        has_failure = any(indicator in response_text for indicator in failure_indicators)
+        session_cookies = ["session", "auth", "token", "jsessionid", "phpsessid"]
+        has_session_cookie = any(cookie in response.cookies for cookie in session_cookies)
+        return (has_success and not has_failure) or has_session_cookie
+
+    def _analyze_login_response(
+        self, response: httpx.Response, username: str
+    ) -> dict[str, Any]:
+        """綜合成功指標與新穎度分數，產生分析結果。"""
+        success = self._basic_login_success(response, username)
+        novelty = self.novelty_analyzer.score_response(response)
+        evidence: list[str] = []
+
+        if success:
+            evidence.append("成功登入指標匹配")
+        else:
+            evidence.append("登入未通過基礎檢查")
+
+        result = {
+            "success": success,
+            "novelty_score": novelty.score,
+            "confidence": Confidence.MEDIUM if success else Confidence.LOW,
+            "manual_review": False,
+            "evidence": evidence,
+        }
+
+        if novelty.is_novel:
+            evidence.append(f"新穎度分數 {novelty.score:.2f} 高於閾值")
+            if success:
+                result["confidence"] = Confidence.HIGH
+            else:
+                result["manual_review"] = True
+                result["confidence"] = Confidence.MEDIUM
+
+        return result
 
 
 class SessionFixationEngine(DetectionEngineProtocol):

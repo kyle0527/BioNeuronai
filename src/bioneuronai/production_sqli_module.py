@@ -32,15 +32,19 @@ from aiva_common.schemas import (
 )
 from aiva_common.utils import get_logger, new_id
 
-from ..common.base_function_module import BaseFunctionModule, DetectionEngineProtocol
-from ..common.detection_config import SQLiConfig
-from ..common.unified_smart_detection_manager import UnifiedSmartDetectionManager
+from .common.base_function_module import BaseFunctionModule, DetectionEngineProtocol
+from .common.detection_config import SQLiConfig
+from .common.unified_smart_detection_manager import UnifiedSmartDetectionManager
+from .security.novelty_analyzer import NoveltyAnalyzer
 
 logger = get_logger(__name__)
 
 
 class ProductionUnionSQLiEngine(DetectionEngineProtocol):
     """生產級聯合查詢型 SQL 注入檢測引擎"""
+
+    def __init__(self) -> None:
+        self.novelty_analyzer = NoveltyAnalyzer(use_improved=True, novelty_threshold=0.3)
 
     def get_engine_name(self) -> str:
         return "Production Union-based SQLi Detection Engine"
@@ -56,6 +60,7 @@ class ProductionUnionSQLiEngine(DetectionEngineProtocol):
         target = task.target
 
         logger.info(f"開始 Union SQLi 檢測: {target.url}")
+        self.novelty_analyzer.reset()
 
         # 1. 檢測列數
         column_count = await self._detect_column_count(target, client)
@@ -73,11 +78,18 @@ class ProductionUnionSQLiEngine(DetectionEngineProtocol):
         if not baseline_response:
             return findings
 
+        self.novelty_analyzer.learn_normal(baseline_response)
+
         # 4. 執行檢測
         for payload in union_payloads:
             try:
                 detection_result = await self._test_union_payload(
-                    target, payload, client, baseline_response, task
+                    target,
+                    payload,
+                    client,
+                    baseline_response,
+                    task,
+                    self.novelty_analyzer,
                 )
                 if detection_result:
                     findings.append(detection_result)
@@ -188,6 +200,7 @@ class ProductionUnionSQLiEngine(DetectionEngineProtocol):
         client: httpx.AsyncClient,
         baseline_response: httpx.Response,
         task: FunctionTaskPayload,
+        novelty_analyzer: NoveltyAnalyzer | None,
     ) -> FindingPayload | None:
         """測試單個 Union payload"""
         try:
@@ -195,7 +208,7 @@ class ProductionUnionSQLiEngine(DetectionEngineProtocol):
             
             # 分析響應
             analysis_result = self._analyze_union_response(
-                response, baseline_response, payload
+                response, baseline_response, payload, novelty_analyzer
             )
             
             if analysis_result["is_vulnerable"]:
@@ -209,7 +222,11 @@ class ProductionUnionSQLiEngine(DetectionEngineProtocol):
         return None
 
     def _analyze_union_response(
-        self, response: httpx.Response, baseline: httpx.Response, payload: str
+        self,
+        response: httpx.Response,
+        baseline: httpx.Response,
+        payload: str,
+        novelty_analyzer: NoveltyAnalyzer | None,
     ) -> dict[str, Any]:
         """分析 Union 響應的多個維度"""
         response_text = response.text
@@ -219,7 +236,9 @@ class ProductionUnionSQLiEngine(DetectionEngineProtocol):
             "is_vulnerable": False,
             "confidence": Confidence.LOW,
             "evidence": [],
-            "database_type": None
+            "database_type": None,
+            "novelty_score": 0.0,
+            "manual_review": False,
         }
         
         # 1. 數據庫版本信息檢測
@@ -278,6 +297,20 @@ class ProductionUnionSQLiEngine(DetectionEngineProtocol):
             result["is_vulnerable"] = True
             result["confidence"] = max(result["confidence"], Confidence.MEDIUM)
         
+        if novelty_analyzer is not None:
+            novelty = novelty_analyzer.score_response(response)
+            result["novelty_score"] = novelty.score
+            if novelty.is_novel:
+                evidence = f"新穎度分數 {novelty.score:.2f} 高於閾值"
+                result["evidence"].append(evidence)
+                if result["is_vulnerable"]:
+                    if result["confidence"] < Confidence.HIGH:
+                        result["confidence"] = Confidence.HIGH
+                else:
+                    result["manual_review"] = True
+                    if result["confidence"] < Confidence.MEDIUM:
+                        result["confidence"] = Confidence.MEDIUM
+
         return result
 
     def _has_database_error(self, response_text: str) -> bool:
@@ -338,6 +371,9 @@ class ProductionUnionSQLiEngine(DetectionEngineProtocol):
 class ProductionBooleanSQLiEngine(DetectionEngineProtocol):
     """生產級布林型 SQL 注入檢測引擎"""
 
+    def __init__(self) -> None:
+        self.novelty_analyzer = NoveltyAnalyzer(use_improved=False, novelty_threshold=0.35)
+
     def get_engine_name(self) -> str:
         return "Production Boolean-based SQLi Detection Engine"
 
@@ -352,6 +388,7 @@ class ProductionBooleanSQLiEngine(DetectionEngineProtocol):
         target = task.target
 
         logger.info(f"開始 Boolean SQLi 檢測: {target.url}")
+        self.novelty_analyzer.reset()
 
         # 生成布林測試 payload 對
         boolean_pairs = self._generate_boolean_payloads()
@@ -361,15 +398,20 @@ class ProductionBooleanSQLiEngine(DetectionEngineProtocol):
                 # 發送 TRUE 條件請求
                 true_response = await self._send_payload_request(target, true_payload, client)
                 await self._delay_between_requests()
-                
+
                 # 發送 FALSE 條件請求
                 false_response = await self._send_payload_request(target, false_payload, client)
-                
+
+                self.novelty_analyzer.learn_normal(false_response)
+
                 # 分析響應差異
-                if self._has_boolean_injection(true_response, false_response):
+                analysis = self._analyze_boolean_responses(
+                    true_response, false_response, self.novelty_analyzer
+                )
+                if analysis["is_vulnerable"]:
                     finding = self._create_boolean_finding(
-                        task, target, true_payload, false_payload, 
-                        true_response, false_response
+                        task, target, true_payload, false_payload,
+                        true_response, false_response, analysis
                     )
                     findings.append(finding)
                     logger.info(f"發現 Boolean SQLi 漏洞: {true_payload[:50]}...")
@@ -409,42 +451,74 @@ class ProductionBooleanSQLiEngine(DetectionEngineProtocol):
         """請求間延遲，避免被防護機制阻擋"""
         await asyncio.sleep(0.5)
 
-    def _has_boolean_injection(
-        self, true_response: httpx.Response, false_response: httpx.Response
-    ) -> bool:
-        """檢測布林注入的多個指標"""
+    def _analyze_boolean_responses(
+        self,
+        true_response: httpx.Response,
+        false_response: httpx.Response,
+        novelty_analyzer: NoveltyAnalyzer | None,
+    ) -> dict[str, Any]:
+        """分析布林注入回應差異並計算新穎度。"""
         true_text = true_response.text
         false_text = false_response.text
-        
+        result: dict[str, Any] = {
+            "is_vulnerable": False,
+            "confidence": Confidence.LOW,
+            "evidence": [],
+            "novelty_score": 0.0,
+            "manual_review": False,
+        }
+
         # 1. 響應長度差異
         length_diff = abs(len(true_text) - len(false_text))
-        if length_diff > 10:  # 顯著長度差異
-            return True
-        
+        if length_diff > 10:
+            result["is_vulnerable"] = True
+            result["confidence"] = Confidence.MEDIUM
+            result["evidence"].append(f"響應長度差異 {length_diff}")
+
         # 2. HTTP 狀態碼差異
         if true_response.status_code != false_response.status_code:
-            return True
-        
+            result["is_vulnerable"] = True
+            result["confidence"] = max(result["confidence"], Confidence.MEDIUM)
+            result["evidence"].append(
+                f"狀態碼差異 {true_response.status_code} vs {false_response.status_code}"
+            )
+
         # 3. 響應時間差異
         time_diff = abs(
-            true_response.elapsed.total_seconds() - 
+            true_response.elapsed.total_seconds() -
             false_response.elapsed.total_seconds()
         )
-        if time_diff > 1.0:  # 1秒以上差異
-            return True
-        
-        # 4. 內容相似度分析
+        if time_diff > 1.0:
+            result["is_vulnerable"] = True
+            result["evidence"].append(f"響應時間差 {time_diff:.2f}s")
+
+        # 4. 內容相似度
         similarity = self._calculate_text_similarity(true_text, false_text)
-        if similarity < 0.8:  # 相似度低於80%
-            return True
-        
-        # 5. 特定關鍵字檢測
+        if similarity < 0.8:
+            result["is_vulnerable"] = True
+            result["confidence"] = max(result["confidence"], Confidence.MEDIUM)
+            result["evidence"].append(f"內容相似度僅 {similarity:.2f}")
+
+        # 5. 關鍵字集合差異
         true_keywords = self._extract_keywords(true_text)
         false_keywords = self._extract_keywords(false_text)
-        
-        # 如果關鍵字集合差異較大
         keyword_diff = len(true_keywords.symmetric_difference(false_keywords))
-        return keyword_diff > 5
+        if keyword_diff > 5:
+            result["is_vulnerable"] = True
+            result["evidence"].append(f"關鍵字差異 {keyword_diff}")
+
+        if novelty_analyzer is not None:
+            novelty = novelty_analyzer.score_response(true_response)
+            result["novelty_score"] = novelty.score
+            if novelty.is_novel:
+                result["evidence"].append(f"新穎度分數 {novelty.score:.2f} 高於閾值")
+                if result["is_vulnerable"]:
+                    result["confidence"] = max(result["confidence"], Confidence.HIGH)
+                else:
+                    result["manual_review"] = True
+                    result["confidence"] = max(result["confidence"], Confidence.MEDIUM)
+
+        return result
 
     def _calculate_text_similarity(self, text1: str, text2: str) -> float:
         """計算兩個文本的相似度"""
@@ -475,25 +549,31 @@ class ProductionBooleanSQLiEngine(DetectionEngineProtocol):
         false_payload: str,
         true_response: httpx.Response,
         false_response: httpx.Response,
+        analysis: dict[str, Any],
     ) -> FindingPayload:
         """創建布林注入檢測結果"""
         vulnerability = Vulnerability(
             name=VulnerabilityType.SQLI,
             severity=Severity.LOW,
-            confidence=Confidence.MEDIUM
+            confidence=analysis.get("confidence", Confidence.MEDIUM),
         )
 
         # 分析差異
         length_diff = abs(len(true_response.text) - len(false_response.text))
         time_diff = abs(
-            true_response.elapsed.total_seconds() - 
+            true_response.elapsed.total_seconds() -
             false_response.elapsed.total_seconds()
         )
+
+        novelty_score = analysis.get("novelty_score", 0.0)
+        novelty_note = ""
+        if novelty_score:
+            novelty_note = f", 新穎度: {novelty_score:.2f}"
 
         evidence = FindingEvidence(
             payload=f"TRUE: {true_payload} | FALSE: {false_payload}",
             response=f"響應差異 - 長度差: {length_diff}, 時間差: {time_diff:.2f}s, "
-                    f"狀態碼: {true_response.status_code} vs {false_response.status_code}",
+                    f"狀態碼: {true_response.status_code} vs {false_response.status_code}" + novelty_note,
             response_time_delta=max(
                 true_response.elapsed.total_seconds(),
                 false_response.elapsed.total_seconds()
