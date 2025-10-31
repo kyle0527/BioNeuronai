@@ -4,11 +4,14 @@ BioNeuronAI 核心改進版本
 """
 
 from __future__ import annotations
-from typing import List, Sequence, Tuple, Optional
+from typing import List, Optional, Sequence, Tuple
+
 import numpy as np
 
+from .neuron_base import LearningConfig, NeuronBase
 
-class ImprovedBioNeuron:
+
+class ImprovedBioNeuron(NeuronBase):
     """改進版本的生物啟發神經元
     
     新增功能:
@@ -28,64 +31,38 @@ class ImprovedBioNeuron:
         adaptive_threshold: bool = False,
         seed: int | None = None,
     ) -> None:
-        self.num_inputs = num_inputs
-        rng = np.random.default_rng(seed)
-        self.weights = rng.uniform(0.1, 0.9, num_inputs).astype(np.float32)
+        super().__init__(
+            num_inputs,
+            threshold=threshold,
+            learning_rate=learning_rate,
+            memory_len=memory_len,
+            seed=seed,
+            config=LearningConfig(
+                weight_decay=weight_decay,
+                adaptive_threshold=adaptive_threshold,
+            ),
+        )
         self.initial_threshold = float(threshold)
-        self.threshold = float(threshold)
-        self.learning_rate = float(learning_rate)
-        self.memory_len = int(memory_len)
-        self.weight_decay = float(weight_decay)
-        self.adaptive_threshold = adaptive_threshold
-        
-        # 擴展的記憶系統
-        self.input_memory: List[np.ndarray] = []
-        self.output_memory: List[float] = []
-        self.threshold_history: List[float] = []
-        
-        # 統計信息
+        self.threshold_history: list[float] = []
         self.activation_count = 0
         self.total_inputs = 0
+        self.weight_clip = (0.0, 2.0)
 
-    def forward(self, inputs: Sequence[float]) -> float:
-        """改進的前向傳播"""
-        assert len(inputs) == self.num_inputs
-        x = np.asarray(inputs, dtype=np.float32)
-
-        # 更新記憶
-        self.input_memory.append(x)
-        if len(self.input_memory) > self.memory_len:
-            self.input_memory.pop(0)
-
-        # 計算潛能
-        potential = float(np.dot(self.weights, x))
-        
-        # 激活函數：更平滑的轉換
+    def _activate(self, potential: float, _: np.ndarray) -> float:
         if potential >= self.threshold:
-            output = min(1.0, potential)
             self.activation_count += 1
-        else:
-            # 次閾值響應
-            output = max(0.0, potential / self.threshold * 0.1)
-        
-        # 更新輸出記憶
-        self.output_memory.append(output)
-        if len(self.output_memory) > self.memory_len:
-            self.output_memory.pop(0)
-        
+            return min(1.0, potential)
+        return max(0.0, potential / max(self.threshold, 1e-6) * 0.1)
+
+    def _after_forward(self, vector: np.ndarray, output: float) -> None:
+        super()._after_forward(vector, output)
         self.total_inputs += 1
-        
-        # 自適應閾值調整
-        if self.adaptive_threshold and len(self.output_memory) >= self.memory_len:
-            self._adapt_threshold()
-        
-        return output
 
     def _adapt_threshold(self) -> None:
         """自適應閾值調整"""
         recent_avg = np.mean(self.output_memory)
         target_activation = 0.3  # 目標激活率
-        
+
         if recent_avg > target_activation + 0.1:
             self.threshold = min(2.0, self.threshold * 1.05)
         elif recent_avg < target_activation - 0.1:
@@ -93,31 +70,23 @@ class ImprovedBioNeuron:
         
         self.threshold_history.append(self.threshold)
 
-    def improved_hebbian_learn(self, inputs: Sequence[float], target: Optional[float] = None) -> None:
-        """改進的Hebbian學習規則
-        
-        特點:
-        - 支持有監督和無監督學習
-        - 加入權重衰減
-        - 考慮輸出誤差
-        """
-        x = np.asarray(inputs, dtype=np.float32)
-        current_output = self.forward(inputs)
-        
-        if target is not None:
-            # 有監督學習：基於誤差的學習
+    def _compute_weight_update(
+        self,
+        vector: np.ndarray,
+        target: Optional[float],
+        enhanced: bool,
+    ) -> np.ndarray:
+        current_output = self.forward(vector)
+        if enhanced and target is not None:
             error = target - current_output
-            # 使用誤差調節的Hebbian規則
-            delta = self.learning_rate * error * x * (target + 0.1)  # 避免零更新
+            delta = self.learning_rate * error * vector * (target + 0.1)
         else:
-            # 無監督Hebbian學習
-            delta = self.learning_rate * x * current_output
-        
-        # 應用權重更新和衰減
-        self.weights = self.weights + delta - self.weight_decay * self.weights
-        
-        # 保持權重在合理範圍內
-        self.weights = np.clip(self.weights, 0.0, 2.0)
+            reference = current_output
+            delta = self.learning_rate * vector * reference
+        return delta
+
+    def novelty_score(self) -> float:
+        return self.enhanced_novelty_score()
 
     def enhanced_novelty_score(self) -> float:
         """增強的新穎性評分

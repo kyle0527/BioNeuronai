@@ -1,12 +1,13 @@
 from __future__ import annotations
 from typing import List, Sequence, Tuple
+
 import numpy as np
 
+from .neuron_base import LearningConfig, NeuronBase, NeuronProtocol
 
-class BioNeuron:
-    """Bio-inspired neuron with short-term input memory and Hebbian update.
-    (Minimal refactor of your original code; adds type hints and novelty_score.)
-    """
+
+class BioNeuron(NeuronBase):
+    """Bio-inspired neuron with short-term input memory and Hebbian update."""
 
     def __init__(
         self,
@@ -14,57 +15,71 @@ class BioNeuron:
         threshold: float = 0.8,
         learning_rate: float = 0.01,
         memory_len: int = 5,
+        *,
         seed: int | None = None,
+        weight_decay: float = 0.0,
+        adaptive_threshold: bool = False,
     ) -> None:
-        self.num_inputs = num_inputs
-        rng = np.random.default_rng(seed)
-        self.weights = rng.uniform(0.1, 0.9, num_inputs).astype(np.float32)
-        self.threshold = float(threshold)
-        self.learning_rate = float(learning_rate)
-        self.memory_len = int(memory_len)
-        self.input_memory: List[np.ndarray] = []
+        super().__init__(
+            num_inputs,
+            threshold=threshold,
+            learning_rate=learning_rate,
+            memory_len=memory_len,
+            seed=seed,
+            config=LearningConfig(
+                weight_decay=weight_decay,
+                adaptive_threshold=adaptive_threshold,
+            ),
+        )
 
-    def forward(self, inputs: Sequence[float]) -> float:
-        assert len(inputs) == self.num_inputs
-        x = np.asarray(inputs, dtype=np.float32)
-
-        # short-term memory
-        self.input_memory.append(x)
-        if len(self.input_memory) > self.memory_len:
-            self.input_memory.pop(0)
-
-        potential = float(np.dot(self.weights, x))
+    def _activate(self, potential: float, _: np.ndarray) -> float:
         return min(1.0, potential) if potential >= self.threshold else 0.0
 
-    def hebbian_learn(self, inputs: Sequence[float], output: float) -> None:
-        x = np.asarray(inputs, dtype=np.float32)
-        delta = self.learning_rate * x * float(output)
-        self.weights = np.clip(self.weights + delta, 0.0, 1.0)
-
-    def novelty_score(self) -> float:
-        """Simple novelty proxy: mean abs diff of last two inputs (0~1 scaled)."""
-        if len(self.input_memory) < 2:
-            return 0.0
-        a, b = self.input_memory[-1], self.input_memory[-2]
-        denom = np.maximum(1e-6, np.mean(np.abs(b)))
-        score = float(np.clip(np.mean(np.abs(a - b)) / denom, 0.0, 5.0) / 5.0)
-        return score
+    def _compute_weight_update(
+        self,
+        vector: np.ndarray,
+        target: float | None,
+        enhanced: bool,
+    ) -> np.ndarray:
+        output = 0.0 if target is None else float(target)
+        return self.learning_rate * vector * output
 
 
 class BioLayer:
-    def __init__(self, n_neurons: int, input_dim: int) -> None:
-        self.neurons = [BioNeuron(input_dim) for _ in range(n_neurons)]
+    def __init__(
+        self,
+        n_neurons: int,
+        input_dim: int,
+        *,
+        neuron_cls: type[NeuronBase] = BioNeuron,
+        neuron_kwargs: dict | None = None,
+    ) -> None:
+        params = neuron_kwargs or {}
+        self.neurons: List[NeuronProtocol] = [
+            neuron_cls(input_dim, **params) for _ in range(n_neurons)
+        ]
 
     def forward(self, inputs: Sequence[float]) -> List[float]:
         return [n.forward(inputs) for n in self.neurons]
 
-    def learn(self, inputs: Sequence[float], outputs: Sequence[float]) -> None:
-        for n, out in zip(self.neurons, outputs):
-            n.hebbian_learn(inputs, out)
+    def learn(
+        self,
+        inputs: Sequence[float],
+        outputs: Sequence[float],
+        *,
+        enhanced: bool = False,
+        targets: Sequence[float] | None = None,
+    ) -> None:
+        for idx, neuron in enumerate(self.neurons):
+            signal = outputs[idx]
+            if targets is not None:
+                signal = targets[idx]
+            neuron.learn(inputs, signal, enhanced=enhanced)
 
 
 class BioNet:
     """Two-layer demo 2 -> 3 -> 3; returns (l2_out, l1_out)."""
+
     def __init__(self) -> None:
         self.layer1 = BioLayer(3, 2)
         self.layer2 = BioLayer(3, 3)
@@ -77,7 +92,7 @@ class BioNet:
     def learn(self, inputs: Sequence[float]) -> None:
         l2_out, l1_out = self.forward(inputs)
         target = float(sum(l2_out) / len(l2_out))
-        self.layer2.learn(l1_out, [target] * 3)
+        self.layer2.learn(l1_out, l2_out, targets=[target] * len(l2_out))
         self.layer1.learn(inputs, l1_out)
 
 
