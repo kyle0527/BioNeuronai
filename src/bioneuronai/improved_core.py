@@ -7,8 +7,10 @@ from __future__ import annotations
 from typing import List, Sequence, Tuple, Optional
 import numpy as np
 
+from .neuron_base import BaseBioNeuron
 
-class ImprovedBioNeuron:
+
+class ImprovedBioNeuron(BaseBioNeuron):
     """改進版本的生物啟發神經元
     
     新增功能:
@@ -28,24 +30,21 @@ class ImprovedBioNeuron:
         adaptive_threshold: bool = False,
         seed: int | None = None,
     ) -> None:
-        self.num_inputs = num_inputs
-        rng = np.random.default_rng(seed)
-        self.weights = rng.uniform(0.1, 0.9, num_inputs).astype(np.float32)
+        super().__init__(
+            num_inputs=num_inputs,
+            threshold=threshold,
+            learning_rate=learning_rate,
+            memory_len=memory_len,
+            seed=seed,
+        )
         self.initial_threshold = float(threshold)
         self.threshold = float(threshold)
-        self.learning_rate = float(learning_rate)
-        self.memory_len = int(memory_len)
         self.weight_decay = float(weight_decay)
         self.adaptive_threshold = adaptive_threshold
-        
+
         # 擴展的記憶系統
-        self.input_memory: List[np.ndarray] = []
         self.output_memory: List[float] = []
         self.threshold_history: List[float] = []
-        
-        # 統計信息
-        self.activation_count = 0
-        self.total_inputs = 0
 
     def forward(self, inputs: Sequence[float]) -> float:
         """改進的前向傳播"""
@@ -53,27 +52,18 @@ class ImprovedBioNeuron:
         x = np.asarray(inputs, dtype=np.float32)
 
         # 更新記憶
-        self.input_memory.append(x)
-        if len(self.input_memory) > self.memory_len:
-            self.input_memory.pop(0)
+        self._remember_input(x)
 
-        # 計算潛能
-        potential = float(np.dot(self.weights, x))
-        
-        # 激活函數：更平滑的轉換
-        if potential >= self.threshold:
-            output = min(1.0, potential)
-            self.activation_count += 1
-        else:
-            # 次閾值響應
-            output = max(0.0, potential / self.threshold * 0.1)
-        
+        # 計算潛能與輸出
+        potential = self._compute_potential(x)
+        output, activated = self._activation_response(potential)
+
         # 更新輸出記憶
         self.output_memory.append(output)
         if len(self.output_memory) > self.memory_len:
             self.output_memory.pop(0)
         
-        self.total_inputs += 1
+        self._record_activation(activated)
         
         # 自適應閾值調整
         if self.adaptive_threshold and len(self.output_memory) >= self.memory_len:
@@ -93,17 +83,27 @@ class ImprovedBioNeuron:
         
         self.threshold_history.append(self.threshold)
 
-    def improved_hebbian_learn(self, inputs: Sequence[float], target: Optional[float] = None) -> None:
+    def hebbian_learn(
+        self,
+        inputs: Sequence[float],
+        output: float | None = None,
+        *,
+        target: Optional[float] = None,
+    ) -> None:
         """改進的Hebbian學習規則
-        
+
         特點:
         - 支持有監督和無監督學習
         - 加入權重衰減
         - 考慮輸出誤差
         """
         x = np.asarray(inputs, dtype=np.float32)
-        current_output = self.forward(inputs)
-        
+        if output is not None:
+            current_output = float(output)
+        else:
+            potential = self._compute_potential(x)
+            current_output, _ = self._activation_response(potential)
+
         if target is not None:
             # 有監督學習：基於誤差的學習
             error = target - current_output
@@ -112,16 +112,36 @@ class ImprovedBioNeuron:
         else:
             # 無監督Hebbian學習
             delta = self.learning_rate * x * current_output
-        
+
         # 應用權重更新和衰減
         self.weights = self.weights + delta - self.weight_decay * self.weights
-        
+
         # 保持權重在合理範圍內
-        self.weights = np.clip(self.weights, 0.0, 2.0)
+        self._clip_weights(min_value=0.0, max_value=2.0)
+
+    def _compute_potential(self, x: np.ndarray) -> float:
+        """計算輸入向量的加權潛能。"""
+
+        return float(np.dot(self.weights, x))
+
+    def _activation_response(self, potential: float) -> Tuple[float, bool]:
+        """根據當前潛能取得輸出值與是否達到閾值。"""
+
+        if potential >= self.threshold:
+            return min(1.0, potential), True
+        # 次閾值響應
+        return max(0.0, potential / self.threshold * 0.1), False
+
+    def improved_hebbian_learn(
+        self, inputs: Sequence[float], target: Optional[float] = None
+    ) -> None:
+        """Backward compatible wrapper for the old method name."""
+
+        self.hebbian_learn(inputs, target=target)
 
     def enhanced_novelty_score(self) -> float:
         """增強的新穎性評分
-        
+
         考慮:
         - 輸入變化率
         - 輸出變化率  
@@ -135,11 +155,16 @@ class ImprovedBioNeuron:
         
         # 輸出新穎性
         output_novelty = self._calculate_output_novelty()
-        
+
         # 加權組合
         total_novelty = 0.7 * input_novelty + 0.3 * output_novelty
-        
+
         return float(np.clip(total_novelty, 0.0, 1.0))
+
+    def novelty_score(self) -> float:
+        """與基底類介面一致的增強新穎性分數。"""
+
+        return self.enhanced_novelty_score()
 
     def _calculate_input_novelty(self) -> float:
         """計算輸入新穎性"""
@@ -218,7 +243,7 @@ class CuriositDrivenNet:
         
         for neuron in self.neurons:
             output = neuron.forward(inputs)
-            novelty = neuron.enhanced_novelty_score()
+            novelty = neuron.novelty_score()
             outputs.append(output)
             novelties.append(novelty)
         
@@ -232,15 +257,15 @@ class CuriositDrivenNet:
         """
         outputs, novelties = self.forward(inputs)
         avg_curiosity = np.mean(novelties)
-        
+
         # 只有當新穎性足夠高時才學習
         if avg_curiosity > self.curiosity_threshold:
-            for neuron, novelty in zip(self.neurons, novelties):
+            for neuron, novelty, output in zip(self.neurons, novelties, outputs):
                 # 新穎性高的神經元學習更強
                 enhanced_lr = neuron.learning_rate * (1 + novelty)
                 original_lr = neuron.learning_rate
                 neuron.learning_rate = enhanced_lr
-                neuron.improved_hebbian_learn(inputs)
+                neuron.hebbian_learn(inputs, output=output)
                 neuron.learning_rate = original_lr
         
         return avg_curiosity

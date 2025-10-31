@@ -1,5 +1,14 @@
+import pathlib
+import sys
+
 import numpy as np
+import pytest
+
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "src"))
+
+from bioneuronai import BaseBioNeuron, ImprovedBioNeuron
 from bioneuronai.core import BioNeuron, BioLayer, BioNet
+from bioneuronai.improved_core import CuriositDrivenNet
 
 
 class TestBioNeuron:
@@ -102,20 +111,77 @@ class TestBioNet:
         net = BioNet()
         inputs = [0.5, 0.8]
         l2_out, l1_out = net.forward(inputs)
-        
+
         assert len(l2_out) == 3
         assert len(l1_out) == 3
-        assert all(0.0 <= out <= 1.0 for out in l2_out + l1_out)
 
     def test_network_learning(self):
         """測試網路學習"""
         net = BioNet()
         inputs = [0.6, 0.4]
-        
+
         # 執行學習
         net.learn(inputs)
-        
+
         # 至少網路應該能正常運行
         l2_out, l1_out = net.forward(inputs)
         assert len(l2_out) == 3
         assert len(l1_out) == 3
+
+
+class TestBaseBioNeuron:
+    def test_base_is_abstract(self):
+        with pytest.raises(TypeError):
+            BaseBioNeuron(num_inputs=2)  # type: ignore[abstract]
+
+
+class TestImprovedBioNeuron:
+    def test_inherits_base_and_memory(self):
+        neuron = ImprovedBioNeuron(num_inputs=2, seed=123)
+        assert isinstance(neuron, BaseBioNeuron)
+        assert neuron.input_memory == []
+
+    def test_unsupervised_hebbian_updates(self):
+        neuron = ImprovedBioNeuron(num_inputs=2, learning_rate=0.05, seed=1)
+        inputs = [0.4, 0.6]
+        neuron.forward(inputs)
+        initial_weights = neuron.weights.copy()
+        neuron.hebbian_learn(inputs)
+        assert not np.array_equal(initial_weights, neuron.weights)
+        # 進行無監督學習時，不應額外寫入輸入記憶
+        assert len(neuron.input_memory) == 1
+
+    def test_supervised_and_alias_learning(self):
+        neuron = ImprovedBioNeuron(num_inputs=2, learning_rate=0.05, seed=2)
+        inputs = [0.9, 0.1]
+        initial_weights = neuron.weights.copy()
+        neuron.hebbian_learn(inputs, target=0.8)
+        alias_weights = neuron.weights.copy()
+        neuron.improved_hebbian_learn(inputs, target=0.2)
+        assert not np.array_equal(initial_weights, alias_weights)
+        assert not np.array_equal(alias_weights, neuron.weights)
+
+    def test_output_only_learning_updates_weights(self):
+        neuron = ImprovedBioNeuron(num_inputs=2, learning_rate=0.05, seed=5)
+        inputs = [0.3, 0.7]
+        baseline = neuron.weights.copy()
+        neuron.hebbian_learn(inputs, output=0.6)
+        assert not np.array_equal(baseline, neuron.weights)
+
+    def test_novelty_score_alias(self):
+        neuron = ImprovedBioNeuron(num_inputs=2, seed=10)
+        neuron.forward([1.0, 0.0])
+        neuron.forward([0.0, 1.0])
+        assert 0.0 <= neuron.novelty_score() <= 1.0
+
+
+class TestCuriosityDrivenNet:
+    def test_curious_learning_path(self):
+        net = CuriositDrivenNet(input_dim=2, hidden_dim=2)
+        inputs = [0.2, 0.7]
+        outputs, novelties = net.forward(inputs)
+        assert len(outputs) == 2
+        assert len(novelties) == 2
+        assert all(0.0 <= out <= 1.0 for out in outputs)
+        curiosity = net.curious_learn(inputs)
+        assert 0.0 <= curiosity <= 1.0

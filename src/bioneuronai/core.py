@@ -2,8 +2,10 @@ from __future__ import annotations
 from typing import List, Sequence, Tuple
 import numpy as np
 
+from .neuron_base import BaseBioNeuron
 
-class BioNeuron:
+
+class BioNeuron(BaseBioNeuron):
     """Bio-inspired neuron with short-term input memory and Hebbian update.
     (Minimal refactor of your original code; adds type hints and novelty_score.)
     """
@@ -16,30 +18,33 @@ class BioNeuron:
         memory_len: int = 5,
         seed: int | None = None,
     ) -> None:
-        self.num_inputs = num_inputs
-        rng = np.random.default_rng(seed)
-        self.weights = rng.uniform(0.1, 0.9, num_inputs).astype(np.float32)
-        self.threshold = float(threshold)
-        self.learning_rate = float(learning_rate)
-        self.memory_len = int(memory_len)
-        self.input_memory: List[np.ndarray] = []
+        super().__init__(
+            num_inputs=num_inputs,
+            threshold=threshold,
+            learning_rate=learning_rate,
+            memory_len=memory_len,
+            seed=seed,
+        )
 
     def forward(self, inputs: Sequence[float]) -> float:
         assert len(inputs) == self.num_inputs
         x = np.asarray(inputs, dtype=np.float32)
 
         # short-term memory
-        self.input_memory.append(x)
-        if len(self.input_memory) > self.memory_len:
-            self.input_memory.pop(0)
+        self._remember_input(x)
 
         potential = float(np.dot(self.weights, x))
-        return min(1.0, potential) if potential >= self.threshold else 0.0
+        activated = potential >= self.threshold
+        self._record_activation(activated)
+        return min(1.0, potential) if activated else 0.0
 
-    def hebbian_learn(self, inputs: Sequence[float], output: float) -> None:
+    def hebbian_learn(self, inputs: Sequence[float], output: float | None = None, **_: object) -> None:
+        if output is None:
+            raise ValueError("BioNeuron.hebbian_learn requires a numeric output value")
         x = np.asarray(inputs, dtype=np.float32)
         delta = self.learning_rate * x * float(output)
-        self.weights = np.clip(self.weights + delta, 0.0, 1.0)
+        self.weights = self.weights + delta
+        self._clip_weights(min_value=0.0, max_value=1.0)
 
     def novelty_score(self) -> float:
         """Simple novelty proxy: mean abs diff of last two inputs (0~1 scaled)."""
