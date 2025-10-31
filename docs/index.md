@@ -33,6 +33,22 @@
 
 更多實際案例分析請參考 [案例研究與量化成效報告](./case-study.md)。
 
+## 🔧 開發者資源
+
+### 合併衝突解決指南
+
+隨著專案快速發展，我們建立了完整的合併衝突解決框架：
+
+- **[合併衝突解決指南](./MERGE_CONFLICT_RESOLUTION_GUIDE.md)** - 完整的策略和流程文檔
+- **[快速參考指南](./CONFLICT_RESOLUTION_QUICK_REFERENCE.md)** - 常見衝突模式及解決方案
+- **[衝突解決日誌模板](./CONFLICT_RESOLUTION_LOG_TEMPLATE.md)** - 記錄解決過程的標準模板
+
+### 自動化工具
+
+- `scripts/check_merge_conflicts.py` - 自動檢測跨 PR 的合併衝突
+- `scripts/batch_merge_prs.py` - 批量合併 PR 的輔助工具
+- 查看 `scripts/README.md` 了解詳細使用方法
+
 ## 📬 聯絡我們
 
 - 產品/策略諮詢：`product@bioneuron.ai`
