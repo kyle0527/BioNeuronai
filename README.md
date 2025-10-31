@@ -69,6 +69,15 @@ bioneuron-cli
 python examples/basic_demo.py
 ```
 
+### 強化學習整合
+
+- `examples/rl_curiosity_demo.py`: 使用 Stable Baselines3 (PPO) 與 `CuriositDrivenNet` 對 CartPole 進行訓練並記錄好奇心獎勵
+- `examples/curiosity_benchmark.py`: 產生隨機代理的基準結果，輸出 JSON/圖像用於分析
+
+> 範例腳本執行時會在 `examples/artifacts/` 產生指標與圖像，相關產物未納入版本控制，可依需求自行生成。
+
+> 可透過 `pip install -r requirements-dev.txt` 安裝所需的 Gymnasium 與 Stable Baselines 依賴。
+
 ## 🧪 測試
 
 ```bash
@@ -78,6 +87,12 @@ pytest tests/ -v
 # 測試涵蓋率
 pytest tests/ --cov=bioneuronai
 ```
+
+## 📈 好奇心基準結果
+
+- 隨機策略於 CartPole 執行 5 個回合時，平均好奇心獎勵約為 **6.91**，平均外在回合獎勵為 **32.0**。
+- 逐步曲線及回合統計存於 `examples/artifacts/curiosity_benchmark.json`（執行 `examples/curiosity_benchmark.py` 產生，產物未隨倉庫一併提交）。
+- 若安裝 matplotlib，腳本會額外輸出 `examples/artifacts/curiosity_benchmark.png` 用於視覺化好奇心與環境獎勵。
 
 ## 📚 API 文檔
 
