@@ -33,33 +33,68 @@ pip install -r requirements-dev.txt
 ### 基本使用
 
 ```python
+from pathlib import Path
+
 from bioneuronai.core import BioNeuron, BioNet
 
-# 創建單一神經元
+# 創建單一神經元並啟用在線學習保護
 neuron = BioNeuron(num_inputs=2, threshold=0.6, learning_rate=0.05)
+neuron.configure_online_learning(window_size=5, stability_coefficient=0.1)
 
-# 前向傳播
-output = neuron.forward([0.8, 0.6])
+# 前向傳播 + 在線學習
+output = neuron.online_learn([0.8, 0.6])
 print(f"輸出: {output}")
-
-# Hebbian 學習
-neuron.hebbian_learn([0.8, 0.6], target_output=1.0)
 
 # 新穎性檢測
 novelty = neuron.novelty_score()
 print(f"新穎性評分: {novelty}")
 
-# 使用多層網路
+# 保存並重新載入神經元狀態
+state_path = Path("neuron_state.npz")
+neuron.save_state(state_path)
+reloaded = BioNeuron.load_state(state_path)
+
+# 使用多層網路並持久化
 net = BioNet()
+net.configure_online_learning(window_size=5, stability_coefficient=0.05)
 l2_out, l1_out = net.forward([0.5, 0.8])
 net.learn([0.5, 0.8])
+net.save_state("network_state.npz")
 ```
+
+> 💡 小技巧：保存的 `.npz` 檔案可直接部署於長期服務中。
+> 重啟時呼叫 `BioNeuron.load_state()` 或 `BioNet.load_state()` 便能回復先前的記憶與權重。
 
 ### 命令行界面
 
 ```bash
-# 啟動互動式 CLI
-bioneuron-cli
+# 啟動互動式 CLI，啟用在線學習並指定持久化檔案
+bioneuron-cli --online-window 8 --stability 0.08 --save ./network_state.npz
+
+# 從既有檔案載入
+bioneuron-cli --load ./network_state.npz
+```
+
+在 CLI 中可於運行期間輸入 `save <path>` 或 `load <path>` 動態切換持久化檔案。
+
+## 💾 模型持久化與部署
+
+BioNeuronAI 內建序列化 API，支援使用 `numpy.savez` 生成自包含的 `.npz` 檔案。推薦的部署流程：
+
+1. 使用 `BioNeuron` 或 `BioNet` 訓練模型並調整在線學習參數（滑動窗口 + 穩定性係數）。
+2. 呼叫 `save_state()` 將權重、記憶與閾值寫入檔案。
+3. 在服務啟動時透過 `load_state()` 還原模型；若需要持續學習，可再次呼叫 `configure_online_learning()`。
+4. 週期性地在 CLI 或應用程式內呼叫 `save_state()`，確保即時學習成果被保存。
+
+範例：
+
+```python
+model_path = Path("./persistent/net_state.npz")
+net.save_state(model_path)
+
+# 部署時
+net = BioNet.load_state(model_path)
+net.configure_online_learning(window_size=10, stability_coefficient=0.05)
 ```
 
 ## 🔍 新穎性驅動的檢索門控
