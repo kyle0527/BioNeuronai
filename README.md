@@ -69,6 +69,8 @@ bioneuron-cli
 python examples/basic_demo.py
 ```
 
+更多產業案例與報告，請參考 [`docs/case-studies/`](docs/case-studies/) 目錄。
+
 ## 🧪 測試
 
 ```bash
@@ -127,6 +129,15 @@ BioNeuronai/
 3. 提交更改: `git commit -m 'Add amazing feature'`
 4. 推送到分支: `git push origin feature/amazing-feature`
 5. 提交 Pull Request
+
+## 🏢 企業支援與授權方案
+
+- **授權條款**：核心程式碼延續 MIT 授權，可自由使用、修改與再散佈；企業客戶可選擇額外簽訂支援合約以取得延伸權益。
+- **服務等級協議（SLAs）**：
+  - 標準 SLA：24 小時內回應、每月一次線上諮詢、季度健康檢查報告。
+  - 進階 SLA：4 小時內回應、專屬技術經理、部署監控儀表板整合協助。
+- **客製開發流程**：需求評估 → PoC 設計 → 里程碑排程（對應 0.2.0、0.3.0 路線圖）→ 交付與驗收 → 長期維護。
+- **聯絡方式**：請寄信至 `enterprise@bioneuron.ai` 或於 [GitHub Discussions](https://github.com/kyle0527/BioNeuronai/discussions) 建立 `enterprise-support` 主題，我們將於一個工作日內回覆。
 
 ## 📄 授權
 

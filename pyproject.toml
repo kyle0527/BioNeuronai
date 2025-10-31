@@ -11,6 +11,7 @@ authors = [
     {name = "Your Name", email = "your.email@example.com"}
 ]
 license = {text = "MIT"}
+keywords = ["novelty-detection", "hebbian-learning", "reinforcement-learning", "ai-safety"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
@@ -34,11 +35,19 @@ dev = [
     "isort",
     "mypy",
     "flake8",
+    "build",
+    "twine",
 ]
 examples = [
     "matplotlib>=3.5.0",
     "jupyter",
 ]
+
+[project.urls]
+Homepage = "https://github.com/kyle0527/BioNeuronai"
+Documentation = "https://github.com/kyle0527/BioNeuronai/tree/main/docs"
+Changelog = "https://github.com/kyle0527/BioNeuronai/blob/main/CHANGELOG.md"
+"Issue Tracker" = "https://github.com/kyle0527/BioNeuronai/issues"
 
 [project.scripts]
 bioneuron-cli = "bioneuronai.core:cli_loop"
@@ -55,3 +64,27 @@ python_version = "3.8"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
+
+[tool.bioneuronai.release]
+automation = "scripts/release.sh"
+notes = "Milestone roadmap for feature delivery and stability hardening."
+
+[[tool.bioneuronai.milestones]]
+version = "0.2.0"
+codename = "Explorer"
+summary = "Integrate reinforcement learning utilities and improve observability."
+focus_areas = [
+    "提供探索增益 (exploration bonus) API",
+    "加強日誌與診斷，支援複雜場景測試",
+    "擴充文檔與範例，協助部署流程",
+]
+
+[[tool.bioneuronai.milestones]]
+version = "0.3.0"
+codename = "Sentinel"
+summary = "Harden safety guardrails and enterprise readiness."
+focus_areas = [
+    "引入安全掃描介面與誤報調校工具",
+    "完成 SLA 監控整合與可觀測性儀表板",
+    "提供企業部署指南與整合測試套件",
+]
