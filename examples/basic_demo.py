@@ -1,8 +1,15 @@
 #!/usr/bin/env python3
 """
 BioNeuronAI 基本使用範例
-演示如何使用 BioNeuron 進行模式學習和新穎性檢測
+演示如何使用 BioNeuron 進行模式學習、新穎性檢測，以及保存/載入持久化狀態。
+
+教學重點：
+1. 建立神經元並啟用在線學習模式，透過滑動窗口避免災難性遺忘。
+2. 使用 `save_state()` 與 `load_state()` 在磁碟間傳遞權重、記憶與閾值。
+3. 將持久化流程整合至 `BioNet`，作為部署前快照範例。
 """
+
+from pathlib import Path
 
 import numpy as np
 # matplotlib is optional and is imported locally in plot_learning_curve()
@@ -41,6 +48,12 @@ def demo_basic_neuron():
     for inputs, expected in training_data:
         output = neuron.forward(inputs)
         print(f"輸入 {inputs} -> 輸出 {output:.3f} (期望 {expected})")
+
+    # 展示在線學習模式：啟用滑動窗口與穩定化
+    neuron.configure_online_learning(window_size=5, stability_coefficient=0.1)
+    for inputs, _ in training_data:
+        neuron.online_learn(inputs)
+    print("在線模式啟用後的權重:", neuron.weights)
 
 
 def demo_novelty_detection():
@@ -93,6 +106,15 @@ def demo_network_adaptation():
             
             # 學習
             net.learn(pattern)
+
+    # 保存並重新載入網路狀態
+    snapshot = Path("basic_net_state.npz")
+    net.configure_online_learning(window_size=5, stability_coefficient=0.05)
+    net.save_state(snapshot)
+    restored = BioNet.load_state(snapshot)
+    restored.configure_online_learning(window_size=5, stability_coefficient=0.05)
+    l2_out_restored, _ = restored.forward(test_patterns[-1])
+    print(f"\n重新載入後的輸出: {l2_out_restored[0]:.3f} (狀態保存於 {snapshot})")
 
 
 def plot_learning_curve():
@@ -159,6 +181,8 @@ def main():
     demo_novelty_detection()
     demo_network_adaptation()
     plot_learning_curve()
+
+    print("\n您可以刪除 basic_net_state.npz 以清理示例產生的檔案。")
     
     print("\n演示完成！")
 
