@@ -111,14 +111,26 @@ BioNeuron(
 BioNeuronai/
 ├── src/bioneuronai/     # 核心代碼
 │   ├── __init__.py
-│   └── core.py          # 主要實現
+│   ├── core.py          # 主要實現
+│   └── security/        # 安全檢測模組（SQLi/IDOR/Auth）
+│       ├── __init__.py
+│       ├── base.py
+│       ├── config.py
+│       ├── production_sqli_module.py
+│       ├── production_idor_module.py
+│       └── enhanced_auth_module.py
 ├── tests/               # 測試套件
-│   └── test_core.py
+│   ├── test_core.py
+│   └── test_security_modules.py
 ├── examples/            # 使用範例
 │   └── basic_demo.py
 ├── pyproject.toml       # 項目配置
 └── README.md
 ```
+
+### 安全模組與訓練流程
+
+`src/bioneuronai/security/` 提供可重用的 `BaseSecurityModule`、HTTP 客戶端設定與 AI 新穎性分析工具，供 SQLi、IDOR 與認證檢測引擎共用。若需自訂或延伸這些模組，請參考 [TRAINING_GUIDE.md](TRAINING_GUIDE.md) 中的訓練與模組整合流程。
 
 ### 貢獻指南
 
