@@ -32,7 +32,7 @@ pip install -r requirements-dev.txt
 ### 基本使用
 
 ```python
-from bioneuronai.core import BioNeuron, BioNet
+from bioneuronai import BioNeuron, BioNet
 
 # 創建單一神經元
 neuron = BioNeuron(num_inputs=2, threshold=0.6, learning_rate=0.05)
@@ -41,8 +41,8 @@ neuron = BioNeuron(num_inputs=2, threshold=0.6, learning_rate=0.05)
 output = neuron.forward([0.8, 0.6])
 print(f"輸出: {output}")
 
-# Hebbian 學習
-neuron.hebbian_learn([0.8, 0.6], target_output=1.0)
+# Hebbian 學習（可使用統一 API）
+neuron.learn([0.8, 0.6], target=1.0)
 
 # 新穎性檢測
 novelty = neuron.novelty_score()
@@ -63,11 +63,14 @@ bioneuron-cli
 
 ## 📖 範例
 
-查看 `examples/` 目錄中的詳細範例：
-
-```bash
-python examples/basic_demo.py
-```
+| 範例腳本 | 重點 | 執行指令 |
+| --- | --- | --- |
+| `examples/basic_demo.py` | 單神經元學習、網路適應與新穎性檢測 | `python examples/basic_demo.py` |
+| `examples/advanced_demo.py` | 進階模式識別、自適應閾值與集成 | `python examples/advanced_demo.py` |
+| `examples/applications_demo.py` | 整合多種應用場景的示例流程 | `python examples/applications_demo.py` |
+| `examples/tool_gating.py` | 以新穎性閘門驅動工具選擇與好奇心調節 | `python examples/tool_gating.py` |
+| `examples/rag_pipeline.py` | 新穎性感知的 RAG 重新排序流程 | `python examples/rag_pipeline.py` |
+| `examples/rl_loop.py` | 以新穎性調節探索率的強化學習循環 | `python examples/rl_loop.py` |
 
 ## 🧪 測試
 
@@ -122,11 +125,11 @@ BioNeuronai/
 
 ### 貢獻指南
 
-1. Fork 此倉庫
-2. 創建功能分支: `git checkout -b feature/amazing-feature`
-3. 提交更改: `git commit -m 'Add amazing feature'`
-4. 推送到分支: `git push origin feature/amazing-feature`
-5. 提交 Pull Request
+在提交 PR 前，請閱讀 [CONTRIBUTING.md](CONTRIBUTING.md) 以了解分支策略、程式碼風格與測試要求。
+
+## 🙋 FAQ
+
+常見問題與流程補充請見 [FAQ.md](FAQ.md)。
 
 ## 📄 授權
 

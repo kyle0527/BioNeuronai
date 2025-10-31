@@ -1,5 +1,14 @@
+from pathlib import Path
+import sys
+
 import numpy as np
-from bioneuronai.core import BioNeuron, BioLayer, BioNet
+
+ROOT = Path(__file__).resolve().parents[1]
+SRC = ROOT / "src"
+if str(SRC) not in sys.path:
+    sys.path.insert(0, str(SRC))
+
+from bioneuronai import BaseNeuron, BioNeuron, BioLayer, BioNet
 
 
 class TestBioNeuron:
@@ -10,6 +19,7 @@ class TestBioNeuron:
         assert neuron.threshold == 0.5
         assert len(neuron.weights) == 3
         assert len(neuron.input_memory) == 0
+        assert isinstance(neuron, BaseNeuron)
 
     def test_forward_pass(self):
         """測試前向傳播"""
@@ -39,16 +49,30 @@ class TestBioNeuron:
         """測試 Hebbian 學習"""
         neuron = BioNeuron(num_inputs=2, learning_rate=0.1, seed=42)
         initial_weights = neuron.weights.copy()
-        
+
         inputs = [1.0, 0.5]
         output = 0.8
         neuron.hebbian_learn(inputs, output)
-        
+
         # 權重應該有所變化
         assert not np.array_equal(initial_weights, neuron.weights)
         # 權重應該在有效範圍內
         assert np.all(neuron.weights >= 0.0)
         assert np.all(neuron.weights <= 1.0)
+
+    def test_public_learn_method(self):
+        """測試統一 learn 介面"""
+
+        neuron = BioNeuron(num_inputs=2, learning_rate=0.05, seed=21)
+        inputs = [0.9, 0.1]
+
+        # 初次學習會自動前向傳播
+        output = neuron.learn(inputs)
+        assert 0.0 <= output <= 1.0
+
+        # 使用指定目標再次學習 (不應觸發例外)
+        supervised_output = neuron.learn(inputs, target=0.75)
+        assert supervised_output == 0.75
 
     def test_novelty_score(self):
         """測試新穎性評分"""

@@ -2,8 +2,10 @@ from __future__ import annotations
 from typing import List, Sequence, Tuple
 import numpy as np
 
+from .neuron_base import BaseNeuron
 
-class BioNeuron:
+
+class BioNeuron(BaseNeuron):
     """Bio-inspired neuron with short-term input memory and Hebbian update.
     (Minimal refactor of your original code; adds type hints and novelty_score.)
     """
@@ -41,6 +43,13 @@ class BioNeuron:
         delta = self.learning_rate * x * float(output)
         self.weights = np.clip(self.weights + delta, 0.0, 1.0)
 
+    def learn(self, inputs: Sequence[float], target: float | None = None) -> float:
+        """Public learning hook that keeps compatibility with the base API."""
+
+        output = self.forward(inputs) if target is None else float(target)
+        self.hebbian_learn(inputs, output)
+        return output
+
     def novelty_score(self) -> float:
         """Simple novelty proxy: mean abs diff of last two inputs (0~1 scaled)."""
         if len(self.input_memory) < 2:
@@ -60,7 +69,7 @@ class BioLayer:
 
     def learn(self, inputs: Sequence[float], outputs: Sequence[float]) -> None:
         for n, out in zip(self.neurons, outputs):
-            n.hebbian_learn(inputs, out)
+            n.learn(inputs, out)
 
 
 class BioNet:
