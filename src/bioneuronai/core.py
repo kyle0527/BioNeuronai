@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+
 import importlib
 import json
 from pathlib import Path
@@ -15,6 +16,7 @@ class BioNeuron(BaseBioNeuron):
     (Minimal refactor of your original code; adds type hints and novelty_score.)
     """
 
+
     def __init__(
         self,
         num_inputs: int,
@@ -25,6 +27,15 @@ class BioNeuron(BaseBioNeuron):
         online_window: int | None = None,
         stability_coefficient: float = 0.05,
     ) -> None:
+
+        super().__init__(
+            num_inputs=num_inputs,
+            threshold=threshold,
+            learning_rate=learning_rate,
+            memory_len=memory_len,
+            seed=seed,
+        )
+
         super().__init__()
         self.num_inputs = num_inputs
         rng = np.random.default_rng(seed)
@@ -40,32 +51,26 @@ class BioNeuron(BaseBioNeuron):
         self.baseline_weights = self.weights.copy()
 
     def forward(self, inputs: Sequence[float]) -> float:
-        assert len(inputs) == self.num_inputs
-        x = np.asarray(inputs, dtype=np.float32)
-
-        # short-term memory
-        self.input_memory.append(x)
-        if len(self.input_memory) > self.memory_len:
-            self.input_memory.pop(0)
-
+        x = self._prepare_inputs(inputs)
         potential = float(np.dot(self.weights, x))
-        return min(1.0, potential) if potential >= self.threshold else 0.0
+        output = min(1.0, potential) if potential >= self.threshold else 0.0
+        self._update_memory(x, output)
+        return output
 
-    def hebbian_learn(self, inputs: Sequence[float], output: float) -> None:
-        x = np.asarray(inputs, dtype=np.float32)
+    def learn(self, inputs: Sequence[float], target: float | None = None) -> None:
+        x = self._prepare_inputs(inputs)
+        output = (
+            self.output_memory[-1]
+            if target is None and self.output_memory
+            else float(target) if target is not None else self.forward(inputs)
+        )
         delta = self.learning_rate * x * float(output)
         self.weights = np.clip(self.weights + delta, 0.0, 1.0)
         if self.online_window:
             self._apply_online_regularization()
 
-    def novelty_score(self) -> float:
-        """Simple novelty proxy: mean abs diff of last two inputs (0~1 scaled)."""
-        if len(self.input_memory) < 2:
-            return 0.0
-        a, b = self.input_memory[-1], self.input_memory[-2]
-        denom = np.maximum(1e-6, np.mean(np.abs(b)))
-        score = float(np.clip(np.mean(np.abs(a - b)) / denom, 0.0, 5.0) / 5.0)
-        return score
+    def hebbian_learn(self, inputs: Sequence[float], output: float) -> None:
+        self.learn(inputs, output)
 
     # ------------------------------------------------------------------
     # Serialization hooks
@@ -213,11 +218,25 @@ class BioNeuron(BaseBioNeuron):
 
 
 class BioLayer:
+
     def __init__(
         self,
         n_neurons: int,
         input_dim: int,
         neuron_cls: Type[BaseBioNeuron] = BioNeuron,
+
+        neuron_kwargs: dict | None = None,
+    ) -> None:
+        if n_neurons <= 0:
+            raise ValueError("n_neurons must be positive")
+        if input_dim <= 0:
+            raise ValueError("input_dim must be positive")
+
+        neuron_kwargs = neuron_kwargs or {}
+        self.neurons: List[BaseBioNeuron] = [
+            neuron_cls(num_inputs=input_dim, **neuron_kwargs) for _ in range(n_neurons)
+        ]
+
         **neuron_kwargs,
     ) -> None:
         self.input_dim = input_dim
@@ -225,12 +244,21 @@ class BioLayer:
         self.neuron_kwargs = neuron_kwargs
         self.neurons = [neuron_cls(input_dim, **neuron_kwargs) for _ in range(n_neurons)]
 
+
     def forward(self, inputs: Sequence[float]) -> List[float]:
         return [n.forward(inputs) for n in self.neurons]
 
-    def learn(self, inputs: Sequence[float], outputs: Sequence[float]) -> None:
-        for n, out in zip(self.neurons, outputs):
-            n.hebbian_learn(inputs, out)
+    def learn(
+        self,
+        inputs: Sequence[float],
+        outputs: Sequence[float] | None = None,
+    ) -> None:
+        if outputs is not None and len(outputs) != len(self.neurons):
+            raise ValueError("outputs length must match number of neurons")
+
+        for idx, neuron in enumerate(self.neurons):
+            target = outputs[idx] if outputs is not None else None
+            neuron.learn(inputs, target)
 
     # ------------------------------------------------------------------
     # Serialization helpers
@@ -372,6 +400,7 @@ class BioLayer:
 
 class BioNet:
     """Two-layer demo 2 -> 3 -> 3; returns (l2_out, l1_out)."""
+
     def __init__(self) -> None:
         self.layer1 = BioLayer(3, 2)
         self.layer2 = BioLayer(3, 3)
@@ -384,7 +413,7 @@ class BioNet:
     def learn(self, inputs: Sequence[float]) -> None:
         l2_out, l1_out = self.forward(inputs)
         target = float(sum(l2_out) / len(l2_out))
-        self.layer2.learn(l1_out, [target] * 3)
+        self.layer2.learn(l1_out, [target] * len(self.layer2.neurons))
         self.layer1.learn(inputs, l1_out)
 
     def get_layers(self) -> List[BioLayer]:
@@ -569,8 +598,7 @@ def cli_loop(argv: Sequence[str] | None = None) -> None:
             continue
 
         outputs, _ = net.forward([a, b])
-        novelty = net.layer1.neurons[0].novelty_score()
-        print(f"輸出：{[round(o, 3) for o in outputs]} | novelty={novelty:.3f}")
+
         net.learn([a, b])
 
 
