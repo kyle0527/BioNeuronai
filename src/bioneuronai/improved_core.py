@@ -4,7 +4,7 @@ BioNeuronAI 核心改進版本
 """
 
 from __future__ import annotations
-from typing import List, Sequence, Tuple, Optional
+from typing import Callable, Iterable, List, Optional, Sequence, Tuple
 import numpy as np
 
 
@@ -201,15 +201,35 @@ class CuriositDrivenNet:
     使用新穎性評分來調節學習強度
     """
     
-    def __init__(self, input_dim: int = 2, hidden_dim: int = 3):
+    def __init__(
+        self,
+        input_dim: int = 2,
+        hidden_dim: int = 3,
+        curiosity_transform: Optional[Callable[[Sequence[float]], float]] = None,
+    ) -> None:
         self.neurons = [
             ImprovedBioNeuron(
-                num_inputs=input_dim, 
+                num_inputs=input_dim,
                 adaptive_threshold=True,
                 seed=42 + i
             ) for i in range(hidden_dim)
         ]
         self.curiosity_threshold = 0.5
+        self._curiosity_transform = curiosity_transform or self._default_curiosity_transform
+
+    @staticmethod
+    def _default_curiosity_transform(novelties: Sequence[float]) -> float:
+        if not novelties:
+            return 0.0
+        return float(np.mean(novelties))
+
+    @property
+    def curiosity_transform(self) -> Callable[[Sequence[float]], float]:
+        return self._curiosity_transform
+
+    def set_curiosity_transform(self, transform: Callable[[Sequence[float]], float]) -> None:
+        """設定好奇心水位轉換函式"""
+        self._curiosity_transform = transform
     
     def forward(self, inputs: Sequence[float]) -> Tuple[List[float], List[float]]:
         """前向傳播並返回輸出和新穎性評分"""
@@ -226,15 +246,15 @@ class CuriositDrivenNet:
     
     def curious_learn(self, inputs: Sequence[float]) -> float:
         """基於好奇心的學習
-        
+
         Returns:
             平均好奇心水平
         """
-        outputs, novelties = self.forward(inputs)
-        avg_curiosity = np.mean(novelties)
-        
+        _, novelties = self.forward(inputs)
+        curiosity_level = float(self._curiosity_transform(novelties))
+
         # 只有當新穎性足夠高時才學習
-        if avg_curiosity > self.curiosity_threshold:
+        if curiosity_level > self.curiosity_threshold:
             for neuron, novelty in zip(self.neurons, novelties):
                 # 新穎性高的神經元學習更強
                 enhanced_lr = neuron.learning_rate * (1 + novelty)
@@ -242,8 +262,15 @@ class CuriositDrivenNet:
                 neuron.learning_rate = enhanced_lr
                 neuron.improved_hebbian_learn(inputs)
                 neuron.learning_rate = original_lr
-        
-        return avg_curiosity
+
+        return curiosity_level
+
+    def curious_learn_batch(self, batch_inputs: Iterable[Sequence[float]]) -> List[float]:
+        """對批次輸入執行好奇心學習，返回每個輸入的好奇心水位"""
+        curiosity_scores = []
+        for inputs in batch_inputs:
+            curiosity_scores.append(self.curious_learn(inputs))
+        return curiosity_scores
     
     def get_network_stats(self) -> dict:
         """獲取網路統計信息"""

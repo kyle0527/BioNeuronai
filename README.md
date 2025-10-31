@@ -67,7 +67,10 @@ bioneuron-cli
 
 ```bash
 python examples/basic_demo.py
+python examples/rl_curiosity_demo.py --episodes 5
 ```
+
+更多說明請參考 [`examples/rl_curiosity_demo.md`](examples/rl_curiosity_demo.md)。
 
 ## 🧪 測試
 
@@ -139,3 +142,5 @@ BioNeuronai/
 - [ ] 可視化工具
 - [ ] 性能優化
 - [ ] 更多神經元類型
+
+> 🌟 **最新進展**：新增 `examples/rl_curiosity_demo.py`，展示 `CuriositDrivenNet` 在強化學習回合中的內在獎勵應用。若安裝 matplotlib，腳本會輸出 `examples/rl_curiosity_demo_curve.png` 探索曲線，通常可觀察到早期好奇心水位快速上升，後期逐步收斂，反映代理持續探索新狀態的趨勢。
