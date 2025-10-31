@@ -8,7 +8,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import re
 import time
 from typing import Any
@@ -30,11 +29,20 @@ from aiva_common.schemas import (
     FunctionTaskTarget,
     Vulnerability,
 )
-from aiva_common.utils import get_logger, new_id
+from aiva_common.utils import get_logger
 
-from ..common.base_function_module import BaseFunctionModule, DetectionEngineProtocol
-from ..common.detection_config import SQLiConfig
-from ..common.unified_smart_detection_manager import UnifiedSmartDetectionManager
+from .base import BaseDetectionModule, DetectionEngineProtocol
+from .config import SQLiConfig
+from .manager import UnifiedSmartDetectionManager
+from .utils import (
+    delay_between_requests,
+    extract_keywords,
+    generate_boolean_payload_pairs,
+    generate_time_payloads,
+    generate_union_payloads,
+    log_detection_error,
+    log_detection_start,
+)
 
 logger = get_logger(__name__)
 
@@ -55,10 +63,10 @@ class ProductionUnionSQLiEngine(DetectionEngineProtocol):
         findings: list[FindingPayload] = []
         target = task.target
 
-        logger.info(f"開始 Union SQLi 檢測: {target.url}")
+        log_detection_start(logger, self.get_engine_name(), str(target.url))
 
         # 1. 檢測列數
-        column_count = await self._detect_column_count(target, client)
+        column_count = await self._detect_column_count(target, client, smart_manager)
         if not column_count:
             logger.debug("無法檢測到有效的列數")
             return findings
@@ -66,10 +74,10 @@ class ProductionUnionSQLiEngine(DetectionEngineProtocol):
         logger.debug(f"檢測到列數: {column_count}")
 
         # 2. 生成針對性的 Union payloads
-        union_payloads = self._generate_union_payloads(column_count)
+        union_payloads = generate_union_payloads(column_count)
 
         # 3. 獲取基準響應
-        baseline_response = await self._get_baseline_response(target, client)
+        baseline_response = await smart_manager.get_baseline_response(client, target)
         if not baseline_response:
             return findings
 
@@ -77,7 +85,7 @@ class ProductionUnionSQLiEngine(DetectionEngineProtocol):
         for payload in union_payloads:
             try:
                 detection_result = await self._test_union_payload(
-                    target, payload, client, baseline_response, task
+                    target, payload, client, baseline_response, task, smart_manager
                 )
                 if detection_result:
                     findings.append(detection_result)
@@ -85,77 +93,40 @@ class ProductionUnionSQLiEngine(DetectionEngineProtocol):
                     break  # 找到漏洞即停止
 
             except Exception as e:
-                logger.debug(f"Union payload 測試失敗 ({payload[:30]}...): {e}")
+                log_detection_error(
+                    logger,
+                    f"Union payload 測試失敗 ({payload[:30]}...)",
+                    e,
+                )
                 continue
 
         return findings
 
     async def _detect_column_count(
-        self, target: FunctionTaskTarget, client: httpx.AsyncClient
+        self,
+        target: FunctionTaskTarget,
+        client: httpx.AsyncClient,
+        smart_manager: UnifiedSmartDetectionManager,
     ) -> int | None:
         """使用 ORDER BY 技術檢測查詢的列數"""
         for col_num in range(1, 11):  # 檢測 1-10 列
             try:
                 payload = f"' ORDER BY {col_num}--"
-                response = await self._send_payload_request(target, payload, client)
+                response = await smart_manager.send_request(
+                    client, target, payload=payload
+                )
                 
                 # 檢查是否出現錯誤，表示列數已超出
                 if self._has_database_error(response.text):
                     return col_num - 1 if col_num > 1 else None
                     
             except Exception as e:
-                logger.debug(f"列數檢測錯誤 (第{col_num}列): {e}")
+                log_detection_error(
+                    logger, f"列數檢測錯誤 (第{col_num}列)", e
+                )
                 continue
-                
-        return 3  # 默認假設 3 列
 
-    def _generate_union_payloads(self, column_count: int) -> list[str]:
-        """根據列數生成有效的 Union payloads"""
-        payloads = []
-        
-        # 構建信息提取列
-        info_columns = []
-        for i in range(column_count):
-            if i == 0:
-                info_columns.append("@@version")
-            elif i == 1:
-                info_columns.append("user()")
-            elif i == 2:
-                info_columns.append("database()")
-            else:
-                info_columns.append(f"'{i+1}'")
-        
-        columns_str = ",".join(info_columns)
-        
-        # 基本 Union payloads
-        base_payloads = [
-            f"' UNION SELECT {columns_str}--",
-            f"' UNION ALL SELECT {columns_str}--",
-            f"') UNION SELECT {columns_str}--",
-            f"' UNION SELECT {columns_str}#",
-            f"'/**/UNION/**/SELECT/**/{columns_str}--",
-            f"' UNION SELECT {columns_str} FROM dual--",  # Oracle
-        ]
-        
-        payloads.extend(base_payloads)
-        
-        # NULL 值測試
-        null_columns = ",".join(["NULL"] * column_count)
-        null_payloads = [
-            f"' UNION SELECT {null_columns}--",
-            f"' UNION ALL SELECT {null_columns}--"
-        ]
-        payloads.extend(null_payloads)
-        
-        # 數據庫特定 payloads
-        db_specific = [
-            f"' UNION SELECT {columns_str} FROM information_schema.tables LIMIT 1--",  # MySQL
-            f"' UNION SELECT {columns_str} FROM pg_tables LIMIT 1--",  # PostgreSQL
-            f"' UNION SELECT {columns_str} FROM user_tables WHERE ROWNUM=1--",  # Oracle
-        ]
-        payloads.extend(db_specific)
-        
-        return payloads
+        return 3  # 默認假設 3 列
 
     async def _get_baseline_response(
         self, target: FunctionTaskTarget, client: httpx.AsyncClient
@@ -188,10 +159,13 @@ class ProductionUnionSQLiEngine(DetectionEngineProtocol):
         client: httpx.AsyncClient,
         baseline_response: httpx.Response,
         task: FunctionTaskPayload,
+        smart_manager: UnifiedSmartDetectionManager,
     ) -> FindingPayload | None:
         """測試單個 Union payload"""
         try:
-            response = await self._send_payload_request(target, payload, client)
+            response = await smart_manager.send_request(
+                client, target, payload=payload
+            )
             
             # 分析響應
             analysis_result = self._analyze_union_response(
@@ -200,11 +174,20 @@ class ProductionUnionSQLiEngine(DetectionEngineProtocol):
             
             if analysis_result["is_vulnerable"]:
                 return self._create_finding(
-                    task, target, payload, response, analysis_result
+                    task,
+                    target,
+                    payload,
+                    response,
+                    analysis_result,
+                    smart_manager,
                 )
-                
+
         except Exception as e:
-            logger.debug(f"Union payload 測試錯誤 ({payload[:30]}...): {e}")
+            log_detection_error(
+                logger,
+                f"Union payload 測試錯誤 ({payload[:30]}...)",
+                e,
+            )
             
         return None
 
@@ -305,6 +288,7 @@ class ProductionUnionSQLiEngine(DetectionEngineProtocol):
         payload: str,
         response: httpx.Response,
         analysis: dict[str, Any],
+        smart_manager: UnifiedSmartDetectionManager,
     ) -> FindingPayload:
         """創建檢測結果"""
         vulnerability = Vulnerability(
@@ -320,18 +304,15 @@ class ProductionUnionSQLiEngine(DetectionEngineProtocol):
             response_time_delta=response.elapsed.total_seconds()
         )
 
-        return FindingPayload(
-            finding_id=new_id("finding"),
-            task_id=task.task_id,
-            scan_id=task.scan_id,
-            status="detected",
+        return smart_manager.serialize_finding(
+            task,
             vulnerability=vulnerability,
+            evidence=evidence,
             target=FindingTarget(
                 url=str(target.url),
                 parameter=target.parameter,
                 method=target.method
             ),
-            evidence=evidence
         )
 
 
@@ -351,63 +332,48 @@ class ProductionBooleanSQLiEngine(DetectionEngineProtocol):
         findings: list[FindingPayload] = []
         target = task.target
 
-        logger.info(f"開始 Boolean SQLi 檢測: {target.url}")
+        log_detection_start(logger, self.get_engine_name(), str(target.url))
 
         # 生成布林測試 payload 對
-        boolean_pairs = self._generate_boolean_payloads()
+        boolean_pairs = generate_boolean_payload_pairs()
 
         for true_payload, false_payload in boolean_pairs:
             try:
                 # 發送 TRUE 條件請求
-                true_response = await self._send_payload_request(target, true_payload, client)
-                await self._delay_between_requests()
-                
+                true_response = await smart_manager.send_request(
+                    client, target, payload=true_payload
+                )
+                await delay_between_requests()
+
                 # 發送 FALSE 條件請求
-                false_response = await self._send_payload_request(target, false_payload, client)
+                false_response = await smart_manager.send_request(
+                    client, target, payload=false_payload
+                )
                 
                 # 分析響應差異
                 if self._has_boolean_injection(true_response, false_response):
                     finding = self._create_boolean_finding(
-                        task, target, true_payload, false_payload, 
-                        true_response, false_response
+                        task,
+                        target,
+                        true_payload,
+                        false_payload,
+                        true_response,
+                        false_response,
+                        smart_manager,
                     )
                     findings.append(finding)
                     logger.info(f"發現 Boolean SQLi 漏洞: {true_payload[:50]}...")
                     break
 
             except Exception as e:
-                logger.debug(f"Boolean SQLi 測試失敗 ({true_payload[:30]}...): {e}")
+                log_detection_error(
+                    logger,
+                    f"Boolean SQLi 測試失敗 ({true_payload[:30]}...)",
+                    e,
+                )
                 continue
 
         return findings
-
-    def _generate_boolean_payloads(self) -> list[tuple[str, str]]:
-        """生成布林測試 payload 對 (TRUE, FALSE)"""
-        return [
-            ("' AND '1'='1", "' AND '1'='2"),
-            ("' OR '1'='1", "' OR '1'='2"),
-            ("' AND 1=1--", "' AND 1=2--"),
-            ("' OR 1=1--", "' OR 1=2--"),
-            ("') AND ('1'='1", "') AND ('1'='2"),
-            ("' AND (SELECT COUNT(*) FROM users)>0--", "' AND (SELECT COUNT(*) FROM users)<0--"),
-            ("' AND ASCII(SUBSTRING((SELECT version()),1,1))>50--", 
-             "' AND ASCII(SUBSTRING((SELECT version()),1,1))>200--"),
-        ]
-
-    async def _send_payload_request(
-        self, target: FunctionTaskTarget, payload: str, client: httpx.AsyncClient
-    ) -> httpx.Response:
-        """發送包含 payload 的請求"""
-        if target.method.upper() == "GET":
-            params = {target.parameter: payload}
-            return await client.get(str(target.url), params=params, timeout=15.0)
-        else:
-            data = {target.parameter: payload}
-            return await client.post(str(target.url), data=data, timeout=15.0)
-
-    async def _delay_between_requests(self) -> None:
-        """請求間延遲，避免被防護機制阻擋"""
-        await asyncio.sleep(0.5)
 
     def _has_boolean_injection(
         self, true_response: httpx.Response, false_response: httpx.Response
@@ -439,8 +405,8 @@ class ProductionBooleanSQLiEngine(DetectionEngineProtocol):
             return True
         
         # 5. 特定關鍵字檢測
-        true_keywords = self._extract_keywords(true_text)
-        false_keywords = self._extract_keywords(false_text)
+        true_keywords = extract_keywords(true_text)
+        false_keywords = extract_keywords(false_text)
         
         # 如果關鍵字集合差異較大
         keyword_diff = len(true_keywords.symmetric_difference(false_keywords))
@@ -460,13 +426,6 @@ class ProductionBooleanSQLiEngine(DetectionEngineProtocol):
         
         return intersection / union if union > 0 else 0.0
 
-    def _extract_keywords(self, text: str) -> set[str]:
-        """提取文本中的關鍵字"""
-        import re
-        # 提取英文單詞
-        words = re.findall(r'\b[a-zA-Z]{3,}\b', text.lower())
-        return set(words)
-
     def _create_boolean_finding(
         self,
         task: FunctionTaskPayload,
@@ -475,6 +434,7 @@ class ProductionBooleanSQLiEngine(DetectionEngineProtocol):
         false_payload: str,
         true_response: httpx.Response,
         false_response: httpx.Response,
+        smart_manager: UnifiedSmartDetectionManager,
     ) -> FindingPayload:
         """創建布林注入檢測結果"""
         vulnerability = Vulnerability(
@@ -500,18 +460,15 @@ class ProductionBooleanSQLiEngine(DetectionEngineProtocol):
             )
         )
 
-        return FindingPayload(
-            finding_id=new_id("finding"),
-            task_id=task.task_id,
-            scan_id=task.scan_id,
-            status="detected",
+        return smart_manager.serialize_finding(
+            task,
             vulnerability=vulnerability,
+            evidence=evidence,
             target=FindingTarget(
                 url=str(target.url),
                 parameter=target.parameter,
-                method=target.method
+                method=target.method,
             ),
-            evidence=evidence
         )
 
 
@@ -531,22 +488,24 @@ class ProductionTimeSQLiEngine(DetectionEngineProtocol):
         findings: list[FindingPayload] = []
         target = task.target
 
-        logger.info(f"開始 Time-based SQLi 檢測: {target.url}")
+        log_detection_start(logger, self.get_engine_name(), str(target.url))
 
         # 測量基準響應時間
-        baseline_time = await self._measure_baseline_time(target, client)
+        baseline_time = await self._measure_baseline_time(target, client, smart_manager)
         if baseline_time is None:
             return findings
 
         logger.debug(f"基準響應時間: {baseline_time:.2f}s")
 
         # 生成時間延遲 payloads
-        time_payloads = self._generate_time_payloads()
+        time_payloads = generate_time_payloads()
 
         for payload, expected_delay in time_payloads:
             try:
                 # 測量 payload 響應時間
-                payload_time = await self._measure_payload_time(target, payload, client)
+                payload_time = await self._measure_payload_time(
+                    target, payload, client, smart_manager
+                )
                 
                 if payload_time is None:
                     continue
@@ -554,20 +513,33 @@ class ProductionTimeSQLiEngine(DetectionEngineProtocol):
                 # 檢測時間異常
                 if self._has_time_anomaly(baseline_time, payload_time, expected_delay):
                     finding = self._create_time_finding(
-                        task, target, payload, baseline_time, payload_time, expected_delay
+                        task,
+                        target,
+                        payload,
+                        baseline_time,
+                        payload_time,
+                        expected_delay,
+                        smart_manager,
                     )
                     findings.append(finding)
                     logger.info(f"發現 Time-based SQLi 漏洞: {payload[:50]}...")
                     break
 
             except Exception as e:
-                logger.debug(f"Time-based SQLi 測試失敗 ({payload[:30]}...): {e}")
+                log_detection_error(
+                    logger,
+                    f"Time-based SQLi 測試失敗 ({payload[:30]}...)",
+                    e,
+                )
                 continue
 
         return findings
 
     async def _measure_baseline_time(
-        self, target: FunctionTaskTarget, client: httpx.AsyncClient
+        self,
+        target: FunctionTaskTarget,
+        client: httpx.AsyncClient,
+        smart_manager: UnifiedSmartDetectionManager,
     ) -> float | None:
         """測量基準響應時間（多次測量取平均值）"""
         times = []
@@ -575,53 +547,42 @@ class ProductionTimeSQLiEngine(DetectionEngineProtocol):
         for _ in range(3):  # 測量3次
             try:
                 start_time = time.time()
-                if target.method.upper() == "GET":
-                    await client.get(str(target.url), timeout=20.0)
-                else:
-                    await client.post(str(target.url), timeout=20.0)
+                await smart_manager.send_request(client, target, timeout=20.0)
                 end_time = time.time()
                 
                 times.append(end_time - start_time)
-                await asyncio.sleep(0.5)  # 間隔測量
+                await delay_between_requests(0.5)  # 間隔測量
                 
             except Exception as e:
-                logger.debug(f"基準時間測量失敗: {e}")
+                log_detection_error(logger, "基準時間測量失敗", e)
                 continue
         
         return sum(times) / len(times) if times else None
 
     async def _measure_payload_time(
-        self, target: FunctionTaskTarget, payload: str, client: httpx.AsyncClient
+        self,
+        target: FunctionTaskTarget,
+        payload: str,
+        client: httpx.AsyncClient,
+        smart_manager: UnifiedSmartDetectionManager,
     ) -> float | None:
         """測量包含 payload 的請求響應時間"""
         try:
             start_time = time.time()
             
-            if target.method.upper() == "GET":
-                params = {target.parameter: payload}
-                await client.get(str(target.url), params=params, timeout=30.0)
-            else:
-                data = {target.parameter: payload}
-                await client.post(str(target.url), data=data, timeout=30.0)
+            await smart_manager.send_request(
+                client,
+                target,
+                payload=payload,
+                timeout=30.0,
+            )
             
             end_time = time.time()
             return end_time - start_time
             
         except Exception as e:
-            logger.debug(f"Payload 時間測量失敗: {e}")
+            log_detection_error(logger, "Payload 時間測量失敗", e)
             return None
-
-    def _generate_time_payloads(self) -> list[tuple[str, float]]:
-        """生成時間延遲 payloads (payload, expected_delay_seconds)"""
-        return [
-            ("'; WAITFOR DELAY '00:00:05'--", 5.0),  # SQL Server
-            ("'; SELECT SLEEP(5)--", 5.0),  # MySQL
-            ("'; SELECT pg_sleep(5)--", 5.0),  # PostgreSQL
-            ("' AND (SELECT 1 FROM (SELECT COUNT(*),CONCAT(version(),FLOOR(RAND(0)*2))x FROM information_schema.tables GROUP BY x)a) AND SLEEP(5)--", 5.0),  # MySQL advanced
-            ("' UNION SELECT SLEEP(5),2,3--", 5.0),  # MySQL Union
-            ("' OR (SELECT 1 FROM dual WHERE 1=1 AND (SELECT 1 FROM (SELECT COUNT(*) FROM dual WHERE 1=1 AND SLEEP(3))x))--", 3.0),  # MySQL conditional
-            ("'; IF (1=1) WAITFOR DELAY '00:00:03'--", 3.0),  # SQL Server conditional
-        ]
 
     def _has_time_anomaly(
         self, baseline_time: float, payload_time: float, expected_delay: float
@@ -644,6 +605,7 @@ class ProductionTimeSQLiEngine(DetectionEngineProtocol):
         baseline_time: float,
         payload_time: float,
         expected_delay: float,
+        smart_manager: UnifiedSmartDetectionManager,
     ) -> FindingPayload:
         """創建時間注入檢測結果"""
         actual_delay = payload_time - baseline_time
@@ -661,22 +623,19 @@ class ProductionTimeSQLiEngine(DetectionEngineProtocol):
             response_time_delta=payload_time
         )
 
-        return FindingPayload(
-            finding_id=new_id("finding"),
-            task_id=task.task_id,
-            scan_id=task.scan_id,
-            status="detected",
+        return smart_manager.serialize_finding(
+            task,
             vulnerability=vulnerability,
+            evidence=evidence,
             target=FindingTarget(
                 url=str(target.url),
                 parameter=target.parameter,
-                method=target.method
+                method=target.method,
             ),
-            evidence=evidence
         )
 
 
-class ProductionSQLiModule(BaseFunctionModule):
+class ProductionSQLiModule(BaseDetectionModule):
     """生產級 SQL 注入檢測模組"""
 
     def __init__(self, config: SQLiConfig | None = None) -> None:

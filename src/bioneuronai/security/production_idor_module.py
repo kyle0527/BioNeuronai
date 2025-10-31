@@ -8,7 +8,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import json
 import re
 import uuid
@@ -31,11 +30,12 @@ from aiva_common.schemas import (
     FunctionTaskTarget,
     Vulnerability,
 )
-from aiva_common.utils import get_logger, new_id
+from aiva_common.utils import get_logger
 
-from ..common.base_function_module import BaseFunctionModule, DetectionEngineProtocol
-from ..common.detection_config import IDORConfig
-from ..common.unified_smart_detection_manager import UnifiedSmartDetectionManager
+from .base import BaseDetectionModule, DetectionEngineProtocol
+from .config import IDORConfig
+from .manager import UnifiedSmartDetectionManager
+from .utils import log_detection_error, log_detection_start
 
 logger = get_logger(__name__)
 
@@ -56,7 +56,7 @@ class ProductionHorizontalIDOREngine(DetectionEngineProtocol):
         findings: list[FindingPayload] = []
         target = task.target
 
-        logger.info(f"開始水平IDOR檢測: {target.url}")
+        log_detection_start(logger, self.get_engine_name(), str(target.url))
 
         # 提取原始ID參數
         original_ids = self._extract_id_parameters(target)
@@ -65,7 +65,7 @@ class ProductionHorizontalIDOREngine(DetectionEngineProtocol):
             return findings
 
         # 獲取原始響應作為基準
-        baseline_response = await self._get_baseline_response(target, client)
+        baseline_response = await smart_manager.get_baseline_response(client, target)
         if not baseline_response:
             return findings
 
@@ -81,7 +81,9 @@ class ProductionHorizontalIDOREngine(DetectionEngineProtocol):
                         target, param_name, test_value
                     )
                     
-                    test_response = await self._send_request(modified_target, client)
+                    test_response = await smart_manager.send_request(
+                        client, modified_target
+                    )
                     
                     # 分析響應
                     analysis = self._analyze_horizontal_response(
@@ -90,15 +92,25 @@ class ProductionHorizontalIDOREngine(DetectionEngineProtocol):
                     
                     if analysis["is_vulnerable"]:
                         finding = self._create_horizontal_finding(
-                            task, target, param_name, original_value, 
-                            test_value, test_response, analysis
+                            task,
+                            target,
+                            param_name,
+                            original_value,
+                            test_value,
+                            test_response,
+                            analysis,
+                            smart_manager,
                         )
                         findings.append(finding)
                         logger.info(f"發現水平IDOR: {param_name}={test_value}")
                         break  # 找到漏洞即停止測試該參數
 
                 except Exception as e:
-                    logger.debug(f"水平IDOR測試失敗 ({param_name}={test_value}): {e}")
+                    log_detection_error(
+                        logger,
+                        f"水平IDOR測試失敗 ({param_name}={test_value})",
+                        e,
+                    )
                     continue
 
         return findings
@@ -144,30 +156,6 @@ class ProductionHorizontalIDOREngine(DetectionEngineProtocol):
         
         param_lower = param_name.lower()
         return any(indicator in param_lower for indicator in id_indicators)
-
-    async def _get_baseline_response(
-        self, target: FunctionTaskTarget, client: httpx.AsyncClient
-    ) -> httpx.Response | None:
-        """獲取基準響應"""
-        try:
-            return await self._send_request(target, client)
-        except Exception as e:
-            logger.error(f"無法獲取基準響應: {e}")
-            return None
-
-    async def _send_request(
-        self, target: FunctionTaskTarget, client: httpx.AsyncClient
-    ) -> httpx.Response:
-        """發送請求"""
-        if target.method.upper() == "GET":
-            return await client.get(str(target.url), timeout=15.0, follow_redirects=False)
-        elif target.method.upper() == "POST":
-            return await client.post(str(target.url), timeout=15.0, follow_redirects=False)
-        else:
-            # 其他HTTP方法
-            return await client.request(
-                target.method, str(target.url), timeout=15.0, follow_redirects=False
-            )
 
     def _generate_test_ids(self, original_ids: dict[str, str]) -> list[str]:
         """生成測試ID"""
@@ -343,6 +331,7 @@ class ProductionHorizontalIDOREngine(DetectionEngineProtocol):
         test_value: str,
         response: httpx.Response,
         analysis: dict[str, Any],
+        smart_manager: UnifiedSmartDetectionManager,
     ) -> FindingPayload:
         """創建水平IDOR檢測結果"""
         vulnerability = Vulnerability(
@@ -359,18 +348,15 @@ class ProductionHorizontalIDOREngine(DetectionEngineProtocol):
             response_time_delta=response.elapsed.total_seconds()
         )
 
-        return FindingPayload(
-            finding_id=new_id("finding"),
-            task_id=task.task_id,
-            scan_id=task.scan_id,
-            status="detected",
+        return smart_manager.serialize_finding(
+            task,
             vulnerability=vulnerability,
+            evidence=evidence,
             target=FindingTarget(
                 url=str(target.url),
                 parameter=param_name,
-                method=target.method
+                method=target.method,
             ),
-            evidence=evidence
         )
 
 
@@ -390,7 +376,7 @@ class ProductionVerticalIDOREngine(DetectionEngineProtocol):
         findings: list[FindingPayload] = []
         target = task.target
 
-        logger.info(f"開始垂直IDOR檢測: {target.url}")
+        log_detection_start(logger, self.get_engine_name(), str(target.url))
 
         # 檢測管理員路徑和功能
         admin_paths = self._generate_admin_paths(target)
@@ -399,20 +385,29 @@ class ProductionVerticalIDOREngine(DetectionEngineProtocol):
             try:
                 # 構建管理員路徑請求
                 admin_target = self._create_admin_target(target, admin_path)
-                response = await self._send_request(admin_target, client)
+                response = await smart_manager.send_request(client, admin_target)
                 
                 # 分析響應
                 analysis = self._analyze_vertical_response(response, admin_path)
                 
                 if analysis["is_vulnerable"]:
                     finding = self._create_vertical_finding(
-                        task, target, admin_path, response, analysis
+                        task,
+                        target,
+                        admin_path,
+                        response,
+                        analysis,
+                        smart_manager,
                     )
                     findings.append(finding)
                     logger.info(f"發現垂直IDOR: {admin_path}")
 
             except Exception as e:
-                logger.debug(f"垂直IDOR測試失敗 ({admin_path}): {e}")
+                log_detection_error(
+                    logger,
+                    f"垂直IDOR測試失敗 ({admin_path})",
+                    e,
+                )
                 continue
 
         return findings
@@ -462,17 +457,7 @@ class ProductionVerticalIDOREngine(DetectionEngineProtocol):
         else:
             admin_url = admin_path
         
-        class AdminTarget:
-            def __init__(self, url: str, method: str):
-                self.url = url
-                self.method = method
-                self.parameter = None
-        
-        return AdminTarget(admin_url, target.method)
-
-    async def _send_request(self, target, client: httpx.AsyncClient) -> httpx.Response:
-        """發送請求"""
-        return await client.get(str(target.url), timeout=15.0, follow_redirects=False)
+        return FunctionTaskTarget(url=admin_url, method=target.method)
 
     def _analyze_vertical_response(
         self, response: httpx.Response, admin_path: str
@@ -545,6 +530,7 @@ class ProductionVerticalIDOREngine(DetectionEngineProtocol):
         admin_path: str,
         response: httpx.Response,
         analysis: dict[str, Any],
+        smart_manager: UnifiedSmartDetectionManager,
     ) -> FindingPayload:
         """創建垂直IDOR檢測結果"""
         vulnerability = Vulnerability(
@@ -561,22 +547,19 @@ class ProductionVerticalIDOREngine(DetectionEngineProtocol):
             response_time_delta=response.elapsed.total_seconds()
         )
 
-        return FindingPayload(
-            finding_id=new_id("finding"),
-            task_id=task.task_id,
-            scan_id=task.scan_id,
-            status="detected",
+        return smart_manager.serialize_finding(
+            task,
             vulnerability=vulnerability,
+            evidence=evidence,
             target=FindingTarget(
                 url=admin_path,
                 parameter="admin_access",
-                method="GET"
+                method="GET",
             ),
-            evidence=evidence
         )
 
 
-class ProductionIDORModule(BaseFunctionModule):
+class ProductionIDORModule(BaseDetectionModule):
     """生產級 IDOR 檢測模組"""
 
     def __init__(self, config: IDORConfig | None = None) -> None:

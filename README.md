@@ -111,7 +111,8 @@ BioNeuron(
 BioNeuronai/
 ├── src/bioneuronai/     # 核心代碼
 │   ├── __init__.py
-│   └── core.py          # 主要實現
+│   ├── core.py          # 主要實現
+│   └── security/        # 生產級安全檢測模組
 ├── tests/               # 測試套件
 │   └── test_core.py
 ├── examples/            # 使用範例

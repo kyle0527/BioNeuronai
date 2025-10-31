@@ -24,12 +24,14 @@ classifiers = [
 requires-python = ">=3.8"
 dependencies = [
     "numpy>=1.21.0",
+    "httpx>=0.27",
 ]
 
 [project.optional-dependencies]
 dev = [
     "pytest>=7.0",
     "pytest-cov",
+    "pytest-asyncio>=0.23",
     "black",
     "isort",
     "mypy",

@@ -23,9 +23,11 @@
 # training_data_collection.py
 import asyncio
 import httpx
-from src.bioneuronai.production_sqli_module import ProductionSQLiModule
-from src.bioneuronai.production_idor_module import ProductionIDORModule
-from src.bioneuronai.enhanced_auth_module import EnhancedAuthModule
+from src.bioneuronai.security import (
+    EnhancedAuthModule,
+    ProductionIDORModule,
+    ProductionSQLiModule,
+)
 
 # 收集已知漏洞的樣本
 known_vulnerabilities = [

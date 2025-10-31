@@ -27,11 +27,12 @@ from aiva_common.schemas import (
     FunctionTaskTarget,
     Vulnerability,
 )
-from aiva_common.utils import get_logger, new_id
+from aiva_common.utils import get_logger
 
-from ..common.base_function_module import BaseFunctionModule, DetectionEngineProtocol
-from ..common.detection_config import AuthConfig
-from ..common.unified_smart_detection_manager import UnifiedSmartDetectionManager
+from .base import BaseDetectionModule, DetectionEngineProtocol
+from .config import AuthConfig
+from .manager import UnifiedSmartDetectionManager
+from .utils import log_detection_error, log_detection_start
 
 logger = get_logger(__name__)
 
@@ -61,9 +62,11 @@ class WeakCredentialEngine(DetectionEngineProtocol):
         ]
 
         target = task.target
+
+        log_detection_start(logger, self.get_engine_name(), str(target.url))
         
         # 檢測登錄表單字段
-        login_fields = await self._identify_login_fields(target, client)
+        login_fields = await self._identify_login_fields(target, client, smart_manager)
         if not login_fields:
             return findings
 
@@ -77,15 +80,17 @@ class WeakCredentialEngine(DetectionEngineProtocol):
                 
                 # 添加其他可能的表單字段
                 if login_fields.get("csrf_token"):
-                    csrf_token = await self._get_csrf_token(target, client)
+                    csrf_token = await self._get_csrf_token(target, client, smart_manager)
                     if csrf_token:
                         login_data[login_fields["csrf_token"]] = csrf_token
 
-                response = await client.post(
-                    str(target.url),
+                response = await smart_manager.send_request(
+                    client,
+                    target,
+                    method="POST",
                     data=login_data,
                     timeout=15.0,
-                    follow_redirects=True
+                    follow_redirects=True,
                 )
 
                 # 多維度檢測成功登錄
@@ -102,35 +107,39 @@ class WeakCredentialEngine(DetectionEngineProtocol):
                             response_time_delta=response.elapsed.total_seconds()
                         )
 
-                        finding = FindingPayload(
-                            finding_id=new_id("finding"),
-                            task_id=task.task_id,
-                            scan_id=task.scan_id,
-                            status="detected",
+                        finding = smart_manager.serialize_finding(
+                            task,
                             vulnerability=vulnerability,
+                            evidence=evidence,
                             target=FindingTarget(
                                 url=str(target.url),
                                 parameter="credentials",
-                                method="POST"
+                                method="POST",
                             ),
-                            evidence=evidence
                         )
                         findings.append(finding)
                         logger.info(f"發現弱憑證: {username}:{password}")
                         break
 
             except Exception as e:
-                logger.debug(f"弱憑證檢測錯誤 ({username}): {e}")
+                log_detection_error(
+                    logger, f"弱憑證檢測錯誤 ({username})", e
+                )
                 continue
 
         return findings
 
     async def _identify_login_fields(
-        self, target: FunctionTaskTarget, client: httpx.AsyncClient
+        self,
+        target: FunctionTaskTarget,
+        client: httpx.AsyncClient,
+        smart_manager: UnifiedSmartDetectionManager,
     ) -> dict[str, str]:
         """識別登錄表單字段"""
         try:
-            response = await client.get(str(target.url), timeout=10.0)
+            response = await smart_manager.send_request(
+                client, target, timeout=10.0
+            )
             html_content = response.text.lower()
             
             fields = {}
@@ -184,15 +193,20 @@ class WeakCredentialEngine(DetectionEngineProtocol):
             return fields
             
         except Exception as e:
-            logger.debug(f"識別登錄字段失敗: {e}")
+            log_detection_error(logger, "識別登錄字段失敗", e)
             return {"username": "username", "password": "password"}
 
     async def _get_csrf_token(
-        self, target: FunctionTaskTarget, client: httpx.AsyncClient
+        self,
+        target: FunctionTaskTarget,
+        client: httpx.AsyncClient,
+        smart_manager: UnifiedSmartDetectionManager,
     ) -> str | None:
         """獲取CSRF token"""
         try:
-            response = await client.get(str(target.url), timeout=10.0)
+            response = await smart_manager.send_request(
+                client, target, timeout=10.0
+            )
             html_content = response.text
             
             import re
@@ -213,7 +227,7 @@ class WeakCredentialEngine(DetectionEngineProtocol):
             return None
             
         except Exception as e:
-            logger.debug(f"獲取CSRF token失敗: {e}")
+            log_detection_error(logger, "獲取CSRF token失敗", e)
             return None
 
     async def _is_successful_login(
@@ -282,9 +296,10 @@ class SessionFixationEngine(DetectionEngineProtocol):
         findings: list[FindingPayload] = []
 
         for target in [task.target]:
+            log_detection_start(logger, self.get_engine_name(), str(target.url))
             try:
                 # 第一步：獲取初始會話ID
-                initial_response = await client.get(str(target.url))
+                initial_response = await smart_manager.send_request(client, target)
                 initial_session = self._extract_session_id(initial_response)
 
                 if not initial_session:
@@ -292,10 +307,12 @@ class SessionFixationEngine(DetectionEngineProtocol):
 
                 # 第二步：使用固定會話ID登錄
                 login_data = {"username": "test", "password": "test"}
-                login_response = await client.post(
-                    str(target.url),
+                login_response = await smart_manager.send_request(
+                    client,
+                    target,
+                    method="POST",
                     data=login_data,
-                    cookies={"sessionid": initial_session}
+                    cookies={"sessionid": initial_session},
                 )
 
                 # 第三步：檢查登錄後會話ID是否改變
@@ -314,23 +331,20 @@ class SessionFixationEngine(DetectionEngineProtocol):
                         response_time_delta=login_response.elapsed.total_seconds()
                     )
 
-                    finding = FindingPayload(
-                        finding_id=new_id("finding"),
-                        task_id=task.task_id,
-                        scan_id=task.scan_id,
-                        status="detected",
+                    finding = smart_manager.serialize_finding(
+                        task,
                         vulnerability=vulnerability,
+                        evidence=evidence,
                         target=FindingTarget(
                             url=str(target.url),
                             parameter="session_id",
-                            method="POST"
+                            method="POST",
                         ),
-                        evidence=evidence
                     )
                     findings.append(finding)
 
             except Exception as e:
-                logger.debug(f"會話固定檢測錯誤: {e}")
+                log_detection_error(logger, "會話固定檢測錯誤", e)
                 continue
 
         return findings
@@ -360,15 +374,20 @@ class TokenValidationEngine(DetectionEngineProtocol):
         findings: list[FindingPayload] = []
 
         for target in [task.target]:
+            log_detection_start(logger, self.get_engine_name(), str(target.url))
             try:
                 # 檢測 JWT 'none' 算法漏洞
-                findings.extend(await self._check_jwt_none_algorithm(target, client, task))
+                findings.extend(
+                    await self._check_jwt_none_algorithm(target, client, task, smart_manager)
+                )
 
                 # 檢測令牌篡改
-                findings.extend(await self._check_token_tampering(target, client, task))
+                findings.extend(
+                    await self._check_token_tampering(target, client, task, smart_manager)
+                )
 
             except Exception as e:
-                logger.debug(f"令牌驗證檢測錯誤: {e}")
+                log_detection_error(logger, "令牌驗證檢測錯誤", e)
                 continue
 
         return findings
@@ -377,7 +396,8 @@ class TokenValidationEngine(DetectionEngineProtocol):
         self,
         target: FunctionTaskTarget,
         client: httpx.AsyncClient,
-        task: FunctionTaskPayload
+        task: FunctionTaskPayload,
+        smart_manager: UnifiedSmartDetectionManager,
     ) -> list[FindingPayload]:
         """檢測JWT使用不安全的'none'算法"""
         findings: list[FindingPayload] = []
@@ -397,9 +417,10 @@ class TokenValidationEngine(DetectionEngineProtocol):
             jwt_token = f"{header_b64}.{payload_b64}."
 
             # 嘗試使用這個token訪問受保護資源
-            response = await client.get(
-                str(target.url),
-                headers={"Authorization": f"Bearer {jwt_token}"}
+            response = await smart_manager.send_request(
+                client,
+                target,
+                headers={"Authorization": f"Bearer {jwt_token}"},
             )
 
             if response.status_code == 200:
@@ -415,23 +436,20 @@ class TokenValidationEngine(DetectionEngineProtocol):
                     response_time_delta=0.0
                 )
 
-                finding = FindingPayload(
-                    finding_id=new_id("finding"),
-                    task_id=task.task_id,
-                    scan_id=task.scan_id,
-                    status="detected",
+                finding = smart_manager.serialize_finding(
+                    task,
                     vulnerability=vulnerability,
+                    evidence=evidence,
                     target=FindingTarget(
                         url=str(target.url),
                         parameter="JWT",
-                        method="GET"
+                        method="GET",
                     ),
-                    evidence=evidence
                 )
                 findings.append(finding)
 
         except Exception as e:
-            logger.debug(f"JWT none算法檢測錯誤: {e}")
+            log_detection_error(logger, "JWT none算法檢測錯誤", e)
 
         return findings
 
@@ -439,7 +457,8 @@ class TokenValidationEngine(DetectionEngineProtocol):
         self,
         target: FunctionTaskTarget,
         client: httpx.AsyncClient,
-        task: FunctionTaskPayload
+        task: FunctionTaskPayload,
+        smart_manager: UnifiedSmartDetectionManager,
     ) -> list[FindingPayload]:
         """檢測令牌篡改漏洞"""
         findings: list[FindingPayload] = []
@@ -448,9 +467,10 @@ class TokenValidationEngine(DetectionEngineProtocol):
             # 篡改令牌（修改用戶名為admin）
             tampered_token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjoiYWRtaW4ifQ.signature"
 
-            response = await client.get(
-                str(target.url),
-                headers={"Authorization": f"Bearer {tampered_token}"}
+            response = await smart_manager.send_request(
+                client,
+                target,
+                headers={"Authorization": f"Bearer {tampered_token}"},
             )
 
             if response.status_code == 200:
@@ -466,23 +486,20 @@ class TokenValidationEngine(DetectionEngineProtocol):
                     response_time_delta=response.elapsed.total_seconds()
                 )
 
-                finding = FindingPayload(
-                    finding_id=new_id("finding"),
-                    task_id=task.task_id,
-                    scan_id=task.scan_id,
-                    status="detected",
+                finding = smart_manager.serialize_finding(
+                    task,
                     vulnerability=vulnerability,
+                    evidence=evidence,
                     target=FindingTarget(
                         url=str(target.url),
                         parameter="JWT",
-                        method="GET"
+                        method="GET",
                     ),
-                    evidence=evidence
                 )
                 findings.append(finding)
 
         except Exception as e:
-            logger.debug(f"令牌篡改檢測錯誤: {e}")
+            log_detection_error(logger, "令牌篡改檢測錯誤", e)
 
         return findings
 
@@ -503,15 +520,20 @@ class AuthBypassEngine(DetectionEngineProtocol):
         findings: list[FindingPayload] = []
 
         for target in [task.target]:
+            log_detection_start(logger, self.get_engine_name(), str(target.url))
             try:
                 # 檢測無令牌訪問
-                findings.extend(await self._check_no_token_access(target, client, task))
+                findings.extend(
+                    await self._check_no_token_access(target, client, task, smart_manager)
+                )
 
                 # 檢測HTTP方法覆寫
-                findings.extend(await self._check_http_method_override(target, client, task))
+                findings.extend(
+                    await self._check_http_method_override(target, client, task, smart_manager)
+                )
 
             except Exception as e:
-                logger.debug(f"授權繞過檢測錯誤: {e}")
+                log_detection_error(logger, "授權繞過檢測錯誤", e)
                 continue
 
         return findings
@@ -520,13 +542,14 @@ class AuthBypassEngine(DetectionEngineProtocol):
         self,
         target: FunctionTaskTarget,
         client: httpx.AsyncClient,
-        task: FunctionTaskPayload
+        task: FunctionTaskPayload,
+        smart_manager: UnifiedSmartDetectionManager,
     ) -> list[FindingPayload]:
         """檢測無令牌時是否能訪問受保護資源"""
         findings: list[FindingPayload] = []
 
         try:
-            response = await client.get(str(target.url))
+            response = await smart_manager.send_request(client, target)
 
             # 如果沒有令牌也能成功訪問（200狀態碼）
             if response.status_code == 200:
@@ -542,23 +565,20 @@ class AuthBypassEngine(DetectionEngineProtocol):
                     response_time_delta=response.elapsed.total_seconds()
                 )
 
-                finding = FindingPayload(
-                    finding_id=new_id("finding"),
-                    task_id=task.task_id,
-                    scan_id=task.scan_id,
-                    status="detected",
+                finding = smart_manager.serialize_finding(
+                    task,
                     vulnerability=vulnerability,
+                    evidence=evidence,
                     target=FindingTarget(
                         url=str(target.url),
                         parameter="authorization",
-                        method="GET"
+                        method="GET",
                     ),
-                    evidence=evidence
                 )
                 findings.append(finding)
 
         except Exception as e:
-            logger.debug(f"無令牌訪問檢測錯誤: {e}")
+            log_detection_error(logger, "無令牌訪問檢測錯誤", e)
 
         return findings
 
@@ -566,7 +586,8 @@ class AuthBypassEngine(DetectionEngineProtocol):
         self,
         target: FunctionTaskTarget,
         client: httpx.AsyncClient,
-        task: FunctionTaskPayload
+        task: FunctionTaskPayload,
+        smart_manager: UnifiedSmartDetectionManager,
     ) -> list[FindingPayload]:
         """檢測HTTP方法覆寫繞過"""
         findings: list[FindingPayload] = []
@@ -580,9 +601,11 @@ class AuthBypassEngine(DetectionEngineProtocol):
 
         for header_name, method in override_headers:
             try:
-                response = await client.post(
-                    str(target.url),
-                    headers={header_name: method}
+                response = await smart_manager.send_request(
+                    client,
+                    target,
+                    method="POST",
+                    headers={header_name: method},
                 )
 
                 if response.status_code == 200:
@@ -598,30 +621,27 @@ class AuthBypassEngine(DetectionEngineProtocol):
                         response_time_delta=response.elapsed.total_seconds()
                     )
 
-                    finding = FindingPayload(
-                        finding_id=new_id("finding"),
-                        task_id=task.task_id,
-                        scan_id=task.scan_id,
-                        status="detected",
+                    finding = smart_manager.serialize_finding(
+                        task,
                         vulnerability=vulnerability,
+                        evidence=evidence,
                         target=FindingTarget(
                             url=str(target.url),
                             parameter=header_name,
-                            method="POST"
+                            method="POST",
                         ),
-                        evidence=evidence
                     )
                     findings.append(finding)
                     break
 
             except Exception as e:
-                logger.debug(f"HTTP方法覆寫檢測錯誤: {e}")
+                log_detection_error(logger, "HTTP方法覆寫檢測錯誤", e)
                 continue
 
         return findings
 
 
-class EnhancedAuthModule(BaseFunctionModule):
+class EnhancedAuthModule(BaseDetectionModule):
     """增強的認證授權檢測模組 - 整合四種檢測引擎"""
 
     def __init__(self, config: AuthConfig | None = None):
