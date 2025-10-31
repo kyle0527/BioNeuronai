@@ -225,6 +225,7 @@ class ImprovedBioNeuron(BaseNeuron):
         return float(target)
 
 
+
 class CuriositDrivenNet:
     """好奇心驅動的神經網路，支援獎勵輸出與動態調節"""
 
@@ -373,5 +374,8 @@ class CuriositDrivenNet:
         }
 
 
-# 向後兼容的別名
-BioNeuronV2 = ImprovedBioNeuron
+def __getattr__(name: str):  # pragma: no cover - simple compatibility shim
+    if name in {"CuriosityDrivenNet", "CuriositDrivenNet"}:
+        from .curiosity import CuriosityDrivenNet
+
+

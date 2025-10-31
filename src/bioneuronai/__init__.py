@@ -3,6 +3,7 @@
 """Unified public API surface for BioNeuronAI."""
 
 from .core import BioNeuron, BioLayer, BioNet, cli_loop
+
 from .tool_gating import ToolDescriptor, ToolGatingManager, NoveltyThresholdStrategy
 
 __all__ = [
@@ -35,6 +36,28 @@ __all__ = [
 ]
 
 try:
+
+    from .improved_core import ImprovedBioNeuron, BioNeuronV2
+    __all__ = [
+        "BioNeuron",
+        "BioLayer",
+        "BioNet",
+        "cli_loop",
+        "ImprovedBioNeuron",
+        "CuriosityConfig",
+        "CuriosityDrivenNet",
+        "BioNeuronV2",
+    ]
+except ImportError:
+    __all__ = [
+        "BioNeuron",
+        "BioLayer",
+        "BioNet",
+        "cli_loop",
+        "CuriosityConfig",
+        "CuriosityDrivenNet",
+    ]
+
     from .improved_core import ImprovedBioNeuron, CuriositDrivenNet, BioNeuronV2
 
 
@@ -66,6 +89,7 @@ __all__ = _core_exports + [
     "RetrieverProtocol",
     "default_novelty_scorer",
 ]
+
 
 
 

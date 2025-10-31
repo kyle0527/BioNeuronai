@@ -327,4 +327,4 @@ pytest tests/ --cov=bioneuronai
 - API reference: `docs/api/`
 - Tutorials: `docs/tutorials/` (RAG, tool gating, dashboard, RL)
 
-See the [CHANGELOG](CHANGELOG.md) for release history and upgrade notes.
+
