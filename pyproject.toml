@@ -24,8 +24,7 @@ classifiers = [
 requires-python = ">=3.8"
 dependencies = [
     "numpy>=1.21.0",
-    "fastapi>=0.110",
-    "uvicorn>=0.23",
+
 ]
 
 [project.optional-dependencies]
@@ -41,6 +40,7 @@ dev = [
 examples = [
     "matplotlib>=3.5.0",
     "jupyter",
+    "streamlit>=1.25.0",
 ]
 
 [project.scripts]
