@@ -1,5 +1,13 @@
+import json
+import sys
+from pathlib import Path
+
 import numpy as np
-from bioneuronai.core import BioNeuron, BioLayer, BioNet
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "src"))
+
+from bioneuronai.core import BioNeuron, BioLayer, BioNet, NetworkBuilder
 
 
 class TestBioNeuron:
@@ -101,21 +109,83 @@ class TestBioNet:
         """測試網路前向傳播"""
         net = BioNet()
         inputs = [0.5, 0.8]
-        l2_out, l1_out = net.forward(inputs)
-        
-        assert len(l2_out) == 3
-        assert len(l1_out) == 3
-        assert all(0.0 <= out <= 1.0 for out in l2_out + l1_out)
+        final_out, layer_outputs = net.forward(inputs)
+
+        assert len(final_out) == 3
+        assert len(layer_outputs) == 2
+        flattened = [value for layer in layer_outputs for value in layer]
+        assert all(0.0 <= out <= 1.0 for out in final_out + flattened)
 
     def test_network_learning(self):
         """測試網路學習"""
         net = BioNet()
         inputs = [0.6, 0.4]
-        
+
         # 執行學習
         net.learn(inputs)
-        
+
         # 至少網路應該能正常運行
-        l2_out, l1_out = net.forward(inputs)
-        assert len(l2_out) == 3
-        assert len(l1_out) == 3
+        final_out, layer_outputs = net.forward(inputs)
+        assert len(final_out) == 3
+        assert len(layer_outputs) == 2
+
+    def test_custom_topology_from_dict(self):
+        builder = NetworkBuilder()
+        config = {
+            "input_dim": 2,
+            "layers": [
+                {"size": 4, "params": {"threshold": 0.3}},
+                {"size": 2, "params": {"threshold": 0.9}},
+            ],
+        }
+        net = BioNet(config=config, builder=builder)
+
+        final_out, layer_outputs = net.forward([0.2, 0.7])
+        assert len(layer_outputs) == 2
+        assert len(layer_outputs[0]) == 4
+        assert len(final_out) == 2
+
+    def test_load_from_json(self, tmp_path: Path):
+        config = {
+            "input_dim": 3,
+            "layers": [
+                {"size": 5},
+                {"size": 1, "params": {"threshold": 0.4}},
+            ],
+        }
+        json_path = tmp_path / "net.json"
+        json_path.write_text(json.dumps(config), encoding="utf-8")
+
+        net = BioNet(config=json_path)
+        final_out, layer_outputs = net.forward([0.1, 0.2, 0.3])
+
+        assert len(layer_outputs) == 2
+        assert len(layer_outputs[0]) == 5
+        assert len(final_out) == 1
+
+    def test_mixed_neuron_types(self):
+        class ScalingNeuron(BioNeuron):
+            def __init__(self, *, scale: float = 0.5, **kwargs):
+                super().__init__(**kwargs)
+                self.scale = scale
+
+            def forward(self, inputs):  # type: ignore[override]
+                base = super().forward(inputs)
+                return min(1.0, base * self.scale)
+
+        builder = NetworkBuilder({"ScalingNeuron": ScalingNeuron})
+        config = {
+            "input_dim": 2,
+            "layers": [
+                {"size": 2, "neuron_type": "ScalingNeuron", "params": {"scale": 0.8}},
+                {"size": 3},
+            ],
+        }
+
+        net = BioNet(config=config, builder=builder)
+        final_out, layer_outputs = net.forward([0.9, 0.1])
+
+        assert len(layer_outputs) == 2
+        assert len(layer_outputs[0]) == 2
+        assert len(final_out) == 3
+        assert any(out < 1.0 for out in layer_outputs[0])
