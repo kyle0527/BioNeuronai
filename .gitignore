@@ -1,0 +1,64 @@
+
+=
+
+
+
+
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.tox/
+.coverage
+.coverage.*
+htmlcov/
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pytype/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv
+
+# Merge conflict resolution artifacts
+conflicts_report.md
+*_conflicts.md
+phase*_report.md
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.log
+
+# Build artifacts
+*.whl
+
+# OS specific
+Thumbs.db
+.DS_Store
+
+
+
+
+
