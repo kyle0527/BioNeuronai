@@ -81,21 +81,4 @@ class BioNet:
         self.layer1.learn(inputs, l1_out)
 
 
-def cli_loop() -> None:
-    net = BioNet()
-    print("== BioNeuron CLI ==")
-    while True:
-        s = input("請輸入兩個數字 (a b) 或 q 離開：")
-        if s.lower() == "q":
-            break
-        try:
-            a, b = map(float, s.strip().split())
-        except ValueError:
-            print("格式錯誤，請再輸入")
-            continue
-        outputs, _ = net.forward([a, b])
-        print(f"\u8f38\u51fa：{outputs} | novelty={net.layer1.neurons[0].novelty_score():.3f}")
-        net.learn([a, b])
-
-
 # TODO: 之後若改 LIF + STDP，保留此 API，不破壞上層介面.
