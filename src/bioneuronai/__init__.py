@@ -1,21 +1,60 @@
+
+
+"""Unified public API surface for BioNeuronAI."""
+
 from .core import BioNeuron, BioLayer, BioNet, cli_loop
-from .neuron_types import NEURON_REGISTRY, BaseSpikingNeuron, LIFNeuron, STDPNeuron
+
+from .neuron_base import BaseNeuron, SupportsBatchLearning
 
 __all__ = [
-    "BioNeuron",
+    "BaseNeuron",
+    "SupportsBatchLearning",
+
     "BioLayer",
     "BioNet",
     "cli_loop",
-    "BaseSpikingNeuron",
+
+    "NetworkBuilder",
+    "BuiltNetwork",
+    "BuiltLayer",
+    "BaseBioNeuron",
     "LIFNeuron",
-    "STDPNeuron",
-    "NEURON_REGISTRY",
+    "AntiHebbNeuron",
+
 ]
 
-# 導入改進版本 (可選)
 try:
     from .improved_core import ImprovedBioNeuron, CuriositDrivenNet, BioNeuronV2
-except ImportError:
-    pass
-else:
-    __all__.extend(["ImprovedBioNeuron", "CuriositDrivenNet", "BioNeuronV2"])
+
+
+        "BioLayer",
+        "BioNet",
+        "cli_loop",
+
+        "ImprovedBioNeuron",
+        "CuriositDrivenNet",
+        "BioNeuronV2",
+    ]
+
+except ImportError:  # pragma: no cover - improved core is optional
+    _core_exports = ["BioNeuron", "BioLayer", "BioNet", "cli_loop"]
+
+from .agents.retrieval_controller import (
+    InMemoryVectorRetriever,
+    RetrievalController,
+    RetrievalDecision,
+    RetrieverProtocol,
+    default_novelty_scorer,
+)
+
+__all__ = _core_exports + [
+    "RetrievalController",
+    "InMemoryVectorRetriever",
+    "RetrievalDecision",
+    "RetrieverProtocol",
+    "default_novelty_scorer",
+]
+
+
+
+
