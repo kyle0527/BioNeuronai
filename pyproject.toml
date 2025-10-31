@@ -8,8 +8,20 @@ version = "0.1.0"
 description = "Bio-inspired novelty gate for AI assistants with Hebbian learning"
 readme = "README.md"
 authors = [
-    {name = "Your Name", email = "your.email@example.com"}
+    {name = "BioNeuronAI Team", email = "maintainers@bioneuron.ai"},
 ]
+keywords = [
+    "hebbian-learning",
+    "novelty-detection",
+    "llm-tools",
+    "rag",
+    "reinforcement-learning",
+]
+
+[project.urls]
+Homepage = "https://github.com/BioNeuronAI/BioNeuronai"
+Repository = "https://github.com/BioNeuronAI/BioNeuronai"
+Documentation = "https://github.com/BioNeuronAI/BioNeuronai#readme"
 license = {text = "MIT"}
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -24,6 +36,7 @@ classifiers = [
 requires-python = ">=3.8"
 dependencies = [
     "numpy>=1.21.0",
+ain
 ]
 
 [project.optional-dependencies]
@@ -34,14 +47,21 @@ dev = [
     "isort",
     "mypy",
     "flake8",
+    "httpx>=0.24",
 ]
 examples = [
     "matplotlib>=3.5.0",
     "jupyter",
+    "streamlit>=1.25.0",
+]
+docs = [
+    "mkdocs>=1.5",
+    "mkdocs-material>=9.4",
+    "mkdocstrings[python]>=0.24",
 ]
 
 [project.scripts]
-bioneuron-cli = "bioneuronai.core:cli_loop"
+bioneuron-cli = "bioneuronai.cli:main"
 
 [tool.black]
 line-length = 88
