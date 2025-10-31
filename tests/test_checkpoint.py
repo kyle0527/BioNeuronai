@@ -115,6 +115,7 @@ def test_network_save_and_load_roundtrip(tmp_path):
     )
 
 
+
 def test_network_load_state_trims_extra_layers():
     net = BioNet()
     baseline_state = net.to_dict()
@@ -128,3 +129,4 @@ def test_network_load_state_trims_extra_layers():
 
     assert len(layers_after) == len(baseline_state["layers"])
     assert not hasattr(net, "layer3")
+

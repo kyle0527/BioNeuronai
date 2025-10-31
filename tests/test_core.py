@@ -173,6 +173,7 @@ class TestBioNet:
         assert len(l1_out) == 3
 
 
+
     def test_network_state_roundtrip(self, tmp_path):
         """網路狀態序列化往返"""
         net = BioNet()

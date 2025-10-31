@@ -11,6 +11,7 @@ try:
         "BioNet",
         "cli_loop",
 
+
         "ImprovedBioNeuron",
         "CuriositDrivenNet",
         "BioNeuronV2",

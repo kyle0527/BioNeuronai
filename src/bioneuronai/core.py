@@ -4,7 +4,7 @@ import importlib
 import json
 from pathlib import Path
 from typing import List, Sequence, Tuple, Type
-
+n
 import numpy as np
 
 from .base import BaseBioNeuron
@@ -91,6 +91,7 @@ class BioNeuron(BaseBioNeuron):
         learning_rate = float(config.get("learning_rate", 0.01))
         memory_len = int(config.get("memory_len", max(len(state.get("input_memory", [])), 1)))
 
+
     def configure_online_learning(
         self, window_size: int | None, stability_coefficient: float | None = None
     ) -> None:
@@ -144,11 +145,27 @@ class BioNeuron(BaseBioNeuron):
         stability_coefficient = float(data["stability_coefficient"][0])
 
 
+
         neuron = cls(
             num_inputs=num_inputs,
             threshold=threshold,
             learning_rate=learning_rate,
             memory_len=memory_len,
+
+        )
+        if weights:
+            neuron.weights = np.asarray(weights, dtype=np.float32)
+        input_memory = state.get("input_memory", [])
+        neuron.input_memory = [np.asarray(mem, dtype=np.float32) for mem in input_memory][-neuron.memory_len :]
+        return neuron
+
+    def get_statistics(self) -> dict:
+        return {
+            "novelty_score": self.novelty_score(),
+            "memory_length": len(self.input_memory),
+            "threshold": self.threshold,
+        }
+
 
             online_window=online_window if online_window > 0 else None,
             stability_coefficient=stability_coefficient,
@@ -194,6 +211,7 @@ class BioNeuron(BaseBioNeuron):
 
 
 
+
 class BioLayer:
     def __init__(
         self,
@@ -213,6 +231,76 @@ class BioLayer:
     def learn(self, inputs: Sequence[float], outputs: Sequence[float]) -> None:
         for n, out in zip(self.neurons, outputs):
             n.hebbian_learn(inputs, out)
+
+    # ------------------------------------------------------------------
+    # Serialization helpers
+    # ------------------------------------------------------------------
+    def to_dict(self) -> dict:
+        return {
+            "neuron_cls": f"{self.neuron_cls.__module__}:{self.neuron_cls.__name__}",
+            "neuron_kwargs": self.neuron_kwargs,
+            "n_neurons": len(self.neurons),
+            "input_dim": self.input_dim,
+            "neurons": [neuron.to_dict() for neuron in self.neurons],
+        }
+
+    def load_state(self, data: dict) -> None:
+        neurons_data = data.get("neurons", [])
+        self.neurons = [BaseBioNeuron.from_dict(d) for d in neurons_data]
+        cls_path = data.get("neuron_cls")
+        if cls_path:
+            module_name, _, class_name = cls_path.partition(":")
+            try:
+                module = importlib.import_module(module_name)
+                self.neuron_cls = getattr(module, class_name)
+            except (ImportError, AttributeError):  # pragma: no cover - defensive
+                self.neuron_cls = BioNeuron
+        self.neuron_kwargs = data.get("neuron_kwargs", {})
+        self.input_dim = int(data.get("input_dim", self.input_dim))
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "BioLayer":
+        cls_path = data.get("neuron_cls")
+        neuron_kwargs = data.get("neuron_kwargs", {})
+        neurons_data = data.get("neurons", [])
+        n_neurons = int(data.get("n_neurons", len(neurons_data)))
+
+        neuron_cls: Type[BaseBioNeuron] = BioNeuron
+        if cls_path:
+            module_name, _, class_name = cls_path.partition(":")
+            try:
+                module = importlib.import_module(module_name)
+                loaded_cls = getattr(module, class_name)
+                if issubclass(loaded_cls, BaseBioNeuron):
+                    neuron_cls = loaded_cls
+            except (ImportError, AttributeError, TypeError):  # pragma: no cover - defensive
+                neuron_cls = BioNeuron
+
+        if neurons_data:
+            input_dim = int(
+                data.get(
+                    "input_dim",
+                    neurons_data[0]["state"].get("config", {}).get(
+                        "num_inputs",
+                        len(neurons_data[0]["state"].get("weights", [])),
+                    ),
+                )
+            )
+        else:
+            input_dim = int(data.get("input_dim", 0))
+
+        layer = cls(
+            n_neurons=n_neurons,
+            input_dim=input_dim,
+            neuron_cls=neuron_cls,
+            **neuron_kwargs,
+        )
+        if neurons_data:
+            layer.neurons = [BaseBioNeuron.from_dict(d) for d in neurons_data]
+        layer.neuron_kwargs = neuron_kwargs
+        layer.input_dim = input_dim
+        layer.neuron_cls = neuron_cls
+        return layer
 
 
     def configure_online_learning(
@@ -300,6 +388,7 @@ class BioNet:
         self.layer1.learn(inputs, l1_out)
 
     def get_layers(self) -> List[BioLayer]:
+
         layers: List[BioLayer] = []
         index = 1
         while True:
@@ -327,19 +416,23 @@ class BioNet:
         for idx, state in enumerate(layers_data):
             if idx < len(current_layers):
                 current_layers[idx].load_state(state)
+
                 layer = current_layers[idx]
             else:
                 layer = BioLayer.from_dict(state)
             updated_layers.append(layer)
 
+
         for idx, layer in enumerate(updated_layers, start=1):
             setattr(self, f"layer{idx}", layer)
+
 
         # Remove any leftover layers not present in the serialized state.
         extra_index = len(updated_layers) + 1
         while hasattr(self, f"layer{extra_index}"):
             delattr(self, f"layer{extra_index}")
             extra_index += 1
+
 
     def save(self, path: str | Path, state: dict | None = None) -> dict:
         target = Path(path)
@@ -439,6 +532,7 @@ def cli_loop(argv: Sequence[str] | None = None) -> None:
 
     if args.online_window:
         net.configure_online_learning(args.online_window, args.stability)
+
 
     print("== BioNeuron CLI ==")
     print("輸入 'save <path>' 保存、'load <path>' 重新載入、'q' 離開。")
