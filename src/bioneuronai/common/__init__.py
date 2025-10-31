@@ -1,3 +1,4 @@
+
 """Lightweight common interfaces for security modules.
 
 These stubs provide the minimal abstractions required by the production
@@ -17,4 +18,20 @@ __all__ = [
     "IDORConfig",
     "SQLiConfig",
     "UnifiedSmartDetectionManager",
+
+"""Shared utilities for production detection modules."""
+
+from .response_novelty_analyzer import ResponseNoveltyAnalyzer
+from .unified_smart_detection_manager import (
+    DetectionDecision,
+    DetectionRuleResult,
+    UnifiedSmartDetectionManager,
+)
+
+__all__ = [
+    "ResponseNoveltyAnalyzer",
+    "UnifiedSmartDetectionManager",
+    "DetectionDecision",
+    "DetectionRuleResult",
+
 ]

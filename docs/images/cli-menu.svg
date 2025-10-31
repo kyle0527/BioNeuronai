@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360" viewBox="0 0 640 360">
+  <rect width="640" height="360" fill="#0b132b"/>
+  <rect x="40" y="40" width="560" height="280" rx="12" fill="#1c2541" stroke="#5bc0be" stroke-width="2"/>
+  <text x="60" y="80" fill="#5bc0be" font-size="24" font-family="'Fira Code', monospace">$ bioneuron-cli interactive</text>
+  <text x="60" y="120" fill="#f4f4f9" font-size="18" font-family="'Fira Code', monospace">== BioNeuron 互動選單 ==</text>
+  <text x="60" y="155" fill="#c7f9cc" font-size="16" font-family="'Fira Code', monospace">[1] 單筆推論  [2] 查看統計  [3] 載入批次檔  [q] 離開</text>
+  <text x="60" y="190" fill="#f4f4f9" font-size="16" font-family="'Fira Code', monospace">輸出: [0.732, 0.715, 0.701] | 平均新穎性: 0.284</text>
+  <text x="60" y="225" fill="#f4f4f9" font-size="16" font-family="'Fira Code', monospace">=== BioNeuron 統計 ===</text>
+  <text x="60" y="255" fill="#f4f4f9" font-size="15" font-family="'Fira Code', monospace">觸發閾值: 0.800</text>
+  <text x="60" y="285" fill="#f4f4f9" font-size="15" font-family="'Fira Code', monospace">平均新穎性: 0.286</text>
+  <text x="60" y="315" fill="#f4f4f9" font-size="15" font-family="'Fira Code', monospace">權重: [0.612, 0.421] · [0.558, 0.497] · [0.602, 0.533]</text>
+</svg>
