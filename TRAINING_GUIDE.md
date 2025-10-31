@@ -4,6 +4,32 @@
 
 本指南將幫助您訓練和優化生產級安全檢測模組，包括 SQL 注入、IDOR 和認證漏洞檢測。
 
+## 🤖 RAG 與新穎性門控整合
+
+除了安全檢測模組，本專案亦提供 `RetrievalController` 幫助助理在對話中判斷是否需要呼叫外部知識庫。只要當前輸入與既有上下文的重疊度低於指定閾值，就會自動觸發檢索流程，適合在訓練資料整理或模擬攻擊案例時取得輔助資訊。控制器能處理字串列表，亦支援含有 `content` 欄位的訊息字典，方便直接串接主流聊天模型。
+
+```python
+from bioneuronai.agents.retrieval_controller import InMemoryVectorRetriever, RetrievalController
+
+documents = {
+    "sql_guidelines": "Use parameterized queries to avoid SQL injection.",
+    "idor": "IDOR issues arise when user-controlled identifiers lack authorization checks.",
+}
+retriever = InMemoryVectorRetriever(documents)
+controller = RetrievalController(retriever, novelty_threshold=0.45)
+
+conversation = [
+    {"role": "system", "content": "你是一名安全研究助理。"},
+    {"role": "user", "content": "我們正在分析 SQLi 測試報告"},
+    {"role": "user", "content": "還有哪些資源可以幫助我理解 IDOR?"},
+]
+
+if controller.maybe_retrieve(conversation).triggered:
+    print("補充資料:", documents["idor"])
+```
+
+在教學演練中可結合此機制，於模型遇到陌生場景時自動補充背景資料。更多實戰示例請執行 `examples/rag_chatbot.py`。
+
 ## 🎯 訓練目標
 
 1. **提高檢測準確率** - 減少誤報和漏報
@@ -55,6 +81,53 @@ normal_samples = [
     # ... 更多樣本
 ]
 ```
+
+#### 1.1 新穎性模型樣本蒐集指南
+
+> ✅ **目標**：建立可區分「常態行為」與「未知異常行為」的資料池，供 `ResponseNoveltyAnalyzer` 訓練使用。
+
+1. **常態樣本 (Baseline)**
+   - 來源：日常操作流程、已知安全的 API 互動、滲透測試前的暖身請求。
+   - 收集方法：
+     ```python
+     from bioneuronai.common import ResponseNoveltyAnalyzer
+
+     analyzer = ResponseNoveltyAnalyzer(input_dim=5)
+
+     def record_baseline_features(response):
+         features = build_feature_vector(response)
+         analyzer.observe_baseline(features)
+         save_vector("baseline_dataset.csv", features, label="normal")
+     ```
+   - 重點：需涵蓋不同狀態碼、資料長度、常見 UI 操作路徑，確保模型對常態變化具備耐受度。
+
+2. **異常樣本 (Novel)**
+   - 來源：
+     - 滲透測試產生的零日 payload（例如自動化 Fuzz、紅隊腳本）。
+     - 生產事故或 SOC 告警中的罕見響應。
+     - 模擬實驗：人工設計的極端參數組合、邊界條件請求。
+   - 收集方法：
+     ```python
+     def record_anomalous_features(response, context):
+         features = build_feature_vector(response)
+         analyzer.learn_from_feedback(features, is_anomaly=True)
+         save_vector("novel_dataset.csv", features, label="anomaly", meta=context)
+     ```
+   - 重點：確保標記資訊清晰（攻擊類型、payload、觸發模組），利於後續分析與回放。
+
+3. **特徵建議**
+   - 響應長度、狀態碼、延遲時間、敏感關鍵字命中數、證據條目數等皆可作為 0~1 正規化特徵。
+   - 針對 SQLi/IDOR/Auth 模組可額外紀錄：
+     - SQLi：回應與基準響應的長度差、錯誤訊息旗標。
+     - IDOR：特權層級或用戶 ID 是否變化。
+     - Auth：登入是否成功、是否發出新 session/token。
+
+4. **資料管理實務**
+   - 建議將 baseline 與 anomaly 分開存放，並保留時間戳、來源環境（測試/生產/模擬）。
+   - 將資料版本化（Git LFS 或資料湖）以追蹤模型訓練使用的樣本集。
+   - 每次模型調整後更新 README 或 CHANGELOG，說明新增/移除的樣本與原因。
+
+> 💡 **提示**：定期將最新的誤報/漏報案例回灌至資料集中，搭配 `UnifiedSmartDetectionManager.feedback` 可快速迭代新穎性權重。
 
 #### 2. 執行檢測並記錄結果
 

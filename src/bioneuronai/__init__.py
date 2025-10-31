@@ -1,25 +1,56 @@
-from .core import BioLayer, BioNet, BioNeuron
-from .cli import app as cli_app, main as cli_main
 
 
-def cli_loop() -> None:
-    """Backward compatible CLI entry point."""
+"""Unified public API surface for BioNeuronAI."""
 
-    cli_main()
+from .core import BioNeuron, BioLayer, BioNet, cli_loop
+from .neuron_base import BaseNeuron, SupportsBatchLearning
 
-# 導入改進版本 (可選)
+__all__ = [
+    "BaseNeuron",
+    "SupportsBatchLearning",
+
+    "BioLayer",
+    "BioNet",
+    "cli_loop",
+
+    "NetworkBuilder",
+    "BuiltNetwork",
+    "BuiltLayer",
+    "BaseBioNeuron",
+    "LIFNeuron",
+    "AntiHebbNeuron",
+]
+
 try:
     from .improved_core import ImprovedBioNeuron, CuriositDrivenNet, BioNeuronV2
-    __all__ = [
-        "BioNeuron",
+
         "BioLayer",
         "BioNet",
         "cli_loop",
-        "cli_app",
-        "cli_main",
+
         "ImprovedBioNeuron",
         "CuriositDrivenNet",
         "BioNeuronV2",
     ]
-except ImportError:
-    __all__ = ["BioNeuron", "BioLayer", "BioNet", "cli_loop", "cli_app", "cli_main"]
+
+except ImportError:  # pragma: no cover - improved core is optional
+    _core_exports = ["BioNeuron", "BioLayer", "BioNet", "cli_loop"]
+
+from .agents.retrieval_controller import (
+    InMemoryVectorRetriever,
+    RetrievalController,
+    RetrievalDecision,
+    RetrieverProtocol,
+    default_novelty_scorer,
+)
+
+__all__ = _core_exports + [
+    "RetrievalController",
+    "InMemoryVectorRetriever",
+    "RetrievalDecision",
+    "RetrieverProtocol",
+    "default_novelty_scorer",
+]
+
+
+
