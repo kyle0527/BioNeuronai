@@ -24,6 +24,8 @@ classifiers = [
 requires-python = ">=3.8"
 dependencies = [
     "numpy>=1.21.0",
+    "fastapi>=0.110",
+    "uvicorn>=0.23",
 ]
 
 [project.optional-dependencies]
@@ -34,6 +36,7 @@ dev = [
     "isort",
     "mypy",
     "flake8",
+    "httpx>=0.24",
 ]
 examples = [
     "matplotlib>=3.5.0",
@@ -41,7 +44,7 @@ examples = [
 ]
 
 [project.scripts]
-bioneuron-cli = "bioneuronai.core:cli_loop"
+bioneuron-cli = "bioneuronai.cli:main"
 
 [tool.black]
 line-length = 88

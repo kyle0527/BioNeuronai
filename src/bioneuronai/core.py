@@ -256,6 +256,7 @@ class BioNet:
         self.layer2.learn(l1_out, [target] * 3)
         self.layer1.learn(inputs, l1_out)
 
+
     def configure_online_learning(
         self, window_size: int | None, stability_coefficient: float | None = None
     ) -> None:
@@ -355,6 +356,7 @@ def cli_loop(argv: Sequence[str] | None = None) -> None:
         novelty = net.layer1.neurons[0].novelty_score()
         print(f"輸出：{[round(o, 3) for o in outputs]} | novelty={novelty:.3f}")
         net.learn([a, b])
+
 
     if args.save:
         try:
