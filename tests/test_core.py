@@ -172,6 +172,7 @@ class TestBioNet:
         assert len(l2_out) == 3
         assert len(l1_out) == 3
 
+
     def test_network_state_roundtrip(self, tmp_path):
         """網路狀態序列化往返"""
         net = BioNet()
@@ -200,3 +201,4 @@ class TestBioNet:
                 np.testing.assert_array_almost_equal(
                     neuron_orig.baseline_weights, neuron_restored.baseline_weights
                 )
+
