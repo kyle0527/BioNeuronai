@@ -1,13 +1,59 @@
 #!/usr/bin/env python3
-"""
-BioNeuronAI 基本使用範例
-演示如何使用 BioNeuron 進行模式學習和新穎性檢測
-"""
+"""BioNeuronAI 基本使用範例，支援即時儀表板串流。"""
+
+from __future__ import annotations
+
+import argparse
+from dataclasses import dataclass
+from typing import Optional, Sequence
 
 import numpy as np
 # matplotlib is optional and is imported locally in plot_learning_curve()
 # to avoid import-time errors when matplotlib is not installed.
 from bioneuronai.core import BioNeuron, BioNet
+from bioneuronai.visualization.stats import (
+    InputRecord,
+    SecurityScanStatus,
+    collect_snapshot_from_bionet,
+    default_stats_hub,
+)
+
+
+@dataclass
+class DashboardStreamer:
+    """Helper that pushes network updates to the visualization hub."""
+
+    network: BioNet
+    enable_security_scan: bool = True
+    total_steps: int = 60
+    _step_counter: int = 0
+
+    _phases: tuple[str, ...] = (
+        "初始化",
+        "權重審核",
+        "新穎性校正",
+        "攻擊模擬",
+        "最終審查",
+    )
+
+    def push(self, inputs: Sequence[float], outputs: Sequence[float], novelty: float, *, tag: Optional[str] = None) -> None:
+        security_status: Optional[SecurityScanStatus] = None
+        if self.enable_security_scan:
+            progress = min(1.0, self._step_counter / max(1, self.total_steps))
+            phase_index = min(len(self._phases) - 1, int(progress * len(self._phases)))
+            security_status = SecurityScanStatus(
+                progress=progress,
+                current_phase=self._phases[phase_index],
+                issues_found=max(0, self._step_counter // 15),
+                notes="儀表板示範資料",
+            )
+
+        snapshot = collect_snapshot_from_bionet(self.network, security_status)
+        default_stats_hub.update_snapshot(snapshot)
+        default_stats_hub.log_input(
+            InputRecord(values=inputs, outputs=outputs, novelty=novelty, tag=tag)
+        )
+        self._step_counter += 1
 
 
 def demo_basic_neuron():
@@ -66,12 +112,11 @@ def demo_novelty_detection():
         print(f"步驟 {i+6}: 輸入 {inputs} -> 新穎性 {novelty:.3f}")
 
 
-def demo_network_adaptation():
-    """演示網路適應性學習"""
+def demo_network_adaptation(net: BioNet, streamer: Optional[DashboardStreamer] = None) -> None:
+    """演示網路適應性學習，可選擇串流資料到儀表板。"""
+
     print("\n=== 網路適應性學習演示 ===")
-    
-    net = BioNet()
-    
+
     # 生成一些測試數據
     np.random.seed(42)
     test_patterns = [
@@ -79,18 +124,21 @@ def demo_network_adaptation():
         [0.7, 0.3],
         [0.9, 0.1],
         [0.1, 0.9],
-        [0.5, 0.5]
+        [0.5, 0.5],
     ]
-    
+
     print("網路學習過程:")
     for epoch in range(3):
         print(f"\n第 {epoch + 1} 輪:")
         for i, pattern in enumerate(test_patterns):
             l2_out, l1_out = net.forward(pattern)
             novelty = net.layer1.neurons[0].novelty_score()
-            
+
             print(f"  模式 {i+1} {pattern}: 輸出={l2_out[0]:.3f}, 新穎性={novelty:.3f}")
-            
+
+            if streamer is not None:
+                streamer.push(pattern, l2_out, novelty, tag=f"epoch-{epoch + 1}")
+
             # 學習
             net.learn(pattern)
 
@@ -150,16 +198,45 @@ def plot_learning_curve():
         print("matplotlib 未安裝，跳過繪圖演示")
 
 
-def main():
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="BioNeuronAI basic demo with dashboard streaming support")
+    parser.add_argument(
+        "--stream-dashboard",
+        action="store_true",
+        help="即時將網路狀態與輸入資料串流到 FastAPI 儀表板",
+    )
+    parser.add_argument(
+        "--disable-security-scan",
+        action="store_true",
+        help="停用安全掃描進度模擬",
+    )
+    return parser.parse_args()
+
+
+def main() -> None:
     """主函數"""
+
+    args = parse_args()
+
     print("BioNeuronAI 使用範例")
     print("=" * 50)
-    
+
     demo_basic_neuron()
     demo_novelty_detection()
-    demo_network_adaptation()
+
+    shared_net = BioNet()
+    streamer: Optional[DashboardStreamer] = None
+    if args.stream_dashboard:
+        streamer = DashboardStreamer(
+            shared_net, enable_security_scan=not args.disable_security_scan
+        )
+        # 初始化一次快照讓儀表板在第一筆資料前就有狀態
+        default_stats_hub.update_snapshot(collect_snapshot_from_bionet(shared_net))
+        print("\n[儀表板] 已啟用串流，請啟動 `uvicorn bioneuronai.visualization.api:app --reload` 或使用 docker-compose 觀察儀表板。")
+
+    demo_network_adaptation(shared_net, streamer)
     plot_learning_curve()
-    
+
     print("\n演示完成！")
 
 
