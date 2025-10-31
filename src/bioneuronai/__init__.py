@@ -3,6 +3,17 @@
 """Unified public API surface for BioNeuronAI."""
 
 from .core import BioNeuron, BioLayer, BioNet, cli_loop
+from .tool_gating import ToolDescriptor, ToolGatingManager, NoveltyThresholdStrategy
+
+__all__ = [
+    "BioNeuron",
+    "BioLayer",
+    "BioNet",
+    "cli_loop",
+    "ToolDescriptor",
+    "ToolGatingManager",
+    "NoveltyThresholdStrategy",
+]
 
 from .neuron_base import BaseNeuron, SupportsBatchLearning
 
@@ -25,6 +36,7 @@ __all__ = [
 
 try:
     from .improved_core import ImprovedBioNeuron, CuriositDrivenNet, BioNeuronV2
+
 
 
         "BioLayer",

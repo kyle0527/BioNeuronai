@@ -9,6 +9,7 @@
 
 
 
+
 ### ✨ 特性
 
 - 🧠 **Hebbian 學習**：具備突觸可塑性與短期記憶佇列。
@@ -185,6 +186,47 @@ docker run --rm -it -p 8501:8501 \
 訪問 <http://localhost:8501> 即可看到即時輸出、新穎性曲線與安全模組掃描進度。若使用本機環境，執行 `streamlit run examples/streamlit_dashboard.py` 並依照側欄操作即可。
 
 python examples/basic_demo.py
+
+python examples/tool_gating_demo.py
+```
+
+### 自訂工具門控策略
+
+`ToolGatingManager` 讓你可以透過簡單的成本與新穎性權重對工具呼叫進行排序。
+
+```python
+from bioneuronai.tool_gating import ToolDescriptor, ToolGatingManager
+
+tools = [
+    ToolDescriptor(
+        name="local_reflection",
+        metadata={"category": "analysis"},
+        cost=0.1,
+        novelty_weight=0.4,
+        min_novelty=0.0,
+    ),
+    ToolDescriptor(
+        name="retrieval_search",
+        metadata={"category": "retrieval"},
+        cost=0.6,
+        novelty_weight=1.3,
+        min_novelty=0.55,
+    ),
+]
+
+def threshold_strategy(novelty_score, tool, context):
+    if tool.metadata.get("category") == "retrieval":
+        return max(tool.min_novelty, 0.6)
+    return tool.min_novelty
+
+manager = ToolGatingManager(tools=tools, novelty_threshold_strategy=threshold_strategy)
+selected, details = manager.select_tool(0.72, context={"task_type": "research"}, return_details=True)
+```
+
+在 `smart_assistant.py` 中可以看到完整範例：對於高新穎的研究任務會自動切換到 `retrieval_search` 工具，
+而常規的代碼整理則會保留在低成本的本地推理流程。透過調整 `cost`、`novelty_weight` 以及
+`novelty_threshold_strategy`，即可自訂不同工具的使用優先級。
+=======
 python examples/rag_chatbot.py
 ```
 
@@ -196,6 +238,7 @@ python examples/rag_chatbot.py
 - [案例研究與量化成效報告](docs/case-study.md)：新穎性閘門與安全模組的實務成效。
 - [社群活動規劃](docs/community-engagement.md)：黑客松、工作坊資訊與贊助方案。
 - [產業/學術 PoC 流程](docs/poc-process.md)：合作流程、部署需求與支援範圍。
+
 
 
 ## 🧪 測試
