@@ -45,9 +45,16 @@ neuron.configure_online_learning(window_size=5, stability_coefficient=0.1)
 output = neuron.online_learn([0.8, 0.6])
 print(f"輸出: {output}")
 
+
 # 新穎性檢測
 novelty = neuron.novelty_score()
 print(f"新穎性評分: {novelty}")
+
+
+# 使用多層網路（回傳最終輸出與各層輸出）
+net = BioNet()
+final_out, layer_outputs = net.forward([0.5, 0.8])
+print(final_out, layer_outputs)
 
 # 保存並重新載入神經元狀態
 state_path = Path("neuron_state.npz")
@@ -58,6 +65,7 @@ reloaded = BioNeuron.load_state(state_path)
 net = BioNet()
 net.configure_online_learning(window_size=5, stability_coefficient=0.05)
 l2_out, l1_out = net.forward([0.5, 0.8])
+
 net.learn([0.5, 0.8])
 net.save_state("network_state.npz")
 ```
@@ -200,10 +208,11 @@ BioNeuron(
 - `hebbian_learn(inputs, output)`: Hebbian 學習更新
 - `novelty_score()`: 計算新穎性評分
 
-### BioLayer & BioNet
+### BioLayer、BioNet 與 NetworkBuilder
 
-- `BioLayer`: 多神經元層級抽象
-- `BioNet`: 預定義的雙層網路架構
+- `BioLayer`: 多神經元層級抽象，可注入不同神經元類型
+- `BioNet`: 可透過設定檔（dict/JSON/YAML）動態建立拓樸
+- `NetworkBuilder`: 用於註冊客製神經元並建構多層拓樸
 
 ### 神經元類型比較
 

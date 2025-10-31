@@ -1,3 +1,4 @@
+
 from .base import BaseBioNeuron
 from .checkpoint import CheckpointManager
 from .core import BioNeuron, BioLayer, BioNet, cli_loop
@@ -19,6 +20,7 @@ __all__ = [
 
 try:
     from .improved_core import ImprovedBioNeuron, CuriositDrivenNet, BioNeuronV2
+
 
 
         "BioNeuron",
@@ -49,5 +51,6 @@ __all__ = _core_exports + [
     "RetrieverProtocol",
     "default_novelty_scorer",
 ]
+
 
 

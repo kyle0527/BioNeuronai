@@ -11,12 +11,30 @@ BioNeuronAI 基本使用範例
 """
 
 
-
 from pathlib import Path
 
 import numpy as np
+
 # matplotlib is optional and is imported locally in plot_learning_curve()
 # to avoid import-time errors when matplotlib is not installed.
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "src"))
+
+from bioneuronai.core import BioNeuron, BioNet, NetworkBuilder
+
+
+class ScalingNeuron(BioNeuron):
+    """簡單的縮放型神經元，示範如何混合不同類型神經元"""
+
+    def __init__(self, *, scale: float = 0.5, **kwargs):
+        super().__init__(**kwargs)
+        self.scale = scale
+
+    def forward(self, inputs):  # type: ignore[override]
+        base = super().forward(inputs)
+        return min(1.0, base * self.scale)
+
 from bioneuronai.core import BioNeuron, BioNet
 from bioneuronai.visualization.stats import (
     InputRecord,
@@ -61,6 +79,7 @@ class DashboardStreamer:
             InputRecord(values=inputs, outputs=outputs, novelty=novelty, tag=tag)
         )
         self._step_counter += 1
+
 
 
 def demo_basic_neuron():
@@ -130,6 +149,20 @@ def demo_network_adaptation(net: BioNet, streamer: Optional[DashboardStreamer] =
 
     print("\n=== 網路適應性學習演示 ===")
 
+
+    builder = NetworkBuilder({"ScalingNeuron": ScalingNeuron})
+    custom_config = {
+        "input_dim": 2,
+        "layers": [
+            {"size": 3, "neuron_type": "ScalingNeuron", "params": {"scale": 0.7}},
+            {"size": 4},
+            {"size": 2, "neuron_type": "ScalingNeuron", "params": {"scale": 1.2}},
+        ],
+    }
+    net = BioNet(config=custom_config, builder=builder)
+
+
+
     # 生成一些測試數據
     np.random.seed(42)
     test_patterns = [
@@ -144,6 +177,7 @@ def demo_network_adaptation(net: BioNet, streamer: Optional[DashboardStreamer] =
     for epoch in range(3):
         print(f"\n第 {epoch + 1} 輪:")
         for i, pattern in enumerate(test_patterns):
+
             l2_out, l1_out = net.forward(pattern)
             novelty = net.layer1.neurons[0].novelty_score()
 
@@ -163,6 +197,32 @@ def demo_network_adaptation(net: BioNet, streamer: Optional[DashboardStreamer] =
     restored.configure_online_learning(window_size=5, stability_coefficient=0.05)
     l2_out_restored, _ = restored.forward(test_patterns[-1])
     print(f"\n重新載入後的輸出: {l2_out_restored[0]:.3f} (狀態保存於 {snapshot})")
+
+
+def demo_loading_from_json(tmp_dir: Path | None = None):
+    """演示如何從 JSON 設定建構網路"""
+    print("\n=== JSON 設定載入示例 ===")
+
+    config = {
+        "input_dim": 3,
+        "layers": [
+            {"size": 2, "params": {"threshold": 0.4}},
+            {"size": 2},
+        ],
+    }
+    tmp_dir = tmp_dir or Path.cwd()
+    json_path = tmp_dir / "demo_network.json"
+    json_path.write_text(json.dumps(config, indent=2), encoding="utf-8")
+    print(f"設定檔已寫入：{json_path}")
+
+    net = BioNet(config=json_path)
+    final_out, layer_outputs = net.forward([0.1, 0.5, 0.9])
+    print(f"最終輸出：{final_out} | 各層輸出：{layer_outputs}")
+
+    try:
+        json_path.unlink()
+    except OSError:
+        pass
 
 
 def plot_learning_curve():
@@ -245,6 +305,7 @@ def main() -> None:
 
     demo_basic_neuron()
     demo_novelty_detection()
+
 
     shared_net = BioNet()
     streamer: Optional[DashboardStreamer] = None
