@@ -1,12 +1,20 @@
 from __future__ import annotations
 from typing import List, Sequence, Tuple
+
+from typing import List, Sequence, Tuple
+
 import numpy as np
 
+from .neurons.base import (
+    BaseNeuron,
+    HebbianLearningStrategy,
+    LearningStrategy,
+    NoOpThresholdStrategy,
+)
 
-class BioNeuron:
-    """Bio-inspired neuron with short-term input memory and Hebbian update.
-    (Minimal refactor of your original code; adds type hints and novelty_score.)
-    """
+
+class BioNeuron(BaseNeuron):
+    """Bio-inspired neuron with short-term input memory and Hebbian update."""
 
     def __init__(
         self,
@@ -15,40 +23,22 @@ class BioNeuron:
         learning_rate: float = 0.01,
         memory_len: int = 5,
         seed: int | None = None,
+        *,
+        learning_strategy: LearningStrategy | None = None,
     ) -> None:
-        self.num_inputs = num_inputs
-        rng = np.random.default_rng(seed)
-        self.weights = rng.uniform(0.1, 0.9, num_inputs).astype(np.float32)
-        self.threshold = float(threshold)
-        self.learning_rate = float(learning_rate)
-        self.memory_len = int(memory_len)
-        self.input_memory: List[np.ndarray] = []
-
-    def forward(self, inputs: Sequence[float]) -> float:
-        assert len(inputs) == self.num_inputs
-        x = np.asarray(inputs, dtype=np.float32)
-
-        # short-term memory
-        self.input_memory.append(x)
-        if len(self.input_memory) > self.memory_len:
-            self.input_memory.pop(0)
-
-        potential = float(np.dot(self.weights, x))
-        return min(1.0, potential) if potential >= self.threshold else 0.0
+        super().__init__(
+            num_inputs=num_inputs,
+            threshold=threshold,
+            learning_rate=learning_rate,
+            memory_len=memory_len,
+            seed=seed,
+            learning_strategy=learning_strategy
+            or HebbianLearningStrategy(learning_rate),
+            threshold_strategy=NoOpThresholdStrategy(),
+        )
 
     def hebbian_learn(self, inputs: Sequence[float], output: float) -> None:
-        x = np.asarray(inputs, dtype=np.float32)
-        delta = self.learning_rate * x * float(output)
-        self.weights = np.clip(self.weights + delta, 0.0, 1.0)
-
-    def novelty_score(self) -> float:
-        """Simple novelty proxy: mean abs diff of last two inputs (0~1 scaled)."""
-        if len(self.input_memory) < 2:
-            return 0.0
-        a, b = self.input_memory[-1], self.input_memory[-2]
-        denom = np.maximum(1e-6, np.mean(np.abs(b)))
-        score = float(np.clip(np.mean(np.abs(a - b)) / denom, 0.0, 5.0) / 5.0)
-        return score
+        self.learn(inputs, output)
 
 
 class BioLayer:
