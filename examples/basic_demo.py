@@ -1,13 +1,38 @@
 #!/usr/bin/env python3
-"""
-BioNeuronAI 基本使用範例
-演示如何使用 BioNeuron 進行模式學習和新穎性檢測
+"""BioNeuronAI 基本使用範例
+
+展示以下功能：
+1. BioNeuron 神經元的基本使用與新穎性偵測
+2. 透過 BioNetConfig 宣告任意拓樸、混合神經元組成的網路
+3. 如何將 JSON 組態轉換為網路並進行學習
 """
 
+import json
+from typing import List
+
 import numpy as np
-# matplotlib is optional and is imported locally in plot_learning_curve()
-# to avoid import-time errors when matplotlib is not installed.
-from bioneuronai.core import BioNeuron, BioNet
+
+from bioneuronai import BioNet, BioNetConfig, BioNeuron, LayerConfig, NeuronConfig
+
+
+def demo_programmatic_config() -> None:
+    """展示如何以程式碼組裝異質網路配置."""
+
+    print("\n=== 程式化定義網路拓樸 ===")
+    config = BioNetConfig(
+        input_dim=2,
+        layers=[
+            LayerConfig(
+                neurons=[
+                    NeuronConfig("BioNeuron", count=2, params={"threshold": 0.6}),
+                    NeuronConfig("ImprovedBioNeuron", params={"adaptive_threshold": True}),
+                ]
+            ),
+            LayerConfig(neurons=[NeuronConfig("BioNeuron", count=3)]),
+        ],
+    )
+    net = BioNet(config)
+    print(net.summary())
 
 
 def demo_basic_neuron():
@@ -66,33 +91,44 @@ def demo_novelty_detection():
         print(f"步驟 {i+6}: 輸入 {inputs} -> 新穎性 {novelty:.3f}")
 
 
-def demo_network_adaptation():
-    """演示網路適應性學習"""
-    print("\n=== 網路適應性學習演示 ===")
-    
-    net = BioNet()
-    
-    # 生成一些測試數據
-    np.random.seed(42)
-    test_patterns = [
-        [0.2, 0.8],
-        [0.7, 0.3],
-        [0.9, 0.1],
-        [0.1, 0.9],
-        [0.5, 0.5]
-    ]
-    
-    print("網路學習過程:")
-    for epoch in range(3):
-        print(f"\n第 {epoch + 1} 輪:")
-        for i, pattern in enumerate(test_patterns):
-            l2_out, l1_out = net.forward(pattern)
-            novelty = net.layer1.neurons[0].novelty_score()
-            
-            print(f"  模式 {i+1} {pattern}: 輸出={l2_out[0]:.3f}, 新穎性={novelty:.3f}")
-            
-            # 學習
-            net.learn(pattern)
+def demo_network_adaptation() -> None:
+    """演示如何以 JSON 組態宣告異質拓樸並進行學習."""
+
+    print("\n=== 網路適應性學習 (JSON 組態) ===")
+
+    config_payload = {
+        "input_dim": 2,
+        "layers": [
+            {
+                "neurons": [
+                    {"type": "BioNeuron", "count": 2, "params": {"threshold": 0.7}},
+                    {
+                        "type": "ImprovedBioNeuron",
+                        "params": {"adaptive_threshold": True, "learning_rate": 0.02},
+                    },
+                ]
+            },
+            {"neurons": [{"type": "BioNeuron", "count": 2}]},
+        ],
+    }
+
+    print("宣告 JSON 組態:\n" + json.dumps(config_payload, indent=2, ensure_ascii=False))
+    config = BioNetConfig.from_dict(config_payload)
+    net = BioNet(config)
+    print(net.summary())
+
+    rng = np.random.default_rng(42)
+    test_patterns: List[List[float]] = rng.random((5, config.input_dim)).round(2).tolist()
+
+    for epoch in range(2):
+        print(f"\n第 {epoch + 1} 輪學習:")
+        for pattern in test_patterns:
+            activations = net.forward(pattern)
+            final_outputs = activations[-1]
+            print(f"  輸入 {pattern} -> 最終輸出 {final_outputs}")
+            net.learn(pattern, activations)
+
+    print("\n最終層大小:", net.layer_sizes)
 
 
 def plot_learning_curve():
@@ -157,6 +193,7 @@ def main():
     
     demo_basic_neuron()
     demo_novelty_detection()
+    demo_programmatic_config()
     demo_network_adaptation()
     plot_learning_curve()
     

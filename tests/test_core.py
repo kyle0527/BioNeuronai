@@ -1,5 +1,17 @@
+from pathlib import Path
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+
 import numpy as np
-from bioneuronai.core import BioNeuron, BioLayer, BioNet
+from bioneuronai import (
+    BioLayer,
+    BioNet,
+    BioNetConfig,
+    BioNeuron,
+    LayerConfig,
+    NeuronConfig,
+)
 
 
 class TestBioNeuron:
@@ -97,25 +109,85 @@ class TestBioLayer:
 
 
 class TestBioNet:
+    def _build_default_net(self) -> BioNet:
+        config = BioNetConfig(
+            input_dim=2,
+            layers=[
+                LayerConfig(neurons=[NeuronConfig("BioNeuron", count=3)]),
+                LayerConfig(neurons=[NeuronConfig("BioNeuron", count=3)]),
+            ],
+        )
+        return BioNet(config)
+
     def test_network_forward(self):
-        """測試網路前向傳播"""
-        net = BioNet()
+        """測試動態網路前向傳播"""
+        net = self._build_default_net()
         inputs = [0.5, 0.8]
-        l2_out, l1_out = net.forward(inputs)
-        
-        assert len(l2_out) == 3
-        assert len(l1_out) == 3
-        assert all(0.0 <= out <= 1.0 for out in l2_out + l1_out)
+        activations = net.forward(inputs)
+
+        assert len(activations) == 2
+        assert all(len(layer_out) == 3 for layer_out in activations)
+        assert all(0.0 <= out <= 1.0 for layer_out in activations for out in layer_out)
 
     def test_network_learning(self):
-        """測試網路學習"""
-        net = BioNet()
+        """測試動態網路學習流程"""
+        net = self._build_default_net()
         inputs = [0.6, 0.4]
-        
-        # 執行學習
-        net.learn(inputs)
-        
-        # 至少網路應該能正常運行
-        l2_out, l1_out = net.forward(inputs)
-        assert len(l2_out) == 3
-        assert len(l1_out) == 3
+        activations = net.forward(inputs)
+
+        net.learn(inputs, activations)
+
+        # 重新前向傳播應能取得相同維度的輸出
+        new_outputs = net.forward(inputs)
+        assert [len(layer) for layer in new_outputs] == [3, 3]
+
+    def test_mixed_neuron_learning(self):
+        """同層混合 BioNeuron 與 ImprovedBioNeuron 時仍可學習"""
+        config = BioNetConfig(
+            input_dim=2,
+            layers=[
+                LayerConfig(
+                    neurons=[
+                        NeuronConfig("BioNeuron", params={"seed": 1, "learning_rate": 0.2}),
+                        NeuronConfig(
+                            "ImprovedBioNeuron",
+                            params={"seed": 2, "adaptive_threshold": True, "learning_rate": 0.2},
+                        ),
+                    ]
+                )
+            ],
+        )
+        net = BioNet(config)
+        inputs = [0.3, 0.7]
+        before_weights = [neuron.weights.copy() for neuron in net.layers[0]]
+
+        target_activations = [[0.9, 0.7]]
+        net.learn(inputs, target_activations)
+
+        after_weights = [neuron.weights.copy() for neuron in net.layers[0]]
+        assert any(not np.array_equal(before, after) for before, after in zip(before_weights, after_weights))
+
+    def test_arbitrary_topology_forward(self):
+        """任意拓樸設定能正確執行前向傳播"""
+        config = BioNetConfig(
+            input_dim=3,
+            layers=[
+                LayerConfig(
+                    neurons=[
+                        NeuronConfig("BioNeuron", count=2),
+                        NeuronConfig("ImprovedBioNeuron", params={"adaptive_threshold": True}),
+                    ]
+                ),
+                LayerConfig(neurons=[NeuronConfig("BioNeuron", count=4)]),
+                LayerConfig(
+                    neurons=[
+                        NeuronConfig("ImprovedBioNeuron", params={"adaptive_threshold": True}),
+                        NeuronConfig("BioNeuron"),
+                    ]
+                ),
+            ],
+        )
+        net = BioNet(config)
+        outputs = net.forward([0.1, 0.2, 0.3])
+
+        assert [len(layer) for layer in outputs] == net.layer_sizes
