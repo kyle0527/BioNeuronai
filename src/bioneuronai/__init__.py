@@ -3,7 +3,30 @@ from .core import BioNeuron, BioLayer, BioNet, cli_loop
 # 導入改進版本 (可選)
 try:
     from .improved_core import ImprovedBioNeuron, CuriositDrivenNet, BioNeuronV2
-    __all__ = ["BioNeuron", "BioLayer", "BioNet", "cli_loop", 
-               "ImprovedBioNeuron", "CuriositDrivenNet", "BioNeuronV2"]
-except ImportError:
-    __all__ = ["BioNeuron", "BioLayer", "BioNet", "cli_loop"]
+    _core_exports = [
+        "BioNeuron",
+        "BioLayer",
+        "BioNet",
+        "cli_loop",
+        "ImprovedBioNeuron",
+        "CuriositDrivenNet",
+        "BioNeuronV2",
+    ]
+except ImportError:  # pragma: no cover - improved core is optional
+    _core_exports = ["BioNeuron", "BioLayer", "BioNet", "cli_loop"]
+
+from .agents.retrieval_controller import (
+    InMemoryVectorRetriever,
+    RetrievalController,
+    RetrievalDecision,
+    RetrieverProtocol,
+    default_novelty_scorer,
+)
+
+__all__ = _core_exports + [
+    "RetrievalController",
+    "InMemoryVectorRetriever",
+    "RetrievalDecision",
+    "RetrieverProtocol",
+    "default_novelty_scorer",
+]

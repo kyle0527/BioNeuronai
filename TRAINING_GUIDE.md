@@ -4,6 +4,32 @@
 
 本指南將幫助您訓練和優化生產級安全檢測模組，包括 SQL 注入、IDOR 和認證漏洞檢測。
 
+## 🤖 RAG 與新穎性門控整合
+
+除了安全檢測模組，本專案亦提供 `RetrievalController` 幫助助理在對話中判斷是否需要呼叫外部知識庫。只要當前輸入與既有上下文的重疊度低於指定閾值，就會自動觸發檢索流程，適合在訓練資料整理或模擬攻擊案例時取得輔助資訊。控制器能處理字串列表，亦支援含有 `content` 欄位的訊息字典，方便直接串接主流聊天模型。
+
+```python
+from bioneuronai.agents.retrieval_controller import InMemoryVectorRetriever, RetrievalController
+
+documents = {
+    "sql_guidelines": "Use parameterized queries to avoid SQL injection.",
+    "idor": "IDOR issues arise when user-controlled identifiers lack authorization checks.",
+}
+retriever = InMemoryVectorRetriever(documents)
+controller = RetrievalController(retriever, novelty_threshold=0.45)
+
+conversation = [
+    {"role": "system", "content": "你是一名安全研究助理。"},
+    {"role": "user", "content": "我們正在分析 SQLi 測試報告"},
+    {"role": "user", "content": "還有哪些資源可以幫助我理解 IDOR?"},
+]
+
+if controller.maybe_retrieve(conversation).triggered:
+    print("補充資料:", documents["idor"])
+```
+
+在教學演練中可結合此機制，於模型遇到陌生場景時自動補充背景資料。更多實戰示例請執行 `examples/rag_chatbot.py`。
+
 ## 🎯 訓練目標
 
 1. **提高檢測準確率** - 減少誤報和漏報
