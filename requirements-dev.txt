@@ -9,3 +9,5 @@ flake8
 # Optional dependencies for examples
 matplotlib>=3.5.0
 jupyter
+gymnasium>=0.28
+stable-baselines3>=2.0

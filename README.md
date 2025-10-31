@@ -157,6 +157,7 @@ python examples/basic_demo.py
 python examples/rag_chatbot.py
 ```
 
+
 ## 🌐 官方網站與資源
 
 - [GitHub Pages 官方網站](docs/index.md)：最新版本公告、發展路線圖與使用者故事。
@@ -173,6 +174,12 @@ pytest tests/ -v
 # 測試涵蓋率
 pytest tests/ --cov=bioneuronai
 ```
+
+## 📈 好奇心基準結果
+
+- 隨機策略於 CartPole 執行 5 個回合時，平均好奇心獎勵約為 **6.91**，平均外在回合獎勵為 **32.0**。
+- 逐步曲線及回合統計存於 `examples/artifacts/curiosity_benchmark.json`（執行 `examples/curiosity_benchmark.py` 產生，產物未隨倉庫一併提交）。
+- 若安裝 matplotlib，腳本會額外輸出 `examples/artifacts/curiosity_benchmark.png` 用於視覺化好奇心與環境獎勵。
 
 ## 📚 API 文檔
 
