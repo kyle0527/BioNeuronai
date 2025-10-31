@@ -1,15 +1,17 @@
 
-from .base import BaseBioNeuron
-from .checkpoint import CheckpointManager
+"""Unified public API surface for BioNeuronAI."""
+
 from .core import BioNeuron, BioLayer, BioNet, cli_loop
-from .network_builder import NetworkBuilder, BuiltNetwork, BuiltLayer
-from .neurons import BaseBioNeuron, LIFNeuron, AntiHebbNeuron
+from .neuron_base import BaseNeuron, SupportsBatchLearning
 
 __all__ = [
-    "BioNeuron",
+    "BaseNeuron",
+    "SupportsBatchLearning",
+
     "BioLayer",
     "BioNet",
     "cli_loop",
+
     "NetworkBuilder",
     "BuiltNetwork",
     "BuiltLayer",

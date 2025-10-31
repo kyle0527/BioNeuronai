@@ -7,8 +7,10 @@ from __future__ import annotations
 from typing import List, Sequence, Tuple, Optional, Dict
 import numpy as np
 
+from .neuron_base import BaseNeuron
 
-class ImprovedBioNeuron:
+
+class ImprovedBioNeuron(BaseNeuron):
     """改進版本的生物啟發神經元
     
     新增功能:
@@ -46,6 +48,7 @@ class ImprovedBioNeuron:
         # 統計信息
         self.activation_count = 0
         self.total_inputs = 0
+        self._last_output: float | None = None
 
     def forward(self, inputs: Sequence[float]) -> float:
         """改進的前向傳播"""
@@ -74,7 +77,8 @@ class ImprovedBioNeuron:
             self.output_memory.pop(0)
         
         self.total_inputs += 1
-        
+        self._last_output = output
+
         # 自適應閾值調整
         if self.adaptive_threshold and len(self.output_memory) >= self.memory_len:
             self._adapt_threshold()
@@ -93,7 +97,12 @@ class ImprovedBioNeuron:
         
         self.threshold_history.append(self.threshold)
 
-    def improved_hebbian_learn(self, inputs: Sequence[float], target: Optional[float] = None) -> None:
+    def improved_hebbian_learn(
+        self,
+        inputs: Sequence[float],
+        target: Optional[float] = None,
+        current_output: float | None = None,
+    ) -> float:
         """改進的Hebbian學習規則
         
         特點:
@@ -102,7 +111,8 @@ class ImprovedBioNeuron:
         - 考慮輸出誤差
         """
         x = np.asarray(inputs, dtype=np.float32)
-        current_output = self.forward(inputs)
+        if current_output is None:
+            current_output = self.forward(inputs)
         
         if target is not None:
             # 有監督學習：基於誤差的學習
@@ -118,6 +128,8 @@ class ImprovedBioNeuron:
         
         # 保持權重在合理範圍內
         self.weights = np.clip(self.weights, 0.0, 2.0)
+
+        return current_output
 
     def enhanced_novelty_score(self) -> float:
         """增強的新穎性評分
@@ -194,6 +206,24 @@ class ImprovedBioNeuron:
         self.output_memory.clear()
         self.threshold_history.clear()
 
+    def learn(self, inputs: Sequence[float], target: float | None = None) -> float:
+        """Unified entrypoint that satisfies :class:`~bioneuronai.neuron_base.BaseNeuron`."""
+
+        if target is None:
+            output = self.improved_hebbian_learn(inputs)
+            return output
+
+        cached_output = self._last_output
+        if cached_output is None:
+            cached_output = self.forward(inputs)
+
+        self.improved_hebbian_learn(
+            inputs,
+            target=float(target),
+            current_output=cached_output,
+        )
+        return float(target)
+
 
 class CuriositDrivenNet:
     """好奇心驅動的神經網路，支援獎勵輸出與動態調節"""
@@ -246,6 +276,31 @@ class CuriositDrivenNet:
             novelty = neuron.enhanced_novelty_score()
             outputs.append(output)
             novelties.append(novelty)
+
+        
+        return outputs, novelties
+    
+    def curious_learn(self, inputs: Sequence[float]) -> float:
+        """基於好奇心的學習
+        
+        Returns:
+            平均好奇心水平
+        """
+        outputs, novelties = self.forward(inputs)
+        avg_curiosity = np.mean(novelties)
+
+        # 只有當新穎性足夠高時才學習
+        if avg_curiosity > self.curiosity_threshold:
+            for neuron, novelty, output in zip(self.neurons, novelties, outputs):
+                # 新穎性高的神經元學習更強
+                enhanced_lr = neuron.learning_rate * (1 + novelty)
+                original_lr = neuron.learning_rate
+                neuron.learning_rate = enhanced_lr
+                neuron.learn(inputs, target=output)
+                neuron.learning_rate = original_lr
+        
+        return avg_curiosity
+
 
         curiosity_level = float(np.mean(novelties)) if novelties else 0.0
         curiosity_reward = self._calculate_curiosity_reward(curiosity_level)
@@ -302,6 +357,7 @@ class CuriositDrivenNet:
             reward = float(np.clip(reward, min_reward, max_reward))
 
         return float(reward)
+
     
     def get_network_stats(self) -> dict:
         """獲取網路統計信息"""

@@ -22,15 +22,13 @@
 
 
 
+
 # 啟動 CLI 示範
 bioneuron-cli
 
 
 
-# 使用多層網路（回傳最終輸出與各層輸出）
-net = BioNet()
-final_out, layer_outputs = net.forward([0.5, 0.8])
-print(final_out, layer_outputs)
+
 
 # 保存並重新載入神經元狀態
 state_path = Path("neuron_state.npz")
@@ -140,6 +138,7 @@ if decision.triggered:
 
 ## 📖 範例
 
+
 - 技術白皮書：`docs/whitepaper.md`
 - API 參考：`docs/api/`
 - 教程：`docs/tutorials/`（涵蓋 RAG、工具閘門、儀表板、強化學習）
@@ -171,6 +170,7 @@ docker run --rm -it -p 8501:8501 \
 python examples/basic_demo.py
 python examples/rag_chatbot.py
 ```
+
 
 
 ## 🌐 官方網站與資源
@@ -248,7 +248,7 @@ BioNeuronai/
 
 ```
 
-### 🧪 Testing
+
 
 ```bash
 pytest tests/ -v

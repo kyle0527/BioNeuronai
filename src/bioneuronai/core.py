@@ -11,6 +11,7 @@ n
 
 import numpy as np
 
+
 from .base import BaseBioNeuron
 
 
@@ -19,6 +20,7 @@ class BioNeuron:
     """Bio-inspired neuron with short-term memory and Hebbian updates.
 
     生物啟發神經元，具備短期記憶與 Hebbian 權重更新機制。
+
 
     """
 
@@ -231,6 +233,13 @@ class BioNeuron:
 
 
 
+    def learn(self, inputs: Sequence[float], target: float | None = None) -> float:
+        """Public learning hook that keeps compatibility with the base API."""
+
+        output = self.forward(inputs) if target is None else float(target)
+        self.hebbian_learn(inputs, output)
+        return output
+
     def novelty_score(self) -> float:
         """Return a 0~1 novelty score based on the last two inputs.
 
@@ -297,6 +306,7 @@ class BioLayer:
 
     def forward(self, inputs: Sequence[float]) -> List[float]:
         return [n.forward(inputs) for n in self.neurons]
+
 
     def learn(
         self,
@@ -528,6 +538,7 @@ def _load_config(config: Mapping[str, Any] | str | Path | None) -> Mapping[str, 
             ) from exc
         return yaml.safe_load(data)
     raise ValueError(f"Unsupported configuration format: {suffix}")
+
 
 
 class BioNet:
