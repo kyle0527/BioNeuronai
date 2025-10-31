@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import asyncio
+import math
 import re
 import time
 from typing import Any
@@ -34,7 +35,78 @@ from aiva_common.utils import get_logger, new_id
 
 from ..common.base_function_module import BaseFunctionModule, DetectionEngineProtocol
 from ..common.detection_config import SQLiConfig
-from ..common.unified_smart_detection_manager import UnifiedSmartDetectionManager
+from ..common.unified_smart_detection_manager import (
+    DetectionDecision,
+    DetectionRuleResult,
+    UnifiedSmartDetectionManager,
+)
+
+
+def _safe_elapsed_seconds(response: httpx.Response) -> float:
+    try:
+        return float(response.elapsed.total_seconds())
+    except Exception:
+        return 0.0
+
+
+def _text_entropy(text: str) -> float:
+    if not text:
+        return 0.0
+    text = text[:2048]
+    counts: dict[str, int] = {}
+    for ch in text:
+        counts[ch] = counts.get(ch, 0) + 1
+    total = float(len(text))
+    entropy = 0.0
+    for count in counts.values():
+        p = count / total
+        entropy -= p * math.log(p + 1e-12, 2)
+    return float(min(entropy / 8.0, 1.0))
+
+
+def _response_features(
+    response: httpx.Response,
+    *,
+    baseline: httpx.Response | None = None,
+    evidence_count: int = 0,
+    anomaly_hint: float = 0.0,
+) -> list[float]:
+    text = response.text or ""
+    baseline_len = len(baseline.text) if baseline is not None and baseline.text else len(text)
+    baseline_len = max(1, baseline_len)
+    length_ratio = min(abs(len(text) - baseline_len) / baseline_len, 1.0)
+    status_ratio = min(response.status_code / 600.0, 1.0)
+    latency_ratio = min(_safe_elapsed_seconds(response) / 10.0, 1.0)
+    evidence_score = min(evidence_count / 5.0, 1.0)
+    entropy_score = _text_entropy(text)
+    return [length_ratio, status_ratio, evidence_score, anomaly_hint, min(1.0, entropy_score + latency_ratio)]
+
+
+def _boolean_features(
+    true_response: httpx.Response,
+    false_response: httpx.Response,
+    *,
+    similarity: float,
+    keyword_diff: int,
+) -> list[float]:
+    base_len = max(1, len(false_response.text or ""))
+    length_ratio = min(abs(len(true_response.text) - len(false_response.text)) / base_len, 1.0)
+    status_flag = 1.0 if true_response.status_code != false_response.status_code else 0.0
+    time_diff = abs(_safe_elapsed_seconds(true_response) - _safe_elapsed_seconds(false_response))
+    time_ratio = min(time_diff / 5.0, 1.0)
+    similarity_gap = min(max(1.0 - similarity, 0.0), 1.0)
+    keyword_ratio = min(keyword_diff / 10.0, 1.0)
+    return [length_ratio, status_flag, time_ratio, similarity_gap, keyword_ratio]
+
+
+def _time_features(baseline_time: float, payload_time: float, expected_delay: float) -> list[float]:
+    actual_delay = payload_time - baseline_time
+    delay_ratio = min(max(actual_delay, 0.0) / max(expected_delay, 1.0), 1.0)
+    amplification = min(payload_time / max(baseline_time, 0.1), 1.0)
+    absolute_payload = min(payload_time / 10.0, 1.0)
+    baseline_feature = min(baseline_time / 10.0, 1.0)
+    expected_ratio = min(expected_delay / 10.0, 1.0)
+    return [delay_ratio, amplification, absolute_payload, baseline_feature, expected_ratio]
 
 logger = get_logger(__name__)
 
@@ -73,11 +145,18 @@ class ProductionUnionSQLiEngine(DetectionEngineProtocol):
         if not baseline_response:
             return findings
 
+        try:
+            smart_manager.record_normal_profile(
+                _response_features(baseline_response, baseline=None)
+            )
+        except Exception:
+            logger.debug("無法記錄基準響應特徵，略過新穎性初始化")
+
         # 4. 執行檢測
         for payload in union_payloads:
             try:
                 detection_result = await self._test_union_payload(
-                    target, payload, client, baseline_response, task
+                    target, payload, client, baseline_response, task, smart_manager
                 )
                 if detection_result:
                     findings.append(detection_result)
@@ -188,6 +267,7 @@ class ProductionUnionSQLiEngine(DetectionEngineProtocol):
         client: httpx.AsyncClient,
         baseline_response: httpx.Response,
         task: FunctionTaskPayload,
+        smart_manager: UnifiedSmartDetectionManager,
     ) -> FindingPayload | None:
         """測試單個 Union payload"""
         try:
@@ -198,14 +278,39 @@ class ProductionUnionSQLiEngine(DetectionEngineProtocol):
                 response, baseline_response, payload
             )
             
+            features = _response_features(
+                response,
+                baseline=baseline_response,
+                evidence_count=len(analysis_result.get("evidence", [])),
+                anomaly_hint=1.0 if analysis_result.get("is_vulnerable") else 0.0,
+            )
             if analysis_result["is_vulnerable"]:
-                return self._create_finding(
-                    task, target, payload, response, analysis_result
+                decision = smart_manager.combine_rule_and_novelty(
+                    DetectionRuleResult(
+                        confidence=analysis_result["confidence"],
+                        severity=Severity.LOW,
+                        metadata={
+                            "engine": self.get_engine_name(),
+                            "payload": payload,
+                        },
+                    ),
+                    features,
                 )
-                
+                smart_manager.feedback(features, confirmed_anomaly=True)
+                return self._create_finding(
+                    task,
+                    target,
+                    payload,
+                    response,
+                    analysis_result,
+                    decision,
+                )
+            else:
+                smart_manager.feedback(features, confirmed_anomaly=False)
+
         except Exception as e:
             logger.debug(f"Union payload 測試錯誤 ({payload[:30]}...): {e}")
-            
+
         return None
 
     def _analyze_union_response(
@@ -305,18 +410,24 @@ class ProductionUnionSQLiEngine(DetectionEngineProtocol):
         payload: str,
         response: httpx.Response,
         analysis: dict[str, Any],
+        decision: DetectionDecision,
     ) -> FindingPayload:
         """創建檢測結果"""
         vulnerability = Vulnerability(
             name=VulnerabilityType.SQLI,
-            severity=Severity.LOW,
-            confidence=analysis["confidence"]
+            severity=decision.severity,
+            confidence=decision.confidence,
         )
 
         evidence_text = "; ".join(analysis["evidence"])
         evidence = FindingEvidence(
             payload=payload,
-            response=f"檢測證據: {evidence_text}. 響應片段: {response.text[:200]}",
+            response=(
+                "檢測證據: "
+                + evidence_text
+                + f". Novelty={decision.novelty_score:.2f}, Risk={decision.risk_label}. "
+                + f"響應片段: {response.text[:200]}"
+            ),
             response_time_delta=response.elapsed.total_seconds()
         )
 
@@ -364,16 +475,51 @@ class ProductionBooleanSQLiEngine(DetectionEngineProtocol):
                 
                 # 發送 FALSE 條件請求
                 false_response = await self._send_payload_request(target, false_payload, client)
-                
+
+                try:
+                    smart_manager.record_normal_profile(
+                        _response_features(false_response, baseline=None)
+                    )
+                except Exception:
+                    logger.debug("Boolean SQLi 基準特徵記錄失敗，略過")
+
                 # 分析響應差異
-                if self._has_boolean_injection(true_response, false_response):
+                vulnerable, metrics = self._analyze_boolean_gap(true_response, false_response)
+                features = _boolean_features(
+                    true_response,
+                    false_response,
+                    similarity=metrics["similarity"],
+                    keyword_diff=metrics["keyword_diff"],
+                )
+
+                if vulnerable:
+                    decision = smart_manager.combine_rule_and_novelty(
+                        DetectionRuleResult(
+                            confidence=Confidence.MEDIUM,
+                            severity=Severity.LOW,
+                            metadata={
+                                "engine": self.get_engine_name(),
+                                "payload": true_payload,
+                            },
+                        ),
+                        features,
+                    )
                     finding = self._create_boolean_finding(
-                        task, target, true_payload, false_payload, 
-                        true_response, false_response
+                        task,
+                        target,
+                        true_payload,
+                        false_payload,
+                        true_response,
+                        false_response,
+                        decision,
+                        metrics,
                     )
                     findings.append(finding)
+                    smart_manager.feedback(features, confirmed_anomaly=True)
                     logger.info(f"發現 Boolean SQLi 漏洞: {true_payload[:50]}...")
                     break
+                else:
+                    smart_manager.feedback(features, confirmed_anomaly=False)
 
             except Exception as e:
                 logger.debug(f"Boolean SQLi 測試失敗 ({true_payload[:30]}...): {e}")
@@ -409,42 +555,43 @@ class ProductionBooleanSQLiEngine(DetectionEngineProtocol):
         """請求間延遲，避免被防護機制阻擋"""
         await asyncio.sleep(0.5)
 
-    def _has_boolean_injection(
+    def _analyze_boolean_gap(
         self, true_response: httpx.Response, false_response: httpx.Response
-    ) -> bool:
-        """檢測布林注入的多個指標"""
+    ) -> tuple[bool, dict[str, Any]]:
+        """檢測布林注入的多個指標並返回詳細度量"""
         true_text = true_response.text
         false_text = false_response.text
-        
-        # 1. 響應長度差異
+
         length_diff = abs(len(true_text) - len(false_text))
-        if length_diff > 10:  # 顯著長度差異
-            return True
-        
-        # 2. HTTP 狀態碼差異
-        if true_response.status_code != false_response.status_code:
-            return True
-        
-        # 3. 響應時間差異
-        time_diff = abs(
-            true_response.elapsed.total_seconds() - 
-            false_response.elapsed.total_seconds()
-        )
-        if time_diff > 1.0:  # 1秒以上差異
-            return True
-        
-        # 4. 內容相似度分析
+        status_diff = true_response.status_code != false_response.status_code
+        time_diff = abs(_safe_elapsed_seconds(true_response) - _safe_elapsed_seconds(false_response))
         similarity = self._calculate_text_similarity(true_text, false_text)
-        if similarity < 0.8:  # 相似度低於80%
-            return True
-        
-        # 5. 特定關鍵字檢測
+
         true_keywords = self._extract_keywords(true_text)
         false_keywords = self._extract_keywords(false_text)
-        
-        # 如果關鍵字集合差異較大
         keyword_diff = len(true_keywords.symmetric_difference(false_keywords))
-        return keyword_diff > 5
+
+        vulnerable = False
+        if length_diff > 10:
+            vulnerable = True
+        if status_diff:
+            vulnerable = True
+        if time_diff > 1.0:
+            vulnerable = True
+        if similarity < 0.8:
+            vulnerable = True
+        if keyword_diff > 5:
+            vulnerable = True
+
+        metrics = {
+            "length_diff": length_diff,
+            "status_diff": status_diff,
+            "time_diff": time_diff,
+            "similarity": similarity,
+            "keyword_diff": keyword_diff,
+        }
+
+        return vulnerable, metrics
 
     def _calculate_text_similarity(self, text1: str, text2: str) -> float:
         """計算兩個文本的相似度"""
@@ -475,28 +622,28 @@ class ProductionBooleanSQLiEngine(DetectionEngineProtocol):
         false_payload: str,
         true_response: httpx.Response,
         false_response: httpx.Response,
+        decision: DetectionDecision,
+        metrics: dict[str, Any],
     ) -> FindingPayload:
         """創建布林注入檢測結果"""
         vulnerability = Vulnerability(
             name=VulnerabilityType.SQLI,
-            severity=Severity.LOW,
-            confidence=Confidence.MEDIUM
-        )
-
-        # 分析差異
-        length_diff = abs(len(true_response.text) - len(false_response.text))
-        time_diff = abs(
-            true_response.elapsed.total_seconds() - 
-            false_response.elapsed.total_seconds()
+            severity=decision.severity,
+            confidence=decision.confidence,
         )
 
         evidence = FindingEvidence(
             payload=f"TRUE: {true_payload} | FALSE: {false_payload}",
-            response=f"響應差異 - 長度差: {length_diff}, 時間差: {time_diff:.2f}s, "
-                    f"狀態碼: {true_response.status_code} vs {false_response.status_code}",
+            response=(
+                "響應差異 - 長度差: "
+                f"{metrics['length_diff']}, 時間差: {metrics['time_diff']:.2f}s, "
+                f"狀態碼: {true_response.status_code} vs {false_response.status_code}, "
+                f"相似度: {metrics['similarity']:.2f}, Novelty={decision.novelty_score:.2f}, "
+                f"Risk={decision.risk_label}"
+            ),
             response_time_delta=max(
-                true_response.elapsed.total_seconds(),
-                false_response.elapsed.total_seconds()
+                _safe_elapsed_seconds(true_response),
+                _safe_elapsed_seconds(false_response)
             )
         )
 
@@ -551,14 +698,39 @@ class ProductionTimeSQLiEngine(DetectionEngineProtocol):
                 if payload_time is None:
                     continue
 
-                # 檢測時間異常
+                features = _time_features(baseline_time, payload_time, expected_delay)
+                rule_conf = Confidence.HIGH if (payload_time - baseline_time) >= (
+                    expected_delay * 0.8
+                ) else Confidence.MEDIUM
+
                 if self._has_time_anomaly(baseline_time, payload_time, expected_delay):
+                    decision = smart_manager.combine_rule_and_novelty(
+                        DetectionRuleResult(
+                            confidence=rule_conf,
+                            severity=Severity.LOW,
+                            metadata={
+                                "engine": self.get_engine_name(),
+                                "payload": payload,
+                                "expected_delay": expected_delay,
+                            },
+                        ),
+                        features,
+                    )
                     finding = self._create_time_finding(
-                        task, target, payload, baseline_time, payload_time, expected_delay
+                        task,
+                        target,
+                        payload,
+                        baseline_time,
+                        payload_time,
+                        expected_delay,
+                        decision,
                     )
                     findings.append(finding)
+                    smart_manager.feedback(features, confirmed_anomaly=True)
                     logger.info(f"發現 Time-based SQLi 漏洞: {payload[:50]}...")
                     break
+                else:
+                    smart_manager.feedback(features, confirmed_anomaly=False)
 
             except Exception as e:
                 logger.debug(f"Time-based SQLi 測試失敗 ({payload[:30]}...): {e}")
@@ -644,20 +816,24 @@ class ProductionTimeSQLiEngine(DetectionEngineProtocol):
         baseline_time: float,
         payload_time: float,
         expected_delay: float,
+        decision: DetectionDecision,
     ) -> FindingPayload:
         """創建時間注入檢測結果"""
         actual_delay = payload_time - baseline_time
-        
+
         vulnerability = Vulnerability(
             name=VulnerabilityType.SQLI,
-            severity=Severity.LOW,
-            confidence=Confidence.HIGH if actual_delay >= (expected_delay * 0.8) else Confidence.MEDIUM
+            severity=decision.severity,
+            confidence=decision.confidence,
         )
 
         evidence = FindingEvidence(
             payload=payload,
-            response=f"時間分析: 基準時間 {baseline_time:.2f}s, Payload時間 {payload_time:.2f}s, "
-                    f"實際延遲 {actual_delay:.2f}s, 預期延遲 {expected_delay}s",
+            response=(
+                f"時間分析: 基準時間 {baseline_time:.2f}s, Payload時間 {payload_time:.2f}s, "
+                f"實際延遲 {actual_delay:.2f}s, 預期延遲 {expected_delay}s, "
+                f"Novelty={decision.novelty_score:.2f}, Risk={decision.risk_label}"
+            ),
             response_time_delta=payload_time
         )
 

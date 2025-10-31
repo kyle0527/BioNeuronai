@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 from bioneuronai.core import BioNeuron, BioLayer, BioNet
 
 
@@ -53,7 +54,7 @@ class TestBioNeuron:
     def test_novelty_score(self):
         """測試新穎性評分"""
         neuron = BioNeuron(num_inputs=2, seed=42)
-        
+
         # 沒有足夠記憶時
         assert neuron.novelty_score() == 0.0
         
@@ -68,6 +69,57 @@ class TestBioNeuron:
         
         # 不同輸入應該有更高的新穎性
         assert novelty2 > novelty1
+
+    def test_save_and_load_roundtrip(self, tmp_path):
+        """序列化後應能完整還原神經元狀態"""
+        neuron = BioNeuron(
+            num_inputs=2,
+            threshold=0.55,
+            learning_rate=0.08,
+            seed=7,
+            online_window=4,
+            stability_coefficient=0.12,
+        )
+
+        # 進行數次在線學習
+        samples = [[1.0, 0.5], [0.2, 0.9], [0.7, 0.3]]
+        for sample in samples:
+            neuron.online_learn(sample)
+
+        state_path = tmp_path / "neuron_state.npz"
+        neuron.save_state(state_path)
+
+        restored = BioNeuron.load_state(state_path)
+        assert restored.num_inputs == neuron.num_inputs
+        assert restored.threshold == pytest.approx(neuron.threshold)
+        assert np.allclose(restored.weights, neuron.weights)
+        assert restored.online_window == neuron.online_window
+        assert np.allclose(restored.baseline_weights, neuron.baseline_weights)
+        assert len(restored.input_memory) == len(neuron.input_memory)
+        for a, b in zip(restored.input_memory, neuron.input_memory):
+            np.testing.assert_array_almost_equal(a, b)
+
+    def test_online_learning_stability(self):
+        """在線學習模式應限制權重劇烈漂移"""
+        neuron = BioNeuron(
+            num_inputs=2,
+            learning_rate=0.3,
+            seed=1,
+            online_window=3,
+            stability_coefficient=0.2,
+        )
+        # 強化某一模式
+        for _ in range(10):
+            neuron.online_learn([1.0, 1.0], target=1.0)
+        learned_weights = neuron.weights.copy()
+
+        # 切換到截然不同的模式
+        for _ in range(30):
+            neuron.online_learn([0.0, 0.0], target=0.0)
+
+        assert np.all(neuron.weights <= 1.0)
+        # 權重仍維持在初始學得值的合理範圍
+        assert np.all(neuron.weights >= learned_weights * 0.3)
 
 
 class TestBioLayer:
@@ -111,11 +163,43 @@ class TestBioNet:
         """測試網路學習"""
         net = BioNet()
         inputs = [0.6, 0.4]
-        
+
         # 執行學習
         net.learn(inputs)
-        
+
         # 至少網路應該能正常運行
         l2_out, l1_out = net.forward(inputs)
         assert len(l2_out) == 3
         assert len(l1_out) == 3
+
+
+
+    def test_network_state_roundtrip(self, tmp_path):
+        """網路狀態序列化往返"""
+        net = BioNet()
+        net.configure_online_learning(window_size=4, stability_coefficient=0.1)
+        patterns = [[0.1, 0.9], [0.8, 0.2], [0.5, 0.5]]
+        for pattern in patterns:
+            net.learn(pattern)
+
+        state_file = tmp_path / "net_state.npz"
+        net.save_state(state_file)
+
+        restored = BioNet.load_state(state_file)
+        for layer_original, layer_restored in zip(
+            (net.layer1, net.layer2), (restored.layer1, restored.layer2)
+        ):
+            for neuron_orig, neuron_restored in zip(
+                layer_original.neurons, layer_restored.neurons
+            ):
+                np.testing.assert_array_almost_equal(
+                    neuron_orig.weights, neuron_restored.weights
+                )
+                assert neuron_orig.threshold == pytest.approx(
+                    neuron_restored.threshold
+                )
+                assert neuron_orig.online_window == neuron_restored.online_window
+                np.testing.assert_array_almost_equal(
+                    neuron_orig.baseline_weights, neuron_restored.baseline_weights
+                )
+
