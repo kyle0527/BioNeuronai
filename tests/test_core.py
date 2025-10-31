@@ -101,21 +101,21 @@ class TestBioNet:
         """測試網路前向傳播"""
         net = BioNet()
         inputs = [0.5, 0.8]
-        l2_out, l1_out = net.forward(inputs)
-        
+        l2_out, history = net.forward(inputs)
+
         assert len(l2_out) == 3
-        assert len(l1_out) == 3
-        assert all(0.0 <= out <= 1.0 for out in l2_out + l1_out)
+        assert len(history) == 2
+        assert all(len(layer) == 3 for layer in history)
+        assert history[-1] == l2_out
+        assert all(0.0 <= value <= 1.0 for layer in history for value in layer)
 
     def test_network_learning(self):
         """測試網路學習"""
         net = BioNet()
         inputs = [0.6, 0.4]
-        
-        # 執行學習
-        net.learn(inputs)
-        
-        # 至少網路應該能正常運行
-        l2_out, l1_out = net.forward(inputs)
-        assert len(l2_out) == 3
-        assert len(l1_out) == 3
+
+        final_before, _ = net.forward(inputs)
+        final_after, history = net.learn(inputs)
+
+        assert len(final_after) == len(final_before) == 3
+        assert history[-1] == final_after

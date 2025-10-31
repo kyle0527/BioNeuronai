@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import List, Sequence, Tuple
+from typing import Any, List, MutableMapping, Sequence, Tuple
 import numpy as np
 
 
@@ -64,21 +64,57 @@ class BioLayer:
 
 
 class BioNet:
-    """Two-layer demo 2 -> 3 -> 3; returns (l2_out, l1_out)."""
-    def __init__(self) -> None:
-        self.layer1 = BioLayer(3, 2)
-        self.layer2 = BioLayer(3, 3)
+    """Wrapper around :class:`ConfigurableNetwork` with a default topology."""
 
-    def forward(self, inputs: Sequence[float]) -> Tuple[List[float], List[float]]:
-        l1_out = self.layer1.forward(inputs)
-        l2_out = self.layer2.forward(l1_out)
-        return l2_out, l1_out
+    def __init__(
+        self,
+        input_dim: int = 2,
+        layer_configs: Sequence[Any] | None = None,
+        network_config: Any | None = None,
+        neuron_factories: MutableMapping[str, Any] | None = None,
+    ) -> None:
+        from .networks.configurable import LayerConfig, NetworkConfig, build_network
 
-    def learn(self, inputs: Sequence[float]) -> None:
-        l2_out, l1_out = self.forward(inputs)
-        target = float(sum(l2_out) / len(l2_out))
-        self.layer2.learn(l1_out, [target] * 3)
-        self.layer1.learn(inputs, l1_out)
+        if network_config is not None and layer_configs is not None:
+            raise ValueError("Provide either 'layer_configs' or 'network_config', not both.")
+
+        if network_config is None:
+            if layer_configs is None:
+                layer_configs = [
+                    LayerConfig(size=3, neuron="BioNeuron"),
+                    LayerConfig(size=3, neuron="BioNeuron"),
+                ]
+            normalised_layers: List[LayerConfig] = []
+            for layer in layer_configs:
+                if isinstance(layer, LayerConfig):
+                    normalised_layers.append(layer)
+                elif isinstance(layer, dict):
+                    normalised_layers.append(LayerConfig.from_dict(layer))
+                else:
+                    raise TypeError(
+                        "Layer configuration items must be LayerConfig instances or dictionaries."
+                    )
+            config_obj = NetworkConfig(input_dim=input_dim, layers=normalised_layers)
+        else:
+            if isinstance(network_config, dict):
+                config_obj = NetworkConfig.from_dict(network_config)
+            else:
+                config_obj = network_config
+
+        self._network = build_network(config_obj, neuron_factories)
+        self.layers = self._network.layers
+        self.layer1 = self.layers[0] if len(self.layers) > 0 else None
+        self.layer2 = self.layers[1] if len(self.layers) > 1 else None
+
+    def forward(self, inputs: Sequence[float]) -> Tuple[List[float], List[List[float]]]:
+        final, layer_outputs = self._network.forward(inputs)
+        return final, layer_outputs
+
+    def learn(self, inputs: Sequence[float]) -> Tuple[List[float], List[List[float]]]:
+        return self._network.learn(inputs)
+
+    def to_config(self):
+        return self._network.to_config()
 
 
 def cli_loop() -> None:
