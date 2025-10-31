@@ -31,10 +31,63 @@ from aiva_common.utils import get_logger, new_id
 
 from ..common.base_function_module import BaseFunctionModule, DetectionEngineProtocol
 from ..common.detection_config import AuthConfig
-from ..common.unified_smart_detection_manager import UnifiedSmartDetectionManager
+from ..common.unified_smart_detection_manager import (
+    DetectionDecision,
+    DetectionRuleResult,
+    UnifiedSmartDetectionManager,
+)
 
 logger = get_logger(__name__)
 
+
+def _safe_elapsed_seconds(response: httpx.Response) -> float:
+    try:
+        return float(response.elapsed.total_seconds())
+    except Exception:
+        return 0.0
+
+
+def _auth_response_features(
+    response: httpx.Response,
+    *,
+    evidence_count: int = 0,
+    success_hint: float = 0.0,
+) -> list[float]:
+    text = response.text or ""
+    length_ratio = min(len(text) / 5000.0, 1.0)
+    status_ratio = min(response.status_code / 600.0, 1.0)
+    latency_ratio = min(_safe_elapsed_seconds(response) / 10.0, 1.0)
+    evidence_score = min(evidence_count / 5.0, 1.0)
+    keyword_bonus = 0.0
+    keywords = ["token", "success", "dashboard", "admin", "welcome"]
+    lowered = text.lower()
+    if any(k in lowered for k in keywords):
+        keyword_bonus = 0.3
+    return [length_ratio, status_ratio, evidence_score, success_hint, min(1.0, latency_ratio + keyword_bonus)]
+
+
+def _novelty_decision(
+    smart_manager: UnifiedSmartDetectionManager,
+    rule_confidence: Confidence,
+    severity: Severity,
+    response: httpx.Response,
+    *,
+    evidence_count: int = 0,
+    success_hint: float = 0.0,
+    context: dict[str, object] | None = None,
+) -> tuple[DetectionDecision, list[float]]:
+    features = _auth_response_features(
+        response, evidence_count=evidence_count, success_hint=success_hint
+    )
+    decision = smart_manager.combine_rule_and_novelty(
+        DetectionRuleResult(
+            confidence=rule_confidence,
+            severity=severity,
+            metadata=context or {},
+        ),
+        features,
+    )
+    return decision, features
 
 class WeakCredentialEngine(DetectionEngineProtocol):
     """弱憑證檢測引擎 - 檢測弱密碼和默認憑證"""
@@ -88,36 +141,55 @@ class WeakCredentialEngine(DetectionEngineProtocol):
                     follow_redirects=True
                 )
 
-                # 多維度檢測成功登錄
-                if await self._is_successful_login(response, username):
-                        vulnerability = Vulnerability(
-                            name=VulnerabilityType.WEAK_AUTHENTICATION,
-                            severity=Severity.LOW,
-                            confidence=Confidence.HIGH
-                        )
+                success = await self._is_successful_login(response, username)
+                decision, features = _novelty_decision(
+                    smart_manager,
+                    rule_confidence=Confidence.HIGH if success else Confidence.LOW,
+                    severity=Severity.LOW,
+                    response=response,
+                    evidence_count=1,
+                    success_hint=1.0 if success else 0.0,
+                    context={
+                        "engine": self.get_engine_name(),
+                        "username": username,
+                    },
+                )
 
-                        evidence = FindingEvidence(
-                            payload=f"弱憑證：{username}:{password}",
-                            response=response.text[:500],
-                            response_time_delta=response.elapsed.total_seconds()
-                        )
+                if success:
+                    smart_manager.feedback(features, confirmed_anomaly=True)
+                    vulnerability = Vulnerability(
+                        name=VulnerabilityType.WEAK_AUTHENTICATION,
+                        severity=decision.severity,
+                        confidence=decision.confidence,
+                    )
 
-                        finding = FindingPayload(
-                            finding_id=new_id("finding"),
-                            task_id=task.task_id,
-                            scan_id=task.scan_id,
-                            status="detected",
-                            vulnerability=vulnerability,
-                            target=FindingTarget(
-                                url=str(target.url),
-                                parameter="credentials",
-                                method="POST"
-                            ),
-                            evidence=evidence
-                        )
-                        findings.append(finding)
-                        logger.info(f"發現弱憑證: {username}:{password}")
-                        break
+                    evidence = FindingEvidence(
+                        payload=f"弱憑證：{username}:{password}",
+                        response=(
+                            f"Novelty={decision.novelty_score:.2f}, Risk={decision.risk_label}. "
+                            + response.text[:500]
+                        ),
+                        response_time_delta=_safe_elapsed_seconds(response),
+                    )
+
+                    finding = FindingPayload(
+                        finding_id=new_id("finding"),
+                        task_id=task.task_id,
+                        scan_id=task.scan_id,
+                        status="detected",
+                        vulnerability=vulnerability,
+                        target=FindingTarget(
+                            url=str(target.url),
+                            parameter="credentials",
+                            method="POST"
+                        ),
+                        evidence=evidence
+                    )
+                    findings.append(finding)
+                    logger.info(f"發現弱憑證: {username}:{password}")
+                    break
+                else:
+                    smart_manager.feedback(features, confirmed_anomaly=False)
 
             except Exception as e:
                 logger.debug(f"弱憑證檢測錯誤 ({username}): {e}")
@@ -285,6 +357,12 @@ class SessionFixationEngine(DetectionEngineProtocol):
             try:
                 # 第一步：獲取初始會話ID
                 initial_response = await client.get(str(target.url))
+                try:
+                    smart_manager.record_normal_profile(
+                        _auth_response_features(initial_response, success_hint=0.0)
+                    )
+                except Exception:
+                    logger.debug("無法記錄會話固定基準響應")
                 initial_session = self._extract_session_id(initial_response)
 
                 if not initial_session:
@@ -301,17 +379,35 @@ class SessionFixationEngine(DetectionEngineProtocol):
                 # 第三步：檢查登錄後會話ID是否改變
                 new_session = self._extract_session_id(login_response)
 
+                success_hint = 1.0 if initial_session == new_session else 0.0
+                decision, features = _novelty_decision(
+                    smart_manager,
+                    rule_confidence=Confidence.MEDIUM,
+                    severity=Severity.LOW,
+                    response=login_response,
+                    evidence_count=1,
+                    success_hint=success_hint,
+                    context={
+                        "engine": self.get_engine_name(),
+                        "initial_session": bool(initial_session),
+                    },
+                )
+
                 if initial_session == new_session:
+                    smart_manager.feedback(features, confirmed_anomaly=True)
                     vulnerability = Vulnerability(
                         name=VulnerabilityType.WEAK_AUTHENTICATION,
-                        severity=Severity.LOW,
-                        confidence=Confidence.MEDIUM
+                        severity=decision.severity,
+                        confidence=decision.confidence,
                     )
 
                     evidence = FindingEvidence(
                         payload=f"固定會話ID: {initial_session}",
-                        response=login_response.text[:500],
-                        response_time_delta=login_response.elapsed.total_seconds()
+                        response=(
+                            f"Novelty={decision.novelty_score:.2f}, Risk={decision.risk_label}. "
+                            + login_response.text[:500]
+                        ),
+                        response_time_delta=_safe_elapsed_seconds(login_response),
                     )
 
                     finding = FindingPayload(
@@ -328,6 +424,8 @@ class SessionFixationEngine(DetectionEngineProtocol):
                         evidence=evidence
                     )
                     findings.append(finding)
+                else:
+                    smart_manager.feedback(features, confirmed_anomaly=False)
 
             except Exception as e:
                 logger.debug(f"會話固定檢測錯誤: {e}")
@@ -362,10 +460,14 @@ class TokenValidationEngine(DetectionEngineProtocol):
         for target in [task.target]:
             try:
                 # 檢測 JWT 'none' 算法漏洞
-                findings.extend(await self._check_jwt_none_algorithm(target, client, task))
+                findings.extend(
+                    await self._check_jwt_none_algorithm(target, client, task, smart_manager)
+                )
 
                 # 檢測令牌篡改
-                findings.extend(await self._check_token_tampering(target, client, task))
+                findings.extend(
+                    await self._check_token_tampering(target, client, task, smart_manager)
+                )
 
             except Exception as e:
                 logger.debug(f"令牌驗證檢測錯誤: {e}")
@@ -377,7 +479,8 @@ class TokenValidationEngine(DetectionEngineProtocol):
         self,
         target: FunctionTaskTarget,
         client: httpx.AsyncClient,
-        task: FunctionTaskPayload
+        task: FunctionTaskPayload,
+        smart_manager: UnifiedSmartDetectionManager,
     ) -> list[FindingPayload]:
         """檢測JWT使用不安全的'none'算法"""
         findings: list[FindingPayload] = []
@@ -402,17 +505,32 @@ class TokenValidationEngine(DetectionEngineProtocol):
                 headers={"Authorization": f"Bearer {jwt_token}"}
             )
 
-            if response.status_code == 200:
+            success = response.status_code == 200
+            decision, features = _novelty_decision(
+                smart_manager,
+                rule_confidence=Confidence.HIGH if success else Confidence.LOW,
+                severity=Severity.LOW,
+                response=response,
+                evidence_count=0,
+                success_hint=1.0 if success else 0.0,
+                context={
+                    "engine": self.get_engine_name(),
+                    "check": "jwt_none",
+                },
+            )
+
+            if success:
+                smart_manager.feedback(features, confirmed_anomaly=True)
                 vulnerability = Vulnerability(
                     name=VulnerabilityType.WEAK_AUTHENTICATION,
-                    severity=Severity.LOW,
-                    confidence=Confidence.HIGH
+                    severity=decision.severity,
+                    confidence=decision.confidence,
                 )
 
                 evidence = FindingEvidence(
                     payload=jwt_token,
-                    response="",
-                    response_time_delta=0.0
+                    response=f"Novelty={decision.novelty_score:.2f}, Risk={decision.risk_label}",
+                    response_time_delta=_safe_elapsed_seconds(response),
                 )
 
                 finding = FindingPayload(
@@ -429,6 +547,8 @@ class TokenValidationEngine(DetectionEngineProtocol):
                     evidence=evidence
                 )
                 findings.append(finding)
+            else:
+                smart_manager.feedback(features, confirmed_anomaly=False)
 
         except Exception as e:
             logger.debug(f"JWT none算法檢測錯誤: {e}")
@@ -439,7 +559,8 @@ class TokenValidationEngine(DetectionEngineProtocol):
         self,
         target: FunctionTaskTarget,
         client: httpx.AsyncClient,
-        task: FunctionTaskPayload
+        task: FunctionTaskPayload,
+        smart_manager: UnifiedSmartDetectionManager,
     ) -> list[FindingPayload]:
         """檢測令牌篡改漏洞"""
         findings: list[FindingPayload] = []
@@ -453,17 +574,35 @@ class TokenValidationEngine(DetectionEngineProtocol):
                 headers={"Authorization": f"Bearer {tampered_token}"}
             )
 
-            if response.status_code == 200:
+            success = response.status_code == 200
+            decision, features = _novelty_decision(
+                smart_manager,
+                rule_confidence=Confidence.MEDIUM if success else Confidence.LOW,
+                severity=Severity.LOW,
+                response=response,
+                evidence_count=1,
+                success_hint=1.0 if success else 0.0,
+                context={
+                    "engine": self.get_engine_name(),
+                    "check": "token_tampering",
+                },
+            )
+
+            if success:
+                smart_manager.feedback(features, confirmed_anomaly=True)
                 vulnerability = Vulnerability(
                     name=VulnerabilityType.WEAK_AUTHENTICATION,
-                    severity=Severity.LOW,
-                    confidence=Confidence.MEDIUM
+                    severity=decision.severity,
+                    confidence=decision.confidence,
                 )
 
                 evidence = FindingEvidence(
                     payload=tampered_token,
-                    response=response.text[:300],
-                    response_time_delta=response.elapsed.total_seconds()
+                    response=(
+                        f"Novelty={decision.novelty_score:.2f}, Risk={decision.risk_label}. "
+                        + response.text[:300]
+                    ),
+                    response_time_delta=_safe_elapsed_seconds(response),
                 )
 
                 finding = FindingPayload(
@@ -480,6 +619,8 @@ class TokenValidationEngine(DetectionEngineProtocol):
                     evidence=evidence
                 )
                 findings.append(finding)
+            else:
+                smart_manager.feedback(features, confirmed_anomaly=False)
 
         except Exception as e:
             logger.debug(f"令牌篡改檢測錯誤: {e}")
@@ -505,10 +646,14 @@ class AuthBypassEngine(DetectionEngineProtocol):
         for target in [task.target]:
             try:
                 # 檢測無令牌訪問
-                findings.extend(await self._check_no_token_access(target, client, task))
+                findings.extend(
+                    await self._check_no_token_access(target, client, task, smart_manager)
+                )
 
                 # 檢測HTTP方法覆寫
-                findings.extend(await self._check_http_method_override(target, client, task))
+                findings.extend(
+                    await self._check_http_method_override(target, client, task, smart_manager)
+                )
 
             except Exception as e:
                 logger.debug(f"授權繞過檢測錯誤: {e}")
@@ -520,7 +665,8 @@ class AuthBypassEngine(DetectionEngineProtocol):
         self,
         target: FunctionTaskTarget,
         client: httpx.AsyncClient,
-        task: FunctionTaskPayload
+        task: FunctionTaskPayload,
+        smart_manager: UnifiedSmartDetectionManager,
     ) -> list[FindingPayload]:
         """檢測無令牌時是否能訪問受保護資源"""
         findings: list[FindingPayload] = []
@@ -529,17 +675,35 @@ class AuthBypassEngine(DetectionEngineProtocol):
             response = await client.get(str(target.url))
 
             # 如果沒有令牌也能成功訪問（200狀態碼）
-            if response.status_code == 200:
+            success = response.status_code == 200
+            decision, features = _novelty_decision(
+                smart_manager,
+                rule_confidence=Confidence.HIGH if success else Confidence.LOW,
+                severity=Severity.LOW,
+                response=response,
+                evidence_count=1,
+                success_hint=1.0 if success else 0.0,
+                context={
+                    "engine": self.get_engine_name(),
+                    "check": "no_token",
+                },
+            )
+
+            if success:
+                smart_manager.feedback(features, confirmed_anomaly=True)
                 vulnerability = Vulnerability(
                     name=VulnerabilityType.ACCESS_CONTROL,
-                    severity=Severity.LOW,
-                    confidence=Confidence.HIGH
+                    severity=decision.severity,
+                    confidence=decision.confidence,
                 )
 
                 evidence = FindingEvidence(
                     payload="無授權令牌訪問",
-                    response=response.text[:300],
-                    response_time_delta=response.elapsed.total_seconds()
+                    response=(
+                        f"Novelty={decision.novelty_score:.2f}, Risk={decision.risk_label}. "
+                        + response.text[:300]
+                    ),
+                    response_time_delta=_safe_elapsed_seconds(response),
                 )
 
                 finding = FindingPayload(
@@ -556,6 +720,8 @@ class AuthBypassEngine(DetectionEngineProtocol):
                     evidence=evidence
                 )
                 findings.append(finding)
+            else:
+                smart_manager.feedback(features, confirmed_anomaly=False)
 
         except Exception as e:
             logger.debug(f"無令牌訪問檢測錯誤: {e}")
@@ -566,7 +732,8 @@ class AuthBypassEngine(DetectionEngineProtocol):
         self,
         target: FunctionTaskTarget,
         client: httpx.AsyncClient,
-        task: FunctionTaskPayload
+        task: FunctionTaskPayload,
+        smart_manager: UnifiedSmartDetectionManager,
     ) -> list[FindingPayload]:
         """檢測HTTP方法覆寫繞過"""
         findings: list[FindingPayload] = []
@@ -585,17 +752,36 @@ class AuthBypassEngine(DetectionEngineProtocol):
                     headers={header_name: method}
                 )
 
-                if response.status_code == 200:
+                success = response.status_code == 200
+                decision, features = _novelty_decision(
+                    smart_manager,
+                    rule_confidence=Confidence.MEDIUM if success else Confidence.LOW,
+                    severity=Severity.LOW,
+                    response=response,
+                    evidence_count=1,
+                    success_hint=1.0 if success else 0.0,
+                    context={
+                        "engine": self.get_engine_name(),
+                        "check": "method_override",
+                        "header": header_name,
+                    },
+                )
+
+                if success:
+                    smart_manager.feedback(features, confirmed_anomaly=True)
                     vulnerability = Vulnerability(
                         name=VulnerabilityType.ACCESS_CONTROL,
-                        severity=Severity.LOW,
-                        confidence=Confidence.MEDIUM
+                        severity=decision.severity,
+                        confidence=decision.confidence,
                     )
 
                     evidence = FindingEvidence(
                         payload=f"使用{header_name}標頭覆寫為{method}方法",
-                        response=response.text[:300],
-                        response_time_delta=response.elapsed.total_seconds()
+                        response=(
+                            f"Novelty={decision.novelty_score:.2f}, Risk={decision.risk_label}. "
+                            + response.text[:300]
+                        ),
+                        response_time_delta=_safe_elapsed_seconds(response),
                     )
 
                     finding = FindingPayload(
@@ -613,6 +799,8 @@ class AuthBypassEngine(DetectionEngineProtocol):
                     )
                     findings.append(finding)
                     break
+                else:
+                    smart_manager.feedback(features, confirmed_anomaly=False)
 
             except Exception as e:
                 logger.debug(f"HTTP方法覆寫檢測錯誤: {e}")

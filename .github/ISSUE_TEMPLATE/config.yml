@@ -1,0 +1,6 @@
+blank_issues_enabled: false
+template: []
+contact_links:
+  - name: BioNeuronAI Discussions
+    url: https://github.com/BioNeuronAI/BioNeuronai/discussions
+    about: 使用討論區提出構想或分享使用心得

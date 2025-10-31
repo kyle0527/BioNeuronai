@@ -1,0 +1,36 @@
+site_name: BioNeuronAI Docs
+site_description: "Hebbian novelty computation with safety modules"
+site_url: ""
+repo_url: "https://github.com/kyle0527/BioNeuronai"
+nav:
+  - 首頁 Home: index.md
+  - 技術白皮書 Whitepaper: whitepaper.md
+  - API 參考 API Reference:
+      - 核心 Core: api/core.md
+      - 安全 Security: api/security.md
+  - 逐步教程 Tutorials:
+      - RAG 整合 RAG Integration: tutorials/rag.md
+      - 工具閘門 Tool Gating: tutorials/tool-gating.md
+      - 儀表板 Dashboard: tutorials/dashboard.md
+      - 強化學習 Reinforcement Learning: tutorials/reinforcement-learning.md
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: ["src"]
+          options:
+            docstring_style: google
+theme:
+  name: material
+  language: zh
+  palette:
+    scheme: slate
+    primary: indigo
+    accent: teal
+markdown_extensions:
+  - admonition
+  - toc:
+      permalink: true
+  - footnotes
+  - tables
