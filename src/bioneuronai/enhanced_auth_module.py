@@ -92,6 +92,9 @@ def _novelty_decision(
 class WeakCredentialEngine(DetectionEngineProtocol):
     """弱憑證檢測引擎 - 檢測弱密碼和默認憑證"""
 
+    def __init__(self, concurrency_limit: int = 10) -> None:
+        self._request_semaphore = asyncio.Semaphore(concurrency_limit)
+
     def get_engine_name(self) -> str:
         return "Weak Credential Detection Engine"
 
@@ -134,12 +137,13 @@ class WeakCredentialEngine(DetectionEngineProtocol):
                     if csrf_token:
                         login_data[login_fields["csrf_token"]] = csrf_token
 
-                response = await client.post(
-                    str(target.url),
-                    data=login_data,
-                    timeout=15.0,
-                    follow_redirects=True
-                )
+                async with self._request_semaphore:
+                    response = await client.post(
+                        str(target.url),
+                        data=login_data,
+                        timeout=15.0,
+                        follow_redirects=True
+                    )
 
                 success = await self._is_successful_login(response, username)
                 decision, features = _novelty_decision(
@@ -202,7 +206,8 @@ class WeakCredentialEngine(DetectionEngineProtocol):
     ) -> dict[str, str]:
         """識別登錄表單字段"""
         try:
-            response = await client.get(str(target.url), timeout=10.0)
+            async with self._request_semaphore:
+                response = await client.get(str(target.url), timeout=10.0)
             html_content = response.text.lower()
             
             fields = {}
@@ -264,7 +269,8 @@ class WeakCredentialEngine(DetectionEngineProtocol):
     ) -> str | None:
         """獲取CSRF token"""
         try:
-            response = await client.get(str(target.url), timeout=10.0)
+            async with self._request_semaphore:
+                response = await client.get(str(target.url), timeout=10.0)
             html_content = response.text
             
             import re
@@ -324,22 +330,17 @@ class WeakCredentialEngine(DetectionEngineProtocol):
             # 6. Cookie檢查 (會話cookie通常表示成功登錄)
             session_cookies = ["session", "auth", "token", "jsessionid", "phpsessid"]
             has_session_cookie = any(cookie in response.cookies for cookie in session_cookies)
-            
-            return has_success and not has_failure or has_session_cookie
-            
-        return False
-        """判斷是否成功登錄"""
-        success_indicators = [
-            "dashboard", "welcome", "logout", "profile",
-            "歡迎", "儀表板", "成功登錄"
-        ]
 
-        response_text = response.text.lower()
-        return any(indicator in response_text for indicator in success_indicators)
+            return has_success and not has_failure or has_session_cookie
+
+        return False
 
 
 class SessionFixationEngine(DetectionEngineProtocol):
     """會話固定攻擊檢測引擎"""
+
+    def __init__(self, concurrency_limit: int = 10) -> None:
+        self._request_semaphore = asyncio.Semaphore(concurrency_limit)
 
     def get_engine_name(self) -> str:
         return "Session Fixation Detection Engine"
@@ -356,13 +357,13 @@ class SessionFixationEngine(DetectionEngineProtocol):
         for target in [task.target]:
             try:
                 # 第一步：獲取初始會話ID
-                initial_response = await client.get(str(target.url))
+     initial_response = await client.get(str(target.url))
                 try:
                     smart_manager.record_normal_profile(
                         _auth_response_features(initial_response, success_hint=0.0)
                     )
                 except Exception:
-                    logger.debug("無法記錄會話固定基準響應")
+
                 initial_session = self._extract_session_id(initial_response)
 
                 if not initial_session:
@@ -370,11 +371,12 @@ class SessionFixationEngine(DetectionEngineProtocol):
 
                 # 第二步：使用固定會話ID登錄
                 login_data = {"username": "test", "password": "test"}
-                login_response = await client.post(
-                    str(target.url),
-                    data=login_data,
-                    cookies={"sessionid": initial_session}
-                )
+                async with self._request_semaphore:
+                    login_response = await client.post(
+                        str(target.url),
+                        data=login_data,
+                        cookies={"sessionid": initial_session}
+                    )
 
                 # 第三步：檢查登錄後會話ID是否改變
                 new_session = self._extract_session_id(login_response)
@@ -445,6 +447,9 @@ class SessionFixationEngine(DetectionEngineProtocol):
 class TokenValidationEngine(DetectionEngineProtocol):
     """令牌驗證檢測引擎 - 檢測JWT和其他令牌的安全性"""
 
+    def __init__(self, concurrency_limit: int = 10) -> None:
+        self._request_semaphore = asyncio.Semaphore(concurrency_limit)
+
     def get_engine_name(self) -> str:
         return "Token Validation Detection Engine"
 
@@ -500,10 +505,11 @@ class TokenValidationEngine(DetectionEngineProtocol):
             jwt_token = f"{header_b64}.{payload_b64}."
 
             # 嘗試使用這個token訪問受保護資源
-            response = await client.get(
-                str(target.url),
-                headers={"Authorization": f"Bearer {jwt_token}"}
-            )
+            async with self._request_semaphore:
+                response = await client.get(
+                    str(target.url),
+                    headers={"Authorization": f"Bearer {jwt_token}"}
+                )
 
             success = response.status_code == 200
             decision, features = _novelty_decision(
@@ -569,10 +575,11 @@ class TokenValidationEngine(DetectionEngineProtocol):
             # 篡改令牌（修改用戶名為admin）
             tampered_token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjoiYWRtaW4ifQ.signature"
 
-            response = await client.get(
-                str(target.url),
-                headers={"Authorization": f"Bearer {tampered_token}"}
-            )
+            async with self._request_semaphore:
+                response = await client.get(
+                    str(target.url),
+                    headers={"Authorization": f"Bearer {tampered_token}"}
+                )
 
             success = response.status_code == 200
             decision, features = _novelty_decision(
@@ -631,6 +638,9 @@ class TokenValidationEngine(DetectionEngineProtocol):
 class AuthBypassEngine(DetectionEngineProtocol):
     """授權繞過檢測引擎"""
 
+    def __init__(self, concurrency_limit: int = 10) -> None:
+        self._request_semaphore = asyncio.Semaphore(concurrency_limit)
+
     def get_engine_name(self) -> str:
         return "Authorization Bypass Detection Engine"
 
@@ -672,7 +682,8 @@ class AuthBypassEngine(DetectionEngineProtocol):
         findings: list[FindingPayload] = []
 
         try:
-            response = await client.get(str(target.url))
+            async with self._request_semaphore:
+                response = await client.get(str(target.url))
 
             # 如果沒有令牌也能成功訪問（200狀態碼）
             success = response.status_code == 200
@@ -747,10 +758,11 @@ class AuthBypassEngine(DetectionEngineProtocol):
 
         for header_name, method in override_headers:
             try:
-                response = await client.post(
-                    str(target.url),
-                    headers={header_name: method}
-                )
+                async with self._request_semaphore:
+                    response = await client.post(
+                        str(target.url),
+                        headers={header_name: method}
+                    )
 
                 success = response.status_code == 200
                 decision, features = _novelty_decision(

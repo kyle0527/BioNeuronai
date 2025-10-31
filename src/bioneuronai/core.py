@@ -1,15 +1,39 @@
 from __future__ import annotations
 
 
-
-
-import importlib
-import json
-from pathlib import Path
-from typing import List, Sequence, Tuple, Type
-n
-
 import numpy as np
+
+try:
+    from numba import njit
+
+    @njit(cache=True)
+    def _numba_batch_hebbian(
+        weights: np.ndarray,
+        inputs_batch: np.ndarray,
+        outputs_batch: np.ndarray,
+        learning_rates: np.ndarray,
+    ) -> None:
+        """Numba 加速的 Hebbian 批次更新，確保 in-place 操作。"""
+
+        batch_size = inputs_batch.shape[0]
+        n_neurons = weights.shape[0]
+        n_inputs = weights.shape[1]
+
+        for b in range(batch_size):
+            for j in range(n_neurons):
+                lr = learning_rates[j]
+                out = outputs_batch[b, j]
+                for i in range(n_inputs):
+                    updated = weights[j, i] + lr * inputs_batch[b, i] * out
+                    if updated < 0.0:
+                        updated = 0.0
+                    elif updated > 1.0:
+                        updated = 1.0
+                    weights[j, i] = updated
+
+except ImportError:  # pragma: no cover - numba 為可選依賴
+    njit = None
+    _numba_batch_hebbian = None
 
 
 from .base import BaseBioNeuron
@@ -63,16 +87,22 @@ class BioNeuron:
         assert len(inputs) == self.num_inputs
         x = np.asarray(inputs, dtype=np.float32)
 
-        # short-term memory / 短期記憶佇列
-        self.input_memory.append(x)
+
+        potential = float(np.dot(self.weights, x))
+        return self._finalize_potential(x, potential)
+
+    def _finalize_potential(self, x: np.ndarray, potential: float) -> float:
+        """Finalize activation given a precomputed membrane potential."""
+
+        # numpy 向量化流程會重複使用輸入，因此需要複製以避免共享引用被修改
+        self.input_memory.append(x.copy())
         if len(self.input_memory) > self.memory_len:
             self.input_memory.pop(0)
 
+        if potential >= self.threshold:
+            return min(1.0, potential)
+        return 0.0
 
-        potential = float(np.dot(self.weights, x))
-        output = min(1.0, potential) if potential >= self.threshold else 0.0
-        self._update_memory(x, output)
-        return output
 
     def learn(self, inputs: Sequence[float], target: float | None = None) -> None:
         x = self._prepare_inputs(inputs)
@@ -82,6 +112,7 @@ class BioNeuron:
             else float(target) if target is not None else self.forward(inputs)
         )
         delta = self.learning_rate * x * float(output)
+
         self.weights = np.clip(self.weights + delta, 0.0, 1.0)
         if self.online_window:
             self._apply_online_regularization()
@@ -240,6 +271,7 @@ class BioNeuron:
         self.hebbian_learn(inputs, output)
         return output
 
+
     def novelty_score(self) -> float:
         """Return a 0~1 novelty score based on the last two inputs.
 
@@ -256,10 +288,52 @@ class BioNeuron:
 
 class BioLayer:
 
-    def __init__(
         self,
         n_neurons: int,
         input_dim: int,
+
+        use_vectorized: bool = True,
+        accelerator: str | None = None,
+    ) -> None:
+        self.neurons = [BioNeuron(input_dim) for _ in range(n_neurons)]
+        self.use_vectorized = use_vectorized
+        self._weight_matrix = np.stack([n.weights for n in self.neurons]).astype(np.float32)
+        self._bind_weight_matrix()
+
+        allowed_accelerators = {None, "numba"}
+        if accelerator not in allowed_accelerators:
+            warnings.warn(
+                f"未知的 accelerator '{accelerator}'，將回退為純 NumPy 實作。",
+                RuntimeWarning,
+            )
+            accelerator = None
+
+        if accelerator == "numba" and _numba_batch_hebbian is None:
+            warnings.warn(
+                "未安裝 numba，BioLayer 將回退為 NumPy 批次更新。",
+                RuntimeWarning,
+            )
+            accelerator = None
+
+        self._accelerator = accelerator
+
+    def _bind_weight_matrix(self) -> None:
+        for idx, neuron in enumerate(self.neurons):
+            neuron.weights = self._weight_matrix[idx]
+
+    def _get_learning_rates(self) -> np.ndarray:
+        return np.asarray([n.learning_rate for n in self.neurons], dtype=np.float32)
+
+    def forward(
+        self,
+        inputs: Sequence[float],
+        *,
+        use_vectorized: bool | None = None,
+    ) -> List[float]:
+        vectorized = self.use_vectorized if use_vectorized is None else use_vectorized
+        if not vectorized:
+            return [n.forward(inputs) for n in self.neurons]
+
 
         *,
         threshold: float = 0.8,
@@ -304,8 +378,57 @@ class BioLayer:
 
 
 
-    def forward(self, inputs: Sequence[float]) -> List[float]:
-        return [n.forward(inputs) for n in self.neurons]
+
+        x = np.asarray(inputs, dtype=np.float32)
+        if x.ndim != 1 or x.shape[0] != self._weight_matrix.shape[1]:
+            raise ValueError("輸入維度與層設定不符")
+
+        potentials = self._weight_matrix @ x
+        outputs: list[float] = []
+        for idx, neuron in enumerate(self.neurons):
+            outputs.append(neuron._finalize_potential(x, float(potentials[idx])))
+        return outputs
+
+
+        self,
+        inputs: Sequence[float] | Sequence[Sequence[float]],
+        outputs: Sequence[float] | Sequence[Sequence[float]],
+        *,
+        use_vectorized: bool | None = None,
+    ) -> None:
+        vectorized = self.use_vectorized if use_vectorized is None else use_vectorized
+
+        inputs_arr = np.asarray(inputs, dtype=np.float32)
+        outputs_arr = np.asarray(outputs, dtype=np.float32)
+
+        if inputs_arr.ndim == 1:
+            inputs_arr = inputs_arr.reshape(1, -1)
+        if outputs_arr.ndim == 1:
+            outputs_arr = outputs_arr.reshape(1, -1)
+
+        if inputs_arr.shape[1] != self._weight_matrix.shape[1]:
+            raise ValueError("輸入維度與層設定不符")
+        if outputs_arr.shape[1] != len(self.neurons):
+            raise ValueError("輸出向量長度必須等於神經元數量")
+        if inputs_arr.shape[0] != outputs_arr.shape[0]:
+            raise ValueError("輸入與輸出批次大小不一致")
+
+        if not vectorized:
+            for sample_inputs, sample_outputs in zip(inputs_arr, outputs_arr):
+                for neuron, out in zip(self.neurons, sample_outputs):
+                    neuron.hebbian_learn(sample_inputs, float(out))
+            return
+
+        learning_rates = self._get_learning_rates()
+
+        if self._accelerator == "numba" and _numba_batch_hebbian is not None:
+            _numba_batch_hebbian(self._weight_matrix, inputs_arr, outputs_arr, learning_rates)
+        else:
+            delta = outputs_arr.T @ inputs_arr
+            delta *= learning_rates[:, None]
+            np.add(self._weight_matrix, delta, out=self._weight_matrix, casting="unsafe")
+
+        np.clip(self._weight_matrix, 0.0, 1.0, out=self._weight_matrix)
 
 
     def learn(
@@ -538,6 +661,7 @@ def _load_config(config: Mapping[str, Any] | str | Path | None) -> Mapping[str, 
             ) from exc
         return yaml.safe_load(data)
     raise ValueError(f"Unsupported configuration format: {suffix}")
+
 
 
 

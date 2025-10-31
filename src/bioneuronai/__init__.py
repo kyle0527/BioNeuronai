@@ -37,15 +37,12 @@ __all__ = [
 
 try:
 
-    from .improved_core import ImprovedBioNeuron, BioNeuronV2
-    __all__ = [
         "BioNeuron",
         "BioLayer",
         "BioNet",
         "cli_loop",
         "ImprovedBioNeuron",
-        "CuriosityConfig",
-        "CuriosityDrivenNet",
+
         "BioNeuronV2",
     ]
 except ImportError:

@@ -47,6 +47,9 @@ logger = get_logger(__name__)
 class ProductionHorizontalIDOREngine(DetectionEngineProtocol):
     """生產級水平特權升級檢測引擎"""
 
+    def __init__(self, concurrency_limit: int = 10) -> None:
+        self._request_semaphore = asyncio.Semaphore(concurrency_limit)
+
     def get_engine_name(self) -> str:
         return "Production Horizontal IDOR Detection Engine"
 
@@ -199,11 +202,11 @@ class ProductionHorizontalIDOREngine(DetectionEngineProtocol):
         self, target: FunctionTaskTarget, client: httpx.AsyncClient
     ) -> httpx.Response:
         """發送請求"""
-        if target.method.upper() == "GET":
-            return await client.get(str(target.url), timeout=15.0, follow_redirects=False)
-        elif target.method.upper() == "POST":
-            return await client.post(str(target.url), timeout=15.0, follow_redirects=False)
-        else:
+        async with self._request_semaphore:
+            if target.method.upper() == "GET":
+                return await client.get(str(target.url), timeout=15.0, follow_redirects=False)
+            if target.method.upper() == "POST":
+                return await client.post(str(target.url), timeout=15.0, follow_redirects=False)
             # 其他HTTP方法
             return await client.request(
                 target.method, str(target.url), timeout=15.0, follow_redirects=False
@@ -421,6 +424,9 @@ class ProductionHorizontalIDOREngine(DetectionEngineProtocol):
 class ProductionVerticalIDOREngine(DetectionEngineProtocol):
     """生產級垂直特權升級檢測引擎"""
 
+    def __init__(self, concurrency_limit: int = 10) -> None:
+        self._request_semaphore = asyncio.Semaphore(concurrency_limit)
+
     def get_engine_name(self) -> str:
         return "Production Vertical IDOR Detection Engine"
 
@@ -543,7 +549,8 @@ class ProductionVerticalIDOREngine(DetectionEngineProtocol):
 
     async def _send_request(self, target, client: httpx.AsyncClient) -> httpx.Response:
         """發送請求"""
-        return await client.get(str(target.url), timeout=15.0, follow_redirects=False)
+        async with self._request_semaphore:
+            return await client.get(str(target.url), timeout=15.0, follow_redirects=False)
 
     def _analyze_vertical_response(
         self, response: httpx.Response, admin_path: str
