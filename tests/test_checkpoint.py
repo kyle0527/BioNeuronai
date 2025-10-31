@@ -113,3 +113,20 @@ def test_network_save_and_load_roundtrip(tmp_path):
         restored.layer1.neurons[0].weights,
         original_layer.neurons[0].weights,
     )
+
+
+
+def test_network_load_state_trims_extra_layers():
+    net = BioNet()
+    baseline_state = net.to_dict()
+
+    # Manually attach an extra layer to ensure get_layers discovers it.
+    net.layer3 = BioLayer(2, 3)
+    assert len(net.get_layers()) == 3
+
+    net.load_state(baseline_state)
+    layers_after = net.get_layers()
+
+    assert len(layers_after) == len(baseline_state["layers"])
+    assert not hasattr(net, "layer3")
+

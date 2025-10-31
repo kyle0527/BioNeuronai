@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BioNeuronAI Dashboard</title>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+    }
+    header {
+      padding: 1.5rem 2rem;
+      background: #1e293b;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    }
+    main {
+      padding: 2rem;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 1.5rem;
+    }
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 1rem;
+    }
+    .summary-item {
+      background: rgba(30, 41, 59, 0.8);
+      border-radius: 10px;
+      padding: 0.75rem 1rem;
+      border: 1px solid rgba(148, 163, 184, 0.25);
+    }
+    .summary-item .label {
+      font-size: 0.85rem;
+      color: #94a3b8;
+      margin-bottom: 0.35rem;
+    }
+    .summary-item .value {
+      font-size: 1.4rem;
+      font-weight: 600;
+      color: #f8fafc;
+    }
+    .card {
+      background: #1e293b;
+      border-radius: 12px;
+      padding: 1.5rem;
+      box-shadow: 0 10px 30px rgba(15, 23, 42, 0.6);
+      border: 1px solid rgba(148, 163, 184, 0.2);
+    }
+    h2 {
+      margin-top: 0;
+      font-size: 1.25rem;
+      color: #38bdf8;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 1rem;
+      font-size: 0.95rem;
+    }
+    table th,
+    table td {
+      padding: 0.4rem 0.6rem;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+      text-align: left;
+    }
+    .progress {
+      height: 12px;
+      background: rgba(148, 163, 184, 0.2);
+      border-radius: 999px;
+      overflow: hidden;
+      margin-top: 0.75rem;
+    }
+    .progress > div {
+      height: 100%;
+      background: linear-gradient(90deg, #38bdf8, #14b8a6);
+      transition: width 0.3s ease-in-out;
+    }
+    .status {
+      font-size: 0.9rem;
+      margin-top: 0.75rem;
+      color: #cbd5f5;
+    }
+    .inputs-list {
+      max-height: 220px;
+      overflow-y: auto;
+      margin-top: 1rem;
+      font-size: 0.9rem;
+      line-height: 1.4;
+    }
+    .inputs-list::-webkit-scrollbar {
+      width: 6px;
+    }
+    .inputs-list::-webkit-scrollbar-thumb {
+      background-color: rgba(148, 163, 184, 0.3);
+      border-radius: 999px;
+    }
+    .error {
+      color: #f97316;
+      margin-left: 1rem;
+      font-size: 0.9rem;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <header>
+      <div>
+        <h1>BioNeuronAI 即時監控儀表板</h1>
+        <small>WebSocket 狀態: <strong :style="{color: websocketConnected ? '#22d3ee' : '#f97316'}">{{ websocketConnected ? '已連線' : '離線 (使用輪詢)' }}</strong></small>
+      </div>
+      <div class="error" v-if="lastError">⚠ {{ lastError }}</div>
+    </header>
+
+    <main>
+      <section class="card" style="grid-column: 1 / -1;">
+        <h2>即時摘要</h2>
+        <div class="summary-grid">
+          <div class="summary-item">
+            <div class="label">平均新穎性</div>
+            <div class="value">{{ summary.novelty_mean?.toFixed(3) ?? '0.000' }}</div>
+          </div>
+          <div class="summary-item">
+            <div class="label">最大新穎性</div>
+            <div class="value">{{ summary.novelty_max?.toFixed(3) ?? '0.000' }}</div>
+          </div>
+          <div class="summary-item">
+            <div class="label">平均閾值</div>
+            <div class="value">{{ summary.threshold_mean?.toFixed(3) ?? '0.000' }}</div>
+          </div>
+          <div class="summary-item">
+            <div class="label">記錄輸入筆數</div>
+            <div class="value">{{ summary.inputs_logged ?? 0 }}</div>
+          </div>
+          <div class="summary-item">
+            <div class="label">安全掃描階段</div>
+            <div class="value">{{ summary.security_phase ?? '未啟動' }}</div>
+          </div>
+          <div class="summary-item">
+            <div class="label">安全掃描進度</div>
+            <div class="value">{{ Math.round((summary.security_progress ?? 0) * 100) }}%</div>
+          </div>
+          <div class="summary-item">
+            <div class="label">累計議題</div>
+            <div class="value">{{ summary.security_issues ?? 0 }}</div>
+          </div>
+          <div class="summary-item">
+            <div class="label">最後更新</div>
+            <div class="value">{{ summary.last_update ? new Date(summary.last_update * 1000).toLocaleTimeString() : '—' }}</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>新穎性走勢</h2>
+        <canvas id="novelty-chart" height="160"></canvas>
+      </section>
+
+      <section class="card">
+        <h2>權重分布</h2>
+        <select v-model="selectedWeightKey" @change="updateWeightChart" style="margin-bottom: 0.75rem; background: #0f172a; color: #e2e8f0; border: 1px solid rgba(148, 163, 184, 0.4); padding: 0.35rem 0.5rem; border-radius: 8px;">
+          <option v-for="(value, key) in weightKeys" :value="key" :key="key">{{ key }}</option>
+        </select>
+        <canvas id="weights-chart" height="160"></canvas>
+      </section>
+
+      <section class="card">
+        <h2>閾值監控</h2>
+        <table v-if="thresholdEntries.length">
+          <thead>
+            <tr>
+              <th>神經元</th>
+              <th>閾值</th>
+              <th>新穎性</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="entry in thresholdEntries" :key="entry.key">
+              <td>{{ entry.key }}</td>
+              <td>{{ entry.threshold.toFixed(3) }}</td>
+              <td>{{ entry.novelty.toFixed(3) }}</td>
+            </tr>
+          </tbody>
+        </table>
+        <p v-else>尚無資料</p>
+      </section>
+
+      <section class="card">
+        <h2>安全掃描進度</h2>
+        <div class="progress">
+          <div :style="{ width: `${Math.round(security.progress * 100)}%` }"></div>
+        </div>
+        <div class="status">
+          <div>階段：{{ security.current_phase }}</div>
+          <div>進度：{{ Math.round(security.progress * 100) }}%</div>
+          <div>發現議題：{{ security.issues_found }}</div>
+        </div>
+      </section>
+
+      <section class="card" style="grid-column: 1 / -1;">
+        <h2>最近輸入紀錄</h2>
+        <div class="inputs-list">
+          <div v-for="item in recentInputs" :key="item.timestamp">
+            <strong>{{ new Date(item.timestamp * 1000).toLocaleTimeString() }}：</strong>
+            輸入 {{ item.values.map(v => v.toFixed(2)).join(', ') }}
+            <span v-if="item.outputs"> → 輸出 {{ item.outputs.map(v => v.toFixed(2)).join(', ') }}</span>
+            <span v-if="item.novelty !== null"> (新穎性 {{ item.novelty.toFixed(3) }})</span>
+            <span v-if="item.tag"> [{{ item.tag }}]</span>
+          </div>
+          <div v-if="!recentInputs.length">目前無輸入紀錄</div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const API_BASE = window.location.origin;
+
+    const app = Vue.createApp({
+      data() {
+        return {
+          stats: null,
+          noveltyChart: null,
+          weightChart: null,
+          websocketConnected: false,
+          lastError: null,
+          selectedWeightKey: null,
+        };
+      },
+      computed: {
+        summary() {
+          return this.stats?.summary || {
+            inputs_logged: 0,
+            novelty_mean: 0,
+            novelty_max: 0,
+            threshold_mean: 0,
+            threshold_max: 0,
+            security_phase: null,
+            security_progress: null,
+            security_issues: null,
+            last_update: null,
+          };
+        },
+        thresholdEntries() {
+          if (!this.stats?.snapshot) return [];
+          const thresholds = this.stats.snapshot.thresholds || {};
+          const novelty = this.stats.snapshot.novelty || {};
+          return Object.keys(thresholds)
+            .sort()
+            .map((key) => ({
+              key,
+              threshold: thresholds[key],
+              novelty: novelty[key] ?? 0,
+            }));
+        },
+        security() {
+          if (this.stats?.snapshot?.security_scan) {
+            return this.stats.snapshot.security_scan;
+          }
+          if (this.summary.security_phase) {
+            return {
+              progress: this.summary.security_progress ?? 0,
+              current_phase: this.summary.security_phase,
+              issues_found: this.summary.security_issues ?? 0,
+            };
+          }
+          return {
+            progress: 0,
+            current_phase: '未啟動',
+            issues_found: 0,
+          };
+        },
+        recentInputs() {
+          return this.stats?.inputs?.slice().reverse() || [];
+        },
+        weightKeys() {
+          if (!this.stats?.snapshot?.weight_distribution) return {};
+          return this.stats.snapshot.weight_distribution;
+        },
+      },
+      mounted() {
+        this.initCharts();
+        this.connectWebSocket();
+        this.fetchStats();
+        setInterval(this.fetchStats, 5000);
+      },
+      methods: {
+        initCharts() {
+          const noveltyCtx = document.getElementById('novelty-chart').getContext('2d');
+          this.noveltyChart = new Chart(noveltyCtx, {
+            type: 'line',
+            data: {
+              labels: [],
+              datasets: [{
+                label: '平均新穎性',
+                data: [],
+                borderColor: '#38bdf8',
+                backgroundColor: 'rgba(56, 189, 248, 0.25)',
+                tension: 0.3,
+                fill: true,
+              }],
+            },
+            options: {
+              plugins: { legend: { labels: { color: '#e2e8f0' } } },
+              scales: {
+                x: {
+                  ticks: { color: '#94a3b8' },
+                  grid: { color: 'rgba(148, 163, 184, 0.1)' },
+                },
+                y: {
+                  ticks: { color: '#94a3b8' },
+                  grid: { color: 'rgba(148, 163, 184, 0.1)' },
+                  suggestedMin: 0,
+                  suggestedMax: 1,
+                },
+              },
+            },
+          });
+
+          const weightCtx = document.getElementById('weights-chart').getContext('2d');
+          this.weightChart = new Chart(weightCtx, {
+            type: 'bar',
+            data: {
+              labels: [],
+              datasets: [{
+                label: '權重分布',
+                data: [],
+                backgroundColor: '#22d3ee',
+              }],
+            },
+            options: {
+              plugins: { legend: { labels: { color: '#e2e8f0' } } },
+              scales: {
+                x: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(148, 163, 184, 0.1)' } },
+                y: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(148, 163, 184, 0.1)' } },
+              },
+            },
+          });
+        },
+        connectWebSocket() {
+          let protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+          const ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
+
+          ws.onopen = () => {
+            this.websocketConnected = true;
+            this.lastError = null;
+          };
+
+          ws.onclose = () => {
+            this.websocketConnected = false;
+          };
+
+          ws.onerror = (err) => {
+            this.lastError = 'WebSocket 無法連線，將改用輪詢。';
+            console.error(err);
+          };
+
+          ws.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            this.stats = data;
+            this.updateCharts();
+            if (!this.selectedWeightKey) {
+              const keys = Object.keys(this.weightKeys);
+              if (keys.length) {
+                this.selectedWeightKey = keys[0];
+                this.updateWeightChart();
+              }
+            } else {
+              this.updateWeightChart();
+            }
+          };
+        },
+        async fetchStats() {
+          try {
+            const res = await fetch(`${API_BASE}/stats`);
+            if (!res.ok) throw new Error('Failed to fetch stats');
+            this.stats = await res.json();
+            this.updateCharts();
+            if (!this.selectedWeightKey) {
+              const keys = Object.keys(this.weightKeys);
+              if (keys.length) {
+                this.selectedWeightKey = keys[0];
+                this.updateWeightChart();
+              }
+            } else {
+              this.updateWeightChart();
+            }
+          } catch (error) {
+            this.lastError = '輪詢資料失敗。';
+            console.error(error);
+          }
+        },
+        updateCharts() {
+          if (!this.stats) return;
+          const trend = this.stats.novelty_trend || [];
+          this.noveltyChart.data.labels = trend.map((item) => new Date(item.timestamp * 1000).toLocaleTimeString());
+          this.noveltyChart.data.datasets[0].data = trend.map((item) => item.value || 0);
+          this.noveltyChart.update('none');
+        },
+        updateWeightChart() {
+          if (!this.selectedWeightKey || !this.weightKeys[this.selectedWeightKey]) return;
+          const histogram = this.weightKeys[this.selectedWeightKey].histogram || [];
+          this.weightChart.data.labels = histogram.map((bucket) => `${bucket.start.toFixed(2)}-${bucket.end.toFixed(2)}`);
+          this.weightChart.data.datasets[0].data = histogram.map((bucket) => bucket.count);
+          this.weightChart.update('none');
+        },
+      },
+    });
+
+    app.mount('#app');
+  </script>
+</body>
+</html>
