@@ -14,9 +14,12 @@ import numpy as np
 from .base import BaseBioNeuron
 
 
-class BioNeuron(BaseBioNeuron):
-    """Bio-inspired neuron with short-term input memory and Hebbian update.
-    (Minimal refactor of your original code; adds type hints and novelty_score.)
+
+class BioNeuron:
+    """Bio-inspired neuron with short-term memory and Hebbian updates.
+
+    生物啟發神經元，具備短期記憶與 Hebbian 權重更新機制。
+
     """
 
 
@@ -54,7 +57,16 @@ class BioNeuron(BaseBioNeuron):
         self.baseline_weights = self.weights.copy()
 
     def forward(self, inputs: Sequence[float]) -> float:
-        x = self._prepare_inputs(inputs)
+
+        assert len(inputs) == self.num_inputs
+        x = np.asarray(inputs, dtype=np.float32)
+
+        # short-term memory / 短期記憶佇列
+        self.input_memory.append(x)
+        if len(self.input_memory) > self.memory_len:
+            self.input_memory.pop(0)
+
+
         potential = float(np.dot(self.weights, x))
         output = min(1.0, potential) if potential >= self.threshold else 0.0
         self._update_memory(x, output)
@@ -217,6 +229,19 @@ class BioNeuron(BaseBioNeuron):
             return []
         return [array[i].astype(np.float32) for i in range(array.shape[0])]
 
+
+
+    def novelty_score(self) -> float:
+        """Return a 0~1 novelty score based on the last two inputs.
+
+        透過最近兩筆輸入的平均差異取得 0~1 範圍的新穎性分數。
+        """
+        if len(self.input_memory) < 2:
+            return 0.0
+        a, b = self.input_memory[-1], self.input_memory[-2]
+        denom = np.maximum(1e-6, np.mean(np.abs(b)))
+        score = float(np.clip(np.mean(np.abs(a - b)) / denom, 0.0, 5.0) / 5.0)
+        return score
 
 
 
@@ -507,7 +532,9 @@ def _load_config(config: Mapping[str, Any] | str | Path | None) -> Mapping[str, 
 
 class BioNet:
 
+
     """Two-layer demo 2 -> 3 -> 3; returns (l2_out, l1_out)."""
+
 
     def __init__(
         self,
@@ -885,6 +912,7 @@ def stats(ctx: typer.Context) -> None:
 
 
 def cli_loop() -> None:
+
     app()
 
     print("== BioNeuron CLI ==")
@@ -925,4 +953,6 @@ def cli_loop() -> None:
             print(f"離開時保存失敗：{exc}")
 
 
-# TODO: 之後若改 LIF + STDP，保留此 API，不破壞上層介面.
+
+# TODO: 若改 LIF + STDP，需維持此 API 以避免破壞上層介面 /
+# TODO: Preserve API when migrating to LIF + STDP implementations.

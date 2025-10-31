@@ -1,3 +1,4 @@
+
 """Smart detection manager that blends rule signals with novelty analysis."""
 
 from __future__ import annotations
@@ -183,3 +184,4 @@ __all__ = [
     "DetectionRuleResult",
     "UnifiedSmartDetectionManager",
 ]
+

@@ -1,54 +1,30 @@
 # BioNeuronAI
 
-**生物啟發的新穎性檢測神經網路**
+[繁體中文](#繁體中文) | [English](#english)
 
-BioNeuronAI 是一個實現了 Hebbian 學習機制的生物啟發神經元模型，具有短期輸入記憶和新穎性評分功能。本項目為 AI 助手提供了新穎性門控機制，可整合強化學習循環、檢索增強生成(RAG)管道和工具門控。
+---
 
-## ✨ 特性
+## 繁體中文
 
-- 🧠 **Hebbian 學習**: 實現生物啟發的突觸可塑性
-- 🔄 **短期記憶**: 神經元具有可配置的輸入記憶長度
-- 📊 **新穎性檢測**: 自動計算輸入模式的新穎性評分
-- 🔗 **層級架構**: 支援多層神經網路構建
-- 🧪 **易於測試**: 完整的測試套件覆蓋
-- 📦 **模組化設計**: 清晰的 API 和可擴展架構
+**生物啟發的新穎性檢測與安全協同框架**
 
 
-## 🚀 快速開始
 
-### 安裝
+### ✨ 特性
 
-```bash
-# 克隆倉庫
-git clone https://github.com/kyle0527/BioNeuronai.git
-cd BioNeuronai
+- 🧠 **Hebbian 學習**：具備突觸可塑性與短期記憶佇列。
+- 🔍 **新穎性評分**：提供 0~1 區間的探索強度指標。
+- 🛡️ **安全模組**：增強認證、SQLi、IDOR 偵測全覆蓋。
+- 🛠️ **多語工具鏈**：所有註解與提示皆含 `[ZH]/[EN]` 雙語標籤。
+- 📚 **文件系統**：MkDocs 自動生成 API、白皮書與教程。
 
-# 安裝（開發模式）
-pip install -e .
-
-# 安裝開發依賴
-pip install -r requirements-dev.txt
-```
-
-### 基本使用
-
-```python
-from pathlib import Path
-
-from bioneuronai.core import BioNeuron, BioNet
-
-# 創建單一神經元並啟用在線學習保護
-neuron = BioNeuron(num_inputs=2, threshold=0.6, learning_rate=0.05)
-neuron.configure_online_learning(window_size=5, stability_coefficient=0.1)
-
-# 前向傳播 + 在線學習
-output = neuron.online_learn([0.8, 0.6])
-print(f"輸出: {output}")
+### 🚀 快速開始
 
 
-# 新穎性檢測
-novelty = neuron.novelty_score()
-print(f"新穎性評分: {novelty}")
+
+# 啟動 CLI 示範
+bioneuron-cli
+
 
 
 # 使用多層網路（回傳最終輸出與各層輸出）
@@ -96,9 +72,11 @@ network.learn([1.0, 0.5], targets=[[0.8, 0.2], [0.1]])
 
 ### 命令行界面
 
+
 `bioneuron-cli` 現在使用 [Typer](https://typer.tiangolo.com/) 架構，提供批次處理、互動式選單與統計顯示。
 
 ```bash
+
 
 # 啟動互動式 CLI，啟用在線學習並指定持久化檔案
 bioneuron-cli --online-window 8 --stability 0.08 --save ./network_state.npz
@@ -162,7 +140,10 @@ if decision.triggered:
 
 ## 📖 範例
 
-查看 `examples/` 目錄中的詳細範例：
+- 技術白皮書：`docs/whitepaper.md`
+- API 參考：`docs/api/`
+- 教程：`docs/tutorials/`（涵蓋 RAG、工具閘門、儀表板、強化學習）
+
 
 - `examples/basic_demo.py`: 基礎前向傳播與學習範例
 - `examples/streamlit_dashboard.py`: 即時視覺化儀表板
@@ -206,9 +187,8 @@ python examples/rag_chatbot.py
 # 執行所有測試（含 CLI 端到端驗證）
 pytest tests/ -v
 
-# 測試涵蓋率
-pytest tests/ --cov=bioneuronai
-```
+**Bio-inspired novelty gating with safety-aligned modules.**
+
 
 ## 📈 好奇心基準結果
 
@@ -218,22 +198,16 @@ pytest tests/ --cov=bioneuronai
 
 ## 📚 API 文檔
 
-### BioNeuron
+### ✨ Features
 
-```python
-BioNeuron(
-    num_inputs: int,           # 輸入維度
-    threshold: float = 0.8,    # 激活閾值
-    learning_rate: float = 0.01, # 學習率
-    memory_len: int = 5,       # 記憶長度
-    seed: int | None = None    # 隨機種子
-)
-```
+- 🧠 **Hebbian Learning** with short-term memory buffers.
+- 🔍 **Novelty Scoring** delivering normalized curiosity signals.
+- 🛡️ **Safety Modules** covering enhanced auth, SQLi, and IDOR detection.
+- 🛠️ **Bilingual Tooling** where prompts and comments follow `[ZH]/[EN]` labels.
+- 📚 **Documentation Suite** powered by MkDocs with auto-generated API pages.
 
-**主要方法:**
-- `forward(inputs)`: 前向傳播
-- `hebbian_learn(inputs, output)`: Hebbian 學習更新
-- `novelty_score()`: 計算新穎性評分
+### 🚀 Quickstart
+
 
 ### BioLayer、BioNet 與 NetworkBuilder
 
@@ -253,9 +227,11 @@ BioNeuron(
 
 ## 🛠️ 開發
 
-### 項目結構
 
-```
+# Launch the interactive CLI demo
+bioneuron-cli
+
+
 BioNeuronai/
 ├── src/bioneuronai/     # 核心代碼
 │   ├── __init__.py
@@ -269,24 +245,20 @@ BioNeuronai/
 │   └── rag_chatbot.py
 ├── pyproject.toml       # 項目配置
 └── README.md
+
 ```
 
-### 貢獻指南
+### 🧪 Testing
 
-1. Fork 此倉庫
-2. 創建功能分支: `git checkout -b feature/amazing-feature`
-3. 提交更改: `git commit -m 'Add amazing feature'`
-4. 推送到分支: `git push origin feature/amazing-feature`
-5. 提交 Pull Request
+```bash
+pytest tests/ -v
+pytest tests/ --cov=bioneuronai
+```
 
-## 📄 授權
+### 📚 Documentation Highlights
 
-本項目採用 MIT 授權 - 查看 [LICENSE](LICENSE) 文件了解詳情。
+- Technical whitepaper: `docs/whitepaper.md`
+- API reference: `docs/api/`
+- Tutorials: `docs/tutorials/` (RAG, tool gating, dashboard, RL)
 
-## 🔮 未來發展
-
-- [ ] 集成強化學習模組
-- [ ] RAG 管道整合
-- [ ] 可視化工具
-- [ ] 性能優化
-- [ ] 更多神經元類型
+See the [CHANGELOG](CHANGELOG.md) for release history and upgrade notes.
