@@ -134,7 +134,8 @@ BioNeuronai/
 
 ## 🔮 未來發展
 
-- [ ] 集成強化學習模組
+- [ ] 集成強化學習模組：已提供 [內在獎勵整合教程](examples/rl_curiosity_demo.py) 示範如何將 `CuriosityDrivenNet`
+      的 `forward` 與 `intrinsic_reward` API 接入 Gymnasium 策略更新循環，後續將進一步封裝為標準化訓練管線。
 - [ ] RAG 管道整合
 - [ ] 可視化工具
 - [ ] 性能優化

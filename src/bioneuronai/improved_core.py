@@ -195,67 +195,12 @@ class ImprovedBioNeuron:
         self.threshold_history.clear()
 
 
-class CuriositDrivenNet:
-    """好奇心驅動的神經網路
-    
-    使用新穎性評分來調節學習強度
-    """
-    
-    def __init__(self, input_dim: int = 2, hidden_dim: int = 3):
-        self.neurons = [
-            ImprovedBioNeuron(
-                num_inputs=input_dim, 
-                adaptive_threshold=True,
-                seed=42 + i
-            ) for i in range(hidden_dim)
-        ]
-        self.curiosity_threshold = 0.5
-    
-    def forward(self, inputs: Sequence[float]) -> Tuple[List[float], List[float]]:
-        """前向傳播並返回輸出和新穎性評分"""
-        outputs = []
-        novelties = []
-        
-        for neuron in self.neurons:
-            output = neuron.forward(inputs)
-            novelty = neuron.enhanced_novelty_score()
-            outputs.append(output)
-            novelties.append(novelty)
-        
-        return outputs, novelties
-    
-    def curious_learn(self, inputs: Sequence[float]) -> float:
-        """基於好奇心的學習
-        
-        Returns:
-            平均好奇心水平
-        """
-        outputs, novelties = self.forward(inputs)
-        avg_curiosity = np.mean(novelties)
-        
-        # 只有當新穎性足夠高時才學習
-        if avg_curiosity > self.curiosity_threshold:
-            for neuron, novelty in zip(self.neurons, novelties):
-                # 新穎性高的神經元學習更強
-                enhanced_lr = neuron.learning_rate * (1 + novelty)
-                original_lr = neuron.learning_rate
-                neuron.learning_rate = enhanced_lr
-                neuron.improved_hebbian_learn(inputs)
-                neuron.learning_rate = original_lr
-        
-        return avg_curiosity
-    
-    def get_network_stats(self) -> dict:
-        """獲取網路統計信息"""
-        stats = [neuron.get_statistics() for neuron in self.neurons]
-        
-        return {
-            'avg_activation_rate': np.mean([s['activation_rate'] for s in stats]),
-            'avg_threshold': np.mean([s['current_threshold'] for s in stats]),
-            'neuron_count': len(self.neurons),
-            'individual_stats': stats
-        }
-
-
 # 向後兼容的別名
 BioNeuronV2 = ImprovedBioNeuron
+
+def __getattr__(name: str):  # pragma: no cover - simple compatibility shim
+    if name in {"CuriosityDrivenNet", "CuriositDrivenNet"}:
+        from .curiosity import CuriosityDrivenNet
+
+        return CuriosityDrivenNet
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

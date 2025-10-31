@@ -7,7 +7,8 @@ BioNeuronAI 實際應用場景演示
 import numpy as np
 import time
 from bioneuronai.core import BioNeuron, BioNet
-from bioneuronai.improved_core import ImprovedBioNeuron, CuriositDrivenNet
+from bioneuronai.curiosity import CuriosityDrivenNet
+from bioneuronai.improved_core import ImprovedBioNeuron
 
 
 def anomaly_detection_demo():
@@ -67,7 +68,7 @@ def adaptive_learning_demo():
     print("\n=== 自適應學習系統 ===")
     
     # 創建好奇心驅動的網路
-    curious_net = CuriositDrivenNet(input_dim=2, hidden_dim=4)
+    curious_net = CuriosityDrivenNet(input_dim=2, hidden_dim=4)
     
     # 模擬環境變化的數據流
     environments = [
