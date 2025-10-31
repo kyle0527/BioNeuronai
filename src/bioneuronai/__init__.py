@@ -1,4 +1,5 @@
 
+
 """Unified public API surface for BioNeuronAI."""
 
 from .core import BioNeuron, BioLayer, BioNet, cli_loop
@@ -20,23 +21,18 @@ __all__ = [
     "AntiHebbNeuron",
 ]
 
-
 try:
     from .improved_core import ImprovedBioNeuron, CuriositDrivenNet, BioNeuronV2
 
-
-
-
-        "BioNeuron",
         "BioLayer",
         "BioNet",
         "cli_loop",
-
 
         "ImprovedBioNeuron",
         "CuriositDrivenNet",
         "BioNeuronV2",
     ]
+
 except ImportError:  # pragma: no cover - improved core is optional
     _core_exports = ["BioNeuron", "BioLayer", "BioNet", "cli_loop"]
 
@@ -55,7 +51,6 @@ __all__ = _core_exports + [
     "RetrieverProtocol",
     "default_novelty_scorer",
 ]
-
 
 
 

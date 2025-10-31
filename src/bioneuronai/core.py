@@ -922,6 +922,7 @@ def stats(ctx: typer.Context) -> None:
     typer.echo(_format_stats(state))
 
 
+
 def cli_loop() -> None:
 
     app()
@@ -967,3 +968,4 @@ def cli_loop() -> None:
 
 # TODO: 若改 LIF + STDP，需維持此 API 以避免破壞上層介面 /
 # TODO: Preserve API when migrating to LIF + STDP implementations.
+
