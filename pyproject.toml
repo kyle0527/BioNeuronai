@@ -44,7 +44,7 @@ examples = [
 ]
 
 [project.scripts]
-bioneuron-cli = "bioneuronai.cli:main"
+bioneuron-cli = "bioneuronai.core:cli_loop"
 
 [tool.black]
 line-length = 88
