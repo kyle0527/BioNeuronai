@@ -1,5 +1,6 @@
 """Agent utilities for BioNeuronAI."""
 
+
 from .retrieval_controller import (
     InMemoryVectorRetriever,
     RetrievalController,
@@ -15,3 +16,4 @@ __all__ = [
     "RetrieverProtocol",
     "default_novelty_scorer",
 ]
+
