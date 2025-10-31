@@ -6,7 +6,6 @@
 
 ## 繁體中文
 
-**生物啟發的新穎性檢測與安全協同框架**
 
 
 
@@ -41,6 +40,23 @@ net.configure_online_learning(window_size=5, stability_coefficient=0.05)
 l2_out, l1_out = net.forward([0.5, 0.8])
 
 net.learn([0.5, 0.8])
+
+
+# 新型態神經元：LIF 與 STDP
+from bioneuronai.neuron_types import LIFNeuron, STDPNeuron, NEURON_REGISTRY
+
+lif = LIFNeuron(num_inputs=1, threshold=0.4)
+stdp = STDPNeuron(num_inputs=2)
+
+# 也可以從組態自動註冊
+config = {
+    "neurons": [
+        {"name": "fast", "type": "lif", "params": {"num_inputs": 1, "threshold": 0.3}},
+        {"name": "plastic", "type": "stdp", "params": {"num_inputs": 2}},
+    ]
+}
+neurons = NEURON_REGISTRY.register_from_config(config)
+=======
 net.save_state("network_state.npz")
 ```
 
@@ -62,6 +78,7 @@ network = builder.build_from_config(config)
 output, activations = network.forward([1.0, 0.5])
 # 若有監督目標，可提供各層對應的 targets（可省略則使用神經元自身輸出）
 network.learn([1.0, 0.5], targets=[[0.8, 0.2], [0.1]])
+
 ```
 
 > 💡 小技巧：保存的 `.npz` 檔案可直接部署於長期服務中。
@@ -224,6 +241,12 @@ pytest tests/ -v
 | `AntiHebbNeuron` | 平滑抑制輸出，偏好不相關訊號 | 相關輸入時抑制權重，藉 decorrelation 回復平衡 | 綜合輸入差異與權重變化 |
 
 如需擴充自訂神經元類型，可繼承 `BaseBioNeuron` 並透過 `NetworkBuilder.register_neuron_type()` 註冊，即可在設定中使用自訂名稱載入。
+
+### 新增神經元類型
+
+- `LIFNeuron`: 可調整膜電位、時間常數與不應期的漏積分放電模型。
+- `STDPNeuron`: 在 LIF 基礎上加入 STDP 與 anti-Hebb 學習規則，支援突觸權重的穩定塑形。
+- `NEURON_REGISTRY`: 透過 `register_from_config` 由組態批次建立並註冊神經元型態。
 
 ## 🛠️ 開發
 

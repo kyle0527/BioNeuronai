@@ -3,6 +3,7 @@
 """Unified public API surface for BioNeuronAI."""
 
 from .core import BioNeuron, BioLayer, BioNet, cli_loop
+
 from .neuron_base import BaseNeuron, SupportsBatchLearning
 
 __all__ = [
@@ -19,10 +20,12 @@ __all__ = [
     "BaseBioNeuron",
     "LIFNeuron",
     "AntiHebbNeuron",
+
 ]
 
 try:
     from .improved_core import ImprovedBioNeuron, CuriositDrivenNet, BioNeuronV2
+
 
         "BioLayer",
         "BioNet",
@@ -51,6 +54,7 @@ __all__ = _core_exports + [
     "RetrieverProtocol",
     "default_novelty_scorer",
 ]
+
 
 
 
