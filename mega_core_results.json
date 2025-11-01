@@ -1,0 +1,64 @@
+{
+  "performance": [
+    {
+      "batch_size": 1,
+      "forward_time_ms": 1366.8344020843506,
+      "learn_time_ms": 3334.3496322631836,
+      "throughput": 0.21271237047812946
+    },
+    {
+      "batch_size": 5,
+      "forward_time_ms": 1601.150369644165,
+      "learn_time_ms": 4160.319805145264,
+      "throughput": 0.1735668101478193
+    },
+    {
+      "batch_size": 10,
+      "forward_time_ms": 1942.2698259353638,
+      "learn_time_ms": 3712.2801780700684,
+      "throughput": 0.17684873231143847
+    },
+    {
+      "batch_size": 20,
+      "forward_time_ms": 1935.5358719825745,
+      "learn_time_ms": 3693.0808663368225,
+      "throughput": 0.17766354443571192
+    }
+  ],
+  "memory_efficiency": [
+    {
+      "sparsity": 0.0,
+      "actual_parameters": 5379000,
+      "memory_mb": 41.00799560546875,
+      "efficiency": 0.9348279457768509
+    },
+    {
+      "sparsity": 0.5,
+      "actual_parameters": 2879000,
+      "memory_mb": 21.93450927734375,
+      "efficiency": 0.5003475842891901
+    },
+    {
+      "sparsity": 0.8,
+      "actual_parameters": 1300000,
+      "memory_mb": 9.8876953125,
+      "efficiency": 0.2259297879735836
+    },
+    {
+      "sparsity": 0.9,
+      "actual_parameters": 725500,
+      "memory_mb": 5.504608154296875,
+      "efficiency": 0.12608620090371916
+    },
+    {
+      "sparsity": 0.95,
+      "actual_parameters": 441500,
+      "memory_mb": 3.337860107421875,
+      "efficiency": 0.0767292318387209
+    }
+  ],
+  "learning_curve": [
+    {
+      "epoch": 1,
+      "loss": 0.12464459319924792,
+      "novelty": 
