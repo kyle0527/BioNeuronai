@@ -4,6 +4,26 @@ BioNeuronAI 核心改進版本
 """
 
 from __future__ import annotations
+
+from typing import List, Optional, Sequence, Tuple
+
+import numpy as np
+
+from .neurons.base import (
+    AdaptiveThresholdStrategy,
+    BaseNeuron,
+    ThresholdStrategy,
+    WeightDecayHebbianStrategy,
+)
+
+
+class ImprovedBioNeuron(BaseNeuron):
+    """改進版本的生物啟發神經元。
+
+    特色：
+    - 支援可注入的學習與閾值調整策略
+    - 內建自適應閾值與權重衰減 Hebbian 規則
+    - 強化的新穎性評分與統計資訊
 from typing import List, Sequence, Tuple, Optional, Dict
 import numpy as np
 
@@ -29,7 +49,33 @@ class ImprovedBioNeuron(BaseNeuron):
         weight_decay: float = 0.001,
         adaptive_threshold: bool = False,
         seed: int | None = None,
+        *,
+        learning_strategy: Optional[WeightDecayHebbianStrategy] = None,
+        threshold_strategy: Optional[ThresholdStrategy] = None,
     ) -> None:
+        self.weight_decay = float(weight_decay)
+        self.adaptive_threshold = adaptive_threshold
+
+        if learning_strategy is None:
+            learning_strategy = WeightDecayHebbianStrategy(
+                learning_rate=learning_rate,
+                weight_decay=self.weight_decay,
+            )
+        if threshold_strategy is None:
+            threshold_strategy = (
+                AdaptiveThresholdStrategy() if adaptive_threshold else None
+            )
+
+        super().__init__(
+            num_inputs=num_inputs,
+            threshold=threshold,
+            learning_rate=learning_rate,
+            memory_len=memory_len,
+            seed=seed,
+            learning_strategy=learning_strategy,
+            threshold_strategy=threshold_strategy,
+        )
+
         super().__init__(
             num_inputs=num_inputs,
             threshold=threshold,
@@ -45,12 +91,44 @@ class ImprovedBioNeuron(BaseNeuron):
         # 擴展的記憶系統
         self.output_memory: List[float] = []
         self.threshold_history: List[float] = []
-        
-        # 統計信息
         self.activation_count = 0
         self.total_inputs = 0
         self._last_output: float | None = None
 
+    # ------------------------------------------------------------------
+    # Forward path customisation
+    # ------------------------------------------------------------------
+    def forward(self, inputs: Sequence[float] | np.ndarray) -> float:
+        return super().forward(inputs)
+
+    def activation(self, potentials: np.ndarray) -> np.ndarray:
+        threshold = float(self.threshold)
+        above = potentials >= threshold
+        sub_threshold = np.clip(
+            potentials / max(threshold, 1e-6) * 0.1,
+            0.0,
+            0.1,
+        )
+        outputs = np.where(above, np.minimum(1.0, potentials), sub_threshold)
+        return outputs.astype(np.float32)
+
+    def _post_forward(
+        self, inputs: np.ndarray, potentials: np.ndarray, outputs: np.ndarray
+    ) -> None:
+        _ = inputs, potentials  # Unused but kept for extensibility
+        self.activation_count += int(np.sum(outputs >= self.threshold))
+        self.total_inputs += outputs.size
+
+    # ------------------------------------------------------------------
+    # Learning helpers
+    # ------------------------------------------------------------------
+    def improved_hebbian_learn(
+        self, inputs: Sequence[float], target: Optional[float] = None
+    ) -> None:
+        if target is None:
+            self.learn(inputs)
+        else:
+            self.learn(inputs, target=float(target))
     def forward(self, inputs: Sequence[float]) -> float:
         """改進的前向傳播"""
         assert len(inputs) == self.num_inputs
@@ -170,6 +248,9 @@ class ImprovedBioNeuron(BaseNeuron):
 
         self.hebbian_learn(inputs, target=target)
 
+    # ------------------------------------------------------------------
+    # Novelty estimations
+    # ------------------------------------------------------------------
     def enhanced_novelty_score(self) -> float:
         """增強的新穎性評分
 
@@ -180,12 +261,10 @@ class ImprovedBioNeuron(BaseNeuron):
         """
         if len(self.input_memory) < 2:
             return 0.0
-        
-        # 輸入新穎性
+
         input_novelty = self._calculate_input_novelty()
-        
-        # 輸出新穎性
         output_novelty = self._calculate_output_novelty()
+        total_novelty = 0.7 * input_novelty + 0.3 * output_novelty
 
         # 加權組合
         total_novelty = 0.7 * input_novelty + 0.3 * output_novelty
@@ -198,57 +277,48 @@ class ImprovedBioNeuron(BaseNeuron):
         return self.enhanced_novelty_score()
 
     def _calculate_input_novelty(self) -> float:
-        """計算輸入新穎性"""
         if len(self.input_memory) < 2:
             return 0.0
-        
+
         current = self.input_memory[-1]
         previous = self.input_memory[-2]
-        
-        # 使用餘弦相似度來測量差異
-        dot_product = np.dot(current, previous)
-        norms = np.linalg.norm(current) * np.linalg.norm(previous)
-        
+        dot_product = float(np.dot(current, previous))
+        norms = float(np.linalg.norm(current) * np.linalg.norm(previous))
+
         if norms < 1e-8:
             return 0.0
-        
-        similarity = float(dot_product / norms)
-        novelty = float(1.0 - similarity)
-        
+
+        similarity = dot_product / norms
+        novelty = 1.0 - similarity
         return float(max(0.0, novelty))
 
     def _calculate_output_novelty(self) -> float:
-        """計算輸出新穎性"""
         if len(self.output_memory) < 2:
             return 0.0
-        
-        recent_outputs = self.output_memory[-min(3, len(self.output_memory)):]
-        variance = np.var(recent_outputs)
-        
-        # 將方差映射到 0-1 範圍
-        return min(1.0, variance * 4.0)
 
+        window = list(self.output_memory)[-min(3, len(self.output_memory)) :]
+        variance = float(np.var(window))
+        return float(min(1.0, variance * 4.0))
+
+    # ------------------------------------------------------------------
+    # Diagnostics
+    # ------------------------------------------------------------------
     def get_statistics(self) -> dict:
-        """獲取神經元統計信息"""
         activation_rate = self.activation_count / max(1, self.total_inputs)
-        
         return {
-            'activation_rate': activation_rate,
-            'current_threshold': self.threshold,
-            'weight_mean': float(np.mean(self.weights)),
-            'weight_std': float(np.std(self.weights)),
-            'total_inputs': self.total_inputs,
-            'memory_usage': len(self.input_memory)
+            "activation_rate": activation_rate,
+            "current_threshold": self.threshold,
+            "weight_mean": float(np.mean(self.weights)),
+            "weight_std": float(np.std(self.weights)),
+            "total_inputs": self.total_inputs,
+            "memory_usage": len(self.input_memory),
         }
 
     def reset_statistics(self) -> None:
-        """重置統計信息"""
         self.activation_count = 0
         self.total_inputs = 0
-        self.threshold = self.initial_threshold
-        self.input_memory.clear()
-        self.output_memory.clear()
         self.threshold_history.clear()
+        super().reset()
 
     def learn(self, inputs: Sequence[float], target: float | None = None) -> float:
         """Unified entrypoint that satisfies :class:`~bioneuronai.neuron_base.BaseNeuron`."""
@@ -437,7 +507,7 @@ class ImprovedBioNeuron(BaseNeuron):
 
         
         return outputs, novelties
-    
+
     def curious_learn(self, inputs: Sequence[float]) -> float:
         """基於好奇心的學習
 
@@ -450,13 +520,13 @@ class ImprovedBioNeuron(BaseNeuron):
         # 只有當新穎性足夠高時才學習
         if curiosity_level > self.curiosity_threshold:
             for neuron, novelty in zip(self.neurons, novelties):
-                # 新穎性高的神經元學習更強
                 enhanced_lr = neuron.learning_rate * (1 + novelty)
                 original_lr = neuron.learning_rate
                 neuron.learning_rate = enhanced_lr
+                neuron.learn(inputs)
                 neuron.learn(inputs, target=output)
                 neuron.learning_rate = original_lr
-        
+
         return avg_curiosity
 
 
@@ -519,8 +589,21 @@ class ImprovedBioNeuron(BaseNeuron):
     
 
     def get_network_stats(self) -> dict:
-        """獲取網路統計信息"""
         stats = [neuron.get_statistics() for neuron in self.neurons]
+        return {
+            "avg_activation_rate": float(
+                np.mean([s["activation_rate"] for s in stats])
+            ),
+            "avg_threshold": float(
+                np.mean([s["current_threshold"] for s in stats])
+            ),
+            "neuron_count": len(self.neurons),
+            "individual_stats": stats,
+        }
+
+
+# 向後兼容的別名
+BioNeuronV2 = ImprovedBioNeuron
 
         return {
 

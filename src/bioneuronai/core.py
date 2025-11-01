@@ -1,4 +1,20 @@
 from __future__ import annotations
+from typing import List, Sequence, Tuple
+
+from typing import List, Sequence, Tuple
+
+import numpy as np
+
+from .neurons.base import (
+    BaseNeuron,
+    HebbianLearningStrategy,
+    LearningStrategy,
+    NoOpThresholdStrategy,
+)
+
+
+class BioNeuron(BaseNeuron):
+    """Bio-inspired neuron with short-term input memory and Hebbian update."""
 
 from typing import List, Sequence, Type
 
@@ -57,6 +73,9 @@ class BioNeuron:
         learning_rate: float = 0.01,
         memory_len: int = 5,
         seed: int | None = None,
+        *,
+        learning_strategy: LearningStrategy | None = None,
+    ) -> None:
         online_window: int | None = None,
         stability_coefficient: float = 0.05,
     ) -> None:
@@ -67,6 +86,13 @@ class BioNeuron:
             learning_rate=learning_rate,
             memory_len=memory_len,
             seed=seed,
+            learning_strategy=learning_strategy
+            or HebbianLearningStrategy(learning_rate),
+            threshold_strategy=NoOpThresholdStrategy(),
+        )
+
+    def hebbian_learn(self, inputs: Sequence[float], output: float) -> None:
+        self.learn(inputs, output)
         )
 
         super().__init__()
