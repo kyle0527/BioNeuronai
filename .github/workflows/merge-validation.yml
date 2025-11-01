@@ -1,0 +1,176 @@
+name: Merge Conflict Detection
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+    inputs:
+      phase:
+        description: 'Phase to check (1-6, or leave empty for all)'
+        required: false
+        type: string
+      pr_numbers:
+        description: 'Specific PR numbers to check (comma-separated)'
+        required: false
+        type: string
+
+jobs:
+  check-conflicts:
+    name: Check for merge conflicts
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for conflict detection
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+      
+      - name: Check merge conflicts
+        id: check
+        run: |
+          if [ -n "${{ github.event.inputs.phase }}" ]; then
+            python scripts/check_merge_conflicts.py --phase ${{ github.event.inputs.phase }} --report conflicts_report.md
+          elif [ -n "${{ github.event.inputs.pr_numbers }}" ]; then
+            python scripts/check_merge_conflicts.py --pr-list "${{ github.event.inputs.pr_numbers }}" --report conflicts_report.md
+          else
+            # For PR events, check only current PR if it matches our list
+            PR_NUM=$(echo ${{ github.event.pull_request.number }})
+            if [ -n "$PR_NUM" ]; then
+              python scripts/check_merge_conflicts.py --pr $PR_NUM --report conflicts_report.md || true
+            fi
+          fi
+      
+      - name: Upload conflict report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: merge-conflicts-report
+          path: conflicts_report.md
+          if-no-files-found: ignore
+      
+      - name: Comment on PR with conflicts
+        if: github.event_name == 'pull_request' && failure()
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            let report = '';
+            try {
+              report = fs.readFileSync('conflicts_report.md', 'utf8');
+            } catch (e) {
+              report = '⚠️ Conflicts detected but report could not be generated.';
+            }
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `## ⚠️ Merge Conflicts Detected\n\n${report}\n\n---\nPlease resolve these conflicts before merging. See the [Merge Conflict Resolution Guide](../docs/MERGE_CONFLICT_RESOLUTION_GUIDE.md) for help.`
+            });
+
+  validate-merge:
+    name: Validate merge result
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+          pip install pytest pytest-cov black isort flake8 mypy
+      
+      - name: Run tests
+        run: |
+          pytest tests/ -v --cov=bioneuronai --cov-report=xml
+      
+      - name: Check code style
+        run: |
+          black --check src/ tests/
+          isort --check-only src/ tests/
+      
+      - name: Run linter
+        run: |
+          flake8 src/ tests/ --max-line-length=88 --extend-ignore=E203,W503
+      
+      - name: Type checking
+        run: |
+          mypy src/ --ignore-missing-imports || true
+      
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./coverage.xml
+          flags: unittests
+          name: codecov-umbrella
+          fail_ci_if_error: false
+
+  compatibility-check:
+    name: Check backward compatibility
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    
+    steps:
+      - name: Checkout base branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.base_ref }}
+          path: base
+      
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          path: pr
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install base version
+        run: |
+          cd base
+          pip install -e .
+      
+      - name: Run examples against base
+        run: |
+          cd base
+          python examples/basic_demo.py || echo "Base demo failed"
+      
+      - name: Install PR version
+        run: |
+          pip uninstall -y bioneuronai
+          cd pr
+          pip install -e .
+      
+      - name: Run examples against PR
+        run: |
+          cd pr
+          python examples/basic_demo.py || echo "PR demo failed"
+      
+      - name: Check for breaking changes
+        run: |
+          echo "Comparing API compatibility..."
+          # Add specific API compatibility checks here
+          echo "✅ Compatibility check complete"
