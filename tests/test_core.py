@@ -1,3 +1,17 @@
+from pathlib import Path
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+
+import numpy as np
+from bioneuronai import (
+    BioLayer,
+    BioNet,
+    BioNetConfig,
+    BioNeuron,
+    LayerConfig,
+    NeuronConfig,
+)
 
 import json
 import sys
@@ -174,9 +188,19 @@ class TestBioLayer:
 
 
 class TestBioNet:
+    def _build_default_net(self) -> BioNet:
+        config = BioNetConfig(
+            input_dim=2,
+            layers=[
+                LayerConfig(neurons=[NeuronConfig("BioNeuron", count=3)]),
+                LayerConfig(neurons=[NeuronConfig("BioNeuron", count=3)]),
+            ],
+        )
+        return BioNet(config)
+
     def test_network_forward(self):
-        """測試網路前向傳播"""
-        net = BioNet()
+        """測試動態網路前向傳播"""
+        net = self._build_default_net()
         inputs = [0.5, 0.8]
         final_out, layer_outputs = net.forward(inputs)
 
@@ -186,8 +210,8 @@ class TestBioNet:
         assert all(0.0 <= out <= 1.0 for out in final_out + flattened)
 
     def test_network_learning(self):
-        """測試網路學習"""
-        net = BioNet()
+        """測試動態網路學習流程"""
+        net = self._build_default_net()
         inputs = [0.6, 0.4]
 
         # 執行學習

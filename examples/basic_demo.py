@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+
 """
 BioNeuronAI 基本使用範例
 演示如何使用 BioNeuron 進行模式學習、新穎性檢測，以及保存/載入持久化狀態。
@@ -11,9 +12,33 @@ BioNeuronAI 基本使用範例
 """
 
 
+
 from pathlib import Path
 
 import numpy as np
+
+
+from bioneuronai import BioNet, BioNetConfig, BioNeuron, LayerConfig, NeuronConfig
+
+
+def demo_programmatic_config() -> None:
+    """展示如何以程式碼組裝異質網路配置."""
+
+    print("\n=== 程式化定義網路拓樸 ===")
+    config = BioNetConfig(
+        input_dim=2,
+        layers=[
+            LayerConfig(
+                neurons=[
+                    NeuronConfig("BioNeuron", count=2, params={"threshold": 0.6}),
+                    NeuronConfig("ImprovedBioNeuron", params={"adaptive_threshold": True}),
+                ]
+            ),
+            LayerConfig(neurons=[NeuronConfig("BioNeuron", count=3)]),
+        ],
+    )
+    net = BioNet(config)
+    print(net.summary())
 
 # matplotlib is optional and is imported locally in plot_learning_curve()
 # to avoid import-time errors when matplotlib is not installed.
@@ -81,7 +106,6 @@ class DashboardStreamer:
         self._step_counter += 1
 
 
-
 def demo_basic_neuron():
     """演示單一神經元的基本功能"""
     print("=== 基本神經元演示 ===")
@@ -144,6 +168,46 @@ def demo_novelty_detection():
         print(f"步驟 {i+6}: 輸入 {inputs} -> 新穎性 {novelty:.3f}")
 
 
+
+def demo_network_adaptation() -> None:
+    """演示如何以 JSON 組態宣告異質拓樸並進行學習."""
+
+    print("\n=== 網路適應性學習 (JSON 組態) ===")
+
+    config_payload = {
+        "input_dim": 2,
+        "layers": [
+            {
+                "neurons": [
+                    {"type": "BioNeuron", "count": 2, "params": {"threshold": 0.7}},
+                    {
+                        "type": "ImprovedBioNeuron",
+                        "params": {"adaptive_threshold": True, "learning_rate": 0.02},
+                    },
+                ]
+            },
+            {"neurons": [{"type": "BioNeuron", "count": 2}]},
+        ],
+    }
+
+    print("宣告 JSON 組態:\n" + json.dumps(config_payload, indent=2, ensure_ascii=False))
+    config = BioNetConfig.from_dict(config_payload)
+    net = BioNet(config)
+    print(net.summary())
+
+    rng = np.random.default_rng(42)
+    test_patterns: List[List[float]] = rng.random((5, config.input_dim)).round(2).tolist()
+
+    for epoch in range(2):
+        print(f"\n第 {epoch + 1} 輪學習:")
+        for pattern in test_patterns:
+            activations = net.forward(pattern)
+            final_outputs = activations[-1]
+            print(f"  輸入 {pattern} -> 最終輸出 {final_outputs}")
+            net.learn(pattern, activations)
+
+    print("\n最終層大小:", net.layer_sizes)
+=======
 def demo_network_adaptation(net: BioNet, streamer: Optional[DashboardStreamer] = None) -> None:
     """演示網路適應性學習，可選擇串流資料到儀表板。"""
 
@@ -307,6 +371,7 @@ def main() -> None:
     demo_novelty_detection()
 
 
+
     shared_net = BioNet()
     streamer: Optional[DashboardStreamer] = None
     if args.stream_dashboard:
@@ -318,6 +383,7 @@ def main() -> None:
         print("\n[儀表板] 已啟用串流，請啟動 `uvicorn bioneuronai.visualization.api:app --reload` 或使用 docker-compose 觀察儀表板。")
 
     demo_network_adaptation(shared_net, streamer)
+
     plot_learning_curve()
 
 
