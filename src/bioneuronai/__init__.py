@@ -43,6 +43,7 @@ __all__ = [
 try:
 
     from .improved_core import ImprovedBioNeuron, CuriositDrivenNet, BioNeuronV2
+    __all__ = [
 
     __all__ = [
 

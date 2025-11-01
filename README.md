@@ -37,9 +37,7 @@ reloaded = BioNeuron.load_state(state_path)
 
 # 使用多層網路並持久化
 net = BioNet()
-net.configure_online_learning(window_size=5, stability_coefficient=0.05)
-l2_out, l1_out = net.forward([0.5, 0.8])
-
+l2_out, history = net.forward([0.5, 0.8])
 net.learn([0.5, 0.8])
 
 
@@ -301,6 +299,17 @@ BioNeuronai/
 ├── src/bioneuronai/     # 核心代碼
 │   ├── __init__.py
 │   ├── core.py          # 主要實現
+│   └── networks/        # 網路建構工具
+│       ├── __init__.py
+│       └── configurable.py
+├── tests/               # 測試套件
+│   ├── test_core.py
+│   └── test_configurable_network.py
+├── examples/            # 使用範例
+│   ├── basic_demo.py
+│   ├── multi_layer_network.py
+│   ├── multi_layer_topology.yaml
+│   └── multi_layer_topology.json
 │   └── agents/          # 新穎性檢索控制器等代理工具
 ├── tests/               # 測試套件
 │   ├── test_core.py
