@@ -1,6 +1,7 @@
 # Development dependencies
 pytest>=7.0
 pytest-cov
+typer>=0.9.0
 black
 isort
 mypy
@@ -11,3 +12,4 @@ twine
 # Optional dependencies for examples
 matplotlib>=3.5.0
 jupyter
+

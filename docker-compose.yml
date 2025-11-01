@@ -1,0 +1,24 @@
+version: "3.9"
+
+services:
+  dashboard:
+    image: python:3.11-slim
+    working_dir: /app
+    volumes:
+      - .:/app
+    environment:
+      - PYTHONPATH=/app/src
+    command: bash -c "pip install --no-cache-dir -e . && uvicorn bioneuronai.visualization.api:app --host 0.0.0.0 --port 8000"
+    ports:
+      - "8000:8000"
+
+  demo-stream:
+    image: python:3.11-slim
+    working_dir: /app
+    volumes:
+      - .:/app
+    environment:
+      - PYTHONPATH=/app/src
+    command: bash -c "pip install --no-cache-dir -e . && python examples/basic_demo.py --stream-dashboard"
+    depends_on:
+      - dashboard
