@@ -6,7 +6,7 @@
 import sys
 import json
 from pathlib import Path
-from typing import List, Dict, Any, TYPE_CHECKING
+from typing import List, Dict, Any, Optional, TYPE_CHECKING, Union
 
 sys.path.insert(0, 'src')
 
@@ -29,20 +29,59 @@ else:
             def train(self, *args, **kwargs):
                 return None
 
+from bioneuronai.tool_gating import ToolDescriptor, ToolGatingManager
+
 
 class SmartLearningAssistant:
     """智能學習助手 - 觀察、學習、建議"""
-    
-    def __init__(self) -> None:
-        self.data_dir = Path("ai_learning_data")
+
+    def __init__(self, data_dir: Optional[Union[Path, str]] = None) -> None:
+        self.data_dir = Path(data_dir) if data_dir is not None else Path("ai_learning_data")
         self.data_dir.mkdir(exist_ok=True)
-        
+
         # 神經網絡 - 學習你的編碼習慣
         self.code_pattern_neuron = ImprovedBioNeuron(num_inputs=15, learning_rate=0.05)
         self.error_pattern_neuron = ImprovedBioNeuron(num_inputs=10, learning_rate=0.05)
-        
+
         # 知識庫
         self.knowledge_base = self._load_knowledge()
+
+        # 工具門控管理器，用於根據新穎性自動選擇工具
+        self.tool_manager = ToolGatingManager(
+            tools=[
+                ToolDescriptor(
+                    name="local_reflection",
+                    metadata={
+                        "category": "analysis",
+                        "description": "使用已學習規則進行本地推理",
+                    },
+                    cost=0.1,
+                    novelty_weight=0.45,
+                    min_novelty=0.0,
+                ),
+                ToolDescriptor(
+                    name="numerical_solver",
+                    metadata={
+                        "category": "computation",
+                        "description": "對複雜計算問題使用專用求解器",
+                    },
+                    cost=0.35,
+                    novelty_weight=0.9,
+                    min_novelty=0.35,
+                ),
+                ToolDescriptor(
+                    name="retrieval_search",
+                    metadata={
+                        "category": "retrieval",
+                        "description": "查詢內建知識庫與外部資源",
+                    },
+                    cost=0.55,
+                    novelty_weight=1.35,
+                    min_novelty=0.55,
+                ),
+            ],
+            novelty_threshold_strategy=self._tool_threshold_strategy,
+        )
         
     def _load_knowledge(self) -> Dict[str, Any]:
         """加載已學習的知識"""
@@ -68,20 +107,102 @@ class SmartLearningAssistant:
         with open(kb_file, 'w', encoding='utf-8') as f:
             json.dump(self.knowledge_base, f, indent=2, ensure_ascii=False)
     
-    def analyze_and_learn(self, workspace_dir: str = ".") -> Dict[str, Any]:
+    def analyze_and_learn(self, workspace_dir: str = ".", task_description: str = "代碼分析") -> Dict[str, Any]:
         """分析工作區並學習"""
         workspace = Path(workspace_dir)
-        
+
         print("🧠 開始智能分析和學習...")
-        
+
         insights = {
             'code_health': self._assess_code_health(workspace),
             'common_patterns': self._identify_patterns(workspace),
             'personalized_tips': self._generate_personalized_tips(),
-            'next_steps': self._suggest_next_steps()
+            'next_steps': self._suggest_next_steps(),
+            'tool_recommendation': self.recommend_tool_for_task(task_description),
         }
-        
+
         return insights
+
+    def recommend_tool_for_task(
+        self, task_description: str, novelty_score: Optional[float] = None
+    ) -> Dict[str, Any]:
+        """根據任務新穎性建議最合適的工具。"""
+
+        estimated_novelty = (
+            float(novelty_score)
+            if novelty_score is not None
+            else self._estimate_task_novelty(task_description)
+        )
+
+        task_type = self._classify_task(task_description)
+        selected, details = self.tool_manager.select_tool(
+            estimated_novelty,
+            context={'task_type': task_type, 'task_description': task_description},
+            return_details=True,
+        )
+
+        return {
+            'task_type': task_type,
+            'novelty_score': round(estimated_novelty, 3),
+            'selected_tool': selected.name if selected else None,
+            'tool_metadata': selected.metadata if selected else None,
+            'diagnostics': details,
+        }
+
+    def _estimate_task_novelty(self, task_description: str) -> float:
+        """使用知識庫和描述特徵估算任務新穎性。"""
+
+        description = task_description.lower()
+        known_solutions = self.knowledge_base.get('learned_solutions', {})
+        coverage_hits = sum(1 for key in known_solutions if key.lower() in description)
+
+        base_novelty = 0.2 if coverage_hits else 0.6
+        complexity_boost = min(0.3, len(description) / 400)
+        speciality_terms = sum(
+            1
+            for keyword in ['deep learning', '數據庫', '優化', 'simulation', '量子', '分散式']
+            if keyword in description
+        )
+        speciality_boost = min(0.3, 0.1 * speciality_terms)
+
+        novelty = base_novelty + complexity_boost + speciality_boost
+        return float(max(0.0, min(1.0, novelty)))
+
+    def _classify_task(self, task_description: str) -> str:
+        """粗略判斷任務類型以輔助工具門控。"""
+
+        lowered = task_description.lower()
+        if any(token in lowered for token in ['查詢', '搜尋', 'search', '問答']):
+            return 'research'
+        if any(token in lowered for token in ['計算', 'simulate', '模擬', 'optimizer', 'solver']):
+            return 'computation'
+        if any(token in lowered for token in ['bug', '修復', '錯誤', 'debug']):
+            return 'bugfix'
+        return 'analysis'
+
+    def _tool_threshold_strategy(
+        self, novelty_score: float, tool: ToolDescriptor, context: Optional[Dict[str, Any]]
+    ) -> float:
+        """針對不同任務類型調整新穎性閾值。"""
+
+        base_threshold = tool.min_novelty
+        if not context:
+            return base_threshold
+
+        task_type = context.get('task_type', 'analysis')
+
+        if tool.metadata.get('category') == 'retrieval':
+            if task_type == 'research':
+                return max(base_threshold, 0.45)
+            return max(base_threshold, 0.6)
+
+        if tool.metadata.get('category') == 'computation':
+            if task_type == 'computation':
+                return max(base_threshold, 0.3)
+            if task_type == 'bugfix':
+                return max(base_threshold, 0.5)
+
+        return base_threshold
     
     def _assess_code_health(self, workspace: Path) -> Dict[str, Any]:
         """評估代碼健康度"""
@@ -236,7 +357,19 @@ class SmartLearningAssistant:
         print("\n💡 個性化建議:")
         for tip in insights['personalized_tips']:
             print(f"   {tip}")
-        
+
+        # 工具建議
+        recommendation = insights.get('tool_recommendation')
+        if recommendation:
+            print("\n🛠️ 建議使用的工具:")
+            tool_name = recommendation.get('selected_tool') or '內部推理'
+            print(f"   • 工具: {tool_name}")
+            print(f"   • 任務類型: {recommendation.get('task_type')}")
+            print(f"   • 新穎性: {recommendation.get('novelty_score')}")
+            metadata = recommendation.get('tool_metadata') or {}
+            if metadata.get('description'):
+                print(f"   • 說明: {metadata['description']}")
+
         # 下一步
         print("\n🎯 建議的下一步:")
         for step in insights['next_steps']:
