@@ -29,6 +29,7 @@ from aiva_common.schemas import (
 )
 from aiva_common.utils import get_logger, new_id
 
+
 from ..common.base_function_module import BaseFunctionModule, DetectionEngineProtocol
 from ..common.detection_config import AuthConfig
 from ..common.unified_smart_detection_manager import (
@@ -36,6 +37,7 @@ from ..common.unified_smart_detection_manager import (
     DetectionRuleResult,
     UnifiedSmartDetectionManager,
 )
+
 
 logger = get_logger(__name__)
 
@@ -92,8 +94,6 @@ def _novelty_decision(
 class WeakCredentialEngine(DetectionEngineProtocol):
     """弱憑證檢測引擎 - 檢測弱密碼和默認憑證"""
 
-    def __init__(self, concurrency_limit: int = 10) -> None:
-        self._request_semaphore = asyncio.Semaphore(concurrency_limit)
 
     def get_engine_name(self) -> str:
         return "Weak Credential Detection Engine"
@@ -107,6 +107,10 @@ class WeakCredentialEngine(DetectionEngineProtocol):
         """檢測弱憑證和默認密碼"""
         findings: list[FindingPayload] = []
 
+        self.novelty_analyzer.reset()
+        baseline_response = await client.get(str(task.target.url), timeout=10.0, follow_redirects=True)
+        self.novelty_analyzer.learn_normal(baseline_response)
+
         # 常見弱憑證組合 (用戶名:密碼)
         weak_credentials = [
             ("admin", "admin"), ("admin", "password"), ("admin", "123456"),
@@ -119,7 +123,7 @@ class WeakCredentialEngine(DetectionEngineProtocol):
         target = task.target
         
         # 檢測登錄表單字段
-        login_fields = await self._identify_login_fields(target, client)
+        login_fields = await self._identify_login_fields(target, client, baseline_response)
         if not login_fields:
             return findings
 
@@ -159,6 +163,7 @@ class WeakCredentialEngine(DetectionEngineProtocol):
                     },
                 )
 
+
                 if success:
                     smart_manager.feedback(features, confirmed_anomaly=True)
                     vulnerability = Vulnerability(
@@ -174,6 +179,7 @@ class WeakCredentialEngine(DetectionEngineProtocol):
                             + response.text[:500]
                         ),
                         response_time_delta=_safe_elapsed_seconds(response),
+
                     )
 
                     finding = FindingPayload(
@@ -192,8 +198,7 @@ class WeakCredentialEngine(DetectionEngineProtocol):
                     findings.append(finding)
                     logger.info(f"發現弱憑證: {username}:{password}")
                     break
-                else:
-                    smart_manager.feedback(features, confirmed_anomaly=False)
+
 
             except Exception as e:
                 logger.debug(f"弱憑證檢測錯誤 ({username}): {e}")
@@ -202,13 +207,14 @@ class WeakCredentialEngine(DetectionEngineProtocol):
         return findings
 
     async def _identify_login_fields(
-        self, target: FunctionTaskTarget, client: httpx.AsyncClient
+        self,
+        target: FunctionTaskTarget,
+        client: httpx.AsyncClient,
+        initial_response: httpx.Response | None = None,
     ) -> dict[str, str]:
         """識別登錄表單字段"""
         try:
-            async with self._request_semaphore:
-                response = await client.get(str(target.url), timeout=10.0)
-            html_content = response.text.lower()
+          html_content = response.text.lower()
             
             fields = {}
             
@@ -294,6 +300,67 @@ class WeakCredentialEngine(DetectionEngineProtocol):
             logger.debug(f"獲取CSRF token失敗: {e}")
             return None
 
+
+    def _basic_login_success(self, response: httpx.Response, username: str) -> bool:
+        """基本的成功登入判斷邏輯。"""
+        if response.status_code not in {200, 301, 302}:
+            return False
+
+        response_text = response.text.lower()
+        success_indicators = [
+            "dashboard", "welcome", "profile", "logout", "admin panel",
+            "儀表板", "歡迎", "個人資料", "登出", "管理面板",
+            "successfully logged", "login successful", "welcome back",
+            f"welcome {username.lower()}", f"hello {username.lower()}"
+        ]
+        failure_indicators = [
+            "invalid", "incorrect", "failed", "error", "wrong",
+            "無效", "錯誤", "失敗", "不正確",
+            "login failed", "authentication failed", "access denied"
+        ]
+
+        if response.status_code in {301, 302}:
+            location = response.headers.get("location", "").lower()
+            if any(indicator in location for indicator in ["dashboard", "admin", "profile", "home"]):
+                return True
+
+        has_success = any(indicator in response_text for indicator in success_indicators)
+        has_failure = any(indicator in response_text for indicator in failure_indicators)
+        session_cookies = ["session", "auth", "token", "jsessionid", "phpsessid"]
+        has_session_cookie = any(cookie in response.cookies for cookie in session_cookies)
+        return (has_success and not has_failure) or has_session_cookie
+
+    def _analyze_login_response(
+        self, response: httpx.Response, username: str
+    ) -> dict[str, Any]:
+        """綜合成功指標與新穎度分數，產生分析結果。"""
+        success = self._basic_login_success(response, username)
+        novelty = self.novelty_analyzer.score_response(response)
+        evidence: list[str] = []
+
+        if success:
+            evidence.append("成功登入指標匹配")
+        else:
+            evidence.append("登入未通過基礎檢查")
+
+        result = {
+            "success": success,
+            "novelty_score": novelty.score,
+            "confidence": Confidence.MEDIUM if success else Confidence.LOW,
+            "manual_review": False,
+            "evidence": evidence,
+        }
+
+        if novelty.is_novel:
+            evidence.append(f"新穎度分數 {novelty.score:.2f} 高於閾值")
+            if success:
+                result["confidence"] = Confidence.HIGH
+            else:
+                result["manual_review"] = True
+                result["confidence"] = Confidence.MEDIUM
+
+        return result
+
     async def _is_successful_login(
         self, response: httpx.Response, username: str
     ) -> bool:
@@ -334,6 +401,7 @@ class WeakCredentialEngine(DetectionEngineProtocol):
             return has_success and not has_failure or has_session_cookie
 
         return False
+
 
 
 class SessionFixationEngine(DetectionEngineProtocol):

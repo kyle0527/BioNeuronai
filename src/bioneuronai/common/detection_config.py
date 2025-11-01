@@ -1,4 +1,5 @@
 
+
 """Configuration stubs for detection modules."""
 
 from __future__ import annotations
@@ -87,4 +88,5 @@ class AuthConfig:
 
 
 __all__ = ["SQLiConfig", "IDORConfig", "AuthConfig"]
+
 

@@ -1,3 +1,4 @@
+
 on
 """Shared base implementations for security function modules."""
 
@@ -28,8 +29,10 @@ class DetectionEngineProtocol(Protocol):
         """Run the detection routine and return findings."""
 
 
+
 @dataclass
 class BaseFunctionModule:
+
     """Minimal base class orchestrating detection engines.
 
     This stub is intentionally lightweight and focuses on keeping imports cheap
@@ -121,4 +124,5 @@ __all__ = [
     "BaseFunctionModule",
     "DetectionEngineProtocol",
 ]
+
 

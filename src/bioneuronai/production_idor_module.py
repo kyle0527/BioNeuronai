@@ -33,13 +33,12 @@ from aiva_common.schemas import (
 )
 from aiva_common.utils import get_logger, new_id
 
-from ..common.base_function_module import BaseFunctionModule, DetectionEngineProtocol
-from ..common.detection_config import IDORConfig
-from ..common.unified_smart_detection_manager import (
-    DetectionDecision,
-    DetectionRuleResult,
-    UnifiedSmartDetectionManager,
-)
+
+from .common.base_function_module import BaseFunctionModule, DetectionEngineProtocol
+from .common.detection_config import IDORConfig
+from .common.unified_smart_detection_manager import UnifiedSmartDetectionManager
+from .security.novelty_analyzer import NoveltyAnalyzer
+
 
 logger = get_logger(__name__)
 
@@ -47,8 +46,7 @@ logger = get_logger(__name__)
 class ProductionHorizontalIDOREngine(DetectionEngineProtocol):
     """生產級水平特權升級檢測引擎"""
 
-    def __init__(self, concurrency_limit: int = 10) -> None:
-        self._request_semaphore = asyncio.Semaphore(concurrency_limit)
+in
 
     def get_engine_name(self) -> str:
         return "Production Horizontal IDOR Detection Engine"
@@ -64,6 +62,7 @@ class ProductionHorizontalIDOREngine(DetectionEngineProtocol):
         target = task.target
 
         logger.info(f"開始水平IDOR檢測: {target.url}")
+        self.novelty_analyzer.reset()
 
         # 提取原始ID參數
         original_ids = self._extract_id_parameters(target)
@@ -76,12 +75,14 @@ class ProductionHorizontalIDOREngine(DetectionEngineProtocol):
         if not baseline_response:
             return findings
 
+
         try:
             smart_manager.record_normal_profile(
                 _idor_response_features(baseline_response, baseline=None)
             )
         except Exception:
             logger.debug("IDOR 水平基準特徵記錄失敗，略過")
+
 
         # 生成測試ID
         test_ids = self._generate_test_ids(original_ids)
@@ -99,7 +100,11 @@ class ProductionHorizontalIDOREngine(DetectionEngineProtocol):
                     
                     # 分析響應
                     analysis = self._analyze_horizontal_response(
-                        baseline_response, test_response, original_value, test_value
+                        baseline_response,
+                        test_response,
+                        original_value,
+                        test_value,
+                        self.novelty_analyzer,
                     )
                     
                     privilege_hint = _privilege_hint_from_analysis(analysis)
@@ -292,13 +297,16 @@ class ProductionHorizontalIDOREngine(DetectionEngineProtocol):
         test_response: httpx.Response,
         original_id: str,
         test_id: str,
+        novelty_analyzer: NoveltyAnalyzer | None,
     ) -> dict[str, Any]:
         """分析水平IDOR響應"""
         result = {
             "is_vulnerable": False,
             "confidence": Confidence.LOW,
             "evidence": [],
-            "access_type": "none"
+            "access_type": "none",
+            "novelty_score": 0.0,
+            "manual_review": False,
         }
         
         # 1. HTTP狀態碼分析
@@ -350,6 +358,17 @@ class ProductionHorizontalIDOREngine(DetectionEngineProtocol):
                 result["confidence"] = Confidence.HIGH
                 break
         
+        if novelty_analyzer is not None:
+            novelty = novelty_analyzer.score_response(test_response)
+            result["novelty_score"] = novelty.score
+            if novelty.is_novel:
+                result["evidence"].append(f"新穎度分數 {novelty.score:.2f} 高於閾值")
+                if result["is_vulnerable"]:
+                    result["confidence"] = max(result["confidence"], Confidence.HIGH)
+                else:
+                    result["manual_review"] = True
+                    result["confidence"] = max(result["confidence"], Confidence.MEDIUM)
+
         return result
 
     def _has_different_user_data(
@@ -424,8 +443,7 @@ class ProductionHorizontalIDOREngine(DetectionEngineProtocol):
 class ProductionVerticalIDOREngine(DetectionEngineProtocol):
     """生產級垂直特權升級檢測引擎"""
 
-    def __init__(self, concurrency_limit: int = 10) -> None:
-        self._request_semaphore = asyncio.Semaphore(concurrency_limit)
+
 
     def get_engine_name(self) -> str:
         return "Production Vertical IDOR Detection Engine"
@@ -441,6 +459,15 @@ class ProductionVerticalIDOREngine(DetectionEngineProtocol):
         target = task.target
 
         logger.info(f"開始垂直IDOR檢測: {target.url}")
+        self.novelty_analyzer.reset()
+
+        try:
+            baseline_response = await client.get(str(target.url), timeout=10.0)
+        except Exception:
+            baseline_response = None
+
+        if baseline_response is not None:
+            self.novelty_analyzer.learn_normal(baseline_response)
 
         # 檢測管理員路徑和功能
         admin_paths = self._generate_admin_paths(target)
@@ -452,6 +479,7 @@ class ProductionVerticalIDOREngine(DetectionEngineProtocol):
                 response = await self._send_request(admin_target, client)
                 
                 # 分析響應
+
                 analysis = self._analyze_vertical_response(response, admin_path)
 
                 privilege_hint = _privilege_hint_from_analysis(analysis)
@@ -461,6 +489,7 @@ class ProductionVerticalIDOREngine(DetectionEngineProtocol):
                     evidence_count=len(analysis.get("evidence", [])),
                     privilege_hint=privilege_hint,
                 )
+
 
                 if analysis["is_vulnerable"]:
                     decision = smart_manager.combine_rule_and_novelty(
@@ -553,41 +582,47 @@ class ProductionVerticalIDOREngine(DetectionEngineProtocol):
             return await client.get(str(target.url), timeout=15.0, follow_redirects=False)
 
     def _analyze_vertical_response(
-        self, response: httpx.Response, admin_path: str
+        self,
+        response: httpx.Response,
+        admin_path: str,
+        novelty_analyzer: NoveltyAnalyzer | None,
     ) -> dict[str, Any]:
-        """分析垂直IDOR響應"""
+        """分析垂直IDOR響應並引入新穎度評分"""
         result = {
             "is_vulnerable": False,
             "confidence": Confidence.LOW,
             "evidence": [],
-            "privilege_level": "none"
+            "privilege_level": "none",
+            "novelty_score": 0.0,
+            "manual_review": False,
         }
-        
+
         response_text = response.text.lower()
-        
+
         # 1. 成功訪問管理員頁面
         if response.status_code == 200:
             result["evidence"].append(f"成功訪問管理員路徑: {admin_path}")
-            
-            # 檢查管理員功能指標
+
             admin_indicators = [
                 "admin", "dashboard", "users", "settings", "configuration",
                 "manage", "control", "delete", "edit all", "system",
                 "管理", "儀表板", "用戶管理", "系統設置", "控制面板"
             ]
-            
+
             found_indicators = [
-                indicator for indicator in admin_indicators 
+                indicator for indicator in admin_indicators
                 if indicator in response_text
             ]
-            
+
             if found_indicators:
                 result["is_vulnerable"] = True
                 result["confidence"] = Confidence.HIGH
                 result["privilege_level"] = "admin"
-                result["evidence"].append(f"檢測到管理員功能: {', '.join(found_indicators[:3])}")
-        
-        # 2. 重定向到登錄頁面（可能的認證繞過）
+                result["evidence"].append(
+                    f"檢測到管理員功能: {', '.join(found_indicators[:3])}"
+                )
+
+        # 2. 重定向到非登入頁面（可能繞過）
         elif response.status_code in [301, 302, 303, 307, 308]:
             location = response.headers.get("location", "").lower()
             if "login" not in location and "auth" not in location:
@@ -595,7 +630,7 @@ class ProductionVerticalIDOREngine(DetectionEngineProtocol):
                 result["confidence"] = Confidence.MEDIUM
                 result["privilege_level"] = "partial"
                 result["evidence"].append(f"異常重定向到: {location}")
-        
+
         # 3. 檢查響應中的敏感API端點
         api_patterns = [
             r'/api/admin/',
@@ -605,15 +640,26 @@ class ProductionVerticalIDOREngine(DetectionEngineProtocol):
             r'api.*create',
             r'api.*update'
         ]
-        
+
         for pattern in api_patterns:
             if re.search(pattern, response_text):
                 result["is_vulnerable"] = True
-                result["confidence"] = Confidence.MEDIUM
+                result["confidence"] = max(result["confidence"], Confidence.MEDIUM)
                 result["privilege_level"] = "api_access"
                 result["evidence"].append(f"檢測到敏感API端點: {pattern}")
                 break
-        
+
+        if novelty_analyzer is not None:
+            novelty = novelty_analyzer.score_response(response)
+            result["novelty_score"] = novelty.score
+            if novelty.is_novel:
+                result["evidence"].append(f"新穎度分數 {novelty.score:.2f} 高於閾值")
+                if result["is_vulnerable"]:
+                    result["confidence"] = max(result["confidence"], Confidence.HIGH)
+                else:
+                    result["manual_review"] = True
+                    result["confidence"] = max(result["confidence"], Confidence.MEDIUM)
+
         return result
 
     def _create_vertical_finding(
@@ -635,12 +681,14 @@ class ProductionVerticalIDOREngine(DetectionEngineProtocol):
         evidence_text = "; ".join(analysis["evidence"])
         evidence = FindingEvidence(
             payload=f"管理員路徑訪問: {admin_path}",
+
             response=(
                 f"特權級別: {analysis['privilege_level']}. 證據: {evidence_text}. "
                 f"狀態碼: {response.status_code}, 響應長度: {len(response.text)}, "
                 f"Novelty={decision.novelty_score:.2f}, Risk={decision.risk_label}"
             ),
             response_time_delta=_safe_elapsed_seconds(response)
+
         )
 
         return FindingPayload(
