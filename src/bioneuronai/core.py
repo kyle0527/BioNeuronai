@@ -1,4 +1,20 @@
 from __future__ import annotations
+from typing import List, Sequence, Tuple
+
+from typing import List, Sequence, Tuple
+
+import numpy as np
+
+from .neurons.base import (
+    BaseNeuron,
+    HebbianLearningStrategy,
+    LearningStrategy,
+    NoOpThresholdStrategy,
+)
+
+
+class BioNeuron(BaseNeuron):
+    """Bio-inspired neuron with short-term input memory and Hebbian update."""
 
 from typing import List, Sequence, Type
 
@@ -58,8 +74,11 @@ class BioNeuron:
         memory_len: int = 5,
         *,
         seed: int | None = None,
-        weight_decay: float = 0.0,
-        adaptive_threshold: bool = False,
+        *,
+        learning_strategy: LearningStrategy | None = None,
+    ) -> None:
+        online_window: int | None = None,
+        stability_coefficient: float = 0.05,
     ) -> None:
         super().__init__(
             num_inputs,
@@ -67,6 +86,13 @@ class BioNeuron:
             learning_rate=learning_rate,
             memory_len=memory_len,
             seed=seed,
+            learning_strategy=learning_strategy
+            or HebbianLearningStrategy(learning_rate),
+            threshold_strategy=NoOpThresholdStrategy(),
+        )
+
+    def hebbian_learn(self, inputs: Sequence[float], output: float) -> None:
+        self.learn(inputs, output)
         )
 
         super().__init__()
@@ -88,6 +114,21 @@ class BioNeuron:
         assert len(inputs) == self.num_inputs
         x = np.asarray(inputs, dtype=np.float32)
 
+        # short-term memory
+        self._remember_input(x)
+
+        potential = float(np.dot(self.weights, x))
+        activated = potential >= self.threshold
+        self._record_activation(activated)
+        return min(1.0, potential) if activated else 0.0
+
+    def hebbian_learn(self, inputs: Sequence[float], output: float | None = None, **_: object) -> None:
+        if output is None:
+            raise ValueError("BioNeuron.hebbian_learn requires a numeric output value")
+        x = np.asarray(inputs, dtype=np.float32)
+        delta = self.learning_rate * x * float(output)
+        self.weights = self.weights + delta
+        self._clip_weights(min_value=0.0, max_value=1.0)
 
         potential = float(np.dot(self.weights, x))
         return self._finalize_potential(x, potential)

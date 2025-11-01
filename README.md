@@ -37,9 +37,7 @@ reloaded = BioNeuron.load_state(state_path)
 
 # 使用多層網路並持久化
 net = BioNet()
-net.configure_online_learning(window_size=5, stability_coefficient=0.05)
-l2_out, l1_out = net.forward([0.5, 0.8])
-
+l2_out, history = net.forward([0.5, 0.8])
 net.learn([0.5, 0.8])
 
 
@@ -226,7 +224,6 @@ selected, details = manager.select_tool(0.72, context={"task_type": "research"},
 在 `smart_assistant.py` 中可以看到完整範例：對於高新穎的研究任務會自動切換到 `retrieval_search` 工具，
 而常規的代碼整理則會保留在低成本的本地推理流程。透過調整 `cost`、`novelty_weight` 以及
 `novelty_threshold_strategy`，即可自訂不同工具的使用優先級。
-=======
 python examples/rag_chatbot.py
 ```
 
@@ -302,6 +299,17 @@ BioNeuronai/
 ├── src/bioneuronai/     # 核心代碼
 │   ├── __init__.py
 │   ├── core.py          # 主要實現
+│   └── networks/        # 網路建構工具
+│       ├── __init__.py
+│       └── configurable.py
+├── tests/               # 測試套件
+│   ├── test_core.py
+│   └── test_configurable_network.py
+├── examples/            # 使用範例
+│   ├── basic_demo.py
+│   ├── multi_layer_network.py
+│   ├── multi_layer_topology.yaml
+│   └── multi_layer_topology.json
 │   └── agents/          # 新穎性檢索控制器等代理工具
 ├── tests/               # 測試套件
 │   ├── test_core.py
@@ -316,12 +324,16 @@ BioNeuronai/
 
 
 
-```bash
-pytest tests/ -v
-pytest tests/ --cov=bioneuronai
-```
+## 🏢 企業支援與授權方案
 
-### 📚 Documentation Highlights
+- **授權條款**：核心程式碼延續 MIT 授權，可自由使用、修改與再散佈；企業客戶可選擇額外簽訂支援合約以取得延伸權益。
+- **服務等級協議（SLAs）**：
+  - 標準 SLA：24 小時內回應、每月一次線上諮詢、季度健康檢查報告。
+  - 進階 SLA：4 小時內回應、專屬技術經理、部署監控儀表板整合協助。
+- **客製開發流程**：需求評估 → PoC 設計 → 里程碑排程（對應 0.2.0、0.3.0 路線圖）→ 交付與驗收 → 長期維護。
+- **聯絡方式**：請寄信至 `enterprise@bioneuron.ai` 或於 [GitHub Discussions](https://github.com/kyle0527/BioNeuronai/discussions) 建立 `enterprise-support` 主題，我們將於一個工作日內回覆。
+
+## 📄 授權
 
 - Technical whitepaper: `docs/whitepaper.md`
 - API reference: `docs/api/`
