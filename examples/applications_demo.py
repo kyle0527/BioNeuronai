@@ -7,7 +7,8 @@ BioNeuronAI 實際應用場景演示
 import numpy as np
 import time
 from bioneuronai.core import BioNeuron, BioNet
-from bioneuronai.improved_core import ImprovedBioNeuron, CuriositDrivenNet
+from bioneuronai.curiosity import CuriosityDrivenNet
+from bioneuronai.improved_core import ImprovedBioNeuron
 
 
 def anomaly_detection_demo():
@@ -67,7 +68,7 @@ def adaptive_learning_demo():
     print("\n=== 自適應學習系統 ===")
     
     # 創建好奇心驅動的網路
-    curious_net = CuriositDrivenNet(input_dim=2, hidden_dim=4)
+    curious_net = CuriosityDrivenNet(input_dim=2, hidden_dim=4)
     
     # 模擬環境變化的數據流
     environments = [
@@ -85,18 +86,24 @@ def adaptive_learning_demo():
         # 在每個環境中學習
         for step in range(20):
             data = data_generator()
-            curiosity = curious_net.curious_learn(data)
-            curiosities.append(curiosity)
-            
+            curiosity_level, curiosity_reward = curious_net.curious_learn(data)
+            curiosities.append(curiosity_level)
+
             if step % 5 == 0:
                 avg_curiosity = np.mean(curiosities[-5:]) if curiosities else 0
-                print(f"  步驟 {step+1:2d}: 數據={[f'{x:.2f}' for x in data]}, "
-                      f"好奇心={curiosity:.3f}, 平均好奇心={avg_curiosity:.3f}")
+                print(
+                    f"  步驟 {step+1:2d}: 數據={[f'{x:.2f}' for x in data]}, "
+                    f"好奇心={curiosity_level:.3f}, 獎勵={curiosity_reward:.3f}, "
+                    f"平均好奇心={avg_curiosity:.3f}"
+                )
         
         # 顯示適應結果
         final_curiosity = np.mean(curiosities[-5:])
         adaptation_status = "高度好奇" if final_curiosity > 0.5 else "已適應"
-        print(f"  {env_name} 適應狀態: {adaptation_status} (好奇心: {final_curiosity:.3f})")
+        print(
+            f"  {env_name} 適應狀態: {adaptation_status} "
+            f"(好奇心: {final_curiosity:.3f})"
+        )
 
 
 def real_time_monitoring_demo():
