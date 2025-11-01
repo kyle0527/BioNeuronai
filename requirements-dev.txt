@@ -6,6 +6,8 @@ black
 isort
 mypy
 flake8
+build
+twine
 
 # Optional dependencies for examples
 matplotlib>=3.5.0
