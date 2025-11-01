@@ -33,10 +33,12 @@ from aiva_common.schemas import (
 )
 from aiva_common.utils import get_logger, new_id
 
+
 from .common.base_function_module import BaseFunctionModule, DetectionEngineProtocol
 from .common.detection_config import IDORConfig
 from .common.unified_smart_detection_manager import UnifiedSmartDetectionManager
 from .security.novelty_analyzer import NoveltyAnalyzer
+
 
 logger = get_logger(__name__)
 
@@ -44,8 +46,7 @@ logger = get_logger(__name__)
 class ProductionHorizontalIDOREngine(DetectionEngineProtocol):
     """生產級水平特權升級檢測引擎"""
 
-    def __init__(self) -> None:
-        self.novelty_analyzer = NoveltyAnalyzer(use_improved=True, novelty_threshold=0.3)
+in
 
     def get_engine_name(self) -> str:
         return "Production Horizontal IDOR Detection Engine"
@@ -74,7 +75,14 @@ class ProductionHorizontalIDOREngine(DetectionEngineProtocol):
         if not baseline_response:
             return findings
 
-        self.novelty_analyzer.learn_normal(baseline_response)
+
+        try:
+            smart_manager.record_normal_profile(
+                _idor_response_features(baseline_response, baseline=None)
+            )
+        except Exception:
+            logger.debug("IDOR 水平基準特徵記錄失敗，略過")
+
 
         # 生成測試ID
         test_ids = self._generate_test_ids(original_ids)
@@ -99,14 +107,43 @@ class ProductionHorizontalIDOREngine(DetectionEngineProtocol):
                         self.novelty_analyzer,
                     )
                     
+                    privilege_hint = _privilege_hint_from_analysis(analysis)
+                    features = _idor_response_features(
+                        test_response,
+                        baseline=baseline_response,
+                        evidence_count=len(analysis.get("evidence", [])),
+                        privilege_hint=privilege_hint,
+                    )
+
                     if analysis["is_vulnerable"]:
+                        decision = smart_manager.combine_rule_and_novelty(
+                            DetectionRuleResult(
+                                confidence=analysis["confidence"],
+                                severity=Severity.LOW,
+                                metadata={
+                                    "engine": self.get_engine_name(),
+                                    "parameter": param_name,
+                                    "test_value": test_value,
+                                },
+                            ),
+                            features,
+                        )
+                        smart_manager.feedback(features, confirmed_anomaly=True)
                         finding = self._create_horizontal_finding(
-                            task, target, param_name, original_value, 
-                            test_value, test_response, analysis
+                            task,
+                            target,
+                            param_name,
+                            original_value,
+                            test_value,
+                            test_response,
+                            analysis,
+                            decision,
                         )
                         findings.append(finding)
                         logger.info(f"發現水平IDOR: {param_name}={test_value}")
                         break  # 找到漏洞即停止測試該參數
+                    else:
+                        smart_manager.feedback(features, confirmed_anomaly=False)
 
                 except Exception as e:
                     logger.debug(f"水平IDOR測試失敗 ({param_name}={test_value}): {e}")
@@ -170,11 +207,11 @@ class ProductionHorizontalIDOREngine(DetectionEngineProtocol):
         self, target: FunctionTaskTarget, client: httpx.AsyncClient
     ) -> httpx.Response:
         """發送請求"""
-        if target.method.upper() == "GET":
-            return await client.get(str(target.url), timeout=15.0, follow_redirects=False)
-        elif target.method.upper() == "POST":
-            return await client.post(str(target.url), timeout=15.0, follow_redirects=False)
-        else:
+        async with self._request_semaphore:
+            if target.method.upper() == "GET":
+                return await client.get(str(target.url), timeout=15.0, follow_redirects=False)
+            if target.method.upper() == "POST":
+                return await client.post(str(target.url), timeout=15.0, follow_redirects=False)
             # 其他HTTP方法
             return await client.request(
                 target.method, str(target.url), timeout=15.0, follow_redirects=False
@@ -368,20 +405,24 @@ class ProductionHorizontalIDOREngine(DetectionEngineProtocol):
         test_value: str,
         response: httpx.Response,
         analysis: dict[str, Any],
+        decision: DetectionDecision,
     ) -> FindingPayload:
         """創建水平IDOR檢測結果"""
         vulnerability = Vulnerability(
             name=VulnerabilityType.IDOR,
-            severity=Severity.LOW,
-            confidence=analysis["confidence"]
+            severity=decision.severity,
+            confidence=decision.confidence,
         )
 
         evidence_text = "; ".join(analysis["evidence"])
         evidence = FindingEvidence(
             payload=f"參數: {param_name}, 原值: {original_value}, 測試值: {test_value}",
-            response=f"訪問類型: {analysis['access_type']}. 證據: {evidence_text}. "
-                    f"響應狀態: {response.status_code}, 響應長度: {len(response.text)}",
-            response_time_delta=response.elapsed.total_seconds()
+            response=(
+                f"訪問類型: {analysis['access_type']}. 證據: {evidence_text}. "
+                f"響應狀態: {response.status_code}, 響應長度: {len(response.text)}, "
+                f"Novelty={decision.novelty_score:.2f}, Risk={decision.risk_label}"
+            ),
+            response_time_delta=_safe_elapsed_seconds(response)
         )
 
         return FindingPayload(
@@ -402,8 +443,7 @@ class ProductionHorizontalIDOREngine(DetectionEngineProtocol):
 class ProductionVerticalIDOREngine(DetectionEngineProtocol):
     """生產級垂直特權升級檢測引擎"""
 
-    def __init__(self) -> None:
-        self.novelty_analyzer = NoveltyAnalyzer(use_improved=True, novelty_threshold=0.35)
+
 
     def get_engine_name(self) -> str:
         return "Production Vertical IDOR Detection Engine"
@@ -439,16 +479,43 @@ class ProductionVerticalIDOREngine(DetectionEngineProtocol):
                 response = await self._send_request(admin_target, client)
                 
                 # 分析響應
-                analysis = self._analyze_vertical_response(
-                    response, admin_path, self.novelty_analyzer
+
+                analysis = self._analyze_vertical_response(response, admin_path)
+
+                privilege_hint = _privilege_hint_from_analysis(analysis)
+                features = _idor_response_features(
+                    response,
+                    baseline=None,
+                    evidence_count=len(analysis.get("evidence", [])),
+                    privilege_hint=privilege_hint,
                 )
-                
+
+
                 if analysis["is_vulnerable"]:
+                    decision = smart_manager.combine_rule_and_novelty(
+                        DetectionRuleResult(
+                            confidence=analysis["confidence"],
+                            severity=Severity.LOW,
+                            metadata={
+                                "engine": self.get_engine_name(),
+                                "admin_path": admin_path,
+                            },
+                        ),
+                        features,
+                    )
+                    smart_manager.feedback(features, confirmed_anomaly=True)
                     finding = self._create_vertical_finding(
-                        task, target, admin_path, response, analysis
+                        task,
+                        target,
+                        admin_path,
+                        response,
+                        analysis,
+                        decision,
                     )
                     findings.append(finding)
                     logger.info(f"發現垂直IDOR: {admin_path}")
+                else:
+                    smart_manager.feedback(features, confirmed_anomaly=False)
 
             except Exception as e:
                 logger.debug(f"垂直IDOR測試失敗 ({admin_path}): {e}")
@@ -511,7 +578,8 @@ class ProductionVerticalIDOREngine(DetectionEngineProtocol):
 
     async def _send_request(self, target, client: httpx.AsyncClient) -> httpx.Response:
         """發送請求"""
-        return await client.get(str(target.url), timeout=15.0, follow_redirects=False)
+        async with self._request_semaphore:
+            return await client.get(str(target.url), timeout=15.0, follow_redirects=False)
 
     def _analyze_vertical_response(
         self,
@@ -601,21 +669,26 @@ class ProductionVerticalIDOREngine(DetectionEngineProtocol):
         admin_path: str,
         response: httpx.Response,
         analysis: dict[str, Any],
+        decision: DetectionDecision,
     ) -> FindingPayload:
         """創建垂直IDOR檢測結果"""
         vulnerability = Vulnerability(
             name=VulnerabilityType.IDOR,
-            severity=Severity.LOW,
-            confidence=analysis["confidence"]
+            severity=decision.severity,
+            confidence=decision.confidence,
         )
 
         evidence_text = "; ".join(analysis["evidence"])
         evidence = FindingEvidence(
             payload=f"管理員路徑訪問: {admin_path}",
-            response=f"特權級別: {analysis['privilege_level']}. 證據: {evidence_text}. "
-                    f"狀態碼: {response.status_code}, 響應長度: {len(response.text)}, "
-                    f"新穎度: {analysis.get('novelty_score', 0.0):.2f}",
-            response_time_delta=response.elapsed.total_seconds()
+
+            response=(
+                f"特權級別: {analysis['privilege_level']}. 證據: {evidence_text}. "
+                f"狀態碼: {response.status_code}, 響應長度: {len(response.text)}, "
+                f"Novelty={decision.novelty_score:.2f}, Risk={decision.risk_label}"
+            ),
+            response_time_delta=_safe_elapsed_seconds(response)
+
         )
 
         return FindingPayload(
@@ -655,3 +728,37 @@ class ProductionIDORModule(BaseFunctionModule):
 
     def get_vulnerability_type(self) -> VulnerabilityType:
         return VulnerabilityType.IDOR
+def _safe_elapsed_seconds(response: httpx.Response) -> float:
+    try:
+        return float(response.elapsed.total_seconds())
+    except Exception:
+        return 0.0
+
+
+def _idor_response_features(
+    response: httpx.Response,
+    *,
+    baseline: httpx.Response | None = None,
+    evidence_count: int = 0,
+    privilege_hint: float = 0.0,
+) -> list[float]:
+    text = response.text or ""
+    baseline_len = len(baseline.text) if baseline is not None and baseline.text else len(text)
+    baseline_len = max(1, baseline_len)
+    length_ratio = min(abs(len(text) - baseline_len) / baseline_len, 1.0)
+    status_ratio = min(response.status_code / 600.0, 1.0)
+    latency_ratio = min(_safe_elapsed_seconds(response) / 10.0, 1.0)
+    evidence_score = min(evidence_count / 6.0, 1.0)
+    sensitive_keywords = ["admin", "token", "profile", "secret", "role"]
+    keyword_hit = 1.0 if any(k in text.lower() for k in sensitive_keywords) else 0.0
+    return [length_ratio, status_ratio, evidence_score, privilege_hint, min(1.0, keyword_hit + latency_ratio)]
+
+
+def _privilege_hint_from_analysis(analysis: dict[str, Any]) -> float:
+    mapping = {
+        "none": 0.0,
+        "successful_access": 0.6,
+        "data_exposure": 0.8,
+        "api_access": 0.7,
+    }
+    return float(mapping.get(analysis.get("access_type", "none"), 0.5))

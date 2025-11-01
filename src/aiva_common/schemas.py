@@ -1,3 +1,4 @@
+
 """Lightweight dataclass implementations for findings and tasks."""
 from __future__ import annotations
 
@@ -20,6 +21,29 @@ class FunctionTaskPayload:
     scan_id: str = "scan"
     target: FunctionTaskTarget = field(default_factory=FunctionTaskTarget)
 
+"""Dataclass stubs used by the documentation build."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Optional
+
+from .enums import ModuleName, Topic, VulnerabilityType, Severity, Confidence
+
+
+@dataclass
+class FindingTarget:
+    url: str
+    parameter: str
+    method: str
+
+
+@dataclass
+class FindingEvidence:
+    payload: str
+    response: str
+    response_time_delta: float
+
 
 @dataclass
 class Vulnerability:
@@ -29,6 +53,7 @@ class Vulnerability:
 
 
 @dataclass
+
 class FindingTarget:
     url: str
     parameter: Optional[str] = None
@@ -43,6 +68,8 @@ class FindingEvidence:
 
 
 @dataclass
+
+
 class FindingPayload:
     finding_id: str
     task_id: str
@@ -51,4 +78,32 @@ class FindingPayload:
     vulnerability: Vulnerability
     target: FindingTarget
     evidence: FindingEvidence
-    metadata: dict[str, Any] = field(default_factory=dict)
+
+
+
+@dataclass
+class FunctionTaskTarget:
+    url: str
+    method: str = "GET"
+    headers: Optional[dict[str, str]] = None
+    parameter: str = "input"
+
+
+@dataclass
+class FunctionTaskPayload:
+    task_id: str
+    scan_id: str
+    topic: Topic
+    module: ModuleName
+    target: FunctionTaskTarget
+
+
+__all__ = [
+    "FindingTarget",
+    "FindingEvidence",
+    "Vulnerability",
+    "FindingPayload",
+    "FunctionTaskTarget",
+    "FunctionTaskPayload",
+]
+
