@@ -1,3 +1,5 @@
+from .core import BioNeuron, BioLayer, BioNet, cli_loop
+from .neuron_base import BaseBioNeuron
 
 from .core import BioLayer, BioNet, BioNeuron, cli_loop
 from .network import (
@@ -44,9 +46,7 @@ try:
 
     from .improved_core import ImprovedBioNeuron, CuriositDrivenNet, BioNeuronV2
     __all__ = [
-
-    __all__ = [
-
+        "BaseBioNeuron",
         "BioNeuron",
         "BioLayer",
         "BioNet",

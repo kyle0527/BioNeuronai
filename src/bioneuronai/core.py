@@ -88,6 +88,21 @@ class BioNeuron:
         assert len(inputs) == self.num_inputs
         x = np.asarray(inputs, dtype=np.float32)
 
+        # short-term memory
+        self._remember_input(x)
+
+        potential = float(np.dot(self.weights, x))
+        activated = potential >= self.threshold
+        self._record_activation(activated)
+        return min(1.0, potential) if activated else 0.0
+
+    def hebbian_learn(self, inputs: Sequence[float], output: float | None = None, **_: object) -> None:
+        if output is None:
+            raise ValueError("BioNeuron.hebbian_learn requires a numeric output value")
+        x = np.asarray(inputs, dtype=np.float32)
+        delta = self.learning_rate * x * float(output)
+        self.weights = self.weights + delta
+        self._clip_weights(min_value=0.0, max_value=1.0)
 
         potential = float(np.dot(self.weights, x))
         return self._finalize_potential(x, potential)
