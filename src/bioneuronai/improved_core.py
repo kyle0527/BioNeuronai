@@ -225,7 +225,7 @@ class ImprovedBioNeuron(BaseNeuron):
         self,
         input_dim: int = 2,
         hidden_dim: int = 3,
-
+        curiosity_transform: Optional[Callable[[Sequence[float]], float]] = None,
     ) -> None:
         self.neurons = [
             ImprovedBioNeuron(
@@ -389,16 +389,16 @@ class ImprovedBioNeuron(BaseNeuron):
     
     def curious_learn(self, inputs: Sequence[float]) -> float:
         """基於好奇心的學習
-        
+
         Returns:
             平均好奇心水平
         """
-        outputs, novelties = self.forward(inputs)
-        avg_curiosity = np.mean(novelties)
+        _, novelties = self.forward(inputs)
+        curiosity_level = float(self._curiosity_transform(novelties))
 
         # 只有當新穎性足夠高時才學習
-        if avg_curiosity > self.curiosity_threshold:
-            for neuron, novelty, output in zip(self.neurons, novelties, outputs):
+        if curiosity_level > self.curiosity_threshold:
+            for neuron, novelty in zip(self.neurons, novelties):
                 # 新穎性高的神經元學習更強
                 enhanced_lr = neuron.learning_rate * (1 + novelty)
                 original_lr = neuron.learning_rate
