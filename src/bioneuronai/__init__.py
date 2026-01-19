@@ -52,6 +52,7 @@ from .automation import SOPAutomation, PreTradeAutomation
 # 服務模組
 from .services import (
     Database,
+    TradingDatabase,
     ExchangeRateService,
     ExchangeRateInfo,
     get_exchange_rate_service
@@ -103,6 +104,7 @@ __all__ = [
     
     # 服務
     "Database",
+    "TradingDatabase",
     "ExchangeRateService",
     "ExchangeRateInfo",
     "get_exchange_rate_service",
