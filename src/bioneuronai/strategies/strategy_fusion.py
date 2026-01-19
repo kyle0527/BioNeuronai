@@ -22,7 +22,7 @@ AI 需要學習如何在不同市場環境中動態融合多種策略
 
 import numpy as np
 import logging
-from typing import Optional, Dict, Any, List, Tuple
+from typing import Optional, Dict, Any, List, Tuple, Union
 from datetime import datetime, timedelta
 from dataclasses import dataclass, field
 from enum import Enum
@@ -316,13 +316,13 @@ class AIStrategyFusion:
             )
         
         # 平滑
-        atr = np.mean(tr[-period:])
+        atr = np.mean(tr[-period:]) if len(tr) >= period else 0
         plus_di = 100 * np.mean(plus_dm[-period:]) / atr if atr > 0 else 0
         minus_di = 100 * np.mean(minus_dm[-period:]) / atr if atr > 0 else 0
         
         dx = 100 * abs(plus_di - minus_di) / (plus_di + minus_di) if (plus_di + minus_di) > 0 else 0
         
-        return dx
+        return float(dx)
     
     def _estimate_regime_duration(
         self,
@@ -365,7 +365,7 @@ class AIStrategyFusion:
     
     def update_weights_for_market(
         self,
-        market_condition: MarketCondition,
+        market_condition: Union[MarketCondition, str],
         regime: MarketRegime
     ):
         """根據市場狀態更新策略權重"""
@@ -506,7 +506,7 @@ class AIStrategyFusion:
         
         # 3. 更新市場條件權重
         # 取第一個有效分析的市場條件
-        market_condition = MarketCondition.NORMAL
+        market_condition = "NORMAL"  # 預設使用字串
         for analysis in market_analyses.values():
             mc = analysis.get('market_condition')
             if mc:
@@ -596,10 +596,11 @@ class AIStrategyFusion:
         
         if best_strategy:
             setup = signal.strategy_signals[best_strategy]
-            signal.consensus_direction = setup.direction
-            signal.consensus_strength = best_score
-            signal.confidence_score = best_score
-            signal.selected_setup = setup
+            if setup:  # 確保 setup 不為 None
+                signal.consensus_direction = setup.direction
+                signal.consensus_strength = best_score
+                signal.confidence_score = best_score
+                signal.selected_setup = setup
         
         signal.fusion_method_used = FusionMethod.BEST_PERFORMER
     
@@ -714,7 +715,8 @@ class AIStrategyFusion:
             adaptive_signal.confidence_score,
             confidence_signal.confidence_score,
         ]
-        signal.confidence_score = np.mean([s for s in scores if s > 0]) if any(scores) else 0
+        mean_score = np.mean([s for s in scores if s > 0]) if any(scores) else 0
+        signal.confidence_score = float(mean_score)
         signal.consensus_strength = signal.confidence_score
         
         # 選擇最佳設置

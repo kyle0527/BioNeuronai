@@ -60,7 +60,7 @@ class StrategyRecommendation:
     
     # 市場分析
     market_regime: MarketRegime = MarketRegime.SIDEWAYS_LOW_VOL
-    market_condition: MarketCondition = MarketCondition.NORMAL
+    market_condition: str = "NORMAL"  # 使用字串而不是 MarketCondition.NORMAL
     
     # 策略權重
     strategy_weights: Dict[str, float] = field(default_factory=dict)
@@ -235,7 +235,7 @@ class StrategySelector:
             return 20.0
             
         dx = 100 * abs(plus_di - minus_di) / (plus_di + minus_di)
-        return dx
+        return float(dx)
     
     def recommend_strategy(
         self,

@@ -14,12 +14,16 @@
 import re
 import time
 import logging
-import requests
 from typing import Optional, List, Dict, Tuple
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from collections import Counter
 import threading
+
+try:
+    import requests
+except ImportError:
+    requests = None
 
 # 導入關鍵字模組
 try:
@@ -438,12 +442,15 @@ class CryptoNewsAnalyzer:
                     except Exception:
                         continue
         
-        except requests.exceptions.Timeout:
-            logger.warning("CryptoPanic API 請求超時")
-        except requests.exceptions.RequestException as e:
-            logger.warning(f"CryptoPanic API 請求失敗: {e}")
         except Exception as e:
-            logger.warning(f"獲取 CryptoPanic 新聞失敗: {e}")
+            # 處理所有異常而不檢查 requests 是否導入
+            error_msg = str(e)
+            if 'timeout' in error_msg.lower():
+                logger.warning("CryptoPanic API 請求超時")
+            elif 'request' in error_msg.lower():
+                logger.warning(f"CryptoPanic API 請求失敗: {e}")
+            else:
+                logger.warning(f"獲取 CryptoPanic 新聞失敗: {e}")
         
         return articles
     

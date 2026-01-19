@@ -25,7 +25,7 @@
 
 import numpy as np
 import logging
-from typing import Optional, Dict, Any, Tuple, List
+from typing import Optional, Dict, Any, Tuple, List, Union
 from datetime import datetime, timedelta
 from dataclasses import dataclass, field
 import uuid
@@ -539,19 +539,25 @@ class BreakoutTradingStrategy(BaseStrategy):
                 'momentum': analysis.momentum,
             },
             'current_price': current_price,
-            'analysis_summary': self._generate_breakout_summary(analysis, market_condition),
+            'analysis_summary': self._generate_breakout_summary(analysis, str(market_condition) if not isinstance(market_condition, str) else market_condition),
         }
     
     def _generate_breakout_summary(
         self,
         analysis: BreakoutAnalysis,
-        market_condition: MarketCondition
+        market_condition: Union[MarketCondition, str]
     ) -> str:
         """生成突破分析摘要"""
         summary = []
         ra = analysis.range_analysis
         
-        summary.append(f"市場狀態: {market_condition.value}")
+        # 處理 market_condition 型別
+        if isinstance(market_condition, str):
+            condition_str = market_condition
+        else:
+            condition_str = market_condition.value
+        
+        summary.append(f"市場狀態: {condition_str}")
         summary.append(f"區間: {ra.range_low:.2f} - {ra.range_high:.2f}")
         summary.append(f"區間寬度: {ra.range_percent:.1f}%")
         summary.append(f"區間持續: {ra.range_duration_bars} 根")

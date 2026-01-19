@@ -198,6 +198,17 @@ class TradingPlanGenerator:
         """智能交易對選擇"""
         return await self.pair_selector.select_optimal_pairs(market_analysis, risk_params)
     
+    async def _plan_optimization_and_validation(self, plan: Dict) -> Dict:
+        """計劃優化與驗證"""
+        optimization = await self.plan_optimizer.optimize_plan(plan)
+        backtest = await self.backtester.backtest_plan(plan)
+        
+        return {
+            "optimization_results": optimization,
+            "backtest_results": backtest,
+            "validation_score": 8.5
+        }
+    
     async def _prepare_execution_environment(self, plan: Dict) -> Dict:
         """準備執行環境"""
         return {
@@ -593,29 +604,8 @@ class PlanBacktester:
             "expected_annual_return": 0.245
         }
 
-# ========== 主要輔助方法 ==========
 
-    async def _plan_optimization_and_validation(self, plan: Dict) -> Dict:
-        """計劃優化與驗證"""
-        optimization = await self.plan_optimizer.optimize_plan(plan)
-        backtest = await self.backtester.backtest_plan(plan)
-        
-        return {
-            "optimization_results": optimization,
-            "backtest_results": backtest,
-            "validation_score": 8.5
-        }
-    
-    async def _prepare_execution_environment(self, plan: Dict) -> Dict:
-        """準備執行環境"""
-        return {
-            "api_connections_verified": True,
-            "risk_management_active": True,
-            "monitoring_systems_ready": True,
-            "backup_systems_standby": True
-        }
-    
-    def _generate_final_assessment(self, plan: Dict) -> Dict:
+# ========== 後續輔助類 ==========
         """生成最終評估"""
         return {
             "overall_plan_score": 8.7,

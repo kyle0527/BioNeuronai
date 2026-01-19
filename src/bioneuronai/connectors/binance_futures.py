@@ -92,7 +92,7 @@ class BinanceFuturesConnector:
         params['signature'] = signature
         return params
     
-    def _make_request(self, method: str, endpoint: str, params: Dict = None, signed: bool = False) -> Optional[Dict]:
+    def _make_request(self, method: str, endpoint: str, params: Optional[Dict] = None, signed: bool = False) -> Optional[Dict]:
         """統一的 API 請求處理"""
         try:
             self._check_rate_limit()

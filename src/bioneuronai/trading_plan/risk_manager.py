@@ -684,7 +684,7 @@ class RiskManager:
         """分析最大回撤"""
         try:
             # 模擬組合歷史淨值數據
-            portfolio_values = [100000]  # 起始100,000
+            portfolio_values: List[float] = [100000.0]  # 起始100,000
             
             for i in range(100):  # 模擬100個交易日
                 daily_return = np.random.normal(0.001, 0.02)  # 日收益率

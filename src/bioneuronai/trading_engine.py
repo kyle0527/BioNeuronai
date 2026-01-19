@@ -90,6 +90,7 @@ class TradingEngine:
         self.enable_news_analysis = True
         if NEWS_ANALYZER_AVAILABLE:
             try:
+                from .news_analyzer import get_news_analyzer
                 self.news_analyzer = get_news_analyzer()
                 logger.info("📰 新聞分析服務已啟用")
             except Exception as e:
@@ -256,7 +257,17 @@ class TradingEngine:
                 return
             
             account_balance = float(account_info.get('totalWalletBalance', 0))
-            current_price = signal.target_price or self.get_real_time_price(signal.symbol).price
+            
+            # 獲取當前價格
+            if signal.target_price:
+                current_price = signal.target_price
+            else:
+                price_data = self.get_real_time_price(signal.symbol)
+                current_price = price_data.price if price_data else 0.0
+            
+            if current_price <= 0:
+                logger.error("❌ 無法獲取當前價格，取消交易")
+                return
             
             # 計算倉位大小
             position_size = self.risk_manager.calculate_position_size(
@@ -483,7 +494,7 @@ class TradingEngine:
             
             # 保存風險配置
             risk_config_path = self.data_dir / "risk_config.json"
-            self.risk_manager.save_config(risk_config_path)
+            self.risk_manager.save_config(str(risk_config_path))
             
         except Exception as e:
             logger.error(f"保存數據失敗: {e}", exc_info=True)

@@ -9,12 +9,16 @@
 3. 備用：固定匯率（離線時使用）
 """
 
-import requests
 import logging
 from typing import Optional, Dict
 from datetime import datetime, timedelta
 from dataclasses import dataclass
 import threading
+
+try:
+    import requests
+except ImportError:
+    requests = None
 
 logger = logging.getLogger(__name__)
 
@@ -151,12 +155,14 @@ class ExchangeRateService:
                         is_realtime=True
                     )
         
-        except requests.exceptions.Timeout:
-            logger.warning("匯率 API 請求超時")
-        except requests.exceptions.RequestException as e:
-            logger.warning(f"匯率 API 請求失敗: {e}")
         except Exception as e:
-            logger.error(f"獲取匯率時發生錯誤: {e}")
+            error_type = type(e).__name__
+            if 'Timeout' in error_type:
+                logger.warning("匯率 API 請求超時")
+            elif 'Request' in error_type:
+                logger.warning(f"匯率 API 請求失敗: {e}")
+            else:
+                logger.error(f"獲取匯率時發生錯誤: {e}")
         
         return None
     
