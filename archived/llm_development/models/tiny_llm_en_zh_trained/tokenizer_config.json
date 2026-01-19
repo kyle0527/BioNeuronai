@@ -1,0 +1,23 @@
+{
+  "tokenizer_class": "BilingualTokenizer",
+  "vocab_size": 238,
+  "model_max_length": 512,
+  "padding_side": "right",
+  "truncation_side": "right",
+  "special_tokens": {
+    "pad_token": "[PAD]",
+    "unk_token": "[UNK]",
+    "bos_token": "[BOS]",
+    "eos_token": "[EOS]",
+    "sep_token": "[SEP]",
+    "cls_token": "[CLS]",
+    "mask_token": "[MASK]"
+  },
+  "bos_token": "[BOS]",
+  "eos_token": "[EOS]",
+  "unk_token": "[UNK]",
+  "sep_token": "[SEP]",
+  "pad_token": "[PAD]",
+  "cls_token": "[CLS]",
+  "mask_token": "[MASK]"
+}

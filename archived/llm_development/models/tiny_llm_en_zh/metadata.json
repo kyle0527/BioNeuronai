@@ -1,0 +1,13 @@
+{
+  "model_name": "tiny_llm_en_zh",
+  "version": "1.0.0",
+  "created_at": "2026-01-19",
+  "description": "英中雙語小型語言模型",
+  "languages": [
+    "en",
+    "zh"
+  ],
+  "parameters": 124046592,
+  "architecture": "GPT-like Transformer",
+  "license": "MIT"
+}

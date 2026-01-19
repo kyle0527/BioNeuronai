@@ -1,0 +1,81 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+venv/
+ENV/
+env/
+.venv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Model weights and training data (Large files)
+*.pth
+*.pt
+*.bin
+*.ckpt
+*.safetensors
+*.h5
+*.pb
+
+# Training logs and cache
+*.log
+training_log.json
+training_history.json
+*.cache
+
+# Data files
+*.csv
+*.json.gz
+*.parquet
+data/
+datasets/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# API keys and secrets
+.env
+*.key
+secrets.json
+api_keys.txt
+
+# Trading system generated files
+trading_system.log
+signals_history/
+backtest_results/
+trading_plans/
+
+# OS generated files
+Thumbs.db
+.DS_Store

@@ -1,0 +1,16 @@
+{
+  "check_time": "2026-01-19 19:26:17.800434",
+  "sop_version": "1.0",
+  "sop_step": "1.1 每日開盤前檢查",
+  "market_environment": "MarketEnvironmentCheck(timestamp=datetime.datetime(2026, 1, 19, 19, 26, 17, 800575), us_futures='MIXED', asian_markets='POSITIVE', european_markets='NEUTRAL', crypto_sentiment=0.1, economic_events=['美國CPI數據發布 (14:30)', '聯準會會議紀要 (21:00)'], news_analysis={'overall_sentiment': 0.1, 'news_count': 15, 'major_events': [{'type': 'ETF 相關', 'description': '新的比特幣ETF申請'}], 'summary': '\\n╔══════════════════════════════════════════════════════════╗\\n║  📰 BTCUSDT 新聞分析摘要（過去 24 小時）\\n╠══════════════════════════════════════════════════════════╣\\n║  📊 新聞數量: 14 篇\\n║  ⚪ 整體情緒: NEUTRAL (分數: -0.12)\\n║  \\n║  📈 正面: 2 | 📉 負面: 5 | ➖ 中性: 7\\n║\\n║  📝 最新頭條:\\n║     1. Strive’s preferred stock hits par value, unlocking...\\n║     2. Kazakhstan limits crypto trading to central bank-a...\\n║     3. Privacy Coins Monero, Dash and Dusk Defy Crypto Ma...\\n║\\n║  💡 建議: ⚪ 新聞情緒中性，無明顯偏向，建議以技術分析為主\\n╚══════════════════════════════════════════════════════════╝', 'last_update': '2026-01-19T19:26:20.289382'}, overall_status='NEUTRAL')",
+  "system_status": "SystemCheck(timestamp=datetime.datetime(2026, 1, 19, 19, 26, 20, 290165), api_connection=True, websocket_status=True, network_latency=0.0, account_status={'available_balance': 5000.0, 'total_balance': 5500.0, 'positions': [], 'margin_ratio': 0.0, 'last_update': '2026-01-19T19:26:20.290887'}, trading_system=True, overall_status='READY')",
+  "trading_plan": "TradingPlanCheck(timestamp=datetime.datetime(2026, 1, 19, 19, 26, 20, 291514), selected_strategy='StrategyFusion', risk_parameters={'single_trade_risk': 0.02, 'daily_max_loss': 0.05, 'max_daily_trades': 10, 'max_positions': 3}, trading_pairs=['BTCUSDT', 'ETHUSDT', 'BNBUSDT'], daily_limits={'max_loss_usd': 1000, 'max_trades': 10, 'max_leverage': 10}, overall_status='READY')",
+  "overall_assessment": {
+    "status": "FULLY_READY",
+    "recommendation": "✅ 系統已就緒，可以開始交易",
+    "market_status": "NEUTRAL",
+    "system_status": "READY",
+    "plan_status": "READY",
+    "timestamp": "2026-01-19T19:26:20.292712"
+  }
+}
