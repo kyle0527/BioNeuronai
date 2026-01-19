@@ -4,14 +4,14 @@
 import sys
 sys.path.append('src')
 import asyncio
-from bioneuronai.pretrade_automation import PreTradeCheckSystem
+from bioneuronai.automation import PreTradeAutomation
 
 async def main():
     print('🎯 測試 SOP 第二步：單筆交易前檢查')
     print('=' * 60)
     
     try:
-        pretrade = PreTradeCheckSystem()
+        pretrade = PreTradeAutomation()
         print('✅ 交易前檢查系統初始化完成')
         
         # 測試多種情況

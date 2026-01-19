@@ -3,7 +3,7 @@
 """
 
 import time
-from src.bioneuronai.trading_engine import TradingEngine
+from bioneuronai import TradingEngine
 
 
 def main():

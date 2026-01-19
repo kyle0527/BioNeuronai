@@ -106,9 +106,9 @@ class PreTradeCheckSystem:
     def _import_modules(self):
         """導入所需模組"""
         try:
-            from . import CryptoFuturesTrader, TradingSignal
-            from .news_analyzer import CryptoNewsAnalyzer
-            from .trading_strategies import StrategyFusion
+            from .. import CryptoFuturesTrader, TradingSignal
+            from ..analysis import CryptoNewsAnalyzer
+            from ..trading_strategies import StrategyFusion
             self.modules_available = True
             logger.info("✅ 交易模組導入成功")
         except ImportError as e:
@@ -624,7 +624,7 @@ class PreTradeCheckSystem:
         """檢查重大新聞"""
         try:
             if self.modules_available:
-                from .news_analyzer import CryptoNewsAnalyzer
+                from ..analysis import CryptoNewsAnalyzer
                 analyzer = CryptoNewsAnalyzer()
                 news_summary = analyzer.get_quick_summary(symbol)
                 

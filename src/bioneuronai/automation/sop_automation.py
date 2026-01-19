@@ -65,9 +65,9 @@ class SOPAutomationSystem:
     def _import_modules(self):
         """導入所需模組"""
         try:
-            from . import CryptoFuturesTrader
-            from .news_analyzer import CryptoNewsAnalyzer
-            from .trading_strategies import StrategyFusion
+            from .. import CryptoFuturesTrader
+            from ..analysis import CryptoNewsAnalyzer
+            from ..trading_strategies import StrategyFusion
             self.modules_available = True
             logger.info("✅ 所有交易模組導入成功")
         except ImportError as e:
@@ -395,7 +395,7 @@ class SOPAutomationSystem:
                 return self._get_mock_news_analysis()
             
             # 嘗試使用真實的新聞分析
-            from .news_analyzer import CryptoNewsAnalyzer
+            from ..analysis import CryptoNewsAnalyzer
             analyzer = CryptoNewsAnalyzer()
             
             # 獲取最新新聞並分析

@@ -12,10 +12,10 @@ from pathlib import Path
 from dataclasses import asdict
 
 # 導入重構後的模塊
-from .data_models import MarketData, TradingSignal, Position
-from .connectors import BinanceFuturesConnector
-from .risk_management import RiskManager
-from .trading_strategies import StrategyFusion
+from ..data_models import MarketData, TradingSignal, Position
+from ..connectors import BinanceFuturesConnector
+from ..risk_management import RiskManager
+from ..trading_strategies import StrategyFusion
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +31,7 @@ logging.basicConfig(
 
 # 嘗試導入新聞分析服務
 try:
-    from .news_analyzer import get_news_analyzer
+    from ..analysis import get_news_analyzer
     NEWS_ANALYZER_AVAILABLE = True
 except ImportError:
     NEWS_ANALYZER_AVAILABLE = False
@@ -90,7 +90,7 @@ class TradingEngine:
         self.enable_news_analysis = True
         if NEWS_ANALYZER_AVAILABLE:
             try:
-                from .news_analyzer import get_news_analyzer
+                from ..analysis import get_news_analyzer
                 self.news_analyzer = get_news_analyzer()
                 logger.info("📰 新聞分析服務已啟用")
             except Exception as e:
