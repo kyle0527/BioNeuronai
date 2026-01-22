@@ -1,0 +1,75 @@
+"""
+BioNeuronai 市場數據模型
+
+定義市場數據相關的 Pydantic 模型。
+"""
+
+from datetime import datetime
+from typing import Optional
+
+from pydantic import BaseModel, Field, field_validator
+
+
+class MarketData(BaseModel):
+    """市場數據模型"""
+    
+    symbol: str = Field(..., description="交易對符號")
+    timestamp: datetime = Field(..., description="時間戳")
+    open: float = Field(..., gt=0, description="開盤價")
+    high: float = Field(..., gt=0, description="最高價")
+    low: float = Field(..., gt=0, description="最低價")
+    close: float = Field(..., gt=0, description="收盤價")
+    volume: float = Field(..., ge=0, description="成交量")
+    
+    # 技術指標
+    sma_20: Optional[float] = Field(None, description="20 期簡單移動平均線")
+    sma_50: Optional[float] = Field(None, description="50 期簡單移動平均線")
+    ema_12: Optional[float] = Field(None, description="12 期指數移動平均線")
+    ema_26: Optional[float] = Field(None, description="26 期指數移動平均線")
+    rsi: Optional[float] = Field(None, ge=0, le=100, description="相對強弱指標")
+    macd: Optional[float] = Field(None, description="MACD 指標")
+    macd_signal: Optional[float] = Field(None, description="MACD 信號線")
+    
+    # 波動率指標
+    atr: Optional[float] = Field(None, ge=0, description="平均真實範圍")
+    bollinger_upper: Optional[float] = Field(None, description="布林帶上軌")
+    bollinger_middle: Optional[float] = Field(None, description="布林帶中軌")
+    bollinger_lower: Optional[float] = Field(None, description="布林帶下軌")
+    
+    @field_validator("high")
+    @classmethod
+    def validate_high(cls, v: float, info) -> float:
+        """驗證最高價不低於開盤價和收盤價"""
+        if "open" in info.data and v < info.data["open"]:
+            raise ValueError("最高價不能低於開盤價")
+        if "close" in info.data and v < info.data["close"]:
+            raise ValueError("最高價不能低於收盤價")
+        return v
+    
+    @field_validator("low")
+    @classmethod
+    def validate_low(cls, v: float, info) -> float:
+        """驗證最低價不高於開盤價和收盤價"""
+        if "open" in info.data and v > info.data["open"]:
+            raise ValueError("最低價不能高於開盤價")
+        if "close" in info.data and v > info.data["close"]:
+            raise ValueError("最低價不能高於收盤價")
+        return v
+    
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "symbol": "BTCUSDT",
+                    "timestamp": "2025-01-22T10:00:00Z",
+                    "open": 50000.0,
+                    "high": 51000.0,
+                    "low": 49500.0,
+                    "close": 50500.0,
+                    "volume": 1234.56,
+                    "rsi": 65.5,
+                    "macd": 150.25,
+                }
+            ]
+        }
+    }

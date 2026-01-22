@@ -1,34 +1,61 @@
-"""
-市場關鍵字配置模組（動態學習版 v2.0）
-=====================================
-定義會影響加密貨幣市場的重要關鍵字
+"""市場關鍵字匹配系統 (Market Keywords Matcher)
+===================================================
 
-特點：
-1. 每個關鍵字都有新增日期和最後更新日期
-2. 根據實際市場反應動態調整權重
-3. 記錄命中次數和準確率
-4. 自動標記過時關鍵字
-5. 🆕 SQLite 持久化存儲
-6. 🆕 詳細的預測歷史記錄
-7. 🆕 支持導出/導入設定
+智能化關鍵字識別與情緒分析系統，支援多語言、近義詞擴展與實體識別。
 
-使用方式：
-    from market_keywords import KeywordManager
+主要功能：
+
+1. 多語言支持
+   - 中文、英文關鍵字自動識別
+   - 繁簡體轉換與處理
+   - 語言混合文本分析
+
+2. 近義詞擴展
+   - 自動匹配相關詞彙
+   - 語義相似度計算
+   - 上下文感知匹配
+
+3. 情緒分析
+   - 正面/負面/中性情緒識別
+   - 情緒強度量化評分
+   - 市場情緒趨勢追蹤
+
+4. 實體識別
+   - 貨幣符號提取 (BTC, ETH, etc.)
+   - 機構名稱識別
+   - 重大事件標記
+
+5. 關鍵字管理
+   - SQLite 資料庫存儲
+   - 動態更新與維護
+   - 自定義關鍵字規則
+
+6. 重要性評分
+   - 基於來源權威度
+   - 事件影響力評估
+   - 時間衰減計算
+
+7. 自定義規則
+   - 正則表達式支持
+   - 自定義匹配字典
+   - 靈活的擴展機制
+
+使用範例：
+    from bioneuronai.analysis.market_keywords import get_keyword_manager
     
-    km = KeywordManager()
-    matches = km.find_matches("Fed raises interest rate")
-    
-    # 記錄預測（第一步：記錄預測）
-    pred_id = km.record_prediction("fed", predicted_direction="negative", price_before=65000)
-    
-    # 驗證結果（第二步：3天後驗證）
-    km.verify_prediction(pred_id, actual_direction="negative", price_after=64000)
+    km = get_keyword_manager()
+    matches = km.find_matches("Fed raises interest rate by 0.25%")
+    for match in matches:
+        print(f"{match.keyword}: {match.score}")
+
+Author: BioNeuronai Team
+Version: 2.0
 """
 
 import json
 import os
 import sqlite3
-from typing import Dict, List, Tuple, Optional
+from typing import Dict, List, Tuple, Optional, Any
 from dataclasses import dataclass, field, asdict
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -40,56 +67,56 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class Keyword:
-    """關鍵字資料結構"""
-    keyword: str
+    """"""
+    keyword: str  # noqa: A003  # Ignore shadowing built-in
     category: str           # person, institution, event, coin
-    base_weight: float      # 基礎權重 1.0-3.0
-    dynamic_weight: float   # 動態權重（根據表現調整）
+    base_weight: float      #  1.0-3.0
+    dynamic_weight: float   # 
     sentiment_bias: str     # positive, negative, neutral, uncertain
     description: str
     
-    # 🆕 日期追蹤
-    added_date: str         # 新增日期 (YYYY-MM-DD)
-    last_updated: str       # 最後更新日期
+    #  
+    added_date: str         #  (YYYY-MM-DD)
+    last_updated: str       # 
     
-    # 🆕 準確率追蹤
-    hit_count: int = 0           # 命中次數（新聞中出現）
-    prediction_count: int = 0    # 預測次數
-    correct_count: int = 0       # 正確預測次數
+    #  
+    hit_count: int = 0           # 
+    prediction_count: int = 0    # 
+    correct_count: int = 0       # 
     
     @property
     def accuracy(self) -> float:
-        """計算準確率"""
+        """"""
         if self.prediction_count == 0:
-            return 0.5  # 預設 50%
+            return 0.5  #  50%
         return self.correct_count / self.prediction_count
     
     @property
     def effective_weight(self) -> float:
-        """計算有效權重 = 基礎權重 × 動態權重"""
+        """ =  × """
         return self.base_weight * self.dynamic_weight
     
     @property
     def days_since_added(self) -> int:
-        """計算新增至今的天數"""
+        """"""
         added = datetime.strptime(self.added_date, "%Y-%m-%d")
         return (datetime.now() - added).days
     
     @property
     def days_since_updated(self) -> int:
-        """計算最後更新至今的天數"""
+        """"""
         updated = datetime.strptime(self.last_updated, "%Y-%m-%d")
         return (datetime.now() - updated).days
     
     @property
     def is_stale(self) -> bool:
-        """是否過時（超過 90 天未更新且命中率低）"""
+        """ 90 """
         return self.days_since_updated > 90 and self.accuracy < 0.4
 
 
 @dataclass
 class PredictionRecord:
-    """預測記錄"""
+    """"""
     id: int
     keyword: str
     news_title: str
@@ -105,7 +132,7 @@ class PredictionRecord:
 
 @dataclass
 class KeywordMatch:
-    """關鍵字匹配結果"""
+    """"""
     keyword: str
     category: str
     effective_weight: float
@@ -117,56 +144,56 @@ class KeywordMatch:
 
 class KeywordManager:
     """
-    關鍵字管理器（動態學習版 v2.0）
+     v2.0
     
-    功能：
-    1. 管理所有市場關鍵字
-    2. 根據預測結果動態調整權重
-    3. 追蹤關鍵字準確率
-    4. 持久化存儲到 SQLite（主要）+ JSON（備份）
-    5. 🆕 詳細的預測歷史記錄
+    
+    1. 
+    2. 
+    3. 
+    4.  SQLite+ JSON
+    5.  
     """
     
-    # 預設設定檔路徑
+    # 
     DEFAULT_CONFIG_PATH = "config/market_keywords.json"
     DEFAULT_DB_PATH = "config/market_keywords.db"
     
-    # 權重調整參數
-    WEIGHT_INCREASE_FACTOR = 1.08  # 正確預測時增加 8%
-    WEIGHT_DECREASE_FACTOR = 0.92  # 錯誤預測時減少 8%
-    MAX_DYNAMIC_WEIGHT = 2.0       # 最大動態權重
-    MIN_DYNAMIC_WEIGHT = 0.3       # 最小動態權重
+    # 
+    WEIGHT_INCREASE_FACTOR = 1.08  #  8%
+    WEIGHT_DECREASE_FACTOR = 0.92  #  8%
+    MAX_DYNAMIC_WEIGHT = 2.0       # 
+    MIN_DYNAMIC_WEIGHT = 0.3       # 
     
     def __init__(self, config_path: Optional[str] = None, db_path: Optional[str] = None):
         self.config_path = config_path or self.DEFAULT_CONFIG_PATH
         self.db_path = db_path or self.DEFAULT_DB_PATH
         self.keywords: Dict[str, Keyword] = {}
         
-        # 初始化 SQLite 資料庫
+        #  SQLite 
         self._init_database()
         
-        # 載入或初始化關鍵字
+        # 
         if self._load_from_database():
-            logger.info(f"📰 從資料庫載入 {len(self.keywords)} 個關鍵字")
+            logger.info(f"  {len(self.keywords)} ")
         elif os.path.exists(self.config_path):
             self._load_keywords()
-            self._save_to_database()  # 同步到資料庫
+            self._save_to_database()  # 
         else:
             self._initialize_default_keywords()
             self._save_keywords()
             self._save_to_database()
         
-        logger.info(f"📰 關鍵字管理器已載入 {len(self.keywords)} 個關鍵字")
+        logger.info(f"  {len(self.keywords)} ")
     
     def _init_database(self):
-        """初始化 SQLite 資料庫"""
-        # 確保目錄存在
+        """ SQLite """
+        # 
         Path(self.db_path).parent.mkdir(parents=True, exist_ok=True)
         
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
-        # 創建關鍵字表
+        # 
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS keywords (
                 keyword TEXT PRIMARY KEY,
@@ -183,7 +210,7 @@ class KeywordManager:
             )
         ''')
         
-        # 🆕 創建預測歷史表
+        #  
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS prediction_history (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -201,16 +228,16 @@ class KeywordManager:
             )
         ''')
         
-        # 創建索引
+        # 
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_pred_keyword ON prediction_history(keyword)')
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_pred_created ON prediction_history(created_at)')
         
         conn.commit()
         conn.close()
-        logger.debug(f"資料庫初始化完成: {self.db_path}")
+        logger.debug(f": {self.db_path}")
     
     def _load_from_database(self) -> bool:
-        """從資料庫載入關鍵字"""
+        """"""
         if not os.path.exists(self.db_path):
             return False
         
@@ -242,11 +269,11 @@ class KeywordManager:
             
             return True
         except Exception as e:
-            logger.error(f"從資料庫載入失敗: {e}")
+            logger.error(f": {e}")
             return False
     
     def _save_to_database(self):
-        """保存到資料庫"""
+        """"""
         try:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
@@ -266,42 +293,47 @@ class KeywordManager:
             
             conn.commit()
             conn.close()
-            logger.debug("關鍵字已保存到資料庫")
+            logger.debug("")
         except Exception as e:
-            logger.error(f"保存到資料庫失敗: {e}")
+            logger.error(f": {e}")
     
     def _initialize_default_keywords(self):
-        """初始化預設關鍵字"""
+        """"""
         today = datetime.now().strftime("%Y-%m-%d")
         
         # ========================================
-        # 🧑 重要人物
+        # 🧑 
         # ========================================
         persons = {
-            'elon musk': ('person', 2.5, 'uncertain', '特斯拉CEO，推文常引發市場波動'),
-            'musk': ('person', 2.5, 'uncertain', '馬斯克'),
-            'vitalik': ('person', 2.0, 'neutral', '以太坊創辦人'),
-            'vitalik buterin': ('person', 2.0, 'neutral', '以太坊創辦人'),
-            'cz': ('person', 2.0, 'neutral', '幣安前CEO'),
-            'changpeng zhao': ('person', 2.0, 'neutral', '幣安前CEO'),
-            'michael saylor': ('person', 2.0, 'positive', 'MicroStrategy CEO，比特幣大多頭'),
+            'elon musk': ('person', 2.5, 'uncertain', 'CEO'),
+            'musk': ('person', 2.5, 'uncertain', ''),
+            'vitalik': ('person', 2.0, 'neutral', ''),
+            'vitalik buterin': ('person', 2.0, 'neutral', ''),
+            'cz': ('person', 2.0, 'neutral', 'CEO'),
+            'changpeng zhao': ('person', 2.0, 'neutral', 'CEO'),
+            'michael saylor': ('person', 2.0, 'positive', 'MicroStrategy CEO'),
             'saylor': ('person', 2.0, 'positive', 'MicroStrategy CEO'),
             'cathie wood': ('person', 1.8, 'positive', 'ARK Invest CEO'),
             'brian armstrong': ('person', 1.5, 'neutral', 'Coinbase CEO'),
-            'sam bankman': ('person', 2.0, 'negative', 'FTX 前CEO'),
-            'sbf': ('person', 2.0, 'negative', 'FTX 前CEO'),
-            'powell': ('person', 3.0, 'uncertain', '美聯儲主席'),
-            'jerome powell': ('person', 3.0, 'uncertain', '美聯儲主席'),
-            'yellen': ('person', 2.8, 'uncertain', '美國財政部長'),
-            'janet yellen': ('person', 2.8, 'uncertain', '美國財政部長'),
-            'gensler': ('person', 2.5, 'negative', 'SEC 主席，對加密貨幣態度強硬'),
-            'gary gensler': ('person', 2.5, 'negative', 'SEC 主席'),
-            'lagarde': ('person', 2.5, 'uncertain', '歐洲央行行長'),
-            'trump': ('person', 2.5, 'uncertain', '美國前/現任總統'),
-            'biden': ('person', 2.3, 'uncertain', '美國總統'),
-            'warren buffett': ('person', 2.0, 'negative', '投資大師，對加密貨幣持負面態度'),
-            'buffett': ('person', 2.0, 'negative', '巴菲特'),
-            'larry fink': ('person', 2.2, 'positive', 'BlackRock CEO，推動比特幣 ETF'),
+            'sam bankman': ('person', 2.0, 'negative', 'FTX CEO'),
+            'sbf': ('person', 2.0, 'negative', 'FTX CEO'),
+            'powell': ('person', 3.0, 'uncertain', ''),
+            'jerome powell': ('person', 3.0, 'uncertain', ''),
+            'yellen': ('person', 2.8, 'uncertain', ''),
+            'janet yellen': ('person', 2.8, 'uncertain', ''),
+            'gensler': ('person', 2.5, 'negative', 'SEC '),
+            'gary gensler': ('person', 2.5, 'negative', 'SEC '),
+            'lagarde': ('person', 2.5, 'uncertain', ''),
+            'trump': ('person', 2.5, 'uncertain', '/'),
+            'biden': ('person', 2.3, 'uncertain', ''),
+            'warren buffett': ('person', 2.0, 'negative', ''),
+            'buffett': ('person', 2.0, 'negative', ''),
+            'larry fink': ('person', 2.2, 'positive', 'BlackRock CEO ETF'),
+            'sam altman': ('person', 2.5, 'uncertain', 'OpenAI CEO / Worldcoin  AI '),
+            'jensen huang': ('person', 2.0, 'positive', ' NVIDIA CEO AI '),
+            'justin sun': ('person', 2.0, 'uncertain', ''),
+            'arthur hayes': ('person', 1.8, 'uncertain', 'BitMEX  KOL'),
+            'stani kulechov': ('person', 1.8, 'neutral', 'Aave DeFi '),
         }
         
         for kw, (cat, weight, sentiment, desc) in persons.items():
@@ -312,29 +344,34 @@ class KeywordManager:
             )
         
         # ========================================
-        # 🏛️ 重要機構
+        #  
         # ========================================
         institutions = {
-            'fed': ('institution', 3.0, 'uncertain', '美國聯邦儲備系統'),
-            'federal reserve': ('institution', 3.0, 'uncertain', '美國聯邦儲備系統'),
-            'fomc': ('institution', 3.0, 'uncertain', '聯邦公開市場委員會'),
-            'sec': ('institution', 2.8, 'uncertain', '美國證券交易委員會'),
-            'cftc': ('institution', 2.5, 'uncertain', '美國商品期貨交易委員會'),
-            'treasury': ('institution', 2.5, 'uncertain', '美國財政部'),
-            'doj': ('institution', 2.5, 'negative', '美國司法部'),
-            'ecb': ('institution', 2.5, 'uncertain', '歐洲中央銀行'),
-            'pboc': ('institution', 2.5, 'negative', '中國人民銀行'),
-            'blackrock': ('institution', 2.5, 'positive', '全球最大資產管理公司'),
-            'fidelity': ('institution', 2.3, 'positive', '富達投資'),
-            'grayscale': ('institution', 2.2, 'positive', '灰度投資'),
-            'jpmorgan': ('institution', 2.0, 'uncertain', '摩根大通'),
-            'goldman sachs': ('institution', 2.0, 'uncertain', '高盛'),
-            'microstrategy': ('institution', 2.0, 'positive', '持有大量比特幣的公司'),
-            'tesla': ('institution', 2.2, 'uncertain', '特斯拉，曾購入比特幣'),
-            'binance': ('institution', 2.5, 'uncertain', '全球最大加密貨幣交易所'),
-            'coinbase': ('institution', 2.3, 'uncertain', '美國最大合規交易所'),
-            'ftx': ('institution', 2.0, 'negative', '已破產交易所'),
-            'paypal': ('institution', 2.0, 'positive', '支付公司，支持加密貨幣'),
+            'fed': ('institution', 3.0, 'uncertain', ''),
+            'federal reserve': ('institution', 3.0, 'uncertain', ''),
+            'fomc': ('institution', 3.0, 'uncertain', ''),
+            'sec': ('institution', 2.8, 'uncertain', ''),
+            'cftc': ('institution', 2.5, 'uncertain', ''),
+            'treasury': ('institution', 2.5, 'uncertain', ''),
+            'doj': ('institution', 2.5, 'negative', ''),
+            'ecb': ('institution', 2.5, 'uncertain', ''),
+            'pboc': ('institution', 2.5, 'negative', ''),
+            'blackrock': ('institution', 2.5, 'positive', ''),
+            'fidelity': ('institution', 2.3, 'positive', ''),
+            'grayscale': ('institution', 2.2, 'positive', ''),
+            'jpmorgan': ('institution', 2.0, 'uncertain', ''),
+            'goldman sachs': ('institution', 2.0, 'uncertain', ''),
+            'microstrategy': ('institution', 2.0, 'positive', ''),
+            'tesla': ('institution', 2.2, 'uncertain', ''),
+            'binance': ('institution', 2.5, 'uncertain', ''),
+            'coinbase': ('institution', 2.3, 'uncertain', ''),
+            'ftx': ('institution', 2.0, 'negative', ''),
+            'paypal': ('institution', 2.0, 'positive', ''),
+            'mica': ('institution', 2.5, 'uncertain', ''),
+            'fca': ('institution', 2.3, 'uncertain', ''),
+            'sfc': ('institution', 2.2, 'uncertain', ''),
+            'circle': ('institution', 2.0, 'neutral', 'USDC '),
+            'eigenlayer': ('institution', 2.5, 'positive', 'Restaking '),
         }
         
         for kw, (cat, weight, sentiment, desc) in institutions.items():
@@ -345,62 +382,72 @@ class KeywordManager:
             )
         
         # ========================================
-        # 📰 重要事件
+        #  
         # ========================================
         events = {
-            # 央行政策
-            'rate hike': ('event', 3.0, 'negative', '升息'),
-            'rate cut': ('event', 3.0, 'positive', '降息'),
-            'interest rate': ('event', 2.8, 'uncertain', '利率決策'),
-            'quantitative easing': ('event', 2.5, 'positive', '量化寬鬆'),
-            'qe': ('event', 2.5, 'positive', '量化寬鬆'),
-            'tapering': ('event', 2.3, 'negative', '縮減購債'),
-            'inflation': ('event', 2.5, 'uncertain', '通膨數據'),
-            'cpi': ('event', 2.5, 'uncertain', '消費者物價指數'),
-            'nonfarm': ('event', 2.3, 'uncertain', '非農就業'),
+            # 
+            'rate hike': ('event', 3.0, 'negative', ''),
+            'rate cut': ('event', 3.0, 'positive', ''),
+            'interest rate': ('event', 2.8, 'uncertain', ''),
+            'quantitative easing': ('event', 2.5, 'positive', ''),
+            'qe': ('event', 2.5, 'positive', ''),
+            'tapering': ('event', 2.3, 'negative', ''),
+            'inflation': ('event', 2.5, 'uncertain', ''),
+            'cpi': ('event', 2.5, 'uncertain', ''),
+            'nonfarm': ('event', 2.3, 'uncertain', ''),
             
             # ETF
-            'etf approved': ('event', 3.0, 'positive', 'ETF 獲批'),
-            'etf approval': ('event', 3.0, 'positive', 'ETF 批准'),
-            'etf rejected': ('event', 2.5, 'negative', 'ETF 被拒'),
-            'spot etf': ('event', 2.8, 'positive', '現貨 ETF'),
-            'etf filing': ('event', 2.0, 'positive', 'ETF 申請'),
+            'etf approved': ('event', 3.0, 'positive', 'ETF '),
+            'etf approval': ('event', 3.0, 'positive', 'ETF '),
+            'etf rejected': ('event', 2.5, 'negative', 'ETF '),
+            'spot etf': ('event', 2.8, 'positive', ' ETF'),
+            'etf filing': ('event', 2.0, 'positive', 'ETF '),
             
-            # 安全事件
-            'hack': ('event', 3.0, 'negative', '駭客攻擊'),
-            'hacked': ('event', 3.0, 'negative', '被駭'),
-            'exploit': ('event', 3.0, 'negative', '漏洞利用'),
-            'stolen': ('event', 2.8, 'negative', '被盜'),
-            'rug pull': ('event', 3.0, 'negative', '捲款跑路'),
-            'scam': ('event', 2.5, 'negative', '詐騙'),
+            # 
+            'hack': ('event', 3.0, 'negative', ''),
+            'hacked': ('event', 3.0, 'negative', ''),
+            'exploit': ('event', 3.0, 'negative', ''),
+            'stolen': ('event', 2.8, 'negative', ''),
+            'rug pull': ('event', 3.0, 'negative', ''),
+            'scam': ('event', 2.5, 'negative', ''),
             
-            # 監管
-            'lawsuit': ('event', 2.5, 'negative', '訴訟'),
-            'investigation': ('event', 2.3, 'negative', '調查'),
-            'ban': ('event', 2.8, 'negative', '禁止'),
-            'banned': ('event', 2.8, 'negative', '被禁'),
-            'crackdown': ('event', 2.5, 'negative', '打壓'),
-            'regulation': ('event', 2.0, 'uncertain', '監管'),
+            # 
+            'lawsuit': ('event', 2.5, 'negative', ''),
+            'investigation': ('event', 2.3, 'negative', ''),
+            'ban': ('event', 2.8, 'negative', ''),
+            'banned': ('event', 2.8, 'negative', ''),
+            'crackdown': ('event', 2.5, 'negative', ''),
+            'regulation': ('event', 2.0, 'uncertain', ''),
             
-            # 市場事件
-            'halving': ('event', 2.8, 'positive', '減半'),
-            'all-time high': ('event', 2.0, 'positive', '歷史新高'),
-            'ath': ('event', 2.0, 'positive', '歷史新高'),
-            'crash': ('event', 2.5, 'negative', '崩盤'),
-            'plunge': ('event', 2.3, 'negative', '暴跌'),
-            'surge': ('event', 2.0, 'positive', '暴漲'),
-            'rally': ('event', 1.8, 'positive', '反彈'),
-            'liquidation': ('event', 2.3, 'negative', '清算'),
-            'bankruptcy': ('event', 2.8, 'negative', '破產'),
+            # 
+            'halving': ('event', 2.8, 'positive', ''),
+            'all-time high': ('event', 2.0, 'positive', ''),
+            'ath': ('event', 2.0, 'positive', ''),
+            'crash': ('event', 2.5, 'negative', ''),
+            'plunge': ('event', 2.3, 'negative', ''),
+            'surge': ('event', 2.0, 'positive', ''),
+            'rally': ('event', 1.8, 'positive', ''),
+            'liquidation': ('event', 2.3, 'negative', ''),
+            'bankruptcy': ('event', 2.8, 'negative', ''),
             
-            # 技術事件
-            'hard fork': ('event', 2.0, 'uncertain', '硬分叉'),
-            'upgrade': ('event', 1.8, 'positive', '升級'),
-            'mainnet': ('event', 2.0, 'positive', '主網上線'),
-            'listing': ('event', 2.0, 'positive', '上市'),
-            'delisting': ('event', 2.0, 'negative', '下架'),
-            'partnership': ('event', 1.8, 'positive', '合作'),
-            'whale': ('event', 2.0, 'uncertain', '大戶動向'),
+            # 
+            'hard fork': ('event', 2.0, 'uncertain', ''),
+            'upgrade': ('event', 1.8, 'positive', ''),
+            'mainnet': ('event', 2.0, 'positive', ''),
+            'listing': ('event', 2.0, 'positive', ''),
+            'delisting': ('event', 2.0, 'negative', ''),
+            'partnership': ('event', 1.8, 'positive', ''),
+            'whale': ('event', 2.0, 'uncertain', ''),
+            
+            # 
+            'ai': ('event', 2.8, 'positive', ' WLD, TAO, RNDR'),
+            'depin': ('event', 2.3, 'positive', ''),
+            'rwa': ('event', 2.5, 'positive', ' BUIDL'),
+            'restaking': ('event', 2.2, 'positive', ''),
+            'airdrop': ('event', 2.0, 'uncertain', ''),
+            'points': ('event', 1.5, 'neutral', ''),
+            'layer 2': ('event', 2.0, 'positive', 'L2  Base, Arbitrum, Optimism'),
+            'l2': ('event', 2.0, 'positive', 'Layer 2 '),
         }
         
         for kw, (cat, weight, sentiment, desc) in events.items():
@@ -411,7 +458,7 @@ class KeywordManager:
             )
         
         # ========================================
-        # 🪙 幣種
+        # 🪙 
         # ========================================
         coins = {
             'bitcoin': ('coin', 2.0, 'neutral', 'BTC'),
@@ -426,6 +473,11 @@ class KeywordManager:
             'tether': ('coin', 1.8, 'uncertain', 'USDT'),
             'usdt': ('coin', 1.5, 'neutral', 'Tether'),
             'usdc': ('coin', 1.5, 'neutral', 'USD Coin'),
+            'wld': ('coin', 2.2, 'uncertain', 'Worldcoin'),
+            'tao': ('coin', 2.0, 'neutral', 'Bittensor'),
+            'pepe': ('coin', 2.5, 'uncertain', ''),
+            'tia': ('coin', 2.0, 'neutral', 'Celestia'),
+            'pyusd': ('coin', 1.5, 'neutral', 'PayPal '),
         }
         
         for kw, (cat, weight, sentiment, desc) in coins.items():
@@ -434,9 +486,98 @@ class KeywordManager:
                 dynamic_weight=1.0, sentiment_bias=sentiment, description=desc,
                 added_date=today, last_updated=today
             )
+        
+        # ========================================
+        #  /
+        # ========================================
+        crypto_slang = {
+            # 
+            'whale': ('event', 2.5, 'uncertain', '/'),
+            'jujing': ('event', 2.5, 'uncertain', ''),
+            'dahu': ('event', 2.5, 'uncertain', ''),
+            'whale alert': ('event', 2.3, 'uncertain', ''),
+            'juliang': ('event', 2.5, 'uncertain', ''),
+            
+            # 
+            'sanhu': ('event', 1.8, 'negative', ''),
+            'retail investor': ('event', 1.5, 'neutral', ''),
+            'fomo': ('event', 2.0, 'uncertain', 'Fear Of Missing Out'),
+            'fud': ('event', 2.2, 'negative', 'Fear, Uncertainty, Doubt'),
+            
+            # 
+            'suocangjia': ('event', 2.0, 'uncertain', '/All in'),
+            'all in': ('event', 2.0, 'uncertain', ''),
+            'didie': ('event', 1.8, 'positive', ''),
+            'buy the dip': ('event', 1.8, 'positive', ''),
+            'kongpan': ('event', 2.0, 'negative', ''),
+            'panic sell': ('event', 2.0, 'negative', ''),
+            'zhisun': ('event', 1.5, 'neutral', ''),
+            'stop loss': ('event', 1.5, 'neutral', ''),
+            'zhuigao': ('event', 1.8, 'uncertain', ''),
+            'chase': ('event', 1.8, 'uncertain', ''),
+            
+            # 
+            'niushi': ('event', 2.0, 'positive', '/Bull Market'),
+            'bull market': ('event', 2.0, 'positive', ''),
+            'xiongshi': ('event', 2.0, 'negative', '/Bear Market'),
+            'bear market': ('event', 2.0, 'negative', ''),
+            'hengpan': ('event', 1.5, 'neutral', ''),
+            'sideways': ('event', 1.5, 'neutral', ''),
+            'consolidation': ('event', 1.5, 'neutral', ''),
+            'baocang': ('event', 2.8, 'negative', ''),
+            'liquidated': ('event', 2.8, 'negative', ''),
+            'rekt': ('event', 2.5, 'negative', '/wrecked '),
+            
+            # 
+            'hodl': ('event', 1.8, 'positive', 'Hold '),
+            'tunchang': ('event', 1.8, 'positive', ''),
+            'to the moon': ('event', 2.0, 'positive', ''),
+            'moon': ('event', 2.0, 'positive', ''),
+            'lambo': ('event', 1.8, 'positive', ''),
+            'wen lambo': ('event', 1.8, 'positive', ''),
+            'diamond hands': ('event', 1.8, 'positive', ''),
+            'paper hands': ('event', 1.8, 'negative', ''),
+            'zuanshou': ('event', 1.8, 'positive', ''),
+            'zhishou': ('event', 1.8, 'negative', ''),
+            
+            # /
+            'pump and dump': ('event', 2.5, 'negative', ''),
+            'lazhuang': ('event', 2.0, 'uncertain', ''),
+            'zaduo': ('event', 2.0, 'negative', ''),
+            'dump': ('event', 2.0, 'negative', ''),
+            'shill': ('event', 2.0, 'negative', '/'),
+            'neimu': ('event', 2.5, 'negative', ''),
+            'insider trading': ('event', 2.5, 'negative', ''),
+            
+            # 
+            'zhicheng': ('event', 1.5, 'neutral', ''),
+            'support': ('event', 1.5, 'neutral', ''),
+            'yali': ('event', 1.5, 'neutral', ''),
+            'resistance': ('event', 1.5, 'neutral', ''),
+            'tupo': ('event', 2.0, 'positive', ''),
+            'breakout': ('event', 2.0, 'positive', ''),
+            'jincha': ('event', 1.8, 'positive', ''),
+            'golden cross': ('event', 1.8, 'positive', ''),
+            'sicha': ('event', 1.8, 'negative', ''),
+            'death cross': ('event', 1.8, 'negative', ''),
+            
+            # 
+            'based': ('event', 1.8, 'positive', ' Base '),
+            'gm': ('event', 1.2, 'positive', 'Good Morning'),
+            'pvp': ('event', 2.0, 'negative', ''),
+            'alpha': ('event', 1.8, 'positive', ''),
+            'sybil': ('event', 1.5, 'negative', ''),
+        }
+        
+        for kw, (cat, weight, sentiment, desc) in crypto_slang.items():
+            self.keywords[kw] = Keyword(
+                keyword=kw, category=cat, base_weight=weight,
+                dynamic_weight=1.0, sentiment_bias=sentiment, description=desc,
+                added_date=today, last_updated=today
+            )
     
     def _load_keywords(self):
-        """從 JSON 載入關鍵字"""
+        """ JSON """
         try:
             with open(self.config_path, 'r', encoding='utf-8') as f:
                 data = json.load(f)
@@ -445,53 +586,143 @@ class KeywordManager:
                 kw = Keyword(**kw_data)
                 self.keywords[kw.keyword] = kw
             
-            logger.info(f"📰 從 {self.config_path} 載入 {len(self.keywords)} 個關鍵字")
+            logger.info(f"  {self.config_path}  {len(self.keywords)} ")
         except Exception as e:
-            logger.error(f"載入關鍵字失敗: {e}")
+            logger.error(f": {e}")
             self._initialize_default_keywords()
     
     def _save_keywords(self):
-        """保存關鍵字到 JSON"""
+        """ JSON """
+        Path(self.config_path).parent.mkdir(parents=True, exist_ok=True)
+        
+        data = {
+            'version': '2.0',
+            'last_updated': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            'total_keywords': len(self.keywords),
+            'keywords': [asdict(kw) for kw in self.keywords.values()]
+        }
+        
         try:
-            # 確保目錄存在
-            Path(self.config_path).parent.mkdir(parents=True, exist_ok=True)
-            
-            data = {
-                'version': '2.0',
-                'last_updated': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                'total_keywords': len(self.keywords),
-                'keywords': [asdict(kw) for kw in self.keywords.values()]
-            }
-            
             with open(self.config_path, 'w', encoding='utf-8') as f:
                 json.dump(data, f, ensure_ascii=False, indent=2)
-            
-            logger.info(f"💾 關鍵字已保存到 {self.config_path}")
+            logger.debug(f" {self.config_path}")
         except Exception as e:
-            logger.error(f"保存關鍵字失敗: {e}")
+            logger.error(f": {e}")
+    
+    def add_keyword(
+        self,
+        keyword: str,
+        category: str,
+        base_weight: float,
+        sentiment_bias: str,
+        description: str = ""
+    ) -> bool:
+        """"""
+        kw_lower = keyword.lower()
+        
+        if kw_lower in self.keywords:
+            logger.warning(f" '{keyword}' ")
+            return False
+        
+        today = datetime.now().strftime("%Y-%m-%d")
+        new_kw = Keyword(
+            keyword=kw_lower,
+            category=category,
+            base_weight=base_weight,
+            dynamic_weight=1.0,
+            sentiment_bias=sentiment_bias,
+            description=description,
+            added_date=today,
+            last_updated=today
+        )
+        
+        self.keywords[kw_lower] = new_kw
+        self._save_keywords()
+        self._save_to_database()
+        
+        logger.info(f" : {keyword} [{category}] :{base_weight}")
+        return True
+    
+    def update_keywords_from_trending(self, trending_topics: List[Dict[str, Any]]) -> int:
+        """"""
+        added_count = 0
+        
+        for topic in trending_topics:
+            keyword = topic.get('keyword', '').lower()
+            category = topic.get('category', 'event')
+            weight = topic.get('weight', 1.5)
+            sentiment = topic.get('sentiment', 'neutral')
+            description = topic.get('description', '')
+            
+            if keyword and keyword not in self.keywords:
+                if self.add_keyword(keyword, category, weight, sentiment, description):
+                    added_count += 1
+        
+        if added_count > 0:
+            logger.info(f"  {added_count} ")
+        
+        return added_count
+    
+    def refresh_stale_keywords(self):
+        """"""
+        today = datetime.now().strftime("%Y-%m-%d")
+        refreshed = []
+        
+        for kw in self.keywords.values():
+            if kw.is_stale:
+                # 
+                old_weight = kw.dynamic_weight
+                kw.dynamic_weight = 1.0
+                kw.last_updated = today
+                refreshed.append((kw.keyword, old_weight))
+        
+        if refreshed:
+            self._save_keywords()
+            self._save_to_database()
+            logger.info(f"  {len(refreshed)} ")
+            for keyword, old_weight in refreshed[:5]:
+                logger.debug(f"   • {keyword}: {old_weight:.2f} -> 1.00")
+        
+        return len(refreshed)
     
     def find_matches(self, text: str) -> List[KeywordMatch]:
-        """在文本中查找匹配的關鍵字"""
+        """"""
         text_lower = text.lower()
         matches = []
         
         for kw in self.keywords.values():
-            pattern = r'\b' + re.escape(kw.keyword) + r'\b'
-            if re.search(pattern, text_lower, re.IGNORECASE):
-                # 記錄命中
-                kw.hit_count += 1
-                
-                matches.append(KeywordMatch(
-                    keyword=kw.keyword,
-                    category=kw.category,
-                    effective_weight=kw.effective_weight,
-                    sentiment_bias=kw.sentiment_bias,
-                    description=kw.description,
-                    accuracy=kw.accuracy,
-                    days_old=kw.days_since_added
-                ))
+            # 
+            is_chinese = any('\u4e00' <= c <= '\u9fff' for c in kw.keyword)
+            
+            if is_chinese:
+                # word boundary
+                if kw.keyword in text_lower:
+                    kw.hit_count += 1
+                    matches.append(KeywordMatch(
+                        keyword=kw.keyword,
+                        category=kw.category,
+                        effective_weight=kw.effective_weight,
+                        sentiment_bias=kw.sentiment_bias,
+                        description=kw.description,
+                        accuracy=kw.accuracy,
+                        days_old=kw.days_since_added
+                    ))
+            else:
+                #  word boundary
+                pattern = r'\b' + re.escape(kw.keyword) + r'\b'
+                if re.search(pattern, text_lower, re.IGNORECASE):
+                    kw.hit_count += 1
+                    matches.append(KeywordMatch(
+                        keyword=kw.keyword,
+                        category=kw.category,
+                        effective_weight=kw.effective_weight,
+                        sentiment_bias=kw.sentiment_bias,
+                        description=kw.description,
+                        accuracy=kw.accuracy,
+                        days_old=kw.days_since_added
+                    ))
         
-        # 按有效權重排序
+        # 
         matches.sort(key=lambda x: x.effective_weight, reverse=True)
         return matches
     
@@ -503,27 +734,27 @@ class KeywordManager:
         news_title: str = ""
     ) -> int:
         """
-        記錄預測（第一步）
+        
         
         Args:
-            keyword: 關鍵字
-            predicted_direction: 預測方向 (positive/negative/neutral)
-            price_before: 預測時的價格
-            news_title: 新聞標題
+            keyword: 
+            predicted_direction:  (positive/negative/neutral)
+            price_before: 
+            news_title: 
             
         Returns:
-            prediction_id: 預測記錄ID，用於後續驗證
+            prediction_id: ID
         """
         kw_lower = keyword.lower()
         if kw_lower not in self.keywords:
-            logger.warning(f"關鍵字 '{keyword}' 不存在")
+            logger.warning(f" '{keyword}' ")
             return -1
         
         kw = self.keywords[kw_lower]
         kw.prediction_count += 1
         kw.last_updated = datetime.now().strftime("%Y-%m-%d")
         
-        # 存儲到資料庫
+        # 
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
@@ -536,7 +767,7 @@ class KeywordManager:
         
         prediction_id = cursor.lastrowid
         
-        # 更新關鍵字的 prediction_count
+        #  prediction_count
         cursor.execute('''
             UPDATE keywords SET prediction_count = ?, last_updated = ?
             WHERE keyword = ?
@@ -545,7 +776,7 @@ class KeywordManager:
         conn.commit()
         conn.close()
         
-        logger.info(f"📝 預測已記錄 [ID:{prediction_id}] {keyword} -> {predicted_direction}")
+        logger.info(f"  [ID:{prediction_id}] {keyword} -> {predicted_direction}")
         self._save_keywords()
         
         return prediction_id if prediction_id is not None else -1
@@ -557,20 +788,20 @@ class KeywordManager:
         price_after: float = 0.0
     ) -> bool:
         """
-        驗證預測結果（第二步）
+        
         
         Args:
-            prediction_id: 預測記錄ID
-            actual_direction: 實際方向 (positive/negative/neutral)
-            price_after: 驗證時的價格
+            prediction_id: ID
+            actual_direction:  (positive/negative/neutral)
+            price_after: 
             
         Returns:
-            is_correct: 預測是否正確
+            is_correct: 
         """
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
-        # 獲取預測記錄
+        # 
         cursor.execute('''
             SELECT keyword, predicted_direction, price_before 
             FROM prediction_history WHERE id = ?
@@ -579,27 +810,27 @@ class KeywordManager:
         
         if not row:
             conn.close()
-            logger.warning(f"找不到預測記錄 ID: {prediction_id}")
+            logger.warning(f" ID: {prediction_id}")
             return False
         
         keyword, predicted_direction, price_before = row
         
-        # 判斷預測是否正確
+        # 
         is_correct = (predicted_direction == actual_direction)
         
-        # 計算價格變動
+        # 
         price_change_pct = 0.0
         if price_before and price_after:
             price_change_pct = ((price_after - price_before) / price_before) * 100
             
-            # 如果價格變動超過 2%，更看重實際方向
+            #  2%
             if abs(price_change_pct) > 2.0:
                 if price_change_pct > 0 and actual_direction == 'positive':
                     is_correct = (predicted_direction == 'positive')
                 elif price_change_pct < 0 and actual_direction == 'negative':
                     is_correct = (predicted_direction == 'negative')
         
-        # 更新預測記錄
+        # 
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         cursor.execute('''
             UPDATE prediction_history SET
@@ -612,12 +843,12 @@ class KeywordManager:
         ''', (actual_direction, price_after, price_change_pct, 
               1 if is_correct else 0, now, prediction_id))
         
-        # 更新關鍵字統計
+        # 
         kw = self.keywords.get(keyword)
         if kw and is_correct:
             kw.correct_count += 1
         
-        # 🆕 動態調整權重
+        #  
         if kw:
             if is_correct:
                 kw.dynamic_weight = min(
@@ -630,7 +861,7 @@ class KeywordManager:
                     self.MIN_DYNAMIC_WEIGHT
                 )
             
-            # 更新資料庫
+            # 
             cursor.execute('''
                 UPDATE keywords SET 
                     correct_count = ?, dynamic_weight = ?, last_updated = ?
@@ -641,15 +872,15 @@ class KeywordManager:
         conn.commit()
         conn.close()
         
-        # 記錄日誌
+        # 
         result_emoji = "✅" if is_correct else "❌"
-        logger.info(f"{result_emoji} 預測驗證 [ID:{prediction_id}] {keyword}: "
-                   f"預測={predicted_direction}, 實際={actual_direction}, "
-                   f"價格變動={price_change_pct:+.2f}%")
+        logger.info(f"{result_emoji}  [ID:{prediction_id}] {keyword}: "
+                   f"={predicted_direction}, ={actual_direction}, "
+                   f"={price_change_pct:+.2f}%")
         
         if kw:
-            logger.info(f"   📊 {keyword} 更新: "
-                       f"準確率={kw.accuracy:.1%}, 動態權重={kw.dynamic_weight:.2f}")
+            logger.info(f"    {keyword} : "
+                       f"={kw.accuracy:.1%}, ={kw.dynamic_weight:.2f}")
         
         self._save_keywords()
         return is_correct
@@ -662,60 +893,35 @@ class KeywordManager:
         price_change_pct: float = 0.0
     ):
         """
-        向下兼容的方法：直接記錄並驗證預測
+        
         
         Args:
-            keyword: 關鍵字
-            predicted_direction: 預測方向
-            actual_direction: 實際方向
-            price_change_pct: 價格變動百分比
+            keyword: 
+            predicted_direction: 
+            actual_direction: 
+            price_change_pct: 
         """
-        price_before = 1000.0  # 假設初始價格
+        price_before = 1000.0  # 
         price_after = price_before * (1 + price_change_pct / 100)
         
         pred_id = self.record_prediction(keyword, predicted_direction, price_before)
         if pred_id > 0:
             self.verify_prediction(pred_id, actual_direction, price_after)
     
-    def add_keyword(
-        self,
-        keyword: str,
-        category: str,
-        base_weight: float,
-        sentiment_bias: str,
-        description: str
-    ):
-        """新增關鍵字"""
-        today = datetime.now().strftime("%Y-%m-%d")
-        
-        self.keywords[keyword.lower()] = Keyword(
-            keyword=keyword.lower(),
-            category=category,
-            base_weight=base_weight,
-            dynamic_weight=1.0,
-            sentiment_bias=sentiment_bias,
-            description=description,
-            added_date=today,
-            last_updated=today
-        )
-        
-        self._save_keywords()
-        logger.info(f"➕ 新增關鍵字: {keyword}")
-    
     def remove_keyword(self, keyword: str):
-        """移除關鍵字"""
+        """"""
         kw_lower = keyword.lower()
         if kw_lower in self.keywords:
             del self.keywords[kw_lower]
             self._save_keywords()
-            logger.info(f"➖ 移除關鍵字: {keyword}")
+            logger.info(f" : {keyword}")
     
     def get_stale_keywords(self) -> List[Keyword]:
-        """獲取過時的關鍵字（超過 90 天未更新且準確率低）"""
+        """ 90 """
         return [kw for kw in self.keywords.values() if kw.is_stale]
     
     def get_top_keywords(self, n: int = 20) -> List[Keyword]:
-        """獲取權重最高的 N 個關鍵字"""
+        """ N """
         sorted_kw = sorted(
             self.keywords.values(), 
             key=lambda x: x.effective_weight, 
@@ -724,7 +930,7 @@ class KeywordManager:
         return sorted_kw[:n]
     
     def get_statistics(self) -> Dict:
-        """獲取關鍵字統計"""
+        """"""
         total = len(self.keywords)
         by_category = {}
         stale_count = 0
@@ -757,15 +963,15 @@ class KeywordManager:
         only_verified: bool = False
     ) -> List[PredictionRecord]:
         """
-        獲取預測歷史記錄
+        
         
         Args:
-            keyword: 篩選特定關鍵字（可選）
-            limit: 返回數量限制
-            only_verified: 只返回已驗證的記錄
+            keyword: 
+            limit: 
+            only_verified: 
             
         Returns:
-            預測記錄列表
+            
         """
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
@@ -809,15 +1015,15 @@ class KeywordManager:
         return records
     
     def get_pending_predictions(self) -> List[PredictionRecord]:
-        """獲取尚未驗證的預測"""
+        """"""
         return self.get_prediction_history(only_verified=False)
     
     def get_overall_accuracy(self) -> Tuple[float, int, int]:
         """
-        獲取整體準確率
+        
         
         Returns:
-            (準確率, 正確數, 總數)
+            (, , )
         """
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
@@ -838,13 +1044,13 @@ class KeywordManager:
     
     def get_keyword_performance(self, min_predictions: int = 5) -> List[Dict]:
         """
-        獲取關鍵字表現排名
+        
         
         Args:
-            min_predictions: 最少預測次數
+            min_predictions: 
             
         Returns:
-            按準確率排序的關鍵字表現列表
+            
         """
         performance = []
         
@@ -861,22 +1067,22 @@ class KeywordManager:
                     'is_stale': kw.is_stale
                 })
         
-        # 按準確率排序
+        # 
         performance.sort(key=lambda x: x['accuracy'], reverse=True)
         return performance
     
     def get_importance_score(self, text: str) -> Tuple[float, List[str]]:
-        """計算文本的重要性分數"""
+        """"""
         matches = self.find_matches(text)
         
         if not matches:
             return 0.0, []
         
-        # 取最高的幾個關鍵字，加權計算
+        # 
         top_matches = matches[:3]
         total_weight = sum(m.effective_weight for m in top_matches)
         
-        # 考慮準確率加成
+        # 
         accuracy_bonus = sum(m.accuracy * 0.5 for m in top_matches)
         
         score = min((total_weight + accuracy_bonus) * 1.2, 10.0)
@@ -885,7 +1091,7 @@ class KeywordManager:
         return round(score, 2), keywords
     
     def get_sentiment_bias(self, text: str) -> Tuple[str, float]:
-        """根據關鍵字判斷情緒傾向"""
+        """"""
         matches = self.find_matches(text)
         
         if not matches:
@@ -895,7 +1101,7 @@ class KeywordManager:
         negative_score = 0.0
         
         for match in matches:
-            # 權重 × 準確率
+            #  × 
             weight = match.effective_weight * (0.5 + match.accuracy * 0.5)
             
             if match.sentiment_bias == 'positive':
@@ -915,59 +1121,59 @@ class KeywordManager:
             return 'neutral', 0.0
     
     def is_high_impact_news(self, text: str, threshold: float = 2.5) -> Tuple[bool, List[str]]:
-        """判斷是否為高影響力新聞"""
+        """"""
         matches = self.find_matches(text)
         high_impact = [m for m in matches if m.effective_weight >= threshold]
         return len(high_impact) > 0, [m.keyword for m in high_impact]
     
     def print_report(self):
-        """印出關鍵字報告"""
+        """"""
         stats = self.get_statistics()
         stale = self.get_stale_keywords()
         top = self.get_top_keywords(10)
         
         print("=" * 60)
-        print("📊 關鍵字系統報告")
+        print(" ")
         print("=" * 60)
-        print(f"\n總關鍵字數: {stats['total']}")
-        print(f"\n📁 分類統計:")
+        print(f"\n: {stats['total']}")
+        print("\n :")
         for cat, count in stats['by_category'].items():
             print(f"   {cat}: {count}")
         
-        print(f"\n📈 準確率統計:")
-        print(f"   高準確率 (>70%): {stats['high_accuracy_count']}")
-        print(f"   低準確率 (<30%): {stats['low_accuracy_count']}")
+        print("\n :")
+        print(f"    (>70%): {stats['high_accuracy_count']}")
+        print(f"    (<30%): {stats['low_accuracy_count']}")
         
-        print(f"\n🔝 權重最高的關鍵字:")
+        print("\n :")
         for kw in top:
             print(f"   • {kw.keyword}: {kw.effective_weight:.2f} "
-                  f"(基礎:{kw.base_weight}, 動態:{kw.dynamic_weight:.2f}, "
-                  f"準確率:{kw.accuracy:.0%})")
+                  f"(:{kw.base_weight}, :{kw.dynamic_weight:.2f}, "
+                  f":{kw.accuracy:.0%})")
         
         if stale:
-            print(f"\n⚠️  過時關鍵字 (需要檢視):")
+            print("\n   ():")
             for kw in stale[:5]:
-                print(f"   • {kw.keyword}: {kw.days_since_updated} 天未更新, "
-                      f"準確率:{kw.accuracy:.0%}")
+                print(f"   • {kw.keyword}: {kw.days_since_updated} , "
+                      f":{kw.accuracy:.0%}")
         
         print("\n" + "=" * 60)
 
 
-# 全局實例
+# 
 _keyword_manager: Optional[KeywordManager] = None
 
 
 def get_keyword_manager() -> KeywordManager:
-    """獲取全局關鍵字管理器"""
+    """"""
     global _keyword_manager
     if _keyword_manager is None:
         _keyword_manager = KeywordManager()
     return _keyword_manager
 
 
-# 向下兼容的類別（保持舊 API）
+#  API
 class MarketKeywords:
-    """向下兼容的靜態類別"""
+    """"""
     
     @classmethod
     def find_matches(cls, text: str) -> List[KeywordMatch]:
@@ -987,16 +1193,16 @@ class MarketKeywords:
 
 
 # ========================================
-# 測試
+# 
 # ========================================
 if __name__ == "__main__":
     print("=" * 60)
-    print("📰 關鍵字管理器測試（動態學習版 v2.0）")
+    print("  v2.0")
     print("=" * 60)
     
     km = KeywordManager()
     
-    # 測試新聞
+    # 
     test_headlines = [
         "Federal Reserve raises interest rate by 25 basis points",
         "Elon Musk tweets about Dogecoin, price surges 20%",
@@ -1005,9 +1211,9 @@ if __name__ == "__main__":
         "Major hack: $100M stolen from DeFi protocol",
     ]
     
-    print("\n📝 新聞分析測試:")
+    print("\n :")
     for headline in test_headlines:
-        print(f"\n標題: {headline}")
+        print(f"\n: {headline}")
         print("-" * 50)
         
         matches = km.find_matches(headline)
@@ -1016,28 +1222,28 @@ if __name__ == "__main__":
         is_high, high_kw = km.is_high_impact_news(headline)
         
         if matches:
-            print("   匹配關鍵字:")
+            print("   :")
             for m in matches[:3]:
-                print(f"      • {m.keyword} [權重:{m.effective_weight:.2f}] "
-                      f"[{m.sentiment_bias}] ({m.days_old}天前新增)")
+                print(f"      • {m.keyword} [:{m.effective_weight:.2f}] "
+                      f"[{m.sentiment_bias}] ({m.days_old})")
         
-        print(f"   重要性: {score}/10 | 情緒: {sentiment} ({strength:.0%})")
-        print(f"   高影響: {'是 ⚠️' if is_high else '否'}")
+        print(f"   : {score}/10 | : {sentiment} ({strength:.0%})")
+        print(f"   : {' ' if is_high else ''}")
     
-    # 🆕 模擬兩階段預測記錄
+    #  
     print("\n" + "=" * 60)
-    print("📊 模擬兩階段預測記錄:")
+    print(" :")
     print("-" * 60)
     
-    # 第一步：記錄預測
-    print("\n步驟 1: 記錄預測")
+    # 
+    print("\n 1: ")
     pred_id1 = km.record_prediction(
         keyword="fed",
         predicted_direction="negative",
         price_before=65000.0,
         news_title="Fed hints at rate hike"
     )
-    print(f"   預測 ID: {pred_id1}")
+    print(f"    ID: {pred_id1}")
     
     pred_id2 = km.record_prediction(
         keyword="elon musk",
@@ -1045,33 +1251,38 @@ if __name__ == "__main__":
         price_before=65000.0,
         news_title="Musk tweets about Bitcoin"
     )
-    print(f"   預測 ID: {pred_id2}")
+    print(f"    ID: {pred_id2}")
     
-    # 第二步：3天後驗證結果
-    print("\n步驟 2: 驗證預測結果 (模擬3天後)")
+    # 3
+    print("\n 2:  (3)")
     km.verify_prediction(pred_id1, actual_direction="negative", price_after=63500.0)
     km.verify_prediction(pred_id2, actual_direction="positive", price_after=68000.0)
     
-    # 使用向下兼容方法
-    print("\n使用向下兼容方法:")
+    # 
+    print("\n:")
     km.record_and_verify_prediction("hack", "negative", "negative", -8.0)
     
-    # 查看預測歷史
+    # 
     print("\n" + "=" * 60)
-    print("📜 最近預測歷史:")
+    print(" :")
     print("-" * 60)
     history = km.get_prediction_history(limit=5)
     for record in history:
-        status = "✅" if record.is_correct else "❌" if record.is_correct is False else "⏳"
+        if record.is_correct is True:
+            status = "✅"
+        elif record.is_correct is False:
+            status = "❌"
+        else:
+            status = "⏳"
         print(f"   {status} [{record.keyword}] "
-              f"預測:{record.predicted_direction} "
-              f"實際:{record.actual_direction or '未驗證'} "
-              f"價格變動:{record.price_change_pct or 0:.2f}%")
+              f":{record.predicted_direction} "
+              f":{record.actual_direction or ''} "
+              f":{record.price_change_pct or 0:.2f}%")
     
-    # 整體準確率
+    # 
     accuracy, correct, total = km.get_overall_accuracy()
-    print(f"\n📈 整體準確率: {accuracy:.1%} ({correct}/{total})")
+    print(f"\n : {accuracy:.1%} ({correct}/{total})")
     
-    # 印出報告
+    # 
     print()
     km.print_report()

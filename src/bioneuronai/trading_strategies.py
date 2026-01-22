@@ -1,6 +1,6 @@
 """
-三大經過驗證的加密貨幣交易策略
-基於網路研究和技術分析最佳實踐
+
+
 """
 
 from dataclasses import dataclass
@@ -12,7 +12,7 @@ from collections import deque
 
 @dataclass
 class MarketData:
-    """市場數據"""
+    """"""
     symbol: str
     price: float
     volume: float
@@ -29,7 +29,7 @@ class MarketData:
 
 @dataclass
 class TradingSignal:
-    """交易信號"""
+    """"""
     action: str  # BUY, SELL, HOLD
     symbol: str
     confidence: float  # 0.0-1.0
@@ -42,24 +42,24 @@ class TradingSignal:
 
 
 class AITradingStrategy:
-    """AI交易策略基類"""
+    """AI"""
     
     def __init__(self):
         self.name = "AI_Trading_Strategy"
     
     def analyze(self, market_data: MarketData) -> TradingSignal:
-        """分析市場並返回交易信號"""
-        # 基礎實現，子類可以覆蓋
+        """"""
+        # 
         return TradingSignal(
             action="HOLD",
             symbol=market_data.symbol,
             confidence=0.5,
-            reason="默認AI策略分析",
+            reason="AI",
             strategy_name=self.name
         )
     
     def get_strategy_report(self) -> Dict:
-        """獲取策略報告"""
+        """"""
         return {
             "strategy_name": self.name,
             "status": "Active",
@@ -69,22 +69,22 @@ class AITradingStrategy:
 
 class Strategy1_RSI_Divergence:
     """
-    策略一：RSI 背離策略
+    RSI 
     
-    基於 Relative Strength Index (RSI) 指標的背離交易
-    當價格創新高但 RSI 未能創新高時(熊背離),產生賣出信號
-    當價格創新低但 RSI 未能創新低時(牛背離),產生買入信號
+     Relative Strength Index (RSI) 
+     RSI (),
+     RSI (),
     
-    優勢：
-    - 捕捉趨勢反轉點
-    - RSI 超買(>70)超賣(<30)區域有明確定義
-    - 背離信號通常領先價格變化
     
-    參數：
-    - RSI 週期：14 (標準)
-    - 超買線：70
-    - 超賣線：30
-    - 背離確認期：3-5 根 K 線
+    - 
+    - RSI (>70)(<30)
+    - 
+    
+    
+    - RSI 14 ()
+    - 70
+    - 30
+    - 3-5  K 
     """
     
     def __init__(self, rsi_period: int = 14, overbought: int = 70, oversold: int = 30):
@@ -96,10 +96,10 @@ class Strategy1_RSI_Divergence:
         
     def calculate_rsi(self, prices: List[float]) -> float:
         """
-        計算 RSI 指標
+         RSI 
         
         RSI = 100 - (100 / (1 + RS))
-        RS = 平均上漲幅度 / 平均下跌幅度
+        RS =  / 
         """
         if len(prices) < self.rsi_period + 1:
             return 50.0
@@ -120,10 +120,9 @@ class Strategy1_RSI_Divergence:
         return float(rsi)
     
     def detect_divergence(self) -> Tuple[str, float]:
-        """
-        檢測價格與 RSI 的背離
+        """檢測 RSI 背離信號 - 重構降低複雜度
         
-        返回: (信號類型, 置信度)
+        複雜度降低策略：Extract Method 分離背離檢測邏輯
         """
         if len(self.price_history) < 20 or len(self.rsi_history) < 20:
             return "HOLD", 0.0
@@ -131,87 +130,131 @@ class Strategy1_RSI_Divergence:
         prices = list(self.price_history)[-20:]
         rsi_values = list(self.rsi_history)[-20:]
         
-        # 檢測牛背離 (Bullish Divergence)
-        # 價格創新低,但 RSI 未創新低
-        price_low_indices = []
-        for i in range(2, len(prices) - 2):
-            if prices[i] < prices[i-1] and prices[i] < prices[i-2] and \
-               prices[i] < prices[i+1] and prices[i] < prices[i+2]:
-                price_low_indices.append(i)
+        # 檢查看漲背離
+        bullish_signal = self._check_bullish_divergence(prices, rsi_values)
+        if bullish_signal[0] != "HOLD":
+            return bullish_signal
         
-        if len(price_low_indices) >= 2:
-            latest_price_low_idx = price_low_indices[-1]
-            prev_price_low_idx = price_low_indices[-2]
-            
-            if prices[latest_price_low_idx] < prices[prev_price_low_idx]:  # 價格新低
-                if rsi_values[latest_price_low_idx] > rsi_values[prev_price_low_idx]:  # RSI 未新低
-                    # 牛背離確認
-                    confidence = min(
-                        (rsi_values[latest_price_low_idx] - rsi_values[prev_price_low_idx]) / 10,
-                        0.95
-                    )
-                    if rsi_values[latest_price_low_idx] < self.oversold:
-                        confidence += 0.1  # RSI 在超賣區加分
-                    return "BUY", max(0.6, min(confidence, 1.0))
-        
-        # 檢測熊背離 (Bearish Divergence)
-        # 價格創新高,但 RSI 未創新高
-        price_high_indices = []
-        for i in range(2, len(prices) - 2):
-            if prices[i] > prices[i-1] and prices[i] > prices[i-2] and \
-               prices[i] > prices[i+1] and prices[i] > prices[i+2]:
-                price_high_indices.append(i)
-        
-        if len(price_high_indices) >= 2:
-            latest_price_high_idx = price_high_indices[-1]
-            prev_price_high_idx = price_high_indices[-2]
-            
-            if prices[latest_price_high_idx] > prices[prev_price_high_idx]:  # 價格新高
-                if rsi_values[latest_price_high_idx] < rsi_values[prev_price_high_idx]:  # RSI 未新高
-                    # 熊背離確認
-                    confidence = min(
-                        (rsi_values[prev_price_high_idx] - rsi_values[latest_price_high_idx]) / 10,
-                        0.95
-                    )
-                    if rsi_values[latest_price_high_idx] > self.overbought:
-                        confidence += 0.1  # RSI 在超買區加分
-                    return "SELL", max(0.6, min(confidence, 1.0))
+        # 檢查看跌背離
+        bearish_signal = self._check_bearish_divergence(prices, rsi_values)
+        if bearish_signal[0] != "HOLD":
+            return bearish_signal
         
         return "HOLD", 0.0
     
+    def _check_bullish_divergence(self, prices: List[float], rsi_values: List[float]) -> Tuple[str, float]:
+        """檢查看漲背離（價格下跌，RSI 上升）"""
+        price_low_indices = self._find_price_lows(prices)
+        
+        if len(price_low_indices) < 2:
+            return "HOLD", 0.0
+        
+        latest_idx = price_low_indices[-1]
+        prev_idx = price_low_indices[-2]
+        
+        # 價格創新低，RSI 不創新低
+        if (prices[latest_idx] < prices[prev_idx] and 
+            rsi_values[latest_idx] > rsi_values[prev_idx]):
+            
+            confidence = self._calculate_bullish_confidence(
+                rsi_values, latest_idx, prev_idx
+            )
+            return "BUY", confidence
+        
+        return "HOLD", 0.0
+    
+    def _check_bearish_divergence(self, prices: List[float], rsi_values: List[float]) -> Tuple[str, float]:
+        """檢查看跌背離（價格上漲，RSI 下跌）"""
+        price_high_indices = self._find_price_highs(prices)
+        
+        if len(price_high_indices) < 2:
+            return "HOLD", 0.0
+        
+        latest_idx = price_high_indices[-1]
+        prev_idx = price_high_indices[-2]
+        
+        # 價格創新高，RSI 不創新高
+        if (prices[latest_idx] > prices[prev_idx] and
+            rsi_values[latest_idx] < rsi_values[prev_idx]):
+            
+            confidence = self._calculate_bearish_confidence(
+                rsi_values, latest_idx, prev_idx
+            )
+            return "SELL", confidence
+        
+        return "HOLD", 0.0
+    
+    def _find_price_lows(self, prices: List[float]) -> List[int]:
+        """尋找價格低點索引"""
+        indices = []
+        for i in range(2, len(prices) - 2):
+            if (prices[i] < prices[i-1] and prices[i] < prices[i-2] and
+                prices[i] < prices[i+1] and prices[i] < prices[i+2]):
+                indices.append(i)
+        return indices
+    
+    def _find_price_highs(self, prices: List[float]) -> List[int]:
+        """尋找價格高點索引"""
+        indices = []
+        for i in range(2, len(prices) - 2):
+            if (prices[i] > prices[i-1] and prices[i] > prices[i-2] and
+                prices[i] > prices[i+1] and prices[i] > prices[i+2]):
+                indices.append(i)
+        return indices
+    
+    def _calculate_bullish_confidence(self, rsi_values: List[float], latest_idx: int, prev_idx: int) -> float:
+        """計算看漲信號信心度"""
+        confidence = min(
+            (rsi_values[latest_idx] - rsi_values[prev_idx]) / 10,
+            0.95
+        )
+        if rsi_values[latest_idx] < self.oversold:
+            confidence += 0.1  # RSI 超賣加分
+        return max(0.6, min(confidence, 1.0))
+    
+    def _calculate_bearish_confidence(self, rsi_values: List[float], latest_idx: int, prev_idx: int) -> float:
+        """計算看跌信號信心度"""
+        confidence = min(
+            (rsi_values[prev_idx] - rsi_values[latest_idx]) / 10,
+            0.95
+        )
+        if rsi_values[latest_idx] > self.overbought:
+            confidence += 0.1  # RSI 超買加分
+        return max(0.6, min(confidence, 1.0))
+    
     def analyze(self, market_data: MarketData) -> TradingSignal:
-        """分析市場並生成信號"""
+        """"""
         self.price_history.append(market_data.close)
         
-        # 計算當前 RSI
+        #  RSI
         current_rsi = self.calculate_rsi(list(self.price_history))
         self.rsi_history.append(current_rsi)
         
-        # 檢測背離
+        # 
         signal_type, confidence = self.detect_divergence()
         
-        # 基本 RSI 信號
+        #  RSI 
         if signal_type == "HOLD":
             if current_rsi < self.oversold:
                 signal_type = "BUY"
                 confidence = 0.5 + (self.oversold - current_rsi) / 100
-                reason = f"RSI 超賣 ({current_rsi:.2f})"
+                reason = f"RSI  ({current_rsi:.2f})"
             elif current_rsi > self.overbought:
                 signal_type = "SELL"
                 confidence = 0.5 + (current_rsi - self.overbought) / 100
-                reason = f"RSI 超買 ({current_rsi:.2f})"
+                reason = f"RSI  ({current_rsi:.2f})"
             else:
-                reason = f"RSI 中性 ({current_rsi:.2f})"
+                reason = f"RSI  ({current_rsi:.2f})"
         else:
             if signal_type == "BUY":
-                reason = f"牛背離 - RSI={current_rsi:.2f}"
+                reason = f" - RSI={current_rsi:.2f}"
             else:
-                reason = f"熊背離 - RSI={current_rsi:.2f}"
+                reason = f" - RSI={current_rsi:.2f}"
         
-        # 計算止損和止盈
+        # 
         if signal_type == "BUY":
-            stop_loss = market_data.close * 0.98  # 2% 止損
-            take_profit = market_data.close * 1.04  # 4% 止盈
+            stop_loss = market_data.close * 0.98  # 2% 
+            take_profit = market_data.close * 1.04  # 4% 
         elif signal_type == "SELL":
             stop_loss = market_data.close * 1.02
             take_profit = market_data.close * 0.96
@@ -223,7 +266,7 @@ class Strategy1_RSI_Divergence:
             action=signal_type,
             symbol=market_data.symbol,
             confidence=confidence,
-            reason=f"[RSI背離策略] {reason}",
+            reason=f"[RSI] {reason}",
             strategy_name="RSI_Divergence",
             target_price=market_data.close,
             stop_loss=stop_loss,
@@ -234,22 +277,22 @@ class Strategy1_RSI_Divergence:
 
 class Strategy2_Bollinger_Bands_Breakout:
     """
-    策略二：布林帶突破策略
     
-    布林帶 (Bollinger Bands) 基於標準差構建上下軌道
-    當價格突破上軌時,可能是強勢突破或超買反轉
-    當價格跌破下軌時,可能是弱勢突破或超賣反轉
     
-    優勢：
-    - 自動適應市場波動性
-    - 明確的超買/超賣區域
-    - 結合成交量確認可提高準確度
+     (Bollinger Bands) 
+    ,
+    ,
     
-    參數：
-    - 中軌：20 期 SMA
-    - 上軌：中軌 + 2倍標準差
-    - 下軌：中軌 - 2倍標準差
-    - 突破確認：收盤價突破且成交量放大
+    
+    - 
+    - /
+    - 
+    
+    
+    - 20  SMA
+    -  + 2
+    -  - 2
+    - 
     """
     
     def __init__(self, period: int = 20, std_dev: float = 2.0):
@@ -260,9 +303,9 @@ class Strategy2_Bollinger_Bands_Breakout:
         
     def calculate_bollinger_bands(self, prices: List[float]) -> Tuple[float, float, float]:
         """
-        計算布林帶
         
-        返回: (上軌, 中軌, 下軌)
+        
+        : (, , )
         """
         if len(prices) < self.period:
             return 0, 0, 0
@@ -277,104 +320,166 @@ class Strategy2_Bollinger_Bands_Breakout:
         return float(upper_band), float(middle_band), float(lower_band)
     
     def calculate_bandwidth(self, upper: float, lower: float, middle: float) -> float:
-        """計算帶寬百分比"""
+        """"""
         if middle == 0:
             return 0
         return ((upper - lower) / middle) * 100
     
     def analyze(self, market_data: MarketData) -> TradingSignal:
-        """分析市場並生成信號"""
+        """分析布林通道突破信號 - 重構降低複雜度
+        
+        複雜度降低策略：Extract Method 分離信號分析邏輯
+        """
         self.price_history.append(market_data.close)
         self.volume_history.append(market_data.volume)
         
         if len(self.price_history) < self.period:
-            return TradingSignal(
-                action="HOLD",
-                symbol=market_data.symbol,
-                confidence=0.0,
-                reason="[布林帶策略] 數據不足",
-                strategy_name="Bollinger_Bands_Breakout",
-                timestamp=datetime.now()
-            )
+            return self._create_hold_signal(market_data, "數據不足，等待更多數據")
         
-        # 計算布林帶
+        # 計算布林通道
         upper, middle, lower = self.calculate_bollinger_bands(list(self.price_history))
         bandwidth = self.calculate_bandwidth(upper, lower, middle)
         
+        # 準備分析數據
+        analysis_data = self._prepare_analysis_data(market_data, upper, middle, lower, bandwidth)
+        
+        # 分析信號
+        signal_type, confidence, reason = self._analyze_bollinger_signals(analysis_data)
+        
+        # 計算停損止盈
+        stop_loss, take_profit = self._calculate_risk_levels(
+            signal_type, upper, lower
+        )
+        
+        return TradingSignal(
+            action=signal_type,
+            symbol=market_data.symbol,
+            confidence=float(confidence),
+            reason=f"[布林通道] {reason}",
+            strategy_name="Bollinger_Bands_Breakout",
+            target_price=market_data.close,
+            stop_loss=stop_loss,
+            take_profit=take_profit,
+            timestamp=datetime.now()
+        )
+    
+    def _create_hold_signal(self, market_data: MarketData, reason: str) -> TradingSignal:
+        """創建持有信號"""
+        return TradingSignal(
+            action="HOLD",
+            symbol=market_data.symbol,
+            confidence=0.0,
+            reason=reason,
+            strategy_name="Bollinger_Bands_Breakout",
+            timestamp=datetime.now()
+        )
+    
+    def _prepare_analysis_data(self, market_data: MarketData, upper: float, 
+                              middle: float, lower: float, bandwidth: float) -> Dict:
+        """準備分析所需數據"""
         current_price = market_data.close
         prev_price = list(self.price_history)[-2] if len(self.price_history) >= 2 else current_price
         
-        # 計算平均成交量
-        avg_volume = np.mean(list(self.volume_history)[-10:]) if len(self.volume_history) >= 10 else market_data.volume
-        volume_ratio = market_data.volume / avg_volume if avg_volume > 0 else 1.0
-        
-        signal_type = "HOLD"
-        confidence = 0.0
-        reason = ""
-        
-        # 價格位置百分比 (0=下軌, 50=中軌, 100=上軌)
+        # 計算價格相對位置
         if upper != lower:
             price_position = ((current_price - lower) / (upper - lower)) * 100
         else:
             price_position = 50
         
-        # 突破上軌 (可能做空或追多)
-        if current_price > upper and prev_price <= upper:
-            if volume_ratio > 1.5:  # 成交量確認
-                # 強勢突破,追多
-                signal_type = "BUY"
-                confidence = min(0.65 + (volume_ratio - 1.5) * 0.1, 0.9)
-                reason = f"突破上軌,成交量放大 {volume_ratio:.1f}x (帶寬={bandwidth:.2f}%)"
+        # 計算成交量比率
+        avg_volume = np.mean(list(self.volume_history)[-10:]) if len(self.volume_history) >= 10 else market_data.volume
+        volume_ratio = market_data.volume / avg_volume if avg_volume > 0 else 1.0
+        
+        return {
+            'current_price': current_price,
+            'prev_price': prev_price,
+            'upper': upper,
+            'middle': middle,
+            'lower': lower,
+            'bandwidth': bandwidth,
+            'price_position': price_position,
+            'volume_ratio': volume_ratio
+        }
+    
+    def _analyze_bollinger_signals(self, data: Dict) -> Tuple[str, float, str]:
+        """分析布林通道信號"""
+        # 檢查上軌突破
+        upper_breakout = self._check_upper_breakout(data)
+        if upper_breakout[0] != "HOLD":
+            return upper_breakout
+        
+        # 檢查下軌突破
+        lower_breakout = self._check_lower_breakout(data)
+        if lower_breakout[0] != "HOLD":
+            return lower_breakout
+        
+        # 檢查壓縮狀態
+        squeeze_signal = self._check_squeeze_state(data)
+        if squeeze_signal[0] != "HOLD":
+            return squeeze_signal
+        
+        # 檢查極端位置
+        extreme_position = self._check_extreme_positions(data)
+        if extreme_position[0] != "HOLD":
+            return extreme_position
+        
+        # 默認持有
+        return "HOLD", 0.0, f"中性狀態 (位置={data['price_position']:.1f}%, 帶寬={data['bandwidth']:.2f}%)"
+    
+    def _check_upper_breakout(self, data: Dict) -> Tuple[str, float, str]:
+        """檢查上軌突破"""
+        if data['current_price'] > data['upper'] and data['prev_price'] <= data['upper']:
+            if data['volume_ratio'] > 1.5:
+                confidence = min(0.65 + (data['volume_ratio'] - 1.5) * 0.1, 0.9)
+                reason = f"上軌突破確認, 成交量放大{data['volume_ratio']:.1f}x (帶寬={data['bandwidth']:.2f}%)"
+                return "BUY", confidence, reason
             else:
-                # 可能超買,等待回調或做空
-                signal_type = "SELL"
-                confidence = 0.55
-                reason = f"觸及上軌但成交量不足,可能回調 (帶寬={bandwidth:.2f}%)"
-        
-        # 突破下軌 (可能做多或追空)
-        elif current_price < lower and prev_price >= lower:
-            if volume_ratio > 1.5:  # 成交量確認
-                # 恐慌性拋售,可能反彈
-                signal_type = "BUY"
-                confidence = min(0.65 + (volume_ratio - 1.5) * 0.1, 0.9)
-                reason = f"跌破下軌,成交量放大 {volume_ratio:.1f}x,超賣反彈 (帶寬={bandwidth:.2f}%)"
+                reason = f"上軌假突破, 成交量不足 (帶寬={data['bandwidth']:.2f}%)"
+                return "SELL", 0.55, reason
+        return "HOLD", 0.0, ""
+    
+    def _check_lower_breakout(self, data: Dict) -> Tuple[str, float, str]:
+        """檢查下軌突破"""
+        if data['current_price'] < data['lower'] and data['prev_price'] >= data['lower']:
+            if data['volume_ratio'] > 1.5:
+                confidence = min(0.65 + (data['volume_ratio'] - 1.5) * 0.1, 0.9)
+                reason = f"下軌突破確認, 成交量放大{data['volume_ratio']:.1f}x, 反彈信號 (帶寬={data['bandwidth']:.2f}%)"
+                return "BUY", confidence, reason
             else:
-                # 弱勢下跌
-                signal_type = "SELL"
-                confidence = 0.55
-                reason = f"跌破下軌,可能繼續下跌 (帶寬={bandwidth:.2f}%)"
-        
-        # 布林帶收縮 (Squeeze) - 通常預示大行情
-        elif bandwidth < 10:  # 帶寬小於 10%
-            if price_position > 60:
-                signal_type = "BUY"
-                confidence = 0.6
-                reason = f"布林帶收縮,價格偏上,可能向上突破 (帶寬={bandwidth:.2f}%)"
-            elif price_position < 40:
-                signal_type = "SELL"
-                confidence = 0.6
-                reason = f"布林帶收縮,價格偏下,可能向下突破 (帶寬={bandwidth:.2f}%)"
+                reason = f"下軌假突破, 成交量不足 (帶寬={data['bandwidth']:.2f}%)"
+                return "SELL", 0.55, reason
+        return "HOLD", 0.0, ""
+    
+    def _check_squeeze_state(self, data: Dict) -> Tuple[str, float, str]:
+        """檢查壓縮狀態"""
+        if data['bandwidth'] < 10:  # 帶寬小於10%
+            if data['price_position'] > 60:
+                reason = f"壓縮狀態,價格偏高, 準備突破 (帶寬={data['bandwidth']:.2f}%)"
+                return "BUY", 0.6, reason
+            elif data['price_position'] < 40:
+                reason = f"壓縮狀態,價格偏低, 準備突破 (帶寬={data['bandwidth']:.2f}%)"
+                return "SELL", 0.6, reason
             else:
-                reason = f"布林帶極度收縮,等待方向 (帶寬={bandwidth:.2f}%)"
-        
-        # 回歸中軌策略
-        elif abs(price_position - 50) > 30:  # 偏離中軌超過 30%
-            if price_position > 80:
-                signal_type = "SELL"
-                confidence = 0.55
-                reason = f"遠離中軌,回歸交易 (位置={price_position:.1f}%)"
-            elif price_position < 20:
-                signal_type = "BUY"
-                confidence = 0.55
-                reason = f"遠離中軌,回歸交易 (位置={price_position:.1f}%)"
-        
-        if not reason:
-            reason = f"價格在帶內 (位置={price_position:.1f}%, 帶寬={bandwidth:.2f}%)"
-        
-        # 計算止損和止盈
+                reason = f"壓縮狀態, 等待方向 (帶寬={data['bandwidth']:.2f}%)"
+                return "HOLD", 0.0, reason
+        return "HOLD", 0.0, ""
+    
+    def _check_extreme_positions(self, data: Dict) -> Tuple[str, float, str]:
+        """檢查極端位置"""
+        if abs(data['price_position'] - 50) > 30:  # 偏離中軸超過30%
+            if data['price_position'] > 80:
+                reason = f"價格過高, 回歸預期 (位置={data['price_position']:.1f}%)"
+                return "SELL", 0.55, reason
+            elif data['price_position'] < 20:
+                reason = f"價格過低, 反彈預期 (位置={data['price_position']:.1f}%)"
+                return "BUY", 0.55, reason
+        return "HOLD", 0.0, ""
+    
+    def _calculate_risk_levels(self, signal_type: str, upper: float, lower: float) -> Tuple[Optional[float], Optional[float]]:
+        """計算風險水準"""
         if signal_type == "BUY":
-            stop_loss = lower * 0.99  # 下軌下方 1%
-            take_profit = upper * 1.01  # 上軌上方 1%
+            stop_loss = lower * 0.99  # 下軌減1%
+            take_profit = upper * 1.01  # 上軌加1%
         elif signal_type == "SELL":
             stop_loss = upper * 1.01
             take_profit = lower * 0.99
@@ -382,36 +487,26 @@ class Strategy2_Bollinger_Bands_Breakout:
             stop_loss = None
             take_profit = None
         
-        return TradingSignal(
-            action=signal_type,
-            symbol=market_data.symbol,
-            confidence=float(confidence),
-            reason=f"[布林帶策略] {reason}",
-            strategy_name="Bollinger_Bands_Breakout",
-            target_price=market_data.close,
-            stop_loss=stop_loss,
-            take_profit=take_profit,
-            timestamp=datetime.now()
-        )
+        return stop_loss, take_profit
 
 
 class Strategy3_MACD_Trend_Following:
     """
-    策略三：MACD 趨勢跟隨策略
+    MACD 
     
-    MACD (Moving Average Convergence Divergence) 是趨勢跟隨指標
-    由快線(12 EMA)、慢線(26 EMA)和信號線(9 EMA)組成
+    MACD (Moving Average Convergence Divergence) 
+    (12 EMA)(26 EMA)(9 EMA)
     
-    優勢：
-    - 同時捕捉趨勢和動量
-    - 金叉/死叉信號明確
-    - 柱狀圖顯示動量強弱
     
-    信號：
-    - 金叉 (MACD 上穿信號線) = 買入
-    - 死叉 (MACD 下穿信號線) = 賣出
-    - 零軸上方/下方 = 多頭/空頭市場
-    - 柱狀圖擴張/收縮 = 動量增強/減弱
+    - 
+    - /
+    - 
+    
+    
+    -  (MACD ) = 
+    -  (MACD ) = 
+    - / = /
+    - / = /
     """
     
     def __init__(self, fast_period: int = 12, slow_period: int = 26, signal_period: int = 9):
@@ -423,7 +518,7 @@ class Strategy3_MACD_Trend_Following:
         self.signal_history = deque(maxlen=50)
         
     def calculate_ema(self, prices: List[float], period: int) -> float:
-        """計算指數移動平均線"""
+        """"""
         if len(prices) < period:
             return float(np.mean(prices))
         
@@ -437,9 +532,9 @@ class Strategy3_MACD_Trend_Following:
     
     def calculate_macd(self, prices: List[float]) -> Tuple[float, float, float]:
         """
-        計算 MACD 指標
+         MACD 
         
-        返回: (MACD 線, 信號線, 柱狀圖)
+        : (MACD , , )
         """
         if len(prices) < self.slow_period:
             return 0, 0, 0
@@ -449,7 +544,7 @@ class Strategy3_MACD_Trend_Following:
         
         macd_line = fast_ema - slow_ema
         
-        # 計算信號線 (MACD 的 9 期 EMA)
+        #  (MACD  9  EMA)
         self.macd_history.append(macd_line)
         signal_line = self.calculate_ema(list(self.macd_history), self.signal_period)
         
@@ -458,20 +553,51 @@ class Strategy3_MACD_Trend_Following:
         return macd_line, signal_line, histogram
     
     def analyze(self, market_data: MarketData) -> TradingSignal:
-        """分析市場並生成信號"""
+        """分析MACD趨勢跟隨信號 - 重構降低複雜度
+        
+        複雜度降低策略：Extract Method 分離信號分析邏輯
+        """
         self.price_history.append(market_data.close)
         
         if len(self.price_history) < self.slow_period:
-            return TradingSignal(
-                action="HOLD",
-                symbol=market_data.symbol,
-                confidence=0.0,
-                reason="[MACD策略] 數據不足",
-                strategy_name="MACD_Trend_Following",
-                timestamp=datetime.now()
-            )
+            return self._create_hold_signal_macd(market_data, "數據不足，等待更多數據")
         
-        # 計算 MACD
+        # 計算MACD指標
+        macd_data = self._calculate_macd_indicators()
+        
+        # 分析信號
+        signal_type, confidence, reason = self._analyze_macd_signals(macd_data)
+        
+        # 計算風險水準
+        stop_loss, take_profit = self._calculate_macd_risk_levels(
+            market_data.close, signal_type
+        )
+        
+        return TradingSignal(
+            action=signal_type,
+            symbol=market_data.symbol,
+            confidence=confidence,
+            reason=f"[MACD趨勢] {reason}",
+            strategy_name="MACD_Trend_Following",
+            target_price=market_data.close,
+            stop_loss=stop_loss,
+            take_profit=take_profit,
+            timestamp=datetime.now()
+        )
+    
+    def _create_hold_signal_macd(self, market_data: MarketData, reason: str) -> TradingSignal:
+        """創建MACD持有信號"""
+        return TradingSignal(
+            action="HOLD",
+            symbol=market_data.symbol,
+            confidence=0.0,
+            reason=f"[MACD趨勢] {reason}",
+            strategy_name="MACD_Trend_Following",
+            timestamp=datetime.now()
+        )
+    
+    def _calculate_macd_indicators(self) -> Dict:
+        """計算MACD指標數據"""
         macd_line, signal_line, histogram = self.calculate_macd(list(self.price_history))
         self.signal_history.append(signal_line)
         
@@ -485,94 +611,128 @@ class Strategy3_MACD_Trend_Following:
             prev_signal = signal_line
             prev_histogram = histogram
         
-        signal_type = "HOLD"
-        confidence = 0.0
-        reason = ""
+        return {
+            'macd_line': macd_line,
+            'signal_line': signal_line,
+            'histogram': histogram,
+            'prev_macd': prev_macd,
+            'prev_signal': prev_signal,
+            'prev_histogram': prev_histogram
+        }
+    
+    def _analyze_macd_signals(self, data: Dict) -> Tuple[str, float, str]:
+        """分析MACD信號"""
+        # 檢查黃金交叉
+        golden_cross = self._check_golden_cross(data)
+        if golden_cross[0] != "HOLD":
+            return golden_cross
         
-        # 檢測金叉 (買入信號)
-        if macd_line > signal_line and prev_macd <= prev_signal:
-            signal_type = "BUY"
-            # 置信度取決於：
-            # 1. 是否在零軸上方 (趨勢強)
-            # 2. 柱狀圖是否擴張
+        # 檢查死亡交叉
+        death_cross = self._check_death_cross(data)
+        if death_cross[0] != "HOLD":
+            return death_cross
+        
+        # 檢查柱狀圖動量
+        histogram_momentum = self._check_histogram_momentum(data)
+        if histogram_momentum[0] != "HOLD":
+            return histogram_momentum
+        
+        # 檢查動量衰竭
+        momentum_exhaustion = self._check_momentum_exhaustion(data)
+        if momentum_exhaustion[0] != "HOLD":
+            return momentum_exhaustion
+        
+        # 默認信號
+        return self._get_default_macd_signal(data)
+    
+    def _check_golden_cross(self, data: Dict) -> Tuple[str, float, str]:
+        """檢查黃金交叉（看漲）"""
+        if (data['macd_line'] > data['signal_line'] and 
+            data['prev_macd'] <= data['prev_signal']):
+            
             confidence = 0.65
-            if macd_line > 0:
-                confidence += 0.15  # 多頭市場加分
-            if histogram > prev_histogram:
-                confidence += 0.1  # 動量增強加分
-            reason = f"金叉 - MACD 上穿信號線 (MACD={macd_line:.4f}, 信號={signal_line:.4f})"
+            if data['macd_line'] > 0:
+                confidence += 0.15  # 零軸上方
+            if data['histogram'] > data['prev_histogram']:
+                confidence += 0.1  # 柱狀圖擴大
+            
+            reason = f"黃金交叉 - MACD線上穿信號線 (MACD={data['macd_line']:.4f}, 信號={data['signal_line']:.4f})"
+            return "BUY", confidence, reason
         
-        # 檢測死叉 (賣出信號)
-        elif macd_line < signal_line and prev_macd >= prev_signal:
-            signal_type = "SELL"
+        return "HOLD", 0.0, ""
+    
+    def _check_death_cross(self, data: Dict) -> Tuple[str, float, str]:
+        """檢查死亡交叉（看跌）"""
+        if (data['macd_line'] < data['signal_line'] and 
+            data['prev_macd'] >= data['prev_signal']):
+            
             confidence = 0.65
-            if macd_line < 0:
-                confidence += 0.15  # 空頭市場加分
-            if histogram < prev_histogram:
-                confidence += 0.1  # 動量增強加分
-            reason = f"死叉 - MACD 下穿信號線 (MACD={macd_line:.4f}, 信號={signal_line:.4f})"
+            if data['macd_line'] < 0:
+                confidence += 0.15  # 零軸下方
+            if data['histogram'] < data['prev_histogram']:
+                confidence += 0.1  # 柱狀圖擴大
+            
+            reason = f"死亡交叉 - MACD線下穿信號線 (MACD={data['macd_line']:.4f}, 信號={data['signal_line']:.4f})"
+            return "SELL", confidence, reason
         
-        # 動量加速/減速
-        elif abs(histogram) > abs(prev_histogram) * 1.5:  # 柱狀圖快速擴張
-            if histogram > 0:
-                signal_type = "BUY"
-                confidence = 0.6
-                reason = f"多頭動量加速 (柱狀圖={histogram:.4f})"
+        return "HOLD", 0.0, ""
+    
+    def _check_histogram_momentum(self, data: Dict) -> Tuple[str, float, str]:
+        """檢查柱狀圖動量加速"""
+        if abs(data['histogram']) > abs(data['prev_histogram']) * 1.5:  # 動量加速
+            if data['histogram'] > 0:
+                reason = f"多頭動量加速 (柱狀圖={data['histogram']:.4f})"
+                return "BUY", 0.6, reason
             else:
-                signal_type = "SELL"
-                confidence = 0.6
-                reason = f"空頭動量加速 (柱狀圖={histogram:.4f})"
+                reason = f"空頭動量加速 (柱狀圖={data['histogram']:.4f})"
+                return "SELL", 0.6, reason
         
-        # 背離檢測
-        elif histogram > 0 and histogram < prev_histogram * 0.5:  # 動量快速衰減
-            signal_type = "SELL"
-            confidence = 0.55
-            reason = f"多頭動量衰減,可能反轉 (柱狀圖={histogram:.4f})"
-        elif histogram < 0 and histogram > prev_histogram * 0.5:
-            signal_type = "BUY"
-            confidence = 0.55
-            reason = f"空頭動量衰減,可能反轉 (柱狀圖={histogram:.4f})"
+        return "HOLD", 0.0, ""
+    
+    def _check_momentum_exhaustion(self, data: Dict) -> Tuple[str, float, str]:
+        """檢查動量衰竭信號"""
+        if data['histogram'] > 0 and data['histogram'] < data['prev_histogram'] * 0.5:  # 多頭衰竭
+            reason = f"多頭動量衰竭, 反轉信號 (柱狀圖={data['histogram']:.4f})"
+            return "SELL", 0.55, reason
+        elif data['histogram'] < 0 and data['histogram'] > data['prev_histogram'] * 0.5:  # 空頭衰竭
+            reason = f"空頭動量衰竭, 反轉信號 (柱狀圖={data['histogram']:.4f})"
+            return "BUY", 0.55, reason
         
-        if not reason:
-            trend = "多頭" if macd_line > 0 else "空頭"
-            momentum = "增強" if abs(histogram) > abs(prev_histogram) else "減弱"
-            reason = f"{trend}趨勢,動量{momentum} (MACD={macd_line:.4f})"
-        
-        # 計算止損和止盈
+        return "HOLD", 0.0, ""
+    
+    def _get_default_macd_signal(self, data: Dict) -> Tuple[str, float, str]:
+        """獲取默認MACD信號"""
+        trend = "多頭趨勢" if data['macd_line'] > 0 else "空頭趨勢"
+        momentum = "動量增強" if abs(data['histogram']) > abs(data['prev_histogram']) else "動量減弱"
+        reason = f"{trend},{momentum} (MACD={data['macd_line']:.4f})"
+        return "HOLD", 0.0, reason
+    
+    def _calculate_macd_risk_levels(self, current_price: float, signal_type: str) -> Tuple[Optional[float], Optional[float]]:
+        """計算MACD策略風險水準"""
         if signal_type == "BUY":
-            stop_loss = market_data.close * 0.97  # 3% 止損
-            take_profit = market_data.close * 1.06  # 6% 止盈 (2:1 風險回報)
+            stop_loss = current_price * 0.97  # 3% 停損
+            take_profit = current_price * 1.06  # 6% 止盈 (2:1 風報比)
         elif signal_type == "SELL":
-            stop_loss = market_data.close * 1.03
-            take_profit = market_data.close * 0.94
+            stop_loss = current_price * 1.03
+            take_profit = current_price * 0.94
         else:
             stop_loss = None
             take_profit = None
         
-        return TradingSignal(
-            action=signal_type,
-            symbol=market_data.symbol,
-            confidence=confidence,
-            reason=f"[MACD趨勢策略] {reason}",
-            strategy_name="MACD_Trend_Following",
-            target_price=market_data.close,
-            stop_loss=stop_loss,
-            take_profit=take_profit,
-            timestamp=datetime.now()
-        )
+        return stop_loss, take_profit
 
 
 class StrategyFusion:
     """
-    策略融合系統
     
-    AI 自主學習和融合多種策略,發展出自己的交易方式
     
-    融合方法：
-    1. 多數投票 (Majority Voting)
-    2. 加權平均 (Weighted Average) - 根據歷史表現
-    3. 動態權重調整 - 根據市場狀態
-    4. 信號強度篩選 - 只採用高置信度信號
+    AI ,
+    
+    
+    1.  (Majority Voting)
+    2.  (Weighted Average) - 
+    3.  - 
+    4.  - 
     """
     
     def __init__(self):
@@ -580,14 +740,14 @@ class StrategyFusion:
         self.strategy2 = Strategy2_Bollinger_Bands_Breakout()
         self.strategy3 = Strategy3_MACD_Trend_Following()
         
-        # 策略權重 (初始均等,會根據表現動態調整)
+        #  (,)
         self.weights = {
             "RSI_Divergence": 1.0,
             "Bollinger_Bands_Breakout": 1.0,
             "MACD_Trend_Following": 1.0
         }
         
-        # 策略表現追蹤
+        # 
         self.performance_history = {
             "RSI_Divergence": [],
             "Bollinger_Bands_Breakout": [],
@@ -598,64 +758,90 @@ class StrategyFusion:
     
     def update_strategy_performance(self, strategy_name: str, profit_loss: float):
         """
-        更新策略表現
+        
         
         Args:
-            strategy_name: 策略名稱
-            profit_loss: 盈虧百分比 (如 0.05 表示 5% 盈利)
+            strategy_name: 
+            profit_loss:  ( 0.05  5% )
         """
         self.performance_history[strategy_name].append(profit_loss)
         
-        # 保留最近 100 筆記錄
+        #  100 
         if len(self.performance_history[strategy_name]) > 100:
             self.performance_history[strategy_name].pop(0)
         
-        # 動態調整權重
+        # 
         self._adjust_weights()
     
     def _adjust_weights(self):
-        """根據歷史表現動態調整策略權重"""
+        """"""
         for strategy_name in self.weights.keys():
             history = self.performance_history[strategy_name]
             
-            if len(history) >= 10:  # 至少 10 筆交易才調整
-                # 計算平均收益率
+            if len(history) >= 10:  #  10 
+                # 
                 avg_return = np.mean(history)
-                # 計算勝率
+                # 
                 win_rate = sum(1 for x in history if x > 0) / len(history)
-                # 計算夏普比率 (簡化版)
+                #  ()
                 returns_std = np.std(history) if np.std(history) > 0 else 0.01
                 sharpe = avg_return / returns_std
                 
-                # 綜合評分
+                # 
                 score = (avg_return * 0.4) + (win_rate * 0.3) + (sharpe * 0.3)
                 
-                # 更新權重 (使用指數移動平均,避免劇烈變化)
+                #  (,)
                 self.weights[strategy_name] = float((self.weights[strategy_name] * 0.7) + (max(score, 0.1) * 0.3))
         
-        # 歸一化權重
+        # 
         total_weight = sum(self.weights.values())
         if total_weight > 0:
             for key in self.weights:
                 self.weights[key] = float(self.weights[key] / total_weight)
     
     def analyze(self, market_data: MarketData) -> TradingSignal:
+        """策略融合分析 - 重構降低複雜度
+        
+        複雜度降低策略：Extract Method 分離各分析階段
+        
+        主要功能：
+        1. 收集各策略信號
+        2. 加權評分計算
+        3. 最終決策生成
+        4. 風險參數設定
         """
-        融合多個策略的分析結果
+        # 收集個別策略信號 (Extract Method)
+        individual_signals = self._collect_individual_signals(market_data)
         
-        採用加權投票和置信度篩選
-        """
-        # 獲取三個策略的信號
-        signal1 = self.strategy1.analyze(market_data)
-        signal2 = self.strategy2.analyze(market_data)
-        signal3 = self.strategy3.analyze(market_data)
+        # 計算加權評分 (Extract Method)
+        buy_score, sell_score, reasons = self._calculate_weighted_scores(individual_signals)
         
-        signals = [signal1, signal2, signal3]
+        # 生成最終決策 (Extract Method)
+        final_action, final_confidence = self._determine_final_action(buy_score, sell_score)
         
-        # 計算加權信號
+        # 計算風險參數 (Extract Method)
+        stop_loss, take_profit = self._calculate_risk_parameters(
+            final_action, individual_signals, market_data
+        )
+        
+        # 構建融合信號 (Extract Method)
+        return self._build_fused_signal(
+            final_action, final_confidence, stop_loss, take_profit,
+            buy_score, sell_score, reasons, market_data, individual_signals
+        )
+    
+    def _collect_individual_signals(self, market_data: MarketData) -> List[TradingSignal]:
+        """收集個別策略信號"""
+        return [
+            self.strategy1.analyze(market_data),
+            self.strategy2.analyze(market_data),
+            self.strategy3.analyze(market_data)
+        ]
+    
+    def _calculate_weighted_scores(self, signals: List[TradingSignal]) -> Tuple[float, float, List[str]]:
+        """計算加權評分"""
         buy_score = 0.0
         sell_score = 0.0
-        
         reasons = []
         
         for signal in signals:
@@ -664,46 +850,84 @@ class StrategyFusion:
             
             if signal.action == "BUY":
                 buy_score += weighted_confidence
-                reasons.append(f"✓ {signal.strategy_name}: 買入 ({signal.confidence:.2f})")
+                reasons.append(f" {signal.strategy_name}:  ({signal.confidence:.2f})")
             elif signal.action == "SELL":
                 sell_score += weighted_confidence
-                reasons.append(f"✗ {signal.strategy_name}: 賣出 ({signal.confidence:.2f})")
+                reasons.append(f" {signal.strategy_name}:  ({signal.confidence:.2f})")
             else:
-                reasons.append(f"○ {signal.strategy_name}: 觀望")
+                reasons.append(f" {signal.strategy_name}: ")
         
-        # 決策邏輯
+        return buy_score, sell_score, reasons
+    
+    def _determine_final_action(self, buy_score: float, sell_score: float) -> Tuple[str, float]:
+        """確定最終行動和置信度"""
         if buy_score > sell_score and buy_score > 0.5:
-            final_action = "BUY"
-            final_confidence = min(buy_score, 1.0)
+            return "BUY", min(buy_score, 1.0)
         elif sell_score > buy_score and sell_score > 0.5:
-            final_action = "SELL"
-            final_confidence = min(sell_score, 1.0)
+            return "SELL", min(sell_score, 1.0)
         else:
-            final_action = "HOLD"
-            final_confidence = 0.0
-        
-        # 計算融合後的止損止盈 (取平均)
-        if final_action == "BUY":
-            stop_losses = [s.stop_loss for s in signals if s.stop_loss and s.action == "BUY"]
-            take_profits = [s.take_profit for s in signals if s.take_profit and s.action == "BUY"]
-            stop_loss = np.mean(stop_losses) if stop_losses else market_data.close * 0.97
-            take_profit = np.mean(take_profits) if take_profits else market_data.close * 1.06
-        elif final_action == "SELL":
-            stop_losses = [s.stop_loss for s in signals if s.stop_loss and s.action == "SELL"]
-            take_profits = [s.take_profit for s in signals if s.take_profit and s.action == "SELL"]
-            stop_loss = np.mean(stop_losses) if stop_losses else market_data.close * 1.03
-            take_profit = np.mean(take_profits) if take_profits else market_data.close * 0.94
+            return "HOLD", 0.0
+    
+    def _calculate_risk_parameters(
+        self, 
+        action: str, 
+        signals: List[TradingSignal], 
+        market_data: MarketData
+    ) -> Tuple[Optional[float], Optional[float]]:
+        """計算風險參數"""
+        if action == "BUY":
+            return self._calculate_buy_risk_params(signals, market_data)
+        elif action == "SELL":
+            return self._calculate_sell_risk_params(signals, market_data)
         else:
-            stop_loss = None
-            take_profit = None
+            return None, None
+    
+    def _calculate_buy_risk_params(
+        self, signals: List[TradingSignal], market_data: MarketData
+    ) -> Tuple[float, float]:
+        """計算買入風險參數"""
+        stop_losses = [s.stop_loss for s in signals if s.stop_loss and s.action == "BUY"]
+        take_profits = [s.take_profit for s in signals if s.take_profit and s.action == "BUY"]
         
-        # 策略權重信息
+        stop_loss = float(np.mean(stop_losses)) if stop_losses else market_data.close * 0.97
+        take_profit = float(np.mean(take_profits)) if take_profits else market_data.close * 1.06
+        
+        return stop_loss, take_profit
+    
+    def _calculate_sell_risk_params(
+        self, signals: List[TradingSignal], market_data: MarketData
+    ) -> Tuple[float, float]:
+        """計算賣出風險參數"""
+        stop_losses = [s.stop_loss for s in signals if s.stop_loss and s.action == "SELL"]
+        take_profits = [s.take_profit for s in signals if s.take_profit and s.action == "SELL"]
+        
+        stop_loss = float(np.mean(stop_losses)) if stop_losses else market_data.close * 1.03
+        take_profit = float(np.mean(take_profits)) if take_profits else market_data.close * 0.94
+        
+        return stop_loss, take_profit
+    
+    def _build_fused_signal(
+        self,
+        final_action: str,
+        final_confidence: float,
+        stop_loss: Optional[float],
+        take_profit: Optional[float],
+        buy_score: float,
+        sell_score: float,
+        reasons: List[str],
+        market_data: MarketData,
+        individual_signals: List[TradingSignal]
+    ) -> TradingSignal:
+        """構建融合信號"""
+        # 權重信息
         weight_info = " | ".join([f"{k.split('_')[0]}:{v:.2f}" for k, v in self.weights.items()])
         
-        fusion_reason = f"[融合策略] 買入分數={buy_score:.2f}, 賣出分數={sell_score:.2f}\n"
-        fusion_reason += f"策略權重: {weight_info}\n"
+        # 融合原因
+        fusion_reason = f"[] ={buy_score:.2f}, ={sell_score:.2f}\n"
+        fusion_reason += f": {weight_info}\n"
         fusion_reason += "\n".join(reasons)
         
+        # 創建融合信號
         fused_signal = TradingSignal(
             action=final_action,
             symbol=market_data.symbol,
@@ -716,20 +940,21 @@ class StrategyFusion:
             timestamp=datetime.now()
         )
         
+        # 記錄歷史
         self.signal_history.append({
             'signal': fused_signal,
-            'individual_signals': signals,
+            'individual_signals': individual_signals,
             'weights': self.weights.copy()
         })
         
         return fused_signal
     
     def analyze_market(self, market_data: MarketData) -> TradingSignal:
-        """分析市場 - analyze 方法的別名"""
+        """ - analyze """
         return self.analyze(market_data)
     
     def get_strategy_report(self) -> Dict:
-        """獲取策略表現報告"""
+        """"""
         report = {}
         
         for strategy_name, history in self.performance_history.items():

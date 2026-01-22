@@ -59,12 +59,37 @@ await improver.analyze_trade_result(trade_result)
 suggestions = await improver.get_improvement_suggestions()
 ```
 
+### 3. InferenceEngine (推理引擎)
+
+AI 模型推理引擎，支持交易決策預測。
+
+**主要功能：**
+- 模型加載與管理
+- 實時推理預測
+- 批量預測處理
+- 模型性能監控
+
+**使用示例：**
+```python
+from bioneuronai.core import InferenceEngine
+
+# 初始化推理引擎
+engine = InferenceEngine(model_path='model/my_100m_model.pth')
+
+# 執行推理
+prediction = engine.predict(features)
+
+# 批量推理
+predictions = engine.batch_predict(feature_list)
+```
+
 ## 📦 導出 API
 
 ```python
 from bioneuronai.core import (
     TradingEngine,         # 主交易引擎
     SelfImprovementSystem, # 自我改進系統
+    InferenceEngine,       # AI 推理引擎
 )
 ```
 
@@ -88,6 +113,7 @@ from bioneuronai.core import (
 core/
 ├── trading_engine.py       # 主交易引擎
 ├── self_improvement.py     # 自我改進系統
+├── inference_engine.py     # AI 推理引擎
 └── __init__.py            # 模組導出
 ```
 

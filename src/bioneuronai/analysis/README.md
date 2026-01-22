@@ -4,7 +4,7 @@
 
 ## 📋 模組概述
 
-Analysis 模組提供新聞情緒分析和市場關鍵字識別功能，是系統的核心分析服務。
+Analysis 模組提供新聞情緒分析、市場關鍵字識別、市場體制檢測和特徵工程功能，是系統的核心分析服務。
 
 ## 🎯 主要組件
 
@@ -47,6 +47,83 @@ btc_sentiment = await analyzer.get_symbol_sentiment("BTC")
 - Bitcoin.com
 
 ### 2. MarketKeywords (市場關鍵字)
+市場熱門關鍵字識別系統。
+
+**主要類**:
+- `MarketKeywords` - 關鍵字管理器
+
+**核心功能**:
+- 關鍵字提取
+- 重要性評分
+- 趨勢追蹤
+- SQLite 存儲
+
+**使用示例**:
+```python
+from bioneuronai.analysis import MarketKeywords
+
+# 初始化關鍵字系統
+keywords = MarketKeywords()
+
+# 提取關鍵字
+important_keywords = keywords.extract_keywords(news_text)
+
+# 獲取熱門關鍵字
+trending = keywords.get_trending_keywords(days=7)
+```
+
+### 3. MarketRegime (市場體制檢測)
+識別當前市場所處的體制狀態。
+
+**主要類**:
+- `MarketRegime` - 體制檢測器
+
+**體制類型**:
+- 趨勢市場 (Trending)
+- 震盪市場 (Ranging)
+- 突破市場 (Breakout)
+- 高波動市場 (High Volatility)
+
+**使用示例**:
+```python
+from bioneuronai.analysis import MarketRegime
+
+# 初始化體制檢測器
+regime = MarketRegime()
+
+# 檢測市場體制
+current_regime = regime.detect_regime('BTCUSDT', window=100)
+print(f"當前體制: {current_regime['type']}")
+print(f"置信度: {current_regime['confidence']}")
+```
+
+### 4. FeatureEngineering (特徵工程)
+為機器學習模型生成技術指標特徵。
+
+**主要類**:
+- `FeatureEngineering` - 特徵工程器
+
+**特徵類型**:
+- 技術指標 (RSI, MACD, Bollinger Bands)
+- 價格特徵 (收益率, 波動率)
+- 成交量特徵
+- 時間特徵
+
+**使用示例**:
+```python
+from bioneuronai.analysis import FeatureEngineering
+
+# 初始化特徵工程器
+fe = FeatureEngineering()
+
+# 生成特徵
+features = fe.create_features(market_data)
+
+# 選擇重要特徵
+top_features = fe.select_features(features, target, top_k=20)
+```
+
+### 5. BacktestEngine (回測引擎)
 
 識別和分類市場相關的關鍵字和事件。
 

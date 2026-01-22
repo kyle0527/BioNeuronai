@@ -1,17 +1,17 @@
 """
-BioNeuronai - AI 交易與深度學習框架
+BioNeuronai - AI 
 ====================================
 
-模組化架構 v2.1:
-- core: 核心交易引擎與自我改進系統
-- analysis: 新聞分析與市場關鍵字識別
-- automation: SOP 自動化與交易前自動化
-- services: 數據庫與匯率服務
-- planning: 交易計劃生成系統
-- data_models: 交易數據模型
-- connectors: API 連接器
-- risk_management: 風險管理系統
-- strategies: 交易策略系統
+ v2.1:
+- core: 
+- analysis: 
+- automation: SOP 
+- services: 
+- planning: 
+- data_models: 
+- connectors: API 
+- risk_management: 
+- strategies: 
 """
 
 __version__ = "2.1.0"
@@ -19,7 +19,7 @@ __author__ = "BioNeuronai Team"
 
 import logging
 
-# 配置日誌
+# 
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -29,14 +29,27 @@ logging.basicConfig(
     ]
 )
 
-# 核心模組
+# 
 from .core import TradingEngine, SelfImprovementSystem
-from .data_models import MarketData, TradingSignal, Position, OrderResult
-from .connectors import BinanceFuturesConnector
+from .trading_strategies import MarketData, TradingSignal, StrategyFusion
+from .data import BinanceFuturesConnector, ExchangeRateService
 from .risk_management import RiskManager, RiskParameters
-from .trading_strategies import StrategyFusion
 
-# 分析模組
+#  ()
+from .core import (
+    InferenceEngine,
+    ModelLoader,
+    FeaturePipeline,
+    Predictor,
+    SignalInterpreter,
+    SignalType,
+    RiskLevel,
+    create_inference_engine,
+)
+#  AI 
+from .core.inference_engine import TradingSignal as AITradingSignal
+
+# 
 from .analysis import (
     CryptoNewsAnalyzer,
     NewsArticle,
@@ -46,51 +59,51 @@ from .analysis import (
     KeywordMatch
 )
 
-# 自動化模組
-from .automation import SOPAutomation, PreTradeAutomation
-
-# 服務模組
-from .services import (
-    Database,
-    TradingDatabase,
-    ExchangeRateService,
-    ExchangeRateInfo,
-    get_exchange_rate_service
+# 
+from .trading import (
+    TradingPlanController,
+    MarketAnalyzer,
+    StrategySelector,
+    PairSelector
 )
+# : SOPAutomationSystem, PreTradeCheckSystem, TradingPlanGenerator
 
-# 計劃模組
-from .planning import (
-    TradingPlanGenerator,
-    MarketConditionAnalysis,
-    StrategyPerformanceMetrics,
-)
-
-# 向後兼容別名
+# 
 CryptoFuturesTrader = TradingEngine
 
 __all__ = [
-    # 核心引擎
+    # 
     "TradingEngine",
-    "CryptoFuturesTrader",  # 向後兼容
+    "CryptoFuturesTrader",  # 
     "SelfImprovementSystem",
     
-    # 數據模型
+    #  ()
+    "InferenceEngine",
+    "ModelLoader",
+    "FeaturePipeline",
+    "Predictor",
+    "SignalInterpreter",
+    "SignalType",
+    "RiskLevel",
+    "AITradingSignal",
+    "create_inference_engine",
+    
+    # 
     "MarketData",
     "TradingSignal",
-    "Position",
-    "OrderResult",
     
-    # 連接器
+    # 
     "BinanceFuturesConnector",
+    "ExchangeRateService",
     
-    # 風險管理
+    # 
     "RiskManager",
     "RiskParameters",
     
-    # 策略
+    # 
     "StrategyFusion",
     
-    # 分析服務
+    # 
     "CryptoNewsAnalyzer",
     "NewsArticle",
     "NewsAnalysisResult",
@@ -98,23 +111,13 @@ __all__ = [
     "MarketKeywords",
     "KeywordMatch",
     
-    # 自動化
-    "SOPAutomation",
-    "PreTradeAutomation",
-    
-    # 服務
-    "Database",
-    "TradingDatabase",
-    "ExchangeRateService",
-    "ExchangeRateInfo",
-    "get_exchange_rate_service",
-    
-    # 計劃
-    "TradingPlanGenerator",
-    "MarketConditionAnalysis",
-    "StrategyPerformanceMetrics",
+    # 
+    "TradingPlanController",
+    "MarketAnalyzer",
+    "StrategySelector",
+    "PairSelector",
 ]
 
-print(f"🚀 BioNeuronai v{__version__} 模組化交易系統已載入")
-print(f"📦 可用模組: {len(__all__)} 個")
-print(f"🏗️  新架構: core | analysis | automation | services | planning")
+print(f"[BioNeuronai v{__version__}] ")
+print(f": {len(__all__)} ")
+print(": core | analysis | strategies | trading | data | risk_management")

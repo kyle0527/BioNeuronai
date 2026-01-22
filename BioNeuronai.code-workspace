@@ -4,5 +4,16 @@
 			"path": "."
 		}
 	],
-	"settings": {}
+	"settings": {
+		"chat.tools.terminal.autoApprove": {
+			"/^radon cc src/bioneuronai/trading_strategies\\.py::Strategy1_RSI_Divergence\\.detect_divergence -s$/": {
+				"approve": true,
+				"matchCommandLine": true
+			},
+			"/^radon cc src/bioneuronai/trading_strategies\\.py -s \\| findstr \"detect_divergence\"$/": {
+				"approve": true,
+				"matchCommandLine": true
+			}
+		}
+	}
 }
