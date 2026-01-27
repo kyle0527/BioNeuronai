@@ -1,8 +1,29 @@
 {
   "statistics": {
+    "parameters": {
+      "max_risk_per_trade": 0.02,
+      "max_drawdown": 0.1,
+      "max_trades_per_day": 10,
+      "min_confidence": 0.65,
+      "max_position_ratio": 0.25,
+      "max_correlation": 0.7,
+      "default_stop_loss": 0.02,
+      "default_take_profit": 0.04,
+      "trading_hours_start": 0,
+      "trading_hours_end": 23
+    },
+    "current_drawdown": "0.00%",
+    "max_drawdown": "0.00%",
+    "daily_trades": 0,
     "total_trades": 0,
-    "message": "暫無交易記錄"
+    "performance_stats": {
+      "win_rate": 0.0,
+      "avg_win": 0.0,
+      "avg_loss": 0.0,
+      "profit_factor": 0.0
+    },
+    "peak_balance": 100000.0,
+    "current_balance": 100000.0
   },
-  "trade_history": [],
-  "timestamp": "2026-01-19T17:51:44.581337"
+  "timestamp": "2026-01-27T21:42:23.312346"
 }
