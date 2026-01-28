@@ -1,0 +1,13 @@
+{
+  "weights": {
+    "RSI_Divergence": 1.0,
+    "Bollinger_Bands_Breakout": 1.0,
+    "MACD_Trend_Following": 1.0
+  },
+  "performance_history": {
+    "RSI_Divergence": [],
+    "Bollinger_Bands_Breakout": [],
+    "MACD_Trend_Following": []
+  },
+  "timestamp": "2026-01-27T21:42:23.311641"
+}

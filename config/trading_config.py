@@ -80,15 +80,23 @@ AI_MIN_TRADES_FOR_ADJUSTMENT = 10
 # 當前使用的風險等級: CONSERVATIVE, MODERATE, AGGRESSIVE, HIGH_RISK
 RISK_LEVEL = "MODERATE"
 
-# 以下為向後兼容保留，實際應使用 risk_management 模組
-MAX_RISK_PER_TRADE = 0.02  # 建議使用 get_risk_params(RISK_LEVEL).max_risk_per_trade
-STOP_LOSS_PERCENTAGE = 0.02
-TAKE_PROFIT_PERCENTAGE = 0.03
-MAX_DRAWDOWN_PERCENTAGE = 0.10
-MAX_TRADES_PER_DAY = 10
-MIN_SIGNAL_CONFIDENCE = 0.65
-MIN_RISK_REWARD_RATIO = 1.5
-MIN_EXPECTED_RETURN = 0.005
+# =======================================
+# Jules Session 優化後的風險參數 (2026-01-27)
+# =======================================
+MAX_RISK_PER_TRADE = 0.02              # 單筆交易最大風險 2%
+MAX_DRAWDOWN_PERCENTAGE = 0.10          # 最大回撤 10%
+MAX_POSITION_RATIO = 0.25               # 最大倉位比例 25%
+MAX_CORRELATION = 0.7                   # 最大相關性
+STOP_LOSS_PERCENTAGE = 0.02             # 預設止損 2%
+TAKE_PROFIT_PERCENTAGE = 0.04           # 預設止盈 4% (優化後)
+MAX_TRADES_PER_DAY = 10                 # 每日最大交易次數
+MIN_SIGNAL_CONFIDENCE = 0.65            # 最低信號置信度 65%
+MIN_RISK_REWARD_RATIO = 2.0             # 最小風險報酬比 2:1 (優化後)
+MIN_EXPECTED_RETURN = 0.016             # 最小預期收益 1.6%
+
+# 交易時間窗口 (24小時制)
+TRADING_HOURS_START = 0
+TRADING_HOURS_END = 23
 
 # =======================================
 # AI 
