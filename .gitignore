@@ -38,7 +38,9 @@ env/
 .ipynb_checkpoints
 
 # Model weights and training data (Large files)
+# 只同步 my_100m_model.pth (交易核心模型)
 *.pth
+!model/my_100m_model.pth
 *.pt
 *.bin
 *.ckpt
