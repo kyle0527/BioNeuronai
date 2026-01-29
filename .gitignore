@@ -58,11 +58,18 @@ training_history.json
 *.csv
 *.json.gz
 *.parquet
-# 只忽略數據目錄，不忽略程式碼中的 data/ 模組
-/data/
+datasets/
+
+# Runtime data directories (運行時數據，不納入版本控制)
 /trading_data/
 /src/trading_data/
-datasets/
+pretrade_check_data/
+sop_automation_data/
+news_predictions/
+/data/
+
+# Backup directories
+**/backups/
 
 # Temporary files
 tmp/
@@ -80,6 +87,14 @@ trading_system.log
 signals_history/
 backtest_results/
 trading_plans/
+simulation_report.log
+
+# Historical data (大型歷史數據)
+training_data/data_downloads/binance_historical/
+
+# Empty/cleanup directories
+tradetrain/
+training_data/data_downloads/scripts/
 
 # OS generated files
 Thumbs.db
