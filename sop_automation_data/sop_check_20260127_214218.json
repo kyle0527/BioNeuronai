@@ -1,0 +1,72 @@
+{
+  "check_time": "2026-01-27T21:42:17.785274",
+  "sop_version": "1.0",
+  "sop_step": "1.1 每日開盤前檢查",
+  "market_environment": {
+    "timestamp": "2026-01-27T21:42:17.785370",
+    "us_futures": "GREEN",
+    "asian_markets": "MIXED",
+    "european_markets": "UNKNOWN",
+    "crypto_sentiment": 0.1,
+    "economic_events": [
+      "美國CPI數據發布 (14:30)",
+      "聯準會會議紀要 (21:00)"
+    ],
+    "news_analysis": {
+      "overall_sentiment": 0.1,
+      "news_count": 15,
+      "major_events": [
+        {
+          "type": "ETF 相關",
+          "description": "新的比特幣ETF申請"
+        }
+      ],
+      "summary": "\n╔══════════════════════════════════════════════════════════╗\n║  📰 BTCUSDT 新聞分析摘要（過去 24 小時）\n╠══════════════════════════════════════════════════════════╣\n║  📊 新聞數量: 22 篇\n║  ⚪ 整體情緒: NEUTRAL (分數: +0.08)\n║  \n║  📈 正面: 6 | 📉 負面: 5 | ➖ 中性: 11\n║\n║  🎯 重大事件: ⚖️ 監管相關\n║\n║  📝 最新頭條:\n║     1. Chinese National Gets 46 Months in Prison for $37 ...\n║     2. Bitcoin climbs above $89,000 as U.S. dollar tumble...\n║     3. Public companies quietly grow Bitcoin holdings as ...\n║\n║  💡 建議: 🔴 警告：檢測到重大風險事件（安全/監管），建議暫緩交易並密切關注\n╚══════════════════════════════════════════════════════════╝",
+      "last_update": "2026-01-27T21:42:18.859292"
+    },
+    "overall_status": "NEUTRAL"
+  },
+  "system_status": {
+    "timestamp": "2026-01-27T21:42:18.860915",
+    "api_connection": true,
+    "websocket_status": true,
+    "network_latency": 45,
+    "account_status": {
+      "available_balance": 5000.0,
+      "total_balance": 5500.0,
+      "positions": [],
+      "margin_ratio": 0.0,
+      "last_update": "2026-01-27T21:42:18.861316"
+    },
+    "trading_system": true,
+    "overall_status": "READY"
+  },
+  "trading_plan": {
+    "timestamp": "2026-01-27T21:42:18.861772",
+    "selected_strategy": "StrategyFusion",
+    "risk_parameters": {
+      "single_trade_risk": 2.0,
+      "daily_max_loss": 6.0,
+      "max_positions": 3,
+      "max_daily_trades": 5
+    },
+    "trading_pairs": [
+      "BTCUSDT",
+      "ETHUSDT"
+    ],
+    "daily_limits": {
+      "max_loss_usd": 300.0,
+      "max_single_trade_usd": 100.0,
+      "max_trades": 5
+    },
+    "overall_status": "APPROVED"
+  },
+  "overall_assessment": {
+    "status": "PARTIAL_READY",
+    "recommendation": "🔶 系統基本就緒，需完善交易計劃",
+    "market_status": "NEUTRAL",
+    "system_status": "READY",
+    "plan_status": "APPROVED",
+    "timestamp": "2026-01-27T21:42:18.866193"
+  }
+}
