@@ -1,0 +1,1120 @@
+"""
+加密貨幣新聞分析器
+==================
+
+CryptoNewsAnalyzer - 主要新聞分析類
+
+功能：
+- 從多種來源獲取加密貨幣新聞 (CryptoPanic, RSS)
+- 情緒分析與評分
+- 關鍵字提取與事件檢測
+- 重要性評分 (來源權威、時效性、相關性)
+- 新聞記錄保存用於後續關鍵字學習
+
+遵循 CODE_FIX_GUIDE.md 規範
+"""
+
+# 1. 標準庫
+import re
+import os
+import json
+import hashlib
+import logging
+import threading
+from datetime import datetime, timedelta
+from typing import List, Tuple, Dict, Optional
+from collections import Counter
+
+# 2. 第三方套件
+import requests
+
+# 3. 本地模組
+from .models import NewsArticle, NewsAnalysisResult
+
+# 設置日誌
+logger = logging.getLogger(__name__)
+
+# ========================================
+# 關鍵字系統整合
+# ========================================
+KEYWORDS_AVAILABLE = False
+get_keyword_manager = None
+
+try:
+    from ...analysis.keywords import KeywordManager, get_keyword_manager
+    KEYWORDS_AVAILABLE = True
+    logger.info("✅ 已載入 217 個關鍵字系統 (keywords)")
+except ImportError:
+    logger.warning("⚠️ keywords 不可用，使用內建關鍵字")
+
+
+class CryptoNewsAnalyzer:
+    """
+    加密貨幣新聞分析器
+    
+    核心功能：
+    1. 從 CryptoPanic API 和 RSS 獲取新聞
+    2. 情緒分析 (正面/負面/中性)
+    3. 關鍵字提取與事件檢測
+    4. 重要性評分 (0-10)
+    5. 交易建議生成
+    
+    使用範例：
+        analyzer = CryptoNewsAnalyzer()
+        result = analyzer.analyze_news("BTCUSDT", hours=24)
+        print(result.recommendation)
+    """
+    
+    # ========================================
+    # 情緒關鍵字定義
+    # ========================================
+    
+    # 正面關鍵字
+    POSITIVE_KEYWORDS = {
+        # 強正面 (權重 2.0)
+        'etf approved': 2.0, 'etf approval': 2.0, 'spot etf': 1.8,
+        'institutional adoption': 1.8, 'mass adoption': 1.8,
+        'all-time high': 1.5, 'ath': 1.5, 'new high': 1.5,
+        'bullish': 1.3, 'bull run': 1.5, 'bull market': 1.5,
+        'partnership': 1.2, 'collaboration': 1.2,
+        'upgrade': 1.2, 'improvement': 1.1,
+        'adoption': 1.3, 'accepted': 1.2,
+        'investment': 1.1, 'funding': 1.1,
+        'growth': 1.1, 'surge': 1.3, 'soar': 1.3, 'rally': 1.3,
+        'breakthrough': 1.4, 'milestone': 1.3,
+        
+        # 中性偏正 (權重 1.0)
+        'positive': 1.0, 'optimistic': 1.0, 'bullish outlook': 1.2,
+        'support': 0.8, 'momentum': 0.9, 'recovery': 1.0,
+        'innovation': 1.0, 'development': 0.8,
+        'launch': 0.9, 'release': 0.8,
+        'accumulation': 1.0, 'buying': 0.8,
+    }
+    
+    # 負面關鍵字
+    NEGATIVE_KEYWORDS = {
+        # 強負面 (權重 2.0)
+        'hack': 2.0, 'hacked': 2.0, 'exploit': 2.0, 'breach': 1.8,
+        'scam': 2.0, 'fraud': 2.0, 'rug pull': 2.0, 'ponzi': 2.0,
+        'ban': 1.8, 'banned': 1.8, 'illegal': 1.8, 'crackdown': 1.8,
+        'sec lawsuit': 1.8, 'regulatory action': 1.5,
+        'crash': 1.8, 'plunge': 1.7, 'collapse': 1.8,
+        'bankruptcy': 2.0, 'insolvent': 2.0, 'liquidation': 1.8,
+        
+        # 中性偏負 (權重 1.0)
+        'bearish': 1.3, 'bear market': 1.5,
+        'selloff': 1.3, 'sell-off': 1.3, 'dumping': 1.3,
+        'decline': 1.0, 'drop': 0.9, 'fall': 0.8, 'down': 0.6,
+        'concern': 0.8, 'warning': 1.0, 'risk': 0.7,
+        'delay': 0.8, 'postpone': 0.8, 'reject': 1.2, 'rejected': 1.2,
+        'negative': 1.0, 'pessimistic': 1.0,
+        'investigation': 1.2, 'probe': 1.1,
+        'fear': 1.0, 'uncertainty': 0.8, 'doubt': 0.8,
+    }
+    
+    # 事件類型正則模式
+    KEY_EVENT_PATTERNS = {
+        'etf': r'\b(etf|exchange.traded.fund)\b',
+        'regulation': r'\b(sec|regulation|regulatory|compliance|law|legal)\b',
+        'hack': r'\b(hack|exploit|breach|attack|vulnerability)\b',
+        'partnership': r'\b(partner|collaboration|deal|agreement)\b',
+        'upgrade': r'\b(upgrade|hard.?fork|update|improvement)\b',
+        'listing': r'\b(list|listing|delist|trading.pair)\b',
+        'whale': r'\b(whale|large.transfer|massive.move)\b',
+        'halving': r'\b(halving|halvening|block.reward)\b',
+    }
+    
+    # ========================================
+    # 來源權威度 (0-2.0)
+    # ========================================
+    SOURCE_AUTHORITY = {
+        # 頂級媒體
+        'coindesk.com': 2.0,
+        'cointelegraph.com': 2.0,
+        'bloomberg.com': 2.0,
+        'reuters.com': 2.0,
+        'wsj.com': 2.0,
+        'forbes.com': 1.8,
+        
+        # 專業媒體
+        'decrypt.co': 1.8,
+        'theblock.co': 1.8,
+        'bitcoinmagazine.com': 1.7,
+        'cryptoslate.com': 1.5,
+        'cryptobriefing.com': 1.5,
+        
+        # 一般媒體
+        'cryptopanic.com': 1.3,
+        'newsbtc.com': 1.2,
+        'bitcoinist.com': 1.2,
+        'coingape.com': 1.0,
+        
+        # 預設
+        'default': 0.8,
+    }
+    
+    # 事件重要性 (0-3.0)
+    EVENT_IMPORTANCE = {
+        'security': 3.0,      # 安全事件 - 最高優先
+        'regulation': 2.8,    # 監管 - 影響深遠
+        'etf': 2.5,           # ETF 相關 - 市場熱點
+        'halving': 2.5,       # 減半 - 週期性重要事件
+        'listing': 2.0,       # 上市/下市 - 直接影響價格
+        'partnership': 1.8,   # 合作夥伴 - 中等重要
+        'upgrade': 1.5,       # 技術升級 - 基礎面
+        'whale': 1.5,         # 大戶動向 - 市場信號
+        'market': 1.0,        # 一般市場 - 普通新聞
+        'general': 0.5,       # 一般 - 低重要性
+    }
+    
+    # 幣種關鍵字
+    COIN_KEYWORDS = {
+        'BTC': ['bitcoin', 'btc', 'satoshi'],
+        'ETH': ['ethereum', 'eth', 'ether', 'vitalik'],
+        'BNB': ['binance', 'bnb'],
+        'SOL': ['solana', 'sol'],
+        'XRP': ['ripple', 'xrp'],
+        'DOGE': ['dogecoin', 'doge', 'elon'],
+        'ADA': ['cardano', 'ada'],
+        'AVAX': ['avalanche', 'avax'],
+        'DOT': ['polkadot', 'dot'],
+        'LINK': ['chainlink', 'link'],
+        'SHIB': ['shiba', 'shib'],
+        'PEPE': ['pepe'],
+    }
+    
+    def __init__(self):
+        self._cache: Dict[str, Tuple[NewsAnalysisResult, datetime]] = {}
+        self._cache_ttl = 300  # 5 分鐘
+        self._lock = threading.Lock()
+        
+        # 新聞記錄文件路徑
+        self._news_records_dir = os.path.join(
+            os.path.dirname(__file__), '..', '..', '..', '..', 'sop_automation_data'
+        )
+        self._news_records_file = os.path.join(self._news_records_dir, 'news_records.json')
+        os.makedirs(self._news_records_dir, exist_ok=True)
+        
+        logger.info("✅ CryptoNewsAnalyzer 初始化完成")
+    
+    # ========================================
+    # 主要公開 API
+    # ========================================
+    
+    def analyze_news(self, symbol: str = "BTCUSDT", hours: int = 24) -> NewsAnalysisResult:
+        """
+        分析加密貨幣新聞
+        
+        Args:
+            symbol: 交易對，如 BTCUSDT
+            hours: 分析時間範圍
+        
+        Returns:
+            NewsAnalysisResult 分析結果
+        """
+        # 檢查快取
+        cache_key = f"{symbol}_{hours}"
+        with self._lock:
+            if cache_key in self._cache:
+                result, cached_at = self._cache[cache_key]
+                if (datetime.now() - cached_at).total_seconds() < self._cache_ttl:
+                    return result
+        
+        # 解析幣種
+        coin = symbol.replace("USDT", "").replace("USD", "")
+        
+        # 獲取新聞
+        articles = self._fetch_news(coin, hours)
+        
+        # 分析新聞
+        result = self._analyze_articles(symbol, articles)
+        
+        # 更新快取
+        with self._lock:
+            self._cache[cache_key] = (result, datetime.now())
+        
+        return result
+    
+    def get_quick_summary(self, symbol: str = "BTCUSDT") -> str:
+        """獲取快速摘要"""
+        result = self.analyze_news(symbol, hours=24)
+        
+        sentiment_emoji = {
+            'positive': '🟢',
+            'negative': '🔴',
+            'neutral': '⚪'
+        }
+        
+        emoji = sentiment_emoji.get(result.overall_sentiment, '⚪')
+        
+        summary = f"""
+📰 {symbol} 新聞分析 (24小時)
+
+📊 統計: {result.total_articles} 則新聞
+{emoji} 情緒: {result.overall_sentiment.upper()} (分數: {result.sentiment_score:+.2f})
+
+正面: {result.positive_count} | 負面: {result.negative_count} | 中性: {result.neutral_count}
+"""
+        
+        if result.key_events:
+            summary += f"\n🔥 重要事件: {', '.join(result.key_events)}\n"
+        
+        if result.recent_headlines:
+            summary += "\n📌 最新標題:\n"
+            for i, headline in enumerate(result.recent_headlines[:3], 1):
+                short_headline = headline[:50] + "..." if len(headline) > 50 else headline
+                summary += f"   {i}. {short_headline}\n"
+        
+        summary += f"\n💡 建議: {result.recommendation}\n"
+        
+        return summary
+    
+    def should_trade(self, symbol: str = "BTCUSDT") -> Tuple[bool, str]:
+        """
+        判斷是否適合交易
+        
+        Returns:
+            (是否可交易, 原因)
+        """
+        result = self.analyze_news(symbol, hours=12)
+        
+        # 檢查危險事件
+        danger_events = ['🔒 安全事件']
+        if any(e in result.key_events for e in danger_events):
+            return False, "存在安全事件/駭客風險"
+        
+        # 檢查極端負面情緒
+        if result.sentiment_score < -0.5:
+            return False, f"新聞情緒過度負面 ({result.sentiment_score:.2f})"
+        
+        # 新聞太少無法判斷
+        if result.total_articles < 2:
+            return True, "新聞資料不足，謹慎交易"
+        
+        return True, f"情緒正常: {result.overall_sentiment} ({result.sentiment_score:+.2f})"
+    
+    def evaluate_pending_news(self) -> Dict[str, int]:
+        """評估待處理的新聞，更新關鍵字權重
+        
+        Returns:
+            統計結果 {'evaluated': 5, 'bullish': 3, 'bearish': 2}
+        """
+        if not os.path.exists(self._news_records_file):
+            logger.info("沒有待評估的新聞記錄")
+            return {'evaluated': 0}
+        
+        try:
+            with open(self._news_records_file, 'r', encoding='utf-8') as f:
+                records = json.load(f)
+        except Exception as e:
+            logger.error(f"讀取新聞記錄失敗: {e}")
+            return {'evaluated': 0}
+        
+        stats = {'evaluated': 0, 'bullish': 0, 'bearish': 0, 'neutral': 0, 'failed': 0}
+        updated_records = []
+        
+        for record in records:
+            if record.get('evaluated', False):
+                updated_records.append(record)
+                continue
+            
+            # 檢查是否到評估時間
+            news_time = datetime.fromisoformat(record['timestamp'])
+            eval_hours = record.get('evaluation_window_hours', 24)
+            if datetime.now() < news_time + timedelta(hours=eval_hours):
+                updated_records.append(record)
+                continue
+            
+            # 評估新聞影響
+            result = self._evaluate_single_news(record)
+            if result:
+                record['evaluated'] = True
+                record['evaluation_result'] = result
+                record['evaluated_at'] = datetime.now().isoformat()
+                stats['evaluated'] += 1
+                stats[result['direction']] += 1
+                
+                # 更新關鍵字權重
+                self._update_keyword_weights(record['keywords'], result)
+            else:
+                stats['failed'] += 1
+            
+            updated_records.append(record)
+        
+        # 保存更新後的記錄
+        try:
+            with open(self._news_records_file, 'w', encoding='utf-8') as f:
+                json.dump(updated_records, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            logger.error(f"保存評估結果失敗: {e}")
+        
+        logger.info(f"評估完成: {stats}")
+        return stats
+    
+    # ========================================
+    # 新聞獲取方法
+    # ========================================
+    
+    def _fetch_news(self, coin: str, hours: int) -> List[NewsArticle]:
+        """獲取新聞"""
+        articles = []
+        
+        # 來源 1: CryptoPanic API
+        articles.extend(self._fetch_from_cryptopanic(coin))
+        
+        # 來源 2: RSS Feeds
+        articles.extend(self._fetch_from_rss(coin))
+        
+        # 時間過濾
+        cutoff = datetime.now() - timedelta(hours=hours)
+        articles = [a for a in articles if a.published_at >= cutoff]
+        
+        # 去重
+        seen_titles = set()
+        unique_articles = []
+        for article in articles:
+            title_key = article.title.lower()[:50]
+            if title_key not in seen_titles:
+                seen_titles.add(title_key)
+                unique_articles.append(article)
+        
+        logger.info(f"✅ 獲取 {len(unique_articles)} 則 {coin} 新聞")
+        return unique_articles
+    
+    def _fetch_from_cryptopanic(self, coin: str) -> List[NewsArticle]:
+        """從 CryptoPanic API 獲取新聞"""
+        articles = []
+        
+        try:
+            api_token = os.getenv('CRYPTOPANIC_API_TOKEN', 'free')
+            
+            if api_token == 'free':
+                logger.warning(
+                    "⚠️ 使用 CryptoPanic 免費限制模式。"
+                    "請設置環境變數 CRYPTOPANIC_API_TOKEN 以獲得完整功能。"
+                )
+            
+            url = "https://cryptopanic.com/api/v1/posts/"
+            params = {
+                'auth_token': api_token,
+                'currencies': coin,
+                'filter': 'important',
+                'public': 'true'
+            }
+            
+            response = requests.get(url, params=params, timeout=10)
+            
+            if response.status_code == 200:
+                data = response.json()
+                for item in data.get('results', [])[:20]:
+                    try:
+                        pub_date = datetime.fromisoformat(
+                            item['published_at'].replace('Z', '+00:00')
+                        ).replace(tzinfo=None)
+                        
+                        article = NewsArticle(
+                            title=item.get('title', ''),
+                            source=item.get('source', {}).get('title', 'CryptoPanic'),
+                            url=item.get('url', ''),
+                            published_at=pub_date,
+                            summary=item.get('title', '')
+                        )
+                        articles.append(article)
+                    except Exception:
+                        continue
+        
+        except requests.Timeout:
+            logger.warning("CryptoPanic API 請求超時")
+        except requests.RequestException as e:
+            logger.warning(f"CryptoPanic API 請求失敗: {e}")
+        except Exception as e:
+            logger.warning(f"獲取 CryptoPanic 失敗: {e}")
+        
+        return articles
+    
+    def _fetch_from_rss(self, coin: str) -> List[NewsArticle]:
+        """從 RSS Feeds 獲取新聞"""
+        articles = []
+        
+        rss_feeds = [
+            'https://cointelegraph.com/rss',
+            'https://decrypt.co/feed',
+            'https://www.coindesk.com/arc/outboundfeeds/rss/',
+        ]
+        
+        try:
+            import xml.etree.ElementTree as ET
+            
+            for feed_url in rss_feeds:
+                feed_articles = self._process_single_rss_feed(feed_url, coin)
+                articles.extend(feed_articles)
+        
+        except ImportError:
+            logger.warning("缺少 requests 庫，跳過 RSS")
+        except Exception as e:
+            logger.warning(f"RSS 獲取失敗: {e}")
+        
+        return articles
+    
+    def _process_single_rss_feed(self, feed_url: str, coin: str) -> List[NewsArticle]:
+        """處理單個 RSS 源"""
+        articles = []
+        
+        try:
+            response = requests.get(feed_url, timeout=5)
+            if response.status_code != 200:
+                return articles
+            
+            import xml.etree.ElementTree as ET
+            root = ET.fromstring(response.content)
+            
+            for item in root.findall('.//item')[:20]:
+                article = self._parse_rss_item(item, feed_url, coin)
+                if article:
+                    articles.append(article)
+        
+        except Exception as e:
+            logger.debug(f"RSS 源 {feed_url} 處理失敗: {e}")
+        
+        return articles
+    
+    def _parse_rss_item(self, item, feed_url: str, coin: str) -> Optional[NewsArticle]:
+        """解析 RSS 條目"""
+        title = item.find('title')
+        link = item.find('link')
+        pub_date = item.find('pubDate')
+        description = item.find('description')
+        
+        if title is None:
+            return None
+        
+        title_text = title.text or ''
+        desc_text = description.text[:200] if description is not None and description.text else ''
+        full_text = f"{title_text} {desc_text}"
+        
+        # 檢查相關性
+        matched_keywords = self._check_content_relevance(full_text, coin)
+        if not matched_keywords:
+            return None
+        
+        # 解析時間
+        parsed_date = self._parse_publication_date(pub_date)
+        
+        return NewsArticle(
+            title=title_text,
+            source=feed_url.split('/')[2],
+            url=link.text.strip() if link is not None and link.text else '',
+            published_at=parsed_date,
+            summary=desc_text,
+            keywords=matched_keywords
+        )
+    
+    def _check_content_relevance(self, full_text: str, coin: str) -> List[str]:
+        """檢查內容相關性"""
+        matched_keywords = []
+        
+        if KEYWORDS_AVAILABLE:
+            matched_keywords = self._match_with_keywords(full_text)
+            if matched_keywords:
+                return matched_keywords
+        
+        return self._match_with_coin_keywords(full_text, coin)
+    
+    def _match_with_keywords(self, full_text: str) -> List[str]:
+        """使用關鍵字系統匹配"""
+        try:
+            from ...analysis.keywords import MarketKeywords
+            matches = MarketKeywords.find_matches(full_text)
+            if matches:
+                return [m.keyword for m in matches]
+        except Exception as e:
+            logger.debug(f"關鍵字匹配失敗: {e}")
+        
+        return []
+    
+    def _match_with_coin_keywords(self, full_text: str, coin: str) -> List[str]:
+        """使用幣種關鍵字匹配"""
+        coin_keywords = self.COIN_KEYWORDS.get(coin, [coin.lower()])
+        matched = [kw for kw in coin_keywords if kw in full_text.lower()]
+        return matched if matched else []
+    
+    def _parse_publication_date(self, pub_date) -> datetime:
+        """解析發布時間"""
+        try:
+            from email.utils import parsedate_to_datetime
+            if pub_date is not None and pub_date.text:
+                parsed_date = parsedate_to_datetime(pub_date.text)
+                return parsed_date.replace(tzinfo=None)
+        except Exception:
+            pass
+        
+        return datetime.now()
+    
+    # ========================================
+    # 新聞分析方法
+    # ========================================
+    
+    def _analyze_articles(self, symbol: str, articles: List[NewsArticle]) -> NewsAnalysisResult:
+        """分析新聞文章"""
+        target_coin = symbol.replace("USDT", "").replace("USD", "")
+        
+        if not articles:
+            return NewsAnalysisResult(
+                symbol=symbol,
+                total_articles=0,
+                positive_count=0,
+                negative_count=0,
+                neutral_count=0,
+                overall_sentiment="neutral",
+                sentiment_score=0.0,
+                key_events=[],
+                top_keywords=[],
+                recent_headlines=[],
+                recommendation="無新聞資料",
+                analysis_time=datetime.now(),
+                articles=[]
+            )
+        
+        positive_count = 0
+        negative_count = 0
+        neutral_count = 0
+        all_keywords = []
+        key_events = set()
+        
+        # 獲取當前價格
+        current_price = self._get_current_price(symbol)
+        
+        for article in articles:
+            article.target_coin = target_coin
+            
+            # 情緒分析
+            sentiment, score = self._analyze_sentiment(article.title + " " + article.summary)
+            article.sentiment = sentiment
+            article.sentiment_score = score
+            
+            if sentiment == "positive":
+                positive_count += 1
+            elif sentiment == "negative":
+                negative_count += 1
+            else:
+                neutral_count += 1
+            
+            # 關鍵字提取
+            keywords = self._extract_keywords(article.title)
+            article.keywords = keywords
+            all_keywords.extend(keywords)
+            
+            # 事件檢測
+            events = self._detect_key_events(article.title)
+            key_events.update(events)
+            
+            # 重要性評分
+            article.importance_score = self._calculate_importance_score(article, target_coin)
+            
+            # 保存記錄
+            if current_price > 0 and article.keywords:
+                article.price_at_news = current_price
+                self._save_news_record(article, current_price)
+        
+        # 按重要性排序
+        articles.sort(key=lambda x: x.importance_score, reverse=True)
+        
+        # 計算加權情緒分數
+        weighted_score = 0.0
+        total_weight = 0.0
+        for article in articles:
+            weight = article.importance_score / 10.0
+            weighted_score += article.sentiment_score * weight
+            total_weight += weight
+        
+        avg_score = weighted_score / total_weight if total_weight > 0 else 0
+        
+        if avg_score > 0.2:
+            overall_sentiment = "positive"
+        elif avg_score < -0.2:
+            overall_sentiment = "negative"
+        else:
+            overall_sentiment = "neutral"
+        
+        # 統計關鍵字
+        keyword_counts = Counter(all_keywords)
+        top_keywords = keyword_counts.most_common(10)
+        
+        # 最新標題
+        recent_headlines = [
+            a.title for a in sorted(articles, key=lambda x: x.published_at, reverse=True)[:5]
+        ]
+        
+        # 生成建議
+        recommendation = self._generate_recommendation(
+            overall_sentiment, avg_score, list(key_events), positive_count, negative_count
+        )
+        
+        return NewsAnalysisResult(
+            symbol=symbol,
+            total_articles=len(articles),
+            positive_count=positive_count,
+            negative_count=negative_count,
+            neutral_count=neutral_count,
+            overall_sentiment=overall_sentiment,
+            sentiment_score=round(avg_score, 3),
+            key_events=list(key_events),
+            top_keywords=top_keywords,
+            recent_headlines=recent_headlines,
+            recommendation=recommendation,
+            analysis_time=datetime.now(),
+            articles=sorted(articles, key=lambda x: x.published_at, reverse=True)
+        )
+    
+    def _get_current_price(self, symbol: str) -> float:
+        """獲取當前價格"""
+        try:
+            from ...data.binance_futures import BinanceFuturesConnector
+            connector = BinanceFuturesConnector(testnet=True)
+            price_data = connector.get_ticker_price(symbol)
+            if price_data:
+                logger.info(f"獲取 {symbol} 當前價格: ${price_data.price:,.2f}")
+                return price_data.price
+        except Exception as e:
+            logger.debug(f"無法獲取 {symbol} 價格: {e}")
+        return 0.0
+    
+    def _analyze_sentiment(self, text: str) -> Tuple[str, float]:
+        """情緒分析"""
+        text_lower = text.lower()
+        
+        positive_score = 0.0
+        negative_score = 0.0
+        
+        for keyword, weight in self.POSITIVE_KEYWORDS.items():
+            if keyword in text_lower:
+                positive_score += weight
+        
+        for keyword, weight in self.NEGATIVE_KEYWORDS.items():
+            if keyword in text_lower:
+                negative_score += weight
+        
+        total = positive_score + negative_score
+        if total == 0:
+            return "neutral", 0.0
+        
+        score = (positive_score - negative_score) / max(total, 1)
+        score = max(-1.0, min(1.0, score))
+        
+        if score > 0.15:
+            return "positive", score
+        elif score < -0.15:
+            return "negative", score
+        else:
+            return "neutral", score
+    
+    def _extract_keywords(self, text: str) -> List[str]:
+        """提取關鍵字"""
+        text = re.sub(r'[^\w\s]', ' ', text.lower())
+        words = text.split()
+        
+        stop_words = {
+            'the', 'a', 'an', 'is', 'are', 'was', 'were', 'be', 'been',
+            'being', 'have', 'has', 'had', 'do', 'does', 'did', 'will',
+            'would', 'could', 'should', 'may', 'might', 'must', 'shall',
+            'can', 'need', 'dare', 'ought', 'used', 'to', 'of', 'in',
+            'for', 'on', 'with', 'at', 'by', 'from', 'as', 'into',
+            'through', 'during', 'before', 'after', 'above', 'below',
+            'between', 'under', 'again', 'further', 'then', 'once',
+            'and', 'but', 'or', 'nor', 'so', 'yet', 'both', 'either',
+            'neither', 'not', 'only', 'own', 'same', 'than', 'too',
+            'very', 'just', 'also', 'now', 'here', 'there', 'when',
+            'where', 'why', 'how', 'all', 'each', 'every',
+            'few', 'more', 'most', 'other', 'some', 'such', 'no',
+            'its', 'it', 'this', 'that', 'these', 'those', 'what'
+        }
+        
+        keywords = [w for w in words if w not in stop_words and len(w) > 2]
+        return keywords
+    
+    def _detect_key_events(self, text: str) -> List[str]:
+        """檢測重要事件"""
+        text_lower = text.lower()
+        events = []
+        
+        for event_type, pattern in self.KEY_EVENT_PATTERNS.items():
+            if re.search(pattern, text_lower, re.IGNORECASE):
+                event_labels = {
+                    'etf': '📈 ETF 相關',
+                    'regulation': '⚖️ 監管風險',
+                    'hack': '🔒 安全事件',
+                    'partnership': '🤝 合作夥伴',
+                    'upgrade': '⬆️ 技術升級',
+                    'listing': '📝 上市/下市',
+                    'whale': '🐋 大戶動向',
+                    'halving': '⏳ 減半事件',
+                }
+                events.append(event_labels.get(event_type, event_type))
+        
+        return events
+    
+    def _detect_event_type(self, text: str) -> str:
+        """檢測事件類型"""
+        text_lower = text.lower()
+        
+        if KEYWORDS_AVAILABLE:
+            event_type = self._detect_with_keywords(text)
+            if event_type != 'general':
+                return event_type
+        
+        return self._detect_with_regex(text_lower)
+    
+    def _detect_with_keywords(self, text: str) -> str:
+        """使用關鍵字檢測事件類型"""
+        try:
+            from ...analysis.keywords import MarketKeywords
+            matches = MarketKeywords.find_matches(text)
+            
+            for match in matches:
+                if match.category == 'event':
+                    return self._classify_keyword_event(match.keyword)
+        
+        except Exception as e:
+            logger.debug(f"關鍵字檢測失敗: {e}")
+        
+        return 'general'
+    
+    def _classify_keyword_event(self, keyword: str) -> str:
+        """根據關鍵字分類事件"""
+        security_keywords = ['hack', 'exploit', 'stolen']
+        if any(kw in keyword for kw in security_keywords):
+            return 'security'
+        
+        if 'etf' in keyword:
+            return 'etf'
+        
+        if 'halving' in keyword:
+            return 'halving'
+        
+        regulation_keywords = ['lawsuit', 'ban', 'banned', 'crackdown', 'investigation']
+        if keyword in regulation_keywords:
+            return 'regulation'
+        
+        listing_keywords = ['listing', 'delisting']
+        if keyword in listing_keywords:
+            return 'listing'
+        
+        if keyword == 'partnership':
+            return 'partnership'
+        
+        upgrade_keywords = ['upgrade', 'hard fork', 'mainnet']
+        if keyword in upgrade_keywords:
+            return 'upgrade'
+        
+        if keyword == 'whale':
+            return 'whale'
+        
+        return 'general'
+    
+    def _detect_with_regex(self, text_lower: str) -> str:
+        """使用正則檢測事件類型"""
+        if re.search(r'\b(hack|exploit|breach|attack|stolen|vulnerability)\b', text_lower):
+            return 'security'
+        
+        if re.search(r'\b(sec|regulation|regulatory|ban|legal|lawsuit|compliance)\b', text_lower):
+            return 'regulation'
+        
+        if re.search(r'\b(etf|exchange.traded.fund)\b', text_lower):
+            return 'etf'
+        
+        if re.search(r'\b(halving|halvening)\b', text_lower):
+            return 'halving'
+        
+        if re.search(r'\b(list|listing|delist)\b', text_lower):
+            return 'listing'
+        
+        if re.search(r'\b(partner|collaboration|deal|agreement)\b', text_lower):
+            return 'partnership'
+        
+        if re.search(r'\b(upgrade|fork|update|v2|mainnet)\b', text_lower):
+            return 'upgrade'
+        
+        if re.search(r'\b(whale|large.transfer)\b', text_lower):
+            return 'whale'
+        
+        if re.search(r'\b(price|market|trading|bull|bear)\b', text_lower):
+            return 'market'
+        
+        return 'general'
+    
+    def _calculate_importance_score(self, article: NewsArticle, target_coin: str) -> float:
+        """計算重要性評分 (0-10)"""
+        score = 0.0
+        
+        # 1. 來源權威度 (max 2.0)
+        source_domain = article.source.lower()
+        source_score = self.SOURCE_AUTHORITY.get('default', 0.8)
+        for domain, auth_score in self.SOURCE_AUTHORITY.items():
+            if domain in source_domain:
+                source_score = auth_score
+                break
+        score += source_score
+        
+        # 2. 事件重要性 (max 3.0)
+        event_type = self._detect_event_type(article.title + " " + article.summary)
+        article.category = event_type
+        event_score = self.EVENT_IMPORTANCE.get(event_type, 0.5)
+        score += event_score
+        
+        # 3. 時效性 (max 2.0)
+        hours_old = (datetime.now() - article.published_at).total_seconds() / 3600
+        if hours_old < 1:
+            time_score = 2.0
+        elif hours_old < 4:
+            time_score = 1.5
+        elif hours_old < 12:
+            time_score = 1.0
+        elif hours_old < 24:
+            time_score = 0.5
+        else:
+            time_score = 0.2
+        score += time_score
+        
+        # 4. 相關性 (max 2.0)
+        text_lower = (article.title + " " + article.summary).lower()
+        coin_keywords = self.COIN_KEYWORDS.get(target_coin, [target_coin.lower()])
+        
+        direct_mention = any(kw in text_lower for kw in coin_keywords)
+        if direct_mention:
+            relevance_score = 2.0
+        elif any(kw in text_lower for kw in ['crypto', 'bitcoin', 'cryptocurrency']):
+            relevance_score = 1.0
+        else:
+            relevance_score = 0.3
+        score += relevance_score
+        article.relevance_score = relevance_score
+        
+        # 5. 情緒強度 (max 1.0)
+        sentiment_intensity = abs(article.sentiment_score)
+        intensity_score = min(sentiment_intensity * 1.5, 1.0)
+        score += intensity_score
+        
+        # 6. 關鍵字系統加成 (max 3.0)
+        if KEYWORDS_AVAILABLE:
+            try:
+                from ...analysis.keywords import MarketKeywords
+                kw_score, _ = MarketKeywords.get_importance_score(
+                    article.title + " " + article.summary
+                )
+                keyword_bonus = min(kw_score * 0.3, 3.0)
+                score += keyword_bonus
+                
+                is_high_impact, high_kw = MarketKeywords.is_high_impact_news(article.title)
+                if is_high_impact:
+                    article.keywords = high_kw + article.keywords
+            except Exception as e:
+                logger.debug(f"關鍵字評分失敗: {e}")
+        
+        return round(min(score, 10.0), 2)
+    
+    def _generate_recommendation(
+        self,
+        sentiment: str,
+        score: float,
+        key_events: List[str],
+        positive: int,
+        negative: int
+    ) -> str:
+        """生成交易建議"""
+        danger_events = ['🔒 安全事件', '⚖️ 監管風險']
+        has_danger = any(e in key_events for e in danger_events)
+        
+        if has_danger:
+            return "🚨 存在重大風險，建議暫停交易/觀望"
+        
+        if sentiment == "positive" and score > 0.4:
+            return "🟢 強烈看漲信號，可考慮做多"
+        elif sentiment == "positive":
+            return "🟢 偏多信號，謹慎做多"
+        elif sentiment == "negative" and score < -0.4:
+            return "🔴 強烈看跌信號，建議觀望或做空"
+        elif sentiment == "negative":
+            return "🟡 偏空信號，謹慎操作"
+        else:
+            return "⚪ 中性市場，維持現有策略"
+    
+    # ========================================
+    # 新聞記錄與評估
+    # ========================================
+    
+    def _save_news_record(self, article: NewsArticle, current_price: float) -> None:
+        """保存新聞記錄"""
+        try:
+            news_id = hashlib.md5(
+                f"{article.title}{article.published_at}".encode()
+            ).hexdigest()[:16]
+            
+            record = {
+                'news_id': news_id,
+                'title': article.title,
+                'url': article.url,
+                'source': article.source,
+                'keywords': article.keywords,
+                'target_coin': article.target_coin,
+                'symbol': article.target_coin + 'USDT',
+                'timestamp': article.published_at.isoformat(),
+                'price_at_news': current_price,
+                'category': article.category,
+                'sentiment': article.sentiment,
+                'evaluated': False,
+                'evaluation_window_hours': 24
+            }
+            
+            records = []
+            if os.path.exists(self._news_records_file):
+                try:
+                    with open(self._news_records_file, 'r', encoding='utf-8') as f:
+                        records = json.load(f)
+                except Exception:
+                    records = []
+            
+            if not any(r['news_id'] == news_id for r in records):
+                records.append(record)
+                
+                cutoff = (datetime.now() - timedelta(days=30)).isoformat()
+                records = [r for r in records if r['timestamp'] > cutoff]
+                
+                with open(self._news_records_file, 'w', encoding='utf-8') as f:
+                    json.dump(records, f, ensure_ascii=False, indent=2)
+                    
+                logger.debug(f"已保存新聞記錄: {news_id}")
+        except Exception as e:
+            logger.warning(f"保存新聞記錄失敗: {e}")
+    
+    def _evaluate_single_news(self, record: Dict) -> Optional[Dict]:
+        """評估單則新聞"""
+        try:
+            symbol = record.get('symbol') or (record['target_coin'] + 'USDT')
+            
+            from ...data.binance_futures import BinanceFuturesConnector
+            connector = BinanceFuturesConnector(testnet=True)
+            price_data = connector.get_ticker_price(symbol)
+            
+            if not price_data:
+                logger.warning(f"無法獲取 {symbol} 當前價格")
+                return None
+            
+            current_price = price_data.price
+            old_price = record['price_at_news']
+            price_change = ((current_price - old_price) / old_price) * 100
+            
+            if price_change > 3.0:
+                direction = 'bullish'
+                impact = 'strong'
+            elif price_change > 1.0:
+                direction = 'bullish'
+                impact = 'moderate'
+            elif price_change < -3.0:
+                direction = 'bearish'
+                impact = 'strong'
+            elif price_change < -1.0:
+                direction = 'bearish'
+                impact = 'moderate'
+            else:
+                direction = 'neutral'
+                impact = 'weak'
+            
+            return {
+                'price_change': round(price_change, 2),
+                'old_price': old_price,
+                'new_price': current_price,
+                'direction': direction,
+                'impact': impact
+            }
+        except Exception as e:
+            logger.warning(f"評估新聞失敗: {e}")
+            return None
+    
+    def _update_keyword_weights(self, keywords: List[str], result: Dict) -> None:
+        """更新關鍵字權重"""
+        if not KEYWORDS_AVAILABLE or get_keyword_manager is None:
+            return
+        
+        try:
+            direction = result['direction']
+            impact = result['impact']
+            
+            if impact == 'strong':
+                factor = 1.15 if direction in ['bullish', 'bearish'] else 0.85
+            elif impact == 'moderate':
+                factor = 1.08 if direction in ['bullish', 'bearish'] else 0.92
+            else:
+                factor = 0.95
+            
+            km = get_keyword_manager()
+            if km is not None:
+                for kw in keywords:
+                    if hasattr(km, 'update_keyword_weight'):
+                        km.update_keyword_weight(kw, factor)  # type: ignore
+                    if direction in ['bullish', 'bearish']:
+                        if hasattr(km, 'record_and_verify_prediction'):
+                            km.record_and_verify_prediction(kw, direction, direction, result['price_change'])  # type: ignore
+                    else:
+                        if hasattr(km, 'record_prediction'):
+                            km.record_prediction(kw, 'neutral', result['old_price'])  # type: ignore
+                
+                logger.info(f"已更新 {len(keywords)} 個關鍵字權重 (factor={factor})")
+        except Exception as e:
+            logger.warning(f"更新關鍵字權重失敗: {e}")
+
+
+# ========================================
+# 單例管理
+# ========================================
+
+_news_analyzer: Optional[CryptoNewsAnalyzer] = None
+
+
+def get_news_analyzer() -> CryptoNewsAnalyzer:
+    """獲取新聞分析器單例"""
+    global _news_analyzer
+    if _news_analyzer is None:
+        _news_analyzer = CryptoNewsAnalyzer()
+    return _news_analyzer
+
+
+# ========================================
+# 主程式入口
+# ========================================
+
+if __name__ == "__main__":
+    print("🚀 加密貨幣新聞分析器")
+    print("=" * 60)
+    
+    analyzer = CryptoNewsAnalyzer()
+    
+    print("\n📰 分析 BTCUSDT 新聞...\n")
+    
+    result = analyzer.analyze_news("BTCUSDT", hours=24)
+    
+    print("📊 分析結果:")
+    print(f"   新聞數量: {result.total_articles} 則")
+    print(f"   正面: {result.positive_count} | 負面: {result.negative_count} | 中性: {result.neutral_count}")
+    print(f"\n🎯 情緒: {result.overall_sentiment.upper()} (分數: {result.sentiment_score:+.3f})")
+    
+    if result.key_events:
+        print("\n🔥 重要事件:")
+        for event in result.key_events:
+            print(f"   • {event}")
+    
+    if result.top_keywords:
+        print("\n📌 熱門關鍵字:")
+        for kw, count in result.top_keywords[:5]:
+            print(f"   • {kw}: {count}")
+    
+    print(f"\n💡 建議: {result.recommendation}")
+    
+    print("\n" + "=" * 60)
+    print("\n📋 快速摘要:\n")
+    print(analyzer.get_quick_summary("BTCUSDT"))
+    
+    print("\n" + "=" * 60)
+    can_trade, reason = analyzer.should_trade("BTCUSDT")
+    trade_status = "✅ 可交易" if can_trade else "❌ 暫停交易"
+    print(f"\n🤔 交易狀態: {trade_status}")
+    print(f"   原因: {reason}")

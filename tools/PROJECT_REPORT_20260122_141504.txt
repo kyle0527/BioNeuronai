@@ -1,0 +1,406 @@
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                      BioNeuronai 專案完整分析報告                             ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+生成時間: 2026-01-22 14:15:04
+專案路徑: C:\D\E\BioNeuronai
+
+═══════════════════════════════════════════════════════════════════════════════
+📊 專案統計摘要
+═══════════════════════════════════════════════════════════════════════════════
+
+總文件數量: 451
+總程式碼行數: 65531
+程式碼檔案數: 182
+
+───────────────────────────────────────────────────────────────────────────────
+🎯 檔案類型統計 (Top 10)
+───────────────────────────────────────────────────────────────────────────────
+
+  .zip               120 個檔案
+  .CHECKSUM          120 個檔案
+  .py                102 個檔案
+  .md                 56 個檔案
+  .json               21 個檔案
+  .txt                 9 個檔案
+  .mmd                 3 個檔案
+  .log                 3 個檔案
+  .db                  3 個檔案
+  .example             2 個檔案
+
+
+───────────────────────────────────────────────────────────────────────────────
+💻 程式碼行數統計 (依副檔名)
+───────────────────────────────────────────────────────────────────────────────
+
+  .py           40509 行  (  102 個檔案, 平均   397.1 行/檔案)
+  .md           20389 行  (   56 個檔案, 平均   364.1 行/檔案)
+  .json          3498 行  (   21 個檔案, 平均   166.6 行/檔案)
+  .ps1           1084 行  (    2 個檔案, 平均     542 行/檔案)
+  .toml            51 行  (    1 個檔案, 平均      51 行/檔案)
+
+
+───────────────────────────────────────────────────────────────────────────────
+📈 專案規模分析
+───────────────────────────────────────────────────────────────────────────────
+
+🐍 Python 程式碼: 40509 行 (102 個檔案, 61.8% 佔比)
+   平均每個檔案: 397.1 行
+
+🔷 Go 程式碼: 0 行 (0 個檔案, 0% 佔比)
+   無 Go 檔案
+
+🦀 Rust 程式碼: 0 行 (0 個檔案, 0% 佔比)
+   無 Rust 檔案
+
+📘 TypeScript/JavaScript: 0 行 (0 個檔案, 0% 佔比)
+   無 TS/JS 檔案
+
+📝 文檔 (Markdown) 行數: 20389 行
+⚙️  配置檔案數量: 22 個
+
+───────────────────────────────────────────────────────────────────────────────
+🌐 多語言架構概覽
+───────────────────────────────────────────────────────────────────────────────
+
+總程式碼檔案數: 182
+總程式碼行數: 65531
+
+語言分布:
+  Python:     61.8% ████████████████████
+  Go:         0%
+  Rust:       0%
+  TS/JS:      0%
+  其他:       38.2%
+
+───────────────────────────────────────────────────────────────────────────────
+🚫 已排除的目錄類型
+───────────────────────────────────────────────────────────────────────────────
+
+  • .git
+  • __pycache__
+  • .mypy_cache
+  • .ruff_cache
+  • node_modules
+  • .venv
+  • venv
+  • .pytest_cache
+  • .tox
+  • dist
+  • build
+  • .egg-info
+  • .eggs
+  • htmlcov
+  • .coverage
+  • .hypothesis
+  • .idea
+  • .vscode
+
+
+═══════════════════════════════════════════════════════════════════════════════
+🌳 專案目錄結構
+═══════════════════════════════════════════════════════════════════════════════
+
+📦 BioNeuronai
+├─📁 archived/
+│   ├─📁 llm_development/
+│   │   ├─📁 models/
+│   │   │   ├─📁 tiny_llm_en_zh/
+│   │   │   │   ├─⚙️ config.json
+│   │   │   │   ├─⚙️ metadata.json
+│   │   │   │   ├─📄 pytorch_model.bin
+│   │   │   │   ├─📝 README.md
+│   │   │   │   ├─⚙️ special_tokens_map.json
+│   │   │   │   ├─⚙️ tokenizer_config.json
+│   │   │   │   ├─⚙️ tokenizer.json
+│   │   │   │   ├─📄 tokenizer.pkl
+│   │   │   │   └─⚙️ vocab.json
+│   │   │   └─📁 tiny_llm_en_zh_trained/
+│   │   │       ├─⚙️ config.json
+│   │   │       ├─📄 pytorch_model.bin
+│   │   │       ├─📝 README.md
+│   │   │       ├─⚙️ special_tokens_map.json
+│   │   │       ├─⚙️ tokenizer_config.json
+│   │   │       ├─📄 tokenizer.pkl
+│   │   │       ├─⚙️ training_history.json
+│   │   │       └─⚙️ vocab.json
+│   │   ├─📁 tools/
+│   │   │   └─🐍 create_model_package.py
+│   │   ├─📁 training/
+│   │   │   ├─🐍 advanced_trainer.py
+│   │   │   ├─🐍 auto_evolve.py
+│   │   │   ├─🐍 data_manager.py
+│   │   │   ├─🐍 train_with_ai_teacher.py
+│   │   │   ├─⚙️ training_log.json
+│   │   │   └─🐍 view_training_history.py
+│   │   ├─📁 weights/
+│   │   │   └─📄 tiny_llm_100m.pth
+│   │   ├─🐍 bilingual_tokenizer.py
+│   │   ├─🐍 bpe_tokenizer.py
+│   │   ├─🐍 generation_utils.py
+│   │   ├─🐍 hallucination_detection.py
+│   │   ├─🐍 honest_generation.py
+│   │   ├─🐍 inference_utils.py
+│   │   ├─🐍 lora.py
+│   │   ├─🐍 model_export.py
+│   │   ├─🐍 quantization.py
+│   │   ├─🐍 rag_system.py
+│   │   ├─🐍 tiny_llm.py
+│   │   └─🐍 uncertainty_quantification.py
+│   ├─📁 old_docs/
+│   │   ├─📄 大語言模型權重腳本分類.docx
+│   │   ├─📝 大語言模型權重腳本分類.md
+│   │   ├─📝 知識蒸餾訓練指南.md
+│   │   ├─📝 AI_vs_PROGRAM_ANALYSIS.md
+│   │   ├─📝 ARCHITECTURE_REFACTORING.md
+│   │   ├─📝 CAPABILITIES.md
+│   │   ├─📝 CHANGELOG.md
+│   │   ├─📝 docs_README.md
+│   │   ├─📝 EVOLUTION.md
+│   │   ├─📝 FINAL_REPORT.md
+│   │   ├─📝 HONESTY_REPORT.md
+│   │   ├─📝 HONESTY.md
+│   │   ├─📝 IMPROVEMENTS_COMPLETED.md
+│   │   ├─📝 IMPROVEMENTS.md
+│   │   ├─📝 QUICK_START.md
+│   │   ├─📝 QUICKSTART.md
+│   │   ├─📝 RAG.md
+│   │   ├─📝 STATUS_FINAL.md
+│   │   ├─📝 STRATEGIES_IMPLEMENTATION_SUMMARY.md
+│   │   └─📝 SUMMARY.md
+│   ├─📁 old_scripts/
+│   │   ├─🐍 use_model_evolving.py
+│   │   ├─🐍 use_model.py
+│   │   └─🐍 use_rag.py
+│   ├─📁 old_src/
+│   ├─📝 ARCHIVE_INDEX.md
+│   ├─🐍 core.py
+│   ├─🐍 hundred_million_net.py
+│   ├─📝 PROJECT_STATUS_ANALYSIS_v2.2_FINAL.md
+│   ├─🐍 pytorch_100m_model.py
+│   └─📝 README.md
+├─📁 config/
+│   ├─🐍 __init__.py
+│   ├─📄 market_keywords.db
+│   ├─⚙️ market_keywords.json
+│   ├─🐍 trading_config.py
+│   └─🐍 trading_costs.py
+├─📁 data_downloads/
+│   ├─📁 binance_historical/
+│   │   └─📁 data/
+│   │       └─📁 futures/
+│   │           └─📁 um/
+│   │               └─📁 daily/
+│   │                   └─📁 klines/
+│   │                       └─📁 ETHUSDT/
+│   │                           ├─📁 15m/
+│   │                           │   └─📁 2025-12-22_2026-01-21/
+│   │                           ├─📁 1h/
+│   │                           │   └─📁 2025-12-22_2026-01-21/
+│   │                           ├─📁 1m/
+│   │                           │   └─📁 2025-12-22_2026-01-21/
+│   │                           └─📁 5m/
+│   │                               └─📁 2025-12-22_2026-01-21/
+│   ├─📁 scripts/
+│   │   ├─📄 .env.example
+│   │   ├─🐍 download_example.py
+│   │   ├─🐍 download-aggTrade.py
+│   │   ├─🐍 download-futures-indexPriceKlines.py
+│   │   ├─🐍 download-futures-markPriceKlines.py
+│   │   ├─🐍 download-futures-premiumIndexKlines.py
+│   │   ├─🐍 download-kline.py
+│   │   ├─🐍 download-trade.py
+│   │   ├─🐍 enums.py
+│   │   ├─📄 requirements.txt
+│   │   └─🐍 utility.py
+│   ├─🐍 data_feeder.py
+│   ├─🐍 mock_api.py
+│   ├─📝 QUICKSTART.md
+│   ├─📝 README.md
+│   ├─🐍 run_backtest.py
+│   ├─🐍 test_simple.py
+│   └─📄 trading_system.log
+├─📁 docs/
+│   ├─📁 tech/
+│   │   ├─📝 MARKET_KEYWORDS_SYSTEM.md
+│   │   ├─📝 MODULAR_ARCHITECTURE_GUIDE.md
+│   │   └─📝 README.md
+│   ├─📝 CODE_FIX_GUIDE.md
+│   ├─📝 CRYPTO_TRADING_GUIDE.md
+│   ├─📝 CRYPTO_TRADING_SOP.md
+│   ├─📝 DATA_SOURCES_GUIDE.md
+│   ├─📝 DATA_STORAGE_AND_RETRIEVAL_STRATEGY.md
+│   ├─📝 NEWS_ANALYZER_GUIDE.md
+│   ├─📝 STRATEGIES_QUICK_REFERENCE.md
+│   ├─📝 TRADING_COSTS_GUIDE.md
+│   ├─📝 TRADING_PLAN_10_STEPS.md
+│   ├─📝 TRADING_STRATEGIES_GUIDE.md
+│   └─📝 USER_MANUAL.md
+├─📁 model/
+│   ├─📄 my_100m_model.pth
+│   └─📝 README.md
+├─📁 pretrade_check_data/
+│   ├─⚙️ pretrade_check_20260119_193140.json
+│   └─⚙️ pretrade_check_20260119_193144.json
+├─📁 sop_automation_data/
+│   ├─⚙️ sop_check_20260119_192557.json
+│   ├─⚙️ sop_check_20260119_192620.json
+│   └─⚙️ sop_check_20260119_192651.json
+├─📁 src/
+│   ├─📁 bioneuronai/
+│   │   ├─📁 analysis/
+│   │   │   ├─🐍 __init__.py
+│   │   │   ├─🐍 feature_engineering.py
+│   │   │   ├─🐍 market_keywords.py
+│   │   │   ├─🐍 market_regime.py
+│   │   │   ├─🐍 news_analyzer.py
+│   │   │   └─📝 README.md
+│   │   ├─📁 core/
+│   │   │   ├─🐍 __init__.py
+│   │   │   ├─🐍 inference_engine.py
+│   │   │   ├─📝 README.md
+│   │   │   ├─🐍 self_improvement.py
+│   │   │   └─🐍 trading_engine.py
+│   │   ├─📁 data/
+│   │   │   ├─🐍 __init__.py
+│   │   │   ├─🐍 binance_futures.py
+│   │   │   ├─🐍 database_manager.py
+│   │   │   ├─🐍 database.py
+│   │   │   └─🐍 exchange_rate_service.py
+│   │   ├─📁 rag/
+│   │   │   ├─📁 core/
+│   │   │   │   ├─🐍 __init__.py
+│   │   │   │   ├─🐍 embeddings.py
+│   │   │   │   └─🐍 retriever.py
+│   │   │   ├─📁 internal/
+│   │   │   │   ├─🐍 __init__.py
+│   │   │   │   └─🐍 knowledge_base.py
+│   │   │   ├─📁 services/
+│   │   │   │   └─🐍 __init__.py
+│   │   │   └─🐍 __init__.py
+│   │   ├─📁 risk_management/
+│   │   │   ├─🐍 __init__.py
+│   │   │   └─🐍 position_manager.py
+│   │   ├─📁 schemas/
+│   │   │   ├─🐍 __init__.py
+│   │   │   ├─🐍 api.py
+│   │   │   ├─🐍 commands.py
+│   │   │   ├─🐍 database.py
+│   │   │   ├─🐍 enums.py
+│   │   │   ├─🐍 market.py
+│   │   │   ├─🐍 orders.py
+│   │   │   ├─🐍 portfolio.py
+│   │   │   ├─🐍 positions.py
+│   │   │   ├─🐍 rag.py
+│   │   │   ├─📝 README.md
+│   │   │   ├─🐍 risk.py
+│   │   │   ├─🐍 strategy.py
+│   │   │   └─🐍 trading.py
+│   │   ├─📁 strategies/
+│   │   │   ├─🐍 __init__.py
+│   │   │   ├─🐍 base_strategy.py
+│   │   │   ├─🐍 breakout_trading.py
+│   │   │   ├─🐍 mean_reversion.py
+│   │   │   ├─🐍 strategy_fusion.py
+│   │   │   ├─🐍 swing_trading.py
+│   │   │   └─🐍 trend_following.py
+│   │   ├─📁 trading/
+│   │   │   ├─🐍 __init__.py
+│   │   │   ├─🐍 market_analyzer.py
+│   │   │   ├─🐍 pair_selector.py
+│   │   │   ├─🐍 plan_controller.py
+│   │   │   ├─🐍 plan_generator.py
+│   │   │   ├─🐍 pretrade_automation.py
+│   │   │   ├─🐍 risk_manager.py
+│   │   │   ├─🐍 sop_automation.py
+│   │   │   ├─🐍 strategy_selector_v2.py
+│   │   │   ├─🐍 strategy_selector.py
+│   │   │   └─🐍 trading_plan_system.py
+│   │   ├─🐍 __init__.py
+│   │   ├─🐍 historical_data_loader.py
+│   │   └─🐍 trading_strategies.py
+│   ├─📁 trading_data/
+│   ├─🐍 __init__.py
+│   └─📄 trading_system.log
+├─📁 tools/
+│   ├─⚡ generate_project_report.ps1
+│   ├─⚡ generate_tree_ultimate_chinese.ps1
+│   ├─📄 PROJECT_REPORT_20260122_051124.txt
+│   ├─📄 PROJECT_REPORT_20260122_052703.txt
+│   ├─📄 PROJECT_REPORT.txt
+│   ├─📝 README.md
+│   ├─📄 tree_20260122_051124.mmd
+│   ├─📄 tree_20260122_052703.mmd
+│   ├─📄 tree_ultimate_chinese_20260122_141433.txt
+│   ├─📄 tree_ultimate_chinese_20260122_141451.txt
+│   └─📄 tree.mmd
+├─📁 trading_data/
+│   ├─⚙️ risk_statistics.json
+│   ├─⚙️ signals_history.json
+│   ├─⚙️ strategy_weights.json
+│   ├─📄 test_trading.db
+│   └─📄 trading.db
+├─📄 .env.example
+├─📄 .gitignore
+├─📝 BINANCE_API_IMPLEMENTATION.md
+├─📝 BINANCE_TESTNET_STEP_BY_STEP.md
+├─📄 BioNeuronai.code-workspace
+├─📝 CRYPTO_TRADING_README.md
+├─📝 DATA_STORAGE_INTEGRATION.md
+├─📄 DATA_STORAGE_STRATEGY_ANALYSIS.txt
+├─📝 DATABASE_UPGRADE_GUIDE.md
+├─📝 DATAFLOW_ANALYSIS.md
+├─🐍 migrate_to_database.py
+├─📝 MOCK_ANALYSIS_REPORT.md
+├─📝 PROJECT_STATUS_ANALYSIS.md
+├─📝 PROJECT_STRUCTURE.md
+├─📄 pyproject.toml
+├─📝 README.md
+├─📄 requirements-crypto.txt
+├─📄 requirements-dev.txt
+├─📝 RISK_MANAGEMENT_MANUAL.md
+├─🐍 test_integration.py
+├─📄 trading_system.log
+├─🐍 use_crypto_trader.py
+└─🐍 use_trading_engine_v2.py
+
+
+═══════════════════════════════════════════════════════════════════════════════
+� 專案架構說明 (AI 補充區)
+═══════════════════════════════════════════════════════════════════════════════
+
+⚠️ 此區域由 AI 分析補充,執行腳本後請提供此報告給 AI 進行深度分析
+
+【待補充內容】
+• 生物神經網路核心模組說明
+• 加密貨幣交易引擎架構
+• 數據分析與回測系統
+• 模型訓練與預測流程
+• 交易策略工作流程
+• 技術棧詳細列表
+
+請將此報告提供給 GitHub Copilot,它會分析程式碼並補充詳細的中文說明。
+
+
+═══════════════════════════════════════════════════════════════════════════════
+📌 報告說明
+═══════════════════════════════════════════════════════════════════════════════
+
+• 本報告整合了專案的檔案統計、程式碼行數分析和目錄結構
+• 已自動排除虛擬環境、快取檔案、IDE 配置等非程式碼目錄
+• 圖示說明:
+  🐍 Python   📜 JavaScript   📘 TypeScript   📝 Markdown
+  ⚙️ JSON      🔧 YAML         🗄️ SQL          ⚡ Shell/Batch
+  � Jupyter   🔷 Config       🌐 HTML         🎨 CSS
+  📁 目錄      📄 其他檔案
+
+• BioNeuronai 專案架構:
+  - Python: 生物神經網路核心、交易引擎、數據分析
+  - 模型: 深度學習模型、預測系統
+  - 數據: Binance 歷史數據、回測系統
+  - 配置: 交易策略、風險管理
+
+
+═══════════════════════════════════════════════════════════════════════════════
+✨ 報告結束
+═══════════════════════════════════════════════════════════════════════════════

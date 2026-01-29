@@ -1,6 +1,37 @@
-# � BioNeuronAI - 加密貨幣期貨交易系統
+# 🧠 BioNeuronAI - AI 驅動的加密貨幣期貨交易系統
 
-**AI 驅動的智能加密貨幣期貨交易平台 | 三大策略自主融合系統**
+**AI 神經網路 + 智能交易融合 | 111.2M 參數量化推論引擎**
+
+**最後更新**: 2026年1月22日  
+**版本**: v2.1.0 (風險管理整合版)
+
+---
+
+## 📋 目錄
+
+1. [系統亮點](#系統亮點)
+2. [快速開始](#快速開始)
+3. [項目結構](#項目結構)
+4. [核心功能](#核心功能)
+5. [使用文檔](#使用文檔)
+6. [開發指南](#開發指南)
+7. [常見問題](#常見問題)
+8. [授權信息](#授權信息)
+
+---
+
+## ✨ 系統亮點
+
+| 特性 | 描述 |
+|------|------|
+| 🧠 **AI 神經網路** | 111.2M 參數 MLP 模型，~22ms 推論延遲 |
+| 🔗 **推論引擎整合** | 完整 InferenceEngine 連接 AI 大腦與交易系統 |
+| 📊 **1024 維特徵工程** | 價格、成交量、訂單簿、技術指標等 10 大類特徵 |
+| 🎯 **三大策略融合** | RSI 背離、布林帶突破、MACD 趨勢跟隨 |
+| 🛡️ **企業級風險管理** | 4 等級風險控制、Kelly Criterion、動態回撤監控 |
+| 📰 **智能新聞分析** | 181 關鍵字過濾、自動情感分析、價格預測驗證 |
+| 📈 **10 種市場狀態** | 自動識別趨勢、震盪、高波動等市場環境 |
+| 🔌 **Binance Futures API** | 完整 REST + WebSocket 支持，含歷史數據整合 |
 
 ---
 
@@ -16,15 +47,16 @@ pip install -r requirements-crypto.txt
 ```python
 BINANCE_API_KEY = "your_api_key"
 BINANCE_API_SECRET = "your_secret_key"
+USE_TESTNET = True  # 建議先使用測試網
 ```
 
 ### 3. 運行交易系統
 ```bash
-# 實時交易模式（需實際資金）
+# 互動式交易系統
 python use_crypto_trader.py
 
-# 測試策略（模擬模式）
-python test_trading_strategies.py
+# 交易引擎 V2 (含 AI 整合)
+python use_trading_engine_v2.py
 ```
 
 ---
@@ -32,24 +64,142 @@ python test_trading_strategies.py
 ## 📁 項目結構
 
 ```
-BioNeuronAI/
-├── use_crypto_trader.py      ⭐ 交易系統啟動器
-├── test_trading_strategies.py ⭐ 策略測試工具
-├── requirements-crypto.txt   ⭐ 交易依賴包
-├── config/                   ⭐ 配置文件
-│   └── trading_config.py         交易配置
-├── src/bioneuronai/         ⭐ 核心交易代碼
-│   ├── crypto_futures_trader.py  主交易系統
-│   ├── trading_strategies.py     三大策略 + AI 融合
-│   └── self_improvement.py       AI 自我進化
-├── docs/                    ⭐ 交易文檔
-│   ├── CRYPTO_TRADING_GUIDE.md   完整交易指南
-│   ├── TRADING_STRATEGIES_GUIDE.md  策略詳解
-│   └── STRATEGIES_QUICK_REFERENCE.md  快速參考
-├── archived/                ⭐ 歸檔的 LLM 開發文件
-│   ├── llm_development/          LLM 源碼和模型
-│   ├── old_docs/                 舊文檔
-│   └── old_scripts/              舊腳本
+BioNeuronai/
+├── 📄 use_crypto_trader.py       # 互動式交易系統入口
+├── 📄 use_trading_engine_v2.py   # AI 整合交易引擎
+├── 📄 test_integration.py        # 系統整合測試
+│
+├── 📁 model/                     # AI 模型權重
+│   └── my_100m_model.pth         # 111.2M MLP 模型 (424MB)
+│
+├── 📁 config/                    # 配置文件
+│   ├── trading_config.py         # 交易參數配置
+│   ├── trading_costs.py          # 交易成本配置
+│   └── market_keywords.json      # 市場關鍵詞
+│
+├── 📁 src/bioneuronai/           # 核心交易代碼
+│   ├── 📁 core/                  # 核心模組
+│   │   ├── inference_engine.py   # 🧠 AI 推論引擎 (神經連結)
+│   │   └── trading_engine.py     # 交易引擎
+│   │
+│   ├── 📁 analysis/              # 分析模組
+│   │   ├── 📁 daily_report/      # 每日報告子模組
+│   │   │   ├── __init__.py       # 模組初始化
+│   │   │   ├── market_data.py    # 市場數據分析
+│   │   │   ├── models.py         # 數據模型定義
+│   │   │   ├── news_sentiment.py # 新聞情緒分析
+│   │   │   ├── report_generator.py # 報告生成器
+│   │   │   ├── risk_manager.py   # 風險評估
+│   │   │   └── strategy_planner.py # 策略規劃
+│   │   ├── 📁 keywords/          # 關鍵字系統子模組
+│   │   │   ├── __init__.py       # 模組初始化
+│   │   │   ├── loader.py         # 關鍵字載入器
+│   │   │   ├── manager.py        # 關鍵字管理器
+│   │   │   ├── models.py         # 關鍵字數據模型
+│   │   │   └── static_utils.py   # 靜態工具函數
+│   │   ├── 📁 news/              # 新聞分析子模組
+│   │   │   ├── __init__.py       # 模組初始化
+│   │   │   ├── analyzer.py       # 核心新聞分析器
+│   │   │   ├── evaluator.py      # 規則評估器
+│   │   │   └── models.py         # 新聞數據模型
+│   │   ├── __init__.py           # 模組導出
+│   │   ├── feature_engineering.py # 特徵工程 (1024維)
+│   │   ├── keyword_learner.py    # 關鍵字學習器
+│   │   ├── market_regime.py      # 市場狀態檢測
+│   │   ├── news_prediction_loop.py # 新聞預測循環
+│   │   └── README.md             # 分析模組說明
+│   │   └── news_prediction_loop.py # 新聞預測循環
+│   │
+│   ├── 📁 strategies/            # 策略模組
+│   │   ├── trend_following.py    # 趨勢跟隨策略
+│   │   ├── swing_trading.py      # 波段交易策略
+│   │   ├── mean_reversion.py     # 均值回歸策略
+│   │   ├── breakout_trading.py   # 突破交易策略
+│   │   └── strategy_fusion.py    # AI 策略融合
+│   │
+│   ├── 📁 trading/               # 交易管理模組
+│   │   ├── risk_manager.py       # ✅ 風險管理器 (新增 4 方法)
+│   │   ├── plan_controller.py    # 交易計劃控制器
+│   │   └── pair_selector.py      # 交易對選擇器
+│   │
+│   ├── 📁 data/                  # 數據連接器
+│   │   └── binance_futures.py    # ✅ Binance Futures API (新增 4 方法)
+│   │
+│   └── 📁 schemas/               # 數據結構定義
+│       ├── trading.py            # 交易信號結構
+│       ├── market.py             # 市場數據結構
+│       └── risk.py               # 風險管理結構
+│
+├── 📁 docs/                      # 📚 完整文檔
+│   ├── USER_MANUAL.md            # 用戶操作手冊
+│   ├── CRYPTO_TRADING_GUIDE.md   # 交易指南
+│   ├── TRADING_STRATEGIES_GUIDE.md # 策略詳解
+│   └── NEWS_ANALYZER_GUIDE.md    # 新聞分析器使用手冊
+│
+├── 📄 RISK_MANAGEMENT_MANUAL.md  # 🛡️ 風險管理完整手冊
+├── 📄 DATA_STORAGE_INTEGRATION.md # 💾 數據存儲整合方案
+├── 📄 BINANCE_API_IMPLEMENTATION.md # 🔌 API 實現文檔
+├── 📄 PROJECT_STATUS_ANALYSIS.md # 📊 項目狀態分析
+│
+└── 📁 trading_data/              # 交易數據
+    ├── signals_history.json      # 信號歷史
+    ├── strategy_weights.json     # 策略權重
+    ├── risk_statistics.json      # ✅ 風險統計 (自動保存)
+    └── trades_history.jsonl      # 交易記錄
+```
+
+---
+
+## 🧠 AI 推論系統架構
+
+### 核心組件
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                      InferenceEngine (神經連結)                  │
+├─────────────────────────────────────────────────────────────────┤
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌────────┐ │
+│  │ ModelLoader │→ │FeaturePipe │→ │  Predictor  │→ │ Signal │ │
+│  │ (載入權重)   │  │(1024維特徵) │  │ (AI推論)    │  │Interpret│ │
+│  └─────────────┘  └─────────────┘  └─────────────┘  └────────┘ │
+└─────────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────────┐
+│                     TradingEngine (交易引擎)                     │
+├─────────────────────────────────────────────────────────────────┤
+│  AI Signal Fusion = AI 預測 (40%) + 策略信號 (60%)               │
+│  → 最終交易決策                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### 特徵工程 (1024 維)
+
+| 類別 | 維度 | 描述 |
+|------|------|------|
+| 價格特徵 | 128 | OHLCV、回報率、波動率 |
+| 成交量特徵 | 96 | 成交量剖面、買賣量比 |
+| 訂單簿特徵 | 128 | 深度、價差、不平衡度 |
+| 技術指標 | 192 | RSI、MACD、布林帶等 |
+| 微結構特徵 | 96 | 成交頻率、訂單流 |
+| 市場狀態 | 64 | 趨勢強度、波動regime |
+| 時間特徵 | 64 | 小時、星期、月份 |
+| 情緒特徵 | 96 | 恐懼指數、多空比 |
+| 清算特徵 | 96 | 清算熱力圖 |
+| 資金費率 | 64 | 費率趨勢 |
+
+### 市場狀態檢測 (10 種)
+
+```
+STRONG_UPTREND     ↗↗  強勢上漲
+UPTREND            ↗   上漲趨勢
+WEAK_UPTREND       →↗  弱勢上漲
+RANGING            ↔   橫盤震盪
+WEAK_DOWNTREND     →↘  弱勢下跌
+DOWNTREND          ↘   下跌趨勢
+STRONG_DOWNTREND   ↘↘  強勢下跌
+HIGH_VOLATILITY    ⚡   高波動
+BREAKOUT           💥   突破
+CONSOLIDATION      📦   整理
 ```
 
 ---
@@ -58,55 +208,48 @@ BioNeuronAI/
 
 ### 🎯 三大交易策略
 
-**策略 1: RSI 背離策略**
-- 🔍 監測超買超賣區域 (RSI < 30 或 > 70)
-- 📊 識別價格與 RSI 的背離信號
-- 🎯 捕捉反轉機會
+| 策略 | 類型 | 適用場景 | 信號 |
+|------|------|----------|------|
+| **RSI 背離** | 反轉 | 震盪市場 | 超買超賣 + 價格背離 |
+| **布林帶突破** | 突破 | 趨勢啟動 | 帶寬收縮 + 量能突破 |
+| **MACD 趨勢** | 趨勢 | 明確趨勢 | 金叉死叉 + 動量 |
 
-**策略 2: 布林帶突破策略**
-- 📉 監測布林帶上下軌突破
-- 🔄 結合成交量確認突破有效性
-- 💰 趨勢突破交易
+### 🛡️ 風險管理系統 (v2.1 重大升級)
 
-**策略 3: MACD 趨勢跟隨策略**
-- 📈 MACD 線與信號線交叉
-- ⚡ 結合柱狀圖強度確認
-- 🚀 趨勢跟隨交易
+#### 四大核心功能
+| 功能 | 描述 | 狀態 |
+|------|------|------|
+| **交易檢查** | 6 點驗證：信心度、回撤、交易次數、餘額、警報、槓桿 | ✅ 完成 |
+| **交易記錄** | 自動記錄交易、更新每日計數器、追蹤回撤 | ✅ 完成 |
+| **統計分析** | 12 項指標：勝率、獲利因子、夏普比率等 | ✅ 完成 |
+| **餘額管理** | 峰值追蹤、回撤計算、自動警報 | ✅ 完成 |
 
-**AI 策略融合系統**
-- 🧠 自動評估三大策略表現
-- ⚖️ 動態調整策略權重
-- 🎓 從交易結果中自主學習
-- 🔄 持續優化融合算法
+#### 四級風險等級
+```python
+CONSERVATIVE: 每筆 1%風險，最大回撤 5%，夏普比率 > 0.8
+MODERATE:     每筆 2%風險，最大回撤 10%，夏普比率 > 0.6  ⭐ 推薦
+AGGRESSIVE:   每筆 3%風險，最大回撤 15%，夏普比率 > 0.5
+HIGH_RISK:    每筆 5%風險，最大回撤 20%，夏普比率 > 0.3
+```
 
-### 🛡️ 風險管理
+#### 統計指標示例
+- 📈 **勝率**: 62.68% (84勝/50敗)
+- 💰 **獲利因子**: 2.08 (盈利/虧損比)
+- 📊 **夏普比率**: 1.87 (風險調整後報酬)
+- 📉 **最大回撤**: -8.45% (峰值下跌)
 
-- ✅ 止損/止盈自動設置
-- ✅ 槓桿倍數控制 (1-125x)
-- ✅ 單筆交易風險限制
-- ✅ 倉位管理系統
-- ✅ 資金管理規則
+**詳細文檔**: [RISK_MANAGEMENT_MANUAL.md](RISK_MANAGEMENT_MANUAL.md)
 
-### 📡 Binance API 集成
+### 📡 Binance Futures API 完整整合
 
-- ✅ WebSocket 實時行情數據
-- ✅ REST API 交易執行
-- ✅ 自動重連機制
-- ✅ 多交易對支持
-- ✅ Testnet 測試環境
+| API 類型 | 功能 | 狀態 |
+|----------|------|------|
+| **WebSocket** | 實時行情、深度、清算數據 (毫秒級) | ✅ 完成 |
+| **REST - 基礎** | 訂單執行、倉位查詢、槓桿設置 | ✅ 完成 |
+| **REST - 高級** | 訂單簿、資金費率、未平倉合約、K線數據 | ✅ 完成 |
+| **測試網支持** | Testnet 完整支持 | ✅ 完成 |
 
----
-
-## 📖 完整文檔
-
-### 必讀文檔
-- 📘 [加密貨幣交易完整指南](CRYPTO_TRADING_README.md) - 系統完整說明
-- 📗 [交易策略詳解](docs/TRADING_STRATEGIES_GUIDE.md) - 三大策略詳細文檔 (2000+ 行)
-- 📙 [策略快速參考](docs/STRATEGIES_QUICK_REFERENCE.md) - 快速查閱指南
-- 📕 [策略實施總結](STRATEGIES_IMPLEMENTATION_SUMMARY.md) - 實施細節
-
-### 歸檔文檔
-- 📦 [歸檔文件索引](archived/ARCHIVE_INDEX.md) - 舊 LLM 開發文件說明
+**詳細文檔**: [BINANCE_API_IMPLEMENTATION.md](BINANCE_API_IMPLEMENTATION.md)
 
 ---
 
@@ -129,114 +272,107 @@ POSITION_SIZE_USDT = 100     # 單次交易金額
 STOP_LOSS_PERCENTAGE = 2.0   # 止損百分比
 TAKE_PROFIT_PERCENTAGE = 4.0 # 止盈百分比
 MAX_TRADES_PER_DAY = 10      # 每日最大交易次數
+MAX_DRAWDOWN = 0.10          # 最大回撤 10%
 
-# 策略選擇
-ACTIVE_STRATEGY = "fusion"   # rsi / bollinger / macd / fusion
-```
-
-### 策略參數配置
-
-```python
-# RSI 策略參數
-RSI_PERIOD = 14
-RSI_OVERSOLD = 30
-RSI_OVERBOUGHT = 70
-
-# 布林帶參數
-BB_PERIOD = 20
-BB_STD_DEV = 2.0
-
-# MACD 參數
-MACD_FAST = 12
-MACD_SLOW = 26
-MACD_SIGNAL = 9
+# AI 配置
+ENABLE_AI_MODEL = True       # 啟用 AI 模型
+AI_MIN_CONFIDENCE = 0.6      # AI 最低置信度
+AI_SIGNAL_WEIGHT = 0.4       # AI 信號權重
 ```
 
 ---
 
-## 🚀 使用示例
+## 📖 完整文檔
 
-### 實時交易
-```python
-from src.bioneuronai.crypto_futures_trader import CryptoFuturesTrader
+| 文檔 | 描述 |
+|------|------|
+| 📘 [用戶操作手冊](docs/USER_MANUAL.md) | **完整操作指南，必讀！** |
+| 📗 [幣安測試網教學](BINANCE_TESTNET_STEP_BY_STEP.md) | 詳細測試網設置 |
+| 📙 [交易指南](docs/CRYPTO_TRADING_GUIDE.md) | API 設置和基礎用法 |
+| 📕 [策略詳解](docs/TRADING_STRATEGIES_GUIDE.md) | 策略原理深入解析 |
+| 📓 [交易成本指南](docs/TRADING_COSTS_GUIDE.md) | 手續費和滑點說明 |
 
-trader = CryptoFuturesTrader()
-trader.start_trading()
-```
+---
 
-### 策略測試
+## 🧪 測試
+
 ```bash
-python test_trading_strategies.py
+# 運行整合測試
+python test_integration.py
+
+# 測試 125x 槓桿
+python test_125x_leverage.py
 ```
 
-### 查看交易歷史
-```python
-trader.get_trading_history()
-trader.get_performance_stats()
+### 測試結果預期
+
 ```
-
----
-
-## 🎓 策略學習系統
-
-系統內置 AI 自我進化機制:
-
-1. **性能追蹤**: 記錄每個策略的勝率、盈虧比
-2. **動態調整**: 根據表現自動調整策略權重
-3. **持續優化**: 融合算法不斷從交易結果學習
-4. **適應市場**: 自動適應不同市場環境
-
----
-
-## ⚠️ 重要提示
-
-### 風險警告
-- ⚠️ 加密貨幣交易具有高風險，可能損失全部本金
-- ⚠️ 請先在 Testnet 測試，確認策略後再使用實盤
-- ⚠️ 建議從小額資金開始，逐步增加
-- ⚠️ 設置合理的止損，嚴格控制風險
-
-### 使用建議
-- ✅ 充分理解每個策略的原理和適用場景
-- ✅ 根據市場環境選擇合適的策略
-- ✅ 定期回測和優化參數
-- ✅ 保持冷靜，避免情緒化交易
-
----
-
-## 📊 性能指標
-
-### 回測結果 (基於歷史數據)
-```
-策略 1 (RSI):        勝率 58%, 盈虧比 1.8
-策略 2 (布林帶):     勝率 54%, 盈虧比 2.1
-策略 3 (MACD):      勝率 61%, 盈虧比 1.6
-AI 融合:            勝率 65%, 盈虧比 2.0
+✅ 模組導入測試: 通過
+✅ 推論引擎測試: 通過 (~22ms 延遲)
+✅ 交易引擎測試: 通過
+✅ 效能測試: 通過
 ```
 
 ---
 
-## 🛠️ 開發計劃
+## ⚠️ 風險警告
 
-### 已完成
-- ✅ Binance API 集成
-- ✅ 三大交易策略實現
-- ✅ AI 策略融合系統
-- ✅ 風險管理模塊
-- ✅ 完整文檔
+> **⚠️ 重要提示**
+> 
+> - 加密貨幣期貨交易具有**極高風險**，可能損失全部本金
+> - 請務必先在 **Testnet 測試網**充分測試
+> - 建議從**小額資金**開始，設置合理止損
+> - AI 預測僅供參考，**不保證盈利**
+> - 本系統不構成投資建議
 
-### 計劃中
-- 🔜 更多技術指標支持 (KDJ, SAR, ATR)
-- 🔜 機器學習價格預測
-- 🔜 多交易對組合策略
-- 🔜 Web 儀表板
-- 🔜 移動端提醒
+---
+完成度 | 說明 |
+|------|------|--------|------|
+| **AI 模型權重** | ✅ 正常 | 100% | 111.2M 參數已載入 |
+| **推論引擎** | ✅ 正常 | 100% | ~22ms 平均延遲 |
+| **風險管理器** | ✅ 正常 | 100% | ⭐ v2.1 新增 4 方法 |
+| **新聞分析器** | ✅ 正常 | 100% | 181 關鍵字、47 文章源 |
+| **市場關鍵字** | ✅ 正常 | 100% | SQLite 持久化 |
+| **數據結構** | ✅ 正常 | 100% | 5 模組完整定義 |
+| **Binance API** | ✅ 正常 | 100% | REST + WebSocket 完整 |
+| **交易引擎** | ⚠️ 開發中 | 90% | 23 個錯誤待修正 |
+| **特徵工程** | ✅ 正常 | 100% | 1024 維特徵提取 |
+| **策略融合** | ✅ 正常 | 100% | AI + 傳統策略整合 |
 
 ---
 
-## 🤝 貢獻
+## 🆕 v2.1 更新內容 (2026-01-22)
 
-歡迎提交 Issue 和 Pull Request！
+### 風險管理系統完整實現
+1. ✅ **check_can_trade()** - 6 點交易驗證檢查
+2. ✅ **record_trade()** - 自動交易記錄與追蹤
+3. ✅ **get_risk_statistics()** - 12 項風險統計指標
+4. ✅ **update_balance()** - 餘額與回撤管理
+
+### 多幣種支持
+- 移除所有硬編碼的 "BTCUSDT"
+- 交易引擎支持任意交易對
+- 策略模組動態配置交易對
+
+### 完整文檔
+- 📘 [風險管理完整手冊](RISK_MANAGEMENT_MANUAL.md) - 7 大章節
+- 💾 [數據存儲整合方案](DATA_STORAGE_INTEGRATION.md) - 完整架構
+- 🔌 [Binance API 實現文檔](BINANCE_API_IMPLEMENTATION.md) - 所有 API 方法延遲 |
+| 交易引擎 | ✅ 正常 | AI 整合完成 |
+| 特徵工程 | ✅ 正常 | 1024 維特徵提取 |
+| 風險管理 | ✅ 正常 | 動態調整啟用 |
+
+---
+
+## 🗂️ 歸檔說明
+
+本項目歷史版本和開發文件已移至 `archived/` 目錄：
+
+- **archived/llm_development/** - 原始 LLM 開發代碼
+- **archived/old_docs/** - 舊版文檔（含過時分析報告）
+- **archived/pytorch_100m_model.py** - 模型定義（供參考）
+
+詳見 [archived/ARCHIVE_INDEX.md](archived/ARCHIVE_INDEX.md)
 
 ---
 
@@ -246,146 +382,15 @@ MIT License
 
 ---
 
-## 📞 支持
-
-有問題？查看文檔或提交 Issue。
-
----
-
-## 🗂️ 歸檔說明
-
-本項目原為 LLM 開發項目，現已轉型為加密貨幣交易系統。所有 LLM 相關文件已移至 `archived/` 目錄保存:
-
-- **archived/llm_development/** - LLM 源碼、模型、權重、訓練數據
-- **archived/old_docs/** - LLM 開發文檔
-- **archived/old_scripts/** - LLM 使用腳本
-
-詳見 [archived/ARCHIVE_INDEX.md](archived/ARCHIVE_INDEX.md)
-
----
-
-**最後更新**: 2026年1月19日  
-**專注方向**: 加密貨幣期貨交易  
-**技術棧**: Python 3.8+, Binance API, WebSocket, Technical Analysis
-
----
-
-**🎯 現在開始交易吧！**
-```python
-# 編輯 training/train_with_ai_teacher.py
-AI_TEACHER_DATA = {
-    "conversations": [
-        {"input": "你的問題", "output": "期望回答"},
-        # ... 添加更多
-    ],
-    # ...
-}
-```
-
-### 使用數據管理器
-```python
-from training.data_manager import DataGenerator, DatasetManager
-
-# 生成數據
-generator = DataGenerator()
-samples = generator.generate_conversations(100)
-
-# 管理數據
-manager = DatasetManager()
-manager.add_samples(samples)
-manager.save_to_file("my_data.json")
-```
-
----
-
-## 📈 性能指標
-
-### 模型性能
-| 指標 | v2 (當前) |
-|------|-----------|
-| 參數量 | 124M |
-| Loss | 1.55 |
-| Perplexity | 4.70 |
-| 訓練時長 | 17 分鐘 |
-| 推理速度 | ~20 tokens/s (CPU) |
-
-### 優化加速
-| 技術 | 加速比 | 顯存節省 |
-|------|--------|----------|
-| KV Cache | 2-5x | - |
-| 混合精度 | 2-3x | 50% |
-| 量化 (8-bit) | 1.5-2x | 75% |
-| Beam Search | - | - |
-
-### 誠實生成效果
-| 指標 | 結果 |
-|------|------|
-| 高信心檢測 | 熵 0.003, 信心 0.999 |
-| 低信心檢測 | 熵 1.600, 信心 0.399 |
-| 不確定標記 | 自動觸發 |
-| 幻覺檢測率 | > 85% |
-
----
-
-## ⚙️ 配置
-
-### 生成配置
-```python
-GenerationConfig(
-    max_new_tokens=50,      # 最大生成長度
-    temperature=0.7,        # 隨機性 (0.0-2.0)
-    top_k=50,              # Top-K 採樣
-    top_p=0.9,             # Top-P (nucleus) 採樣
-    repetition_penalty=1.0  # 重複懲罰
-)
-```
-
-### 訓練配置
-```python
-train_with_ai_teacher(
-    epochs=20,              # 訓練輪數
-    batch_size=4,           # 批次大小
-    learning_rate=5e-5,     # 學習率
-    max_length=128          # 序列長度
-)
-```
-
----
-
-## 📝 日誌
-
-所有操作都會記錄到：
-- `model_usage.log` - 模型使用日誌
-- `training/training_log.json` - 訓練記錄
-
----
-
-## 🎓 知識蒸餾
-
-本項目使用知識蒸餾訓練方法：
-- **老師**：AI 生成的高質量數據
-- **學生**：TinyLLM (124M 參數)
-- **優勢**：不需要大量標註數據，訓練快速高效
-
----
-
 ## 🤝 貢獻
 
-歡迎貢獻！可以：
-- 添加更多訓練數據
-- 改進模型架構
-- 優化訓練流程
-- 提出問題和建議
+歡迎提交 Issue 和 Pull Request！
 
 ---
 
-## 📜 授權
+**🎯 開始你的 AI 交易之旅！**
 
-MIT License
-
----
-
-**最後更新**: 2026-01-19  
-**版本**: v2.0  
-**狀態**: 🟢 功能完整，持續改進中
+```bash
+python use_trading_engine_v2.py
+```
 

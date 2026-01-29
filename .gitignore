@@ -56,7 +56,10 @@ training_history.json
 *.csv
 *.json.gz
 *.parquet
-data/
+# 只忽略數據目錄，不忽略程式碼中的 data/ 模組
+/data/
+/trading_data/
+/src/trading_data/
 datasets/
 
 # Temporary files

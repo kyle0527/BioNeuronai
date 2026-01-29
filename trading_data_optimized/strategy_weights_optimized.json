@@ -1,0 +1,39 @@
+{
+  "version": "jules_session_optimized_2026_01_27",
+  "weights": {
+    "RSI_Divergence": 1.0,
+    "Bollinger_Bands_Breakout": 1.0,
+    "MACD_Trend_Following": 1.0,
+    "AI_Fusion": 1.2
+  },
+  "performance_metrics": {
+    "RSI_Divergence": {
+      "win_rate": 0.0,
+      "avg_return": 0.0,
+      "trade_count": 0
+    },
+    "Bollinger_Bands_Breakout": {
+      "win_rate": 0.0,
+      "avg_return": 0.0,
+      "trade_count": 0
+    },
+    "MACD_Trend_Following": {
+      "win_rate": 0.0,
+      "avg_return": 0.0,
+      "trade_count": 0
+    },
+    "AI_Fusion": {
+      "win_rate": 0.0,
+      "avg_return": 0.0,
+      "trade_count": 0
+    }
+  },
+  "dynamic_adjustment": {
+    "enabled": true,
+    "min_trades_for_adjustment": 10,
+    "weight_decay_factor": 0.95,
+    "performance_window": 50
+  },
+  "timestamp": "2026-01-28T00:00:00.000000",
+  "description": "基于 Jules Session 分析的优化策略权重配置"
+}

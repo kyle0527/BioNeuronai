@@ -3,24 +3,24 @@
 ========================================
 
 核心理念：
-"趨勢是你的朋友" - 順勢而為，在趨勢確認後進場，持有直到趨勢反轉
+"趨勢是你的朋友" - 順勢而為，捕捉主要趨勢
 
 適用場景：
-- 明確的上升或下降趨勢
-- 中長期持倉 (數小時到數天)
-- 市場有足夠的波動性
+- 明確上升或下降趨勢
+- 趨勢市場（Trending Market）
+- 高動能環境
 
-主要組件：
-1. 趨勢識別系統（多時間框架分析）
-2. 進場確認系統（多指標確認）
-3. 動態追蹤止損系統
-4. 分批獲利了結系統
+策略邏輯：
+1. 識別趨勢方向（上升/下降/震盪）
+2. 確認趨勢強度（ADX）
+3. 等待趨勢確認信號
+4. 順勢進場，設置追蹤止損
 
-技術指標組合：
-- EMA 系統 (21/55/200)
-- MACD 趨勢確認
+技術指標：
+- EMA 均線系統 (21/55/200)
+- MACD 動量指標
 - ADX 趨勢強度
-- ATR 波動性調整
+- ATR 波動率
 """
 
 import numpy as np
@@ -47,49 +47,49 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class TrendAnalysis:
-    """趨勢分析結果"""
-    # 主趨勢判斷
+    """"""
+    # 
     primary_trend: str = "neutral"  # 'bullish', 'bearish', 'neutral'
     primary_trend_strength: float = 0.0  # 0-100
     
-    # 多時間框架趨勢
+    # 
     htf_trend: str = "neutral"  # Higher Timeframe (4h/Daily)
     mtf_trend: str = "neutral"  # Medium Timeframe (1h)
     ltf_trend: str = "neutral"  # Lower Timeframe (15m)
     
-    # 趨勢一致性
-    trend_alignment: float = 0.0  # 0-100, 越高表示多時間框架越一致
+    # 
+    trend_alignment: float = 0.0  # 0-100, 
     
-    # EMA 位置
+    # EMA 
     price_above_ema21: bool = False
     price_above_ema55: bool = False
     price_above_ema200: bool = False
     ema21_above_ema55: bool = False
     ema55_above_ema200: bool = False
     
-    # MACD 狀態
+    # MACD 
     macd_bullish: bool = False
     macd_histogram_rising: bool = False
     macd_above_signal: bool = False
     
-    # ADX 趨勢強度
+    # ADX 
     adx_value: float = 0.0
     adx_trending: bool = False  # ADX > 25
     plus_di_above_minus: bool = False
     
-    # 動能
-    momentum_score: float = 0.0  # -100 到 +100
+    # 
+    momentum_score: float = 0.0  # -100  +100
 
 
 class TrendFollowingStrategy(BaseStrategy):
     """
-    趨勢跟隨策略
     
-    完整的趨勢交易系統，包含：
-    1. 多時間框架趨勢分析
-    2. 多指標進場確認
-    3. 動態風險管理
-    4. 分批進出場管理
+    
+    
+    1. 
+    2. 
+    3. 
+    4. 
     """
     
     def __init__(
@@ -105,19 +105,19 @@ class TrendFollowingStrategy(BaseStrategy):
                 min_risk_reward_ratio=2.0,
                 trailing_stop_activation=1.5,
                 trailing_stop_distance=0.5,
-                max_holding_period_hours=168,  # 7 天
+                max_holding_period_hours=168,  # 7 
             ),
         )
         
-        # 策略特定參數
+        # 
         self.ema_periods = {'fast': 21, 'medium': 55, 'slow': 200}
         self.macd_params = {'fast': 12, 'slow': 26, 'signal': 9}
         self.adx_period = 14
         self.atr_period = 14
         self.min_adx_for_trend = 25
-        self.required_confirmations = 4  # 需要至少4個確認訊號
+        self.required_confirmations = 4  # 4
         
-        # 進場規則權重
+        # 
         self.entry_weights = {
             'trend_alignment': 0.25,
             'ema_position': 0.20,
@@ -127,23 +127,23 @@ class TrendFollowingStrategy(BaseStrategy):
             'volume': 0.10,
         }
         
-        # 出場參數
+        # 
         self.take_profit_r_multiples = [2.0, 4.0, 6.0]
         self.exit_portions = [0.35, 0.35, 0.30]
         
     # ========================
-    # 技術指標計算
+    # 
     # ========================
     
     def _calculate_ema(self, data: np.ndarray, period: int) -> np.ndarray:
-        """計算 EMA"""
+        """ EMA"""
         if len(data) < period:
             return np.full(len(data), np.nan)
         
         ema = np.zeros(len(data))
         multiplier = 2 / (period + 1)
         
-        # 使用 SMA 初始化
+        #  SMA 
         ema[period-1] = np.mean(data[:period])
         
         for i in range(period, len(data)):
@@ -156,7 +156,7 @@ class TrendFollowingStrategy(BaseStrategy):
         self, 
         close: np.ndarray
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-        """計算 MACD"""
+        """ MACD"""
         ema_fast = self._calculate_ema(close, self.macd_params['fast'])
         ema_slow = self._calculate_ema(close, self.macd_params['slow'])
         
@@ -172,7 +172,7 @@ class TrendFollowingStrategy(BaseStrategy):
         low: np.ndarray, 
         close: np.ndarray
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-        """計算 ADX, +DI, -DI"""
+        """ ADX, +DI, -DI"""
         period = self.adx_period
         n = len(close)
         
@@ -202,7 +202,7 @@ class TrendFollowingStrategy(BaseStrategy):
             if down_move > up_move and down_move > 0:
                 minus_dm[i] = down_move
         
-        # 平滑
+        # 
         atr = self._calculate_smoothed_ma(tr, period)
         plus_dm_smooth = self._calculate_smoothed_ma(plus_dm, period)
         minus_dm_smooth = self._calculate_smoothed_ma(minus_dm, period)
@@ -226,7 +226,7 @@ class TrendFollowingStrategy(BaseStrategy):
         return adx, plus_di, minus_di
     
     def _calculate_smoothed_ma(self, data: np.ndarray, period: int) -> np.ndarray:
-        """計算 Smoothed Moving Average (Wilder's)"""
+        """ Smoothed Moving Average (Wilder's)"""
         result = np.zeros(len(data))
         if len(data) < period:
             return result
@@ -243,7 +243,7 @@ class TrendFollowingStrategy(BaseStrategy):
         low: np.ndarray, 
         close: np.ndarray
     ) -> np.ndarray:
-        """計算 ATR"""
+        """ ATR"""
         n = len(close)
         tr = np.zeros(n)
         
@@ -268,7 +268,7 @@ class TrendFollowingStrategy(BaseStrategy):
         close: np.ndarray,
         period: int = 20
     ) -> Dict[str, float]:
-        """計算成交量特徵"""
+        """"""
         if len(volume) < period:
             return {'relative_volume': 1.0, 'volume_trend': 0.0}
         
@@ -278,7 +278,7 @@ class TrendFollowingStrategy(BaseStrategy):
         current_vol = volume[-1]
         relative_volume = current_vol / avg_vol if avg_vol > 0 else 1.0
         
-        # 成交量趨勢
+        # 
         vol_sma_short = np.mean(volume[-5:])
         vol_sma_long = np.mean(volume[-20:])
         volume_trend = (vol_sma_short - vol_sma_long) / vol_sma_long if vol_sma_long > 0 else 0
@@ -289,7 +289,7 @@ class TrendFollowingStrategy(BaseStrategy):
         }
     
     # ========================
-    # 1. 市場分析
+    # 1. 
     # ========================
     
     def analyze_market(
@@ -297,101 +297,26 @@ class TrendFollowingStrategy(BaseStrategy):
         ohlcv_data: np.ndarray,
         additional_data: Optional[Dict] = None
     ) -> Dict[str, Any]:
-        """
-        分析市場趨勢狀態
+        """分析市場趨勢 - 重構降低複雜度
         
-        OHLCV 格式: [timestamp, open, high, low, close, volume]
+        複雜度降低策略：Extract Method 分離分析邏輯模塊
         """
         self.state = StrategyState.ANALYZING
         
-        # 提取數據
-        open_prices = ohlcv_data[:, 1]
-        high = ohlcv_data[:, 2]
-        low = ohlcv_data[:, 3]
-        close = ohlcv_data[:, 4]
-        volume = ohlcv_data[:, 5]
-        
-        current_price = close[-1]
+        # 準備價格數據
+        price_data = self._prepare_price_data(ohlcv_data)
         
         # 計算技術指標
-        ema21 = self._calculate_ema(close, self.ema_periods['fast'])
-        ema55 = self._calculate_ema(close, self.ema_periods['medium'])
-        ema200 = self._calculate_ema(close, self.ema_periods['slow'])
+        indicators = self._calculate_trend_indicators(price_data)
         
-        macd_line, signal_line, histogram = self._calculate_macd(close)
-        adx, plus_di, minus_di = self._calculate_adx(high, low, close)
-        atr = self._calculate_atr(high, low, close)
-        
-        volume_profile = self._calculate_volume_profile(volume, close)
-        
-        # 建立趨勢分析
-        trend = TrendAnalysis()
-        
-        # EMA 位置分析
-        trend.price_above_ema21 = current_price > ema21[-1]
-        trend.price_above_ema55 = current_price > ema55[-1]
-        trend.price_above_ema200 = current_price > ema200[-1] if not np.isnan(ema200[-1]) else True
-        trend.ema21_above_ema55 = ema21[-1] > ema55[-1]
-        trend.ema55_above_ema200 = ema55[-1] > ema200[-1] if not np.isnan(ema200[-1]) else True
-        
-        # MACD 分析
-        trend.macd_above_signal = macd_line[-1] > signal_line[-1]
-        trend.macd_histogram_rising = histogram[-1] > histogram[-2] if len(histogram) > 1 else False
-        trend.macd_bullish = macd_line[-1] > 0 and trend.macd_above_signal
-        
-        # ADX 分析
-        trend.adx_value = adx[-1] if not np.isnan(adx[-1]) else 0
-        trend.adx_trending = trend.adx_value > self.min_adx_for_trend
-        trend.plus_di_above_minus = plus_di[-1] > minus_di[-1]
-        
-        # 計算主趨勢
-        bullish_signals = sum([
-            trend.price_above_ema21,
-            trend.price_above_ema55,
-            trend.price_above_ema200,
-            trend.ema21_above_ema55,
-            trend.ema55_above_ema200,
-            trend.macd_bullish,
-            trend.macd_histogram_rising,
-            trend.plus_di_above_minus,
-        ])
-        
-        bearish_signals = 8 - bullish_signals
-        
-        if bullish_signals >= 6:
-            trend.primary_trend = "bullish"
-            trend.primary_trend_strength = min(100, (bullish_signals / 8) * 100 * (1 + trend.adx_value / 50))
-        elif bearish_signals >= 6:
-            trend.primary_trend = "bearish"
-            trend.primary_trend_strength = min(100, (bearish_signals / 8) * 100 * (1 + trend.adx_value / 50))
-        else:
-            trend.primary_trend = "neutral"
-            trend.primary_trend_strength = abs(bullish_signals - bearish_signals) / 8 * 100
-        
-        # 動能計算
-        momentum = 0
-        if trend.price_above_ema21:
-            momentum += 25
-        if trend.macd_histogram_rising:
-            momentum += 25 if trend.macd_bullish else -25
-        if trend.plus_di_above_minus:
-            momentum += 25
-        if volume_profile['relative_volume'] > 1.2:
-            momentum += 25 if trend.primary_trend == "bullish" else -25
-        
-        trend.momentum_score = momentum if trend.primary_trend == "bullish" else -momentum
-        
-        # 計算支撐阻力
-        recent_high = np.max(high[-20:])
-        recent_low = np.min(low[-20:])
+        # 分析趨勢
+        trend = self._analyze_trend_signals(indicators, price_data['current_price'])
         
         # 確定市場狀態
-        if trend.primary_trend == "bullish" and trend.adx_trending:
-            market_condition = MarketCondition.UPTREND if trend.primary_trend_strength < 75 else MarketCondition.STRONG_UPTREND
-        elif trend.primary_trend == "bearish" and trend.adx_trending:
-            market_condition = MarketCondition.DOWNTREND if trend.primary_trend_strength < 75 else MarketCondition.STRONG_DOWNTREND
-        else:
-            market_condition = MarketCondition.SIDEWAYS
+        market_condition = self._determine_market_condition(trend)
+        
+        # 計算關鍵水準
+        key_levels = self._calculate_key_levels(price_data, indicators)
         
         self.state = StrategyState.IDLE
         self._last_analysis_time = datetime.now()
@@ -400,30 +325,162 @@ class TrendFollowingStrategy(BaseStrategy):
             'market_condition': market_condition,
             'trend_direction': trend.primary_trend,
             'trend_strength': trend.primary_trend_strength,
-            'volatility': 'high' if atr[-1] > np.mean(atr[-20:]) * 1.5 else 'normal',
-            'key_levels': {
-                'resistance': recent_high,
-                'support': recent_low,
-                'ema21': ema21[-1],
-                'ema55': ema55[-1],
-                'ema200': ema200[-1] if not np.isnan(ema200[-1]) else None,
-            },
+            'volatility': self._assess_volatility(indicators['atr']),
+            'key_levels': key_levels,
             'trend_analysis': trend,
-            'indicators': {
-                'ema21': ema21[-1],
-                'ema55': ema55[-1],
-                'ema200': ema200[-1],
-                'macd': macd_line[-1],
-                'macd_signal': signal_line[-1],
-                'macd_histogram': histogram[-1],
-                'adx': adx[-1],
-                'plus_di': plus_di[-1],
-                'minus_di': minus_di[-1],
-                'atr': atr[-1],
-            },
-            'volume_profile': volume_profile,
-            'current_price': current_price,
+            'indicators': self._format_indicators(indicators),
+            'volume_profile': indicators['volume_profile'],
+            'current_price': price_data['current_price'],
             'analysis_summary': self._generate_analysis_summary(trend, market_condition),
+        }
+    
+    def _prepare_price_data(self, ohlcv_data: np.ndarray) -> Dict[str, Any]:
+        """準備價格數據"""
+        return {
+            'open': ohlcv_data[:, 1],
+            'high': ohlcv_data[:, 2],
+            'low': ohlcv_data[:, 3],
+            'close': ohlcv_data[:, 4],
+            'volume': ohlcv_data[:, 5],
+            'current_price': float(ohlcv_data[:, 4][-1])
+        }
+    
+    def _calculate_trend_indicators(self, price_data: Dict) -> Dict[str, Any]:
+        """計算趨勢指標"""
+        close = price_data['close']
+        high = price_data['high']
+        low = price_data['low']
+        volume = price_data['volume']
+        
+        # EMA指標
+        ema21 = self._calculate_ema(close, self.ema_periods['fast'])
+        ema55 = self._calculate_ema(close, self.ema_periods['medium'])
+        ema200 = self._calculate_ema(close, self.ema_periods['slow'])
+        
+        # MACD指標
+        macd_line, signal_line, histogram = self._calculate_macd(close)
+        
+        # ADX指標
+        adx, plus_di, minus_di = self._calculate_adx(high, low, close)
+        
+        # ATR和成交量
+        atr = self._calculate_atr(high, low, close)
+        volume_profile = self._calculate_volume_profile(volume, close)
+        
+        return {
+            'ema21': ema21, 'ema55': ema55, 'ema200': ema200,
+            'macd_line': macd_line, 'signal_line': signal_line, 'histogram': histogram,
+            'adx': adx, 'plus_di': plus_di, 'minus_di': minus_di,
+            'atr': atr, 'volume_profile': volume_profile
+        }
+    
+    def _analyze_trend_signals(self, indicators: Dict, current_price: float) -> TrendAnalysis:
+        """分析趨勢信號"""
+        trend = TrendAnalysis()
+        
+        # EMA趨勢分析
+        trend.price_above_ema21 = current_price > indicators['ema21'][-1]
+        trend.price_above_ema55 = current_price > indicators['ema55'][-1]
+        trend.price_above_ema200 = (current_price > indicators['ema200'][-1] 
+                                   if not np.isnan(indicators['ema200'][-1]) else True)
+        trend.ema21_above_ema55 = indicators['ema21'][-1] > indicators['ema55'][-1]
+        trend.ema55_above_ema200 = (indicators['ema55'][-1] > indicators['ema200'][-1] 
+                                   if not np.isnan(indicators['ema200'][-1]) else True)
+        
+        # MACD趨勢分析
+        trend.macd_above_signal = indicators['macd_line'][-1] > indicators['signal_line'][-1]
+        trend.macd_histogram_rising = (indicators['histogram'][-1] > indicators['histogram'][-2] 
+                                     if len(indicators['histogram']) > 1 else False)
+        trend.macd_bullish = (indicators['macd_line'][-1] > 0 and trend.macd_above_signal)
+        
+        # ADX趨勢分析
+        trend.adx_value = indicators['adx'][-1] if not np.isnan(indicators['adx'][-1]) else 0
+        trend.adx_trending = trend.adx_value > self.min_adx_for_trend
+        trend.plus_di_above_minus = indicators['plus_di'][-1] > indicators['minus_di'][-1]
+        
+        # 計算趨勢強度和方向
+        self._calculate_trend_strength(trend, indicators)
+        
+        return trend
+    
+    def _calculate_trend_strength(self, trend: TrendAnalysis, indicators: Dict):
+        """計算趨勢強度"""
+        bullish_signals = sum([
+            trend.price_above_ema21, trend.price_above_ema55, trend.price_above_ema200,
+            trend.ema21_above_ema55, trend.ema55_above_ema200,
+            trend.macd_bullish, trend.macd_histogram_rising, trend.plus_di_above_minus
+        ])
+        
+        bearish_signals = 8 - bullish_signals
+        
+        if bullish_signals >= 6:
+            trend.primary_trend = "bullish"
+            trend.primary_trend_strength = min(100, (bullish_signals / 8) * 100 * (1 + trend.adx_value / 50))
+        elif bearish_signals >= 6:
+            trend.primary_trend = "bearish" 
+            trend.primary_trend_strength = min(100, (bearish_signals / 8) * 100 * (1 + trend.adx_value / 50))
+        else:
+            trend.primary_trend = "neutral"
+            trend.primary_trend_strength = abs(bullish_signals - bearish_signals) / 8 * 100
+        
+        # 計算動量分數
+        self._calculate_momentum_score(trend, indicators)
+    
+    def _calculate_momentum_score(self, trend: TrendAnalysis, indicators: Dict):
+        """計算動量分數"""
+        momentum = 0
+        if trend.price_above_ema21:
+            momentum += 25
+        if trend.macd_histogram_rising:
+            momentum += 25 if trend.macd_bullish else -25
+        if trend.plus_di_above_minus:
+            momentum += 25
+        if indicators['volume_profile']['relative_volume'] > 1.2:
+            momentum += 25 if trend.primary_trend == "bullish" else -25
+        
+        trend.momentum_score = momentum if trend.primary_trend == "bullish" else -momentum
+    
+    def _determine_market_condition(self, trend: TrendAnalysis) -> MarketCondition:
+        """確定市場狀態"""
+        if trend.primary_trend == "bullish" and trend.adx_trending:
+            return (MarketCondition.STRONG_UPTREND if trend.primary_trend_strength >= 75 
+                   else MarketCondition.UPTREND)
+        elif trend.primary_trend == "bearish" and trend.adx_trending:
+            return (MarketCondition.STRONG_DOWNTREND if trend.primary_trend_strength >= 75 
+                   else MarketCondition.DOWNTREND)
+        else:
+            return MarketCondition.SIDEWAYS
+    
+    def _calculate_key_levels(self, price_data: Dict, indicators: Dict) -> Dict[str, Any]:
+        """計算關鍵技術水準"""
+        recent_high = np.max(price_data['high'][-20:])
+        recent_low = np.min(price_data['low'][-20:])
+        
+        return {
+            'resistance': float(recent_high),
+            'support': float(recent_low),
+            'ema21': float(indicators['ema21'][-1]),
+            'ema55': float(indicators['ema55'][-1]),
+            'ema200': float(indicators['ema200'][-1]) if not np.isnan(indicators['ema200'][-1]) else None,
+        }
+    
+    def _assess_volatility(self, atr: np.ndarray) -> str:
+        """評估市場波動率"""
+        return 'high' if atr[-1] > np.mean(atr[-20:]) * 1.5 else 'normal'
+    
+    def _format_indicators(self, indicators: Dict) -> Dict[str, float]:
+        """格式化指標數據"""
+        return {
+            'ema21': indicators['ema21'][-1],
+            'ema55': indicators['ema55'][-1], 
+            'ema200': indicators['ema200'][-1],
+            'macd': indicators['macd_line'][-1],
+            'macd_signal': indicators['signal_line'][-1],
+            'macd_histogram': indicators['histogram'][-1],
+            'adx': indicators['adx'][-1],
+            'plus_di': indicators['plus_di'][-1],
+            'minus_di': indicators['minus_di'][-1],
+            'atr': indicators['atr'][-1],
         }
     
     def _generate_analysis_summary(
@@ -431,42 +488,42 @@ class TrendFollowingStrategy(BaseStrategy):
         trend: TrendAnalysis, 
         market_condition: MarketCondition
     ) -> str:
-        """生成分析摘要"""
+        """"""
         summary = []
         
-        summary.append(f"市場狀態: {market_condition.value}")
-        summary.append(f"主趨勢: {trend.primary_trend} (強度: {trend.primary_trend_strength:.1f}%)")
+        summary.append(f": {market_condition.value}")
+        summary.append(f": {trend.primary_trend} (: {trend.primary_trend_strength:.1f}%)")
         
         if trend.adx_trending:
-            summary.append(f"ADX: {trend.adx_value:.1f} - 趨勢明確")
+            summary.append(f"ADX: {trend.adx_value:.1f} - ")
         else:
-            summary.append(f"ADX: {trend.adx_value:.1f} - 趨勢不明")
+            summary.append(f"ADX: {trend.adx_value:.1f} - ")
         
         if trend.primary_trend == "bullish":
             confirmations = []
             if trend.price_above_ema21:
-                confirmations.append("價格>EMA21")
+                confirmations.append(">EMA21")
             if trend.macd_bullish:
-                confirmations.append("MACD看多")
+                confirmations.append("MACD")
             if trend.plus_di_above_minus:
                 confirmations.append("+DI>-DI")
-            summary.append(f"多頭確認: {', '.join(confirmations)}")
+            summary.append(f": {', '.join(confirmations)}")
         elif trend.primary_trend == "bearish":
             confirmations = []
             if not trend.price_above_ema21:
-                confirmations.append("價格<EMA21")
+                confirmations.append("<EMA21")
             if not trend.macd_bullish:
-                confirmations.append("MACD看空")
+                confirmations.append("MACD")
             if not trend.plus_di_above_minus:
                 confirmations.append("-DI>+DI")
-            summary.append(f"空頭確認: {', '.join(confirmations)}")
+            summary.append(f": {', '.join(confirmations)}")
         
-        summary.append(f"動能分數: {trend.momentum_score}")
+        summary.append(f": {trend.momentum_score}")
         
         return " | ".join(summary)
     
     # ========================
-    # 2. 進場條件評估
+    # 2. 
     # ========================
     
     def evaluate_entry_conditions(
@@ -474,118 +531,199 @@ class TrendFollowingStrategy(BaseStrategy):
         market_analysis: Dict[str, Any],
         ohlcv_data: np.ndarray,
     ) -> Optional[TradeSetup]:
-        """
-        評估進場條件
+        """評估進場條件 - 重構降低複雜度
         
-        趨勢跟隨策略進場條件：
-        1. 趨勢方向確認 (ADX > 25 且 DI 確認方向)
-        2. 價格位置確認 (EMA 排列正確)
-        3. MACD 確認
-        4. 成交量確認
-        5. 回調入場時機
-        """
-        trend = market_analysis.get('trend_analysis')
-        indicators = market_analysis.get('indicators', {})
-        volume_profile = market_analysis.get('volume_profile', {})
-        current_price = market_analysis.get('current_price')
+        複雜度降低策略：Extract Method 分離各評估模塊
         
-        if not trend or not current_price:
+        主要功能：
+        1. 趨勢強度檢查 (ADX > 25 且 DI 確認)
+        2. 趨勢排列確認 (EMA 順序)
+        3. MACD 動量確認
+        4. 價格位置確認
+        5. 成交量確認
+        """
+        # 基礎數據驗證
+        trend, indicators, volume_profile, current_price = self._extract_analysis_data(market_analysis)
+        if not self._validate_trend_prerequisites(trend, current_price):
             return None
         
-        # 基本趨勢檢查
-        if trend.primary_trend == "neutral":
-            logger.debug("趨勢不明確，跳過")
-            return None
-        
-        if not trend.adx_trending:
-            logger.debug(f"ADX {trend.adx_value:.1f} < {self.min_adx_for_trend}，趨勢不夠強")
+        # 類型檢查（確保不為 None）
+        if trend is None or current_price is None:
             return None
         
         # 確定交易方向
         direction = 'long' if trend.primary_trend == "bullish" else 'short'
         
-        # 收集確認訊號
+        # 評估進場條件 (Extract Method)
+        entry_conditions, confirmations = self._evaluate_all_entry_criteria(
+            trend, direction, volume_profile, indicators, current_price
+        )
+        
+        # 檢查確認數量
+        if confirmations < self.required_confirmations:
+            logger.debug(f": {confirmations}/{self.required_confirmations}")
+            return None
+        
+        # 計算風險管理參數
+        stop_loss, tp1, tp2, tp3 = self._calculate_risk_reward_levels(
+            current_price, direction, indicators
+        )
+        
+        # 確定信號強度
+        signal_strength = self._determine_signal_strength(confirmations, trend)
+        
+        # 創建交易設定
+        return self._create_trade_setup(
+            market_analysis, direction, current_price, entry_conditions,
+            confirmations, stop_loss, tp1, tp2, tp3, signal_strength
+        )
+    
+    def _extract_analysis_data(self, market_analysis: Dict[str, Any]):
+        """提取分析數據"""
+        return (
+            market_analysis.get('trend_analysis'),
+            market_analysis.get('indicators', {}),
+            market_analysis.get('volume_profile', {}),
+            market_analysis.get('current_price')
+        )
+    
+    def _validate_trend_prerequisites(self, trend, current_price) -> bool:
+        """驗證趨勢前提條件"""
+        if not trend or not current_price:
+            return False
+        
+        if trend.primary_trend == "neutral":
+            logger.debug("")
+            return False
+        
+        if not trend.adx_trending:
+            logger.debug(f"ADX {trend.adx_value:.1f} < {self.min_adx_for_trend}")
+            return False
+        
+        return True
+    
+    def _evaluate_all_entry_criteria(
+        self, trend, direction: str, volume_profile: dict, 
+        indicators: dict, current_price: float
+    ) -> Tuple[List[str], int]:
+        """評估所有進場標準"""
         entry_conditions = []
         confirmations = 0
         
-        # 確認 1: EMA 排列
-        if direction == 'long':
-            if trend.ema21_above_ema55 and trend.ema55_above_ema200:
-                entry_conditions.append("EMA 多頭排列 (21>55>200)")
-                confirmations += 1
-        else:
-            if not trend.ema21_above_ema55 and not trend.ema55_above_ema200:
-                entry_conditions.append("EMA 空頭排列 (21<55<200)")
-                confirmations += 1
-        
-        # 確認 2: 價格位置
-        if direction == 'long':
-            if trend.price_above_ema21 and trend.price_above_ema55:
-                entry_conditions.append("價格在 EMA21/55 上方")
-                confirmations += 1
-        else:
-            if not trend.price_above_ema21 and not trend.price_above_ema55:
-                entry_conditions.append("價格在 EMA21/55 下方")
-                confirmations += 1
-        
-        # 確認 3: MACD 方向
-        if direction == 'long':
-            if trend.macd_bullish and trend.macd_histogram_rising:
-                entry_conditions.append("MACD 多頭且動能增強")
-                confirmations += 1
-        else:
-            if not trend.macd_bullish and not trend.macd_histogram_rising:
-                entry_conditions.append("MACD 空頭且動能增強")
-                confirmations += 1
-        
-        # 確認 4: ADX/DI 方向
-        if direction == 'long':
-            if trend.plus_di_above_minus:
-                entry_conditions.append(f"+DI > -DI (ADX: {trend.adx_value:.1f})")
-                confirmations += 1
-        else:
-            if not trend.plus_di_above_minus:
-                entry_conditions.append(f"-DI > +DI (ADX: {trend.adx_value:.1f})")
-                confirmations += 1
-        
-        # 確認 5: 成交量
-        rel_vol = volume_profile.get('relative_volume', 1.0)
-        if rel_vol > 1.1:
-            entry_conditions.append(f"成交量放大 ({rel_vol:.1f}x)")
+        # EMA 排列確認
+        ema_result = self._check_ema_alignment(trend, direction)
+        if ema_result:
+            entry_conditions.append(ema_result)
             confirmations += 1
         
-        # 確認 6: 回調入場（可選加分）
-        close = ohlcv_data[:, 4]
-        ema21 = indicators.get('ema21')
+        # 價格位置確認
+        price_result = self._check_price_position(trend, direction)
+        if price_result:
+            entry_conditions.append(price_result)
+            confirmations += 1
         
+        # MACD 確認
+        macd_result = self._check_macd_confirmation(trend, direction)
+        if macd_result:
+            entry_conditions.append(macd_result)
+            confirmations += 1
+        
+        # ADX/DI 確認
+        adx_result = self._check_adx_di_confirmation(trend, direction)
+        if adx_result:
+            entry_conditions.append(adx_result)
+            confirmations += 1
+        
+        # 成交量確認
+        volume_result = self._check_volume_confirmation(volume_profile)
+        if volume_result:
+            entry_conditions.append(volume_result)
+            confirmations += 1
+        
+        # 價格回測確認
+        pullback_result = self._check_pullback_entry(indicators, direction, current_price)
+        if pullback_result:
+            entry_conditions.append(pullback_result)
+            confirmations += 1
+        
+        return entry_conditions, confirmations
+    
+    def _check_ema_alignment(self, trend, direction: str) -> Optional[str]:
+        """檢查 EMA 排列"""
         if direction == 'long':
-            # 價格回調到 EMA21 附近是好的入場點
-            if ema21 and current_price < ema21 * 1.02 and current_price > ema21 * 0.98:
-                entry_conditions.append("價格回調至 EMA21 附近")
-                confirmations += 1
+            if trend.ema21_above_ema55 and trend.ema55_above_ema200:
+                return "EMA  (21>55>200)"
         else:
-            if ema21 and current_price > ema21 * 0.98 and current_price < ema21 * 1.02:
-                entry_conditions.append("價格反彈至 EMA21 附近")
-                confirmations += 1
-        
-        # 檢查是否有足夠確認
-        if confirmations < self.required_confirmations:
-            logger.debug(
-                f"確認訊號不足: {confirmations}/{self.required_confirmations}"
-            )
+            if not trend.ema21_above_ema55 and not trend.ema55_above_ema200:
+                return "EMA  (21<55<200)"
+        return None
+    
+    def _check_price_position(self, trend, direction: str) -> Optional[str]:
+        """檢查價格位置"""
+        if direction == 'long':
+            if trend.price_above_ema21 and trend.price_above_ema55:
+                return " EMA21/55 "
+        else:
+            if not trend.price_above_ema21 and not trend.price_above_ema55:
+                return " EMA21/55 "
+        return None
+    
+    def _check_macd_confirmation(self, trend, direction: str) -> Optional[str]:
+        """檢查 MACD 確認"""
+        if direction == 'long':
+            if trend.macd_bullish and trend.macd_histogram_rising:
+                return "MACD "
+        else:
+            if not trend.macd_bullish and not trend.macd_histogram_rising:
+                return "MACD "
+        return None
+    
+    def _check_adx_di_confirmation(self, trend, direction: str) -> Optional[str]:
+        """檢查 ADX/DI 確認"""
+        if direction == 'long':
+            if trend.plus_di_above_minus:
+                return f"+DI > -DI (ADX: {trend.adx_value:.1f})"
+        else:
+            if not trend.plus_di_above_minus:
+                return f"-DI > +DI (ADX: {trend.adx_value:.1f})"
+        return None
+    
+    def _check_volume_confirmation(self, volume_profile: dict) -> Optional[str]:
+        """檢查成交量確認"""
+        rel_vol = volume_profile.get('relative_volume', 1.0)
+        if rel_vol > 1.1:
+            return f" ({rel_vol:.1f}x)"
+        return None
+    
+    def _check_pullback_entry(self, indicators: dict, direction: str, current_price: float) -> Optional[str]:
+        """檢查回調進場機會"""
+        ema21 = indicators.get('ema21')
+        if not ema21:
             return None
         
-        # 計算停損
-        atr = indicators.get('atr', 0)
         if direction == 'long':
-            stop_loss = current_price - (atr * 2)  # 2 ATR 停損
+            if current_price < ema21 * 1.02 and current_price > ema21 * 0.98:
+                return " EMA21 "
+        else:
+            if current_price > ema21 * 0.98 and current_price < ema21 * 1.02:
+                return " EMA21 "
+        return None
+    
+    def _calculate_risk_reward_levels(
+        self, current_price: float, direction: str, indicators: dict
+    ) -> Tuple[float, float, float, float]:
+        """計算風險回報水平"""
+        atr = indicators.get('atr', 0)
+        
+        # 止損計算
+        if direction == 'long':
+            stop_loss = current_price - (atr * 2)
         else:
             stop_loss = current_price + (atr * 2)
         
-        # 計算風險報酬
+        # 止盈計算
         risk_per_unit = abs(current_price - stop_loss)
         
-        # 計算目標價
         if direction == 'long':
             tp1 = current_price + (risk_per_unit * self.take_profit_r_multiples[0])
             tp2 = current_price + (risk_per_unit * self.take_profit_r_multiples[1])
@@ -595,19 +733,30 @@ class TrendFollowingStrategy(BaseStrategy):
             tp2 = current_price - (risk_per_unit * self.take_profit_r_multiples[1])
             tp3 = current_price - (risk_per_unit * self.take_profit_r_multiples[2])
         
-        # 確定訊號強度
+        return stop_loss, tp1, tp2, tp3
+    
+    def _determine_signal_strength(self, confirmations: int, trend) -> SignalStrength:
+        """確定信號強度"""
         if confirmations >= 6 and trend.adx_value > 35:
-            signal_strength = SignalStrength.VERY_STRONG
+            return SignalStrength.VERY_STRONG
         elif confirmations >= 5:
-            signal_strength = SignalStrength.STRONG
+            return SignalStrength.STRONG
         elif confirmations >= 4:
-            signal_strength = SignalStrength.MODERATE
+            return SignalStrength.MODERATE
         else:
-            signal_strength = SignalStrength.WEAK
+            return SignalStrength.WEAK
+    
+    def _create_trade_setup(
+        self, market_analysis: Dict[str, Any], direction: str, current_price: float,
+        entry_conditions: List[str], confirmations: int, stop_loss: float,
+        tp1: float, tp2: float, tp3: float, signal_strength: SignalStrength
+    ) -> TradeSetup:
+        """創建交易設定"""
+        if 'symbol' not in market_analysis:
+            raise ValueError("市場分析必須包含 'symbol' 字段，不再支持預設幣種")
         
-        # 建立交易設置
         setup = TradeSetup(
-            symbol=market_analysis.get('symbol', 'BTCUSDT'),
+            symbol=market_analysis['symbol'],
             direction=direction,
             entry_price=current_price,
             entry_conditions=entry_conditions,
@@ -622,29 +771,29 @@ class TrendFollowingStrategy(BaseStrategy):
                 'tp2': self.exit_portions[1],
                 'tp3': self.exit_portions[2],
             },
-            risk_reward_ratio=self.take_profit_r_multiples[0],  # 最小 R:R
+            risk_reward_ratio=self.take_profit_r_multiples[0],
             signal_strength=signal_strength,
             market_condition=market_analysis.get('market_condition', "NORMAL"),
             setup_time=datetime.now(),
             valid_until=datetime.now() + timedelta(minutes=30),
             key_levels=market_analysis.get('key_levels', {}),
             invalidation_conditions=[
-                f"價格跌破停損 {stop_loss:.2f}",
-                f"ADX 下降到 {self.min_adx_for_trend} 以下",
-                "EMA 排列反轉",
+                f" {stop_loss:.2f}",
+                f"ADX  {self.min_adx_for_trend} ",
+                "EMA ",
             ],
         )
         
         logger.info(
-            f"趨勢跟隨策略發現入場機會: "
+            f": "
             f"{direction.upper()} @ {current_price:.2f}, "
-            f"確認: {confirmations}, 強度: {signal_strength.name}"
+            f": {confirmations}, : {signal_strength.name}"
         )
         
         return setup
     
     # ========================
-    # 3. 進場執行
+    # 3. 
     # ========================
     
     def execute_entry(
@@ -653,30 +802,30 @@ class TrendFollowingStrategy(BaseStrategy):
         connector: Any,
     ) -> Optional[TradeExecution]:
         """
-        執行進場
         
-        趨勢跟隨策略的進場執行：
-        1. 使用限價單在有利價格進場
-        2. 同時設置停損單
-        3. 記錄所有執行細節
+        
+        
+        1. 
+        2. 
+        3. 
         """
         try:
-            # 生成交易ID
+            # ID
             trade_id = f"TF_{setup.symbol}_{datetime.now().strftime('%Y%m%d%H%M%S')}_{uuid.uuid4().hex[:8]}"
             
-            # 建立交易執行記錄
+            # 
             execution = TradeExecution(
                 trade_id=trade_id,
                 setup=setup,
             )
             
-            # 分批進場參數
+            # 
             portion_size = setup.total_position_size / setup.entry_portions
             
-            # 模擬或實際執行（這裡提供介面，實際需要連接交易所）
+            # 
             if connector is None:
-                # 模擬執行
-                logger.info(f"模擬進場: {trade_id}")
+                # 
+                logger.info(f": {trade_id}")
                 execution.actual_entry_price = setup.entry_price
                 execution.current_position_size = portion_size
                 execution.average_entry_price = setup.entry_price
@@ -687,8 +836,8 @@ class TrendFollowingStrategy(BaseStrategy):
                     'type': 'market',
                 })
             else:
-                # 實際執行
-                # 第一批進場 (使用限價單)
+                # 
+                #  ()
                 order_result = connector.place_order(
                     symbol=setup.symbol,
                     side='BUY' if setup.direction == 'long' else 'SELL',
@@ -711,7 +860,7 @@ class TrendFollowingStrategy(BaseStrategy):
                         'type': 'limit',
                     })
                     
-                    # 設置停損單
+                    # 
                     stop_order = connector.place_order(
                         symbol=setup.symbol,
                         side='SELL' if setup.direction == 'long' else 'BUY',
@@ -721,7 +870,7 @@ class TrendFollowingStrategy(BaseStrategy):
                         reduce_only=True,
                     )
                     
-                    logger.info(f"停損單已設置: {stop_order.get('orderId')}")
+                    logger.info(f": {stop_order.get('orderId')}")
             
             execution.highest_price_since_entry = execution.actual_entry_price
             execution.lowest_price_since_entry = execution.actual_entry_price
@@ -730,11 +879,11 @@ class TrendFollowingStrategy(BaseStrategy):
             return execution
             
         except Exception as e:
-            logger.error(f"進場執行失敗: {e}")
+            logger.error(f": {e}")
             return None
     
     # ========================
-    # 4. 部位管理
+    # 4. 
     # ========================
     
     def manage_position(
@@ -743,22 +892,28 @@ class TrendFollowingStrategy(BaseStrategy):
         current_price: float,
         ohlcv_data: np.ndarray,
     ) -> PositionManagement:
-        """
-        管理持倉部位
+        """管理趨勢跟隨倉位 - 重構降低複雜度
         
-        趨勢跟隨的部位管理：
-        1. 追蹤止損更新
-        2. 達到 1R 獲利時移動停損到損益平衡
-        3. 達到目標價時分批獲利了結
-        4. 趨勢持續時考慮加碼
+        複雜度降低策略：Extract Method 分離倉位管理邏輯
         """
         mgmt = PositionManagement()
-        
         setup = trade.setup
-        r_multiple = trade.calculate_r_multiple()
+        
+        # 更新價格記錄
+        self._update_price_records(trade, current_price, setup)
+        
+        # 各種倉位管理操作
+        self._handle_breakeven_protection(mgmt, trade, setup)
+        self._handle_trailing_stop_tf(mgmt, trade, current_price)
+        self._handle_profit_taking(mgmt, setup, current_price)
+        self._consider_position_scaling(mgmt, trade, ohlcv_data)
+        
+        return mgmt
+    
+    def _update_price_records(self, trade: TradeExecution, current_price: float, setup):
+        """更新價格記錄和最大有利偏移"""
         risk_per_unit = abs(setup.entry_price - setup.stop_loss)
         
-        # 更新極值
         if setup.direction == 'long':
             trade.highest_price_since_entry = max(
                 trade.highest_price_since_entry, 
@@ -777,74 +932,92 @@ class TrendFollowingStrategy(BaseStrategy):
                 trade.max_favorable_excursion,
                 (setup.entry_price - trade.lowest_price_since_entry) / risk_per_unit
             )
-        
-        # 1. 移動停損到損益平衡 (當達到 1R)
+    
+    def _handle_breakeven_protection(self, mgmt: PositionManagement, trade: TradeExecution, setup):
+        """處理保本保護（達到1R後）"""
+        r_multiple = trade.calculate_r_multiple()
         if r_multiple >= 1.0 and not mgmt.stop_loss_moved_to_breakeven:
+            risk_per_unit = abs(setup.entry_price - setup.stop_loss)
             new_stop = setup.entry_price
+            
             if setup.direction == 'long':
-                new_stop += risk_per_unit * 0.1  # 小幅盈利保護
+                new_stop += risk_per_unit * 0.1  # 略微保本上方
             else:
                 new_stop -= risk_per_unit * 0.1
             
             mgmt.stop_loss_moved_to_breakeven = True
             mgmt.current_stop_loss = new_stop
-            logger.info(f"停損移動到損益平衡: {new_stop:.2f}")
-        
-        # 2. 追蹤止損
+            logger.info(f"移至保本停損: {new_stop:.2f}")
+    
+    def _handle_trailing_stop_tf(self, mgmt: PositionManagement, trade: TradeExecution, current_price: float):
+        """處理追蹤停損"""
         new_trailing = self.update_trailing_stop(trade, current_price)
         if new_trailing:
             mgmt.stop_loss_trailing = True
             mgmt.current_stop_loss = new_trailing
-            logger.info(f"追蹤止損更新: {new_trailing:.2f}")
-        
-        # 3. 檢查目標價達成
+            logger.info(f"更新追蹤停損: {new_trailing:.2f}")
+    
+    def _handle_profit_taking(self, mgmt: PositionManagement, setup, current_price: float):
+        """處理分批止盈"""
         if setup.direction == 'long':
-            if current_price >= setup.take_profit_1 and not mgmt.tp1_filled:
-                mgmt.tp1_filled = True
-                mgmt.exit_portions_filled += 1
-                logger.info(f"達到 TP1 {setup.take_profit_1:.2f}")
-            
-            if current_price >= setup.take_profit_2 and not mgmt.tp2_filled:
-                mgmt.tp2_filled = True
-                mgmt.exit_portions_filled += 1
-                logger.info(f"達到 TP2 {setup.take_profit_2:.2f}")
-            
-            if current_price >= setup.take_profit_3 and not mgmt.tp3_filled:
-                mgmt.tp3_filled = True
-                mgmt.exit_portions_filled += 1
-                logger.info(f"達到 TP3 {setup.take_profit_3:.2f}")
+            self._handle_long_profit_taking(mgmt, setup, current_price)
         else:
-            if current_price <= setup.take_profit_1 and not mgmt.tp1_filled:
-                mgmt.tp1_filled = True
-                mgmt.exit_portions_filled += 1
-            
-            if current_price <= setup.take_profit_2 and not mgmt.tp2_filled:
-                mgmt.tp2_filled = True
-                mgmt.exit_portions_filled += 1
-            
-            if current_price <= setup.take_profit_3 and not mgmt.tp3_filled:
-                mgmt.tp3_filled = True
-                mgmt.exit_portions_filled += 1
+            self._handle_short_profit_taking(mgmt, setup, current_price)
+    
+    def _handle_long_profit_taking(self, mgmt: PositionManagement, setup, current_price: float):
+        """處理多頭分批止盈"""
+        if current_price >= setup.take_profit_1 and not mgmt.tp1_filled:
+            mgmt.tp1_filled = True
+            mgmt.exit_portions_filled += 1
+            logger.info(f"觸發 TP1 {setup.take_profit_1:.2f}")
         
-        # 4. 評估加碼機會（趨勢持續且回調時）
-        if r_multiple >= 1.0 and mgmt.entry_portions_filled < mgmt.entry_portions_total:
-            # 檢查是否出現回調入場機會
-            close = ohlcv_data[:, 4]
-            if len(close) >= 21:
-                ema21 = self._calculate_ema(close, 21)[-1]
-                
-                if setup.direction == 'long':
-                    if current_price <= ema21 * 1.01:  # 回調到 EMA21
-                        mgmt.scaling_in_allowed = True
-                        logger.info("加碼機會: 價格回調到 EMA21")
-                else:
-                    if current_price >= ema21 * 0.99:
-                        mgmt.scaling_in_allowed = True
+        if current_price >= setup.take_profit_2 and not mgmt.tp2_filled:
+            mgmt.tp2_filled = True
+            mgmt.exit_portions_filled += 1
+            logger.info(f"觸發 TP2 {setup.take_profit_2:.2f}")
         
-        return mgmt
+        if current_price >= setup.take_profit_3 and not mgmt.tp3_filled:
+            mgmt.tp3_filled = True
+            mgmt.exit_portions_filled += 1
+            logger.info(f"觸發 TP3 {setup.take_profit_3:.2f}")
+    
+    def _handle_short_profit_taking(self, mgmt: PositionManagement, setup, current_price: float):
+        """處理空頭分批止盈"""
+        if current_price <= setup.take_profit_1 and not mgmt.tp1_filled:
+            mgmt.tp1_filled = True
+            mgmt.exit_portions_filled += 1
+        
+        if current_price <= setup.take_profit_2 and not mgmt.tp2_filled:
+            mgmt.tp2_filled = True
+            mgmt.exit_portions_filled += 1
+        
+        if current_price <= setup.take_profit_3 and not mgmt.tp3_filled:
+            mgmt.tp3_filled = True
+            mgmt.exit_portions_filled += 1
+    
+    def _consider_position_scaling(self, mgmt: PositionManagement, trade: TradeExecution, ohlcv_data: np.ndarray):
+        """考慮倉位加碼"""
+        r_multiple = trade.calculate_r_multiple()
+        if r_multiple < 1.0 or mgmt.entry_portions_filled >= mgmt.entry_portions_total:
+            return
+        
+        # 檢查EMA21回調機會
+        close = ohlcv_data[:, 4]
+        if len(close) >= 21:
+            ema21 = self._calculate_ema(close, 21)[-1]
+            setup = trade.setup
+            current_price = close[-1]
+            
+            if setup.direction == 'long':
+                if current_price <= ema21 * 1.01:  # 回調至EMA21附近
+                    mgmt.scaling_in_allowed = True
+                    logger.info("加倉機會: 價格回調至EMA21")
+            else:
+                if current_price >= ema21 * 0.99:
+                    mgmt.scaling_in_allowed = True
     
     # ========================
-    # 5. 出場條件評估
+    # 5. 
     # ========================
     
     def evaluate_exit_conditions(
@@ -854,71 +1027,71 @@ class TrendFollowingStrategy(BaseStrategy):
         ohlcv_data: np.ndarray,
     ) -> Tuple[bool, str]:
         """
-        評估出場條件
         
-        趨勢跟隨的出場條件：
-        1. 停損觸發
-        2. 追蹤止損觸發
-        3. 趨勢反轉訊號
-        4. 時間止損
-        5. 所有目標達成
+        
+        
+        1. 
+        2. 
+        3. 
+        4. 
+        5. 
         """
         setup = trade.setup
         
-        # 1. 停損檢查
+        # 1. 
         if setup.direction == 'long':
             active_stop = trade.trailing_stop_price or setup.stop_loss
             if current_price <= active_stop:
-                return True, f"停損觸發 @ {current_price:.2f} (止損: {active_stop:.2f})"
+                return True, f" @ {current_price:.2f} (: {active_stop:.2f})"
         else:
             active_stop = trade.trailing_stop_price or setup.stop_loss
             if current_price >= active_stop:
-                return True, f"停損觸發 @ {current_price:.2f} (止損: {active_stop:.2f})"
+                return True, f" @ {current_price:.2f} (: {active_stop:.2f})"
         
-        # 2. 時間止損
+        # 2. 
         should_time_exit, time_reason = self.check_time_based_exit(trade)
         if should_time_exit:
             return True, time_reason
         
-        # 3. 趨勢反轉檢查
+        # 3. 
         close = ohlcv_data[:, 4]
         high = ohlcv_data[:, 2]
         low = ohlcv_data[:, 3]
         
         if len(close) >= 26:
-            # MACD 反轉
+            # MACD 
             macd_line, signal_line, _ = self._calculate_macd(close)
             
             if setup.direction == 'long':
-                # 多單：MACD 由上穿下
+                # MACD 
                 if macd_line[-1] < signal_line[-1] and macd_line[-2] > signal_line[-2]:
-                    # 確認是否有足夠獲利才因反轉出場
+                    # 
                     if trade.calculate_r_multiple() >= 1.0:
-                        return True, "MACD 死叉，趨勢可能反轉"
+                        return True, "MACD "
             else:
-                # 空單：MACD 由下穿上
+                # MACD 
                 if macd_line[-1] > signal_line[-1] and macd_line[-2] < signal_line[-2]:
                     if trade.calculate_r_multiple() >= 1.0:
-                        return True, "MACD 金叉，趨勢可能反轉"
+                        return True, "MACD "
         
-        # 4. ADX 大幅下降（趨勢減弱）
+        # 4. ADX 
         if len(close) >= self.adx_period * 2:
             adx, plus_di, minus_di = self._calculate_adx(high, low, close)
             current_adx = adx[-1]
             prev_adx = adx[-5] if len(adx) >= 5 else current_adx
             
-            # ADX 下降超過 30% 且低於趨勢閾值
+            # ADX  30% 
             if current_adx < prev_adx * 0.7 and current_adx < self.min_adx_for_trend:
                 if trade.calculate_r_multiple() >= 1.5:
-                    return True, f"趨勢減弱 (ADX: {current_adx:.1f})"
+                    return True, f" (ADX: {current_adx:.1f})"
         
-        # 5. 所有目標達成
-        # （由部位管理處理分批出場，這裡只處理完全出場）
+        # 5. 
+        # 
         
         return False, ""
     
     # ========================
-    # 6. 出場執行
+    # 6. 
     # ========================
     
     def execute_exit(
@@ -930,16 +1103,16 @@ class TrendFollowingStrategy(BaseStrategy):
         exit_portion: float = 1.0,
     ) -> bool:
         """
-        執行出場
+        
         """
         try:
             exit_size = trade.current_position_size * exit_portion
             
             if connector is None:
-                # 模擬執行
-                logger.info(f"模擬出場: {trade.trade_id}, 原因: {reason}")
+                # 
+                logger.info(f": {trade.trade_id}, : {reason}")
                 
-                # 計算盈虧
+                # 
                 if trade.setup.direction == 'long':
                     pnl = (trade.average_exit_price - trade.average_entry_price) * exit_size
                 else:
@@ -954,7 +1127,7 @@ class TrendFollowingStrategy(BaseStrategy):
                     'reason': reason,
                 })
             else:
-                # 實際執行
+                # 
                 order_result = connector.place_order(
                     symbol=trade.setup.symbol,
                     side='SELL' if trade.setup.direction == 'long' else 'BUY',
@@ -982,17 +1155,17 @@ class TrendFollowingStrategy(BaseStrategy):
                         'reason': reason,
                     })
             
-            # 完全出場時
+            # 
             if trade.current_position_size <= 0:
                 trade.exit_time = datetime.now()
                 trade.exit_reason = reason
                 trade.holding_duration = trade.exit_time - trade.entry_time
                 
-                # 更新績效
+                # 
                 self.performance.update(trade)
                 self.trade_history.append(trade)
                 
-                # 虧損後設置冷卻期
+                # 
                 if trade.realized_pnl < 0:
                     self._cooldown_until = datetime.now() + timedelta(
                         hours=self.risk_params.cooldown_after_loss
@@ -1001,18 +1174,18 @@ class TrendFollowingStrategy(BaseStrategy):
                 self.state = StrategyState.IDLE
                 
                 logger.info(
-                    f"出場完成: {trade.trade_id}, "
+                    f": {trade.trade_id}, "
                     f"PnL: {trade.realized_pnl:.2f}, "
                     f"R: {trade.calculate_r_multiple():.2f}, "
-                    f"原因: {reason}"
+                    f": {reason}"
                 )
             
             return True
             
         except Exception as e:
-            logger.error(f"出場執行失敗: {e}")
+            logger.error(f": {e}")
             return False
 
 
-# 註冊策略
+# 
 StrategyRegistry.register('trend_following', TrendFollowingStrategy)

@@ -1,14 +1,17 @@
 """
-BioNeuronai - AI 交易與深度學習框架
+BioNeuronai - AI 
 ====================================
 
-核心模組:
-- trading_engine: 虛擬貨幣期貨交易引擎
-- trading_strategies: 多策略融合系統
-- data_models: 交易數據模型
-- connectors: Binance Futures API 連接器
-- risk_management: 風險管理系統
-- market_analyzer: 市場分析工具
+ v2.1:
+- core:  (Battle Royale)
+- analysis:  (RLHF)
+- strategies: RL Meta-Agent 
+- automation: SOP 
+- services: 
+- planning: 
+- data_models: 
+- connectors: API 
+- risk_management: 
 """
 
 __version__ = "2.1.0"
@@ -16,7 +19,7 @@ __author__ = "BioNeuronai Team"
 
 import logging
 
-# 配置日誌
+# 
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -26,37 +29,165 @@ logging.basicConfig(
     ]
 )
 
-# 交易系統核心模組
-from .trading_engine import TradingEngine
-from .data_models import MarketData, TradingSignal, Position, OrderResult
-from .connectors import BinanceFuturesConnector
+# 
+from .core import TradingEngine, SelfImprovementSystem
+from .trading_strategies import MarketData, TradingSignal, StrategyFusion
+from .data import BinanceFuturesConnector, ExchangeRateService
 from .risk_management import RiskManager, RiskParameters
-from .trading_strategies import StrategyFusion
 
-# 向後兼容別名
+#  ()
+from .core import (
+    InferenceEngine,
+    ModelLoader,
+    FeaturePipeline,
+    Predictor,
+    SignalInterpreter,
+    SignalType,
+    RiskLevel,
+    create_inference_engine,
+)
+#  AI 
+from .core.inference_engine import TradingSignal as AITradingSignal
+
+#  ()
+try:
+    from .core.self_improvement import (
+        StrategyGene,
+        EvolutionEngine,
+        PopulationManager
+    )
+    GENETIC_ALGO_AVAILABLE = True
+except ImportError:
+    GENETIC_ALGO_AVAILABLE = False
+    StrategyGene = None
+    EvolutionEngine = None
+    PopulationManager = None
+
+# 
+from .analysis import (
+    CryptoNewsAnalyzer,
+    NewsArticle,
+    NewsAnalysisResult,
+    get_news_analyzer,
+    MarketKeywords,
+    KeywordMatch
+)
+
+#  (RLHF)
+try:
+    from .analysis.news_prediction_loop import (
+        NewsPrediction,
+        NewsPredictionLoop
+    )
+    NEWS_PREDICTION_AVAILABLE = True
+except ImportError:
+    NEWS_PREDICTION_AVAILABLE = False
+    NewsPrediction = None
+    NewsPredictionLoop = None
+
+# 
+from .trading import (
+    TradingPlanController,
+    MarketAnalyzer,
+    StrategySelector,
+    PairSelector
+)
+# : SOPAutomationSystem, PreTradeCheckSystem, TradingPlanGenerator
+
+#  RL Meta-Agent ()
+try:
+    from .strategies.rl_fusion_agent import (
+        RLMetaAgent,
+        StrategyFusionEnv
+    )
+    RL_FUSION_AVAILABLE = True
+except ImportError:
+    RL_FUSION_AVAILABLE = False
+    RLMetaAgent = None
+    StrategyFusionEnv = None
+
+# 
 CryptoFuturesTrader = TradingEngine
 
 __all__ = [
-    # 主引擎
+    # 
     "TradingEngine",
-    "CryptoFuturesTrader",  # 向後兼容
+    "CryptoFuturesTrader",  # 
+    "SelfImprovementSystem",
     
-    # 數據模型
+    #  ()
+    "InferenceEngine",
+    "ModelLoader",
+    "FeaturePipeline",
+    "Predictor",
+    "SignalInterpreter",
+    "SignalType",
+    "RiskLevel",
+    "AITradingSignal",
+    "create_inference_engine",
+    
+    #  ()
+    "StrategyGene",
+    "EvolutionEngine",
+    "PopulationManager",
+    "GENETIC_ALGO_AVAILABLE",
+    
+    # 
     "MarketData",
     "TradingSignal",
-    "Position",
-    "OrderResult",
     
-    # 連接器
+    # 
     "BinanceFuturesConnector",
+    "ExchangeRateService",
     
-    # 風險管理
+    # 
     "RiskManager",
     "RiskParameters",
     
-    # 策略
+    # 
     "StrategyFusion",
+    
+    #  RL Meta-Agent ()
+    "RLMetaAgent",
+    "StrategyFusionEnv",
+    "RL_FUSION_AVAILABLE",
+    
+    # 
+    "CryptoNewsAnalyzer",
+    "NewsArticle",
+    "NewsAnalysisResult",
+    "get_news_analyzer",
+    "MarketKeywords",
+    "KeywordMatch",
+    
+    #  (RLHF)
+    "NewsPrediction",
+    "NewsPredictionLoop",
+    "NEWS_PREDICTION_AVAILABLE",
+    
+    # 
+    "TradingPlanController",
+    "MarketAnalyzer",
+    "StrategySelector",
+    "PairSelector",
 ]
 
-print(f"🚀 BioNeuronai v{__version__} 交易系統已載入")
-print(f"📦 可用模組: {len(__all__)} 個")
+print(f"[BioNeuronai v{__version__}] ")
+print(f": {len(__all__)} ")
+print(": core | analysis | strategies | trading | data | risk_management")
+
+# 
+if GENETIC_ALGO_AVAILABLE:
+    print("✅ ")
+else:
+    print("⚠️  (numpy)")
+
+if RL_FUSION_AVAILABLE:
+    print("✅ RL Meta-Agent ")
+else:
+    print("⚠️  RL Meta-Agent (stable-baselines3 + gymnasium)")
+
+if NEWS_PREDICTION_AVAILABLE:
+    print("✅ ")
+else:
+    print("⚠️  ")

@@ -3,21 +3,23 @@ AI 策略融合系統 (AI Strategy Fusion System)
 ==========================================
 
 核心理念：
-沒有任何一種交易方法是可以永遠適用的，
-AI 需要學習如何在不同市場環境中動態融合多種策略
+結合 AI 預測與多個傳統策略，動態調整權重。
 
-系統功能：
-1. 策略權重學習
-2. 市場環境識別
-3. 動態策略選擇
-4. 衝突解決機制
-5. 績效追蹤與優化
+整合模塊：
+AI 推理引擎 + 趨勢跟隨 + 均值回歸 + 波段交易 + 突破交易
 
-融合方法：
-- 加權投票
-- 貝葉斯組合
-- 強化學習優化
-- 績效驅動調整
+工作流程：
+1. 收集各策略信號
+2. AI 評估市場狀態
+3. 動態調整策略權重
+4. 融合生成最終信號
+5. 根據結果調整權重
+
+優勢特點：
+- 適應不同市場環境
+- 降低單一策略風險
+- 提高整體穩定性
+- 持續自我優化
 """
 
 import numpy as np
@@ -45,29 +47,32 @@ from .swing_trading import SwingTradingStrategy
 from .mean_reversion import MeanReversionStrategy
 from .breakout_trading import BreakoutTradingStrategy
 
+# 從 schemas 導入 EventContext (Single Source of Truth - 2026-01-25)
+from schemas.rag import EventContext
+
 logger = logging.getLogger(__name__)
 
 
 class FusionMethod(Enum):
-    """融合方法"""
-    WEIGHTED_VOTE = "weighted_vote"          # 加權投票
-    BEST_PERFORMER = "best_performer"        # 最佳績效者
-    MARKET_ADAPTIVE = "market_adaptive"      # 市場適應性
-    CONFIDENCE_BASED = "confidence_based"    # 信心度基礎
-    ENSEMBLE = "ensemble"                     # 集成方法
+    """"""
+    WEIGHTED_VOTE = "weighted_vote"          # 
+    BEST_PERFORMER = "best_performer"        # 
+    MARKET_ADAPTIVE = "market_adaptive"      # 
+    CONFIDENCE_BASED = "confidence_based"    # 
+    ENSEMBLE = "ensemble"                     # 
 
 
 @dataclass
 class StrategyWeight:
-    """策略權重"""
+    """"""
     strategy_name: str
-    base_weight: float = 0.25  # 基礎權重
-    performance_weight: float = 0.0  # 績效調整權重
-    market_condition_weight: float = 0.0  # 市場條件權重
-    recent_performance_weight: float = 0.0  # 近期績效權重
-    final_weight: float = 0.25  # 最終權重
+    base_weight: float = 0.25  # 
+    performance_weight: float = 0.0  # 
+    market_condition_weight: float = 0.0  # 
+    recent_performance_weight: float = 0.0  # 
+    final_weight: float = 0.25  # 
     
-    # 績效指標
+    # 
     win_rate: float = 0.5
     profit_factor: float = 1.0
     avg_r_multiple: float = 0.0
@@ -75,32 +80,32 @@ class StrategyWeight:
     recent_trades: int = 0
     recent_wins: int = 0
     
-    # 市場條件適應性
+    # 
     best_conditions: List[MarketCondition] = field(default_factory=list)
     worst_conditions: List[MarketCondition] = field(default_factory=list)
 
 
 @dataclass
 class FusionSignal:
-    """融合訊號"""
+    """"""
     signal_id: str = ""
     timestamp: datetime = field(default_factory=datetime.now)
     
-    # 來源策略
+    # 
     contributing_strategies: List[str] = field(default_factory=list)
     strategy_signals: Dict[str, Optional[TradeSetup]] = field(default_factory=dict)
     
-    # 融合結果
+    # 
     consensus_direction: Optional[str] = None  # 'long', 'short', None
     consensus_strength: float = 0.0  # 0-1
     confidence_score: float = 0.0  # 0-1
     
-    # 最終決策
+    # 
     should_trade: bool = False
     selected_setup: Optional[TradeSetup] = None
     fusion_method_used: FusionMethod = FusionMethod.WEIGHTED_VOTE
     
-    # 衝突資訊
+    # 
     has_conflict: bool = False
     conflict_description: str = ""
     conflict_resolution: str = ""
@@ -108,21 +113,26 @@ class FusionSignal:
 
 @dataclass
 class MarketRegime:
-    """市場狀態判定"""
+    """"""
     regime_type: str = "normal"  # 'trending', 'ranging', 'volatile', 'quiet', 'transitioning'
     confidence: float = 0.5
     duration_bars: int = 0
     
-    # 建議策略
+    # 
     recommended_strategies: List[str] = field(default_factory=list)
     avoid_strategies: List[str] = field(default_factory=list)
 
 
+# NOTE: EventContext 已遷移至 schemas/rag.py (Single Source of Truth)
+# 從 schemas 導入: from ..schemas.rag import EventContext
+# 保留此註釋供向後兼容參考 (2026-01-25)
+
+
 class AIStrategyFusion:
     """
-    AI 策略融合系統
+    AI 
     
-    整合多個交易策略，通過學習和適應來動態調整策略權重
+    
     """
     
     def __init__(
@@ -135,7 +145,7 @@ class AIStrategyFusion:
         self.fusion_method = fusion_method
         self.enable_learning = enable_learning
         
-        # 初始化策略
+        # 
         self.strategies: Dict[str, BaseStrategy] = {
             'trend_following': TrendFollowingStrategy(timeframe),
             'swing_trading': SwingTradingStrategy(timeframe),
@@ -143,11 +153,7 @@ class AIStrategyFusion:
             'breakout': BreakoutTradingStrategy(timeframe),
         }
         
-        # 初始化策略權重
-        self.strategy_weights: Dict[str, StrategyWeight] = {}
-        self._initialize_weights()
-        
-        # 市場狀態偏好 (基於策略特性)
+        #  () - 必須在 _initialize_weights 之前設置
         self._market_preference = {
             'trend_following': {
                 'best': [MarketCondition.STRONG_UPTREND, MarketCondition.STRONG_DOWNTREND,
@@ -156,7 +162,7 @@ class AIStrategyFusion:
             },
             'swing_trading': {
                 'best': [MarketCondition.UPTREND, MarketCondition.DOWNTREND, 
-                        "NORMAL"],  # 暫時使用字串
+                        "NORMAL"],  # 
                 'worst': [MarketCondition.STRONG_UPTREND, MarketCondition.STRONG_DOWNTREND],
             },
             'mean_reversion': {
@@ -164,33 +170,37 @@ class AIStrategyFusion:
                 'worst': [MarketCondition.STRONG_UPTREND, MarketCondition.STRONG_DOWNTREND],
             },
             'breakout': {
-                'best': [MarketCondition.LOW_VOLATILITY],  # 擠壓後突破
+                'best': [MarketCondition.LOW_VOLATILITY],  # 
                 'worst': [MarketCondition.SIDEWAYS, MarketCondition.HIGH_VOLATILITY],
             },
         }
         
-        # 學習歷史
+        # 初始化權重 (必須在 _market_preference 之後)
+        self.strategy_weights: Dict[str, StrategyWeight] = {}
+        self._initialize_weights()
+        
+        # 
         self.fusion_history: List[FusionSignal] = []
         self.trade_outcomes: List[Dict[str, Any]] = []
         
-        # 當前狀態
+        # 
         self.current_regime: Optional[MarketRegime] = None
         self._active_trade: Optional[TradeExecution] = None
         self._active_strategy: Optional[str] = None
         
-        # 學習參數
+        # 
         self.learning_rate = 0.1
-        self.performance_decay = 0.95  # 舊績效衰減
+        self.performance_decay = 0.95  # 
         self.min_weight = 0.05
         self.max_weight = 0.60
         
-        # 決策門檻
+        # 
         self.min_consensus_strength = 0.4
         self.min_confidence_score = 0.5
         self.conflict_threshold = 0.3
     
     def _initialize_weights(self):
-        """初始化策略權重"""
+        """"""
         n_strategies = len(self.strategies)
         base_weight = 1.0 / n_strategies
         
@@ -204,14 +214,14 @@ class AIStrategyFusion:
             )
     
     # ========================
-    # 市場狀態判斷
+    # 
     # ========================
     
     def identify_market_regime(
         self,
         ohlcv_data: np.ndarray,
     ) -> MarketRegime:
-        """識別當前市場狀態"""
+        """"""
         close = ohlcv_data[:, 4]
         high = ohlcv_data[:, 2]
         low = ohlcv_data[:, 3]
@@ -221,45 +231,45 @@ class AIStrategyFusion:
         if len(close) < 50:
             return regime
         
-        # 計算趨勢指標
+        # 
         sma_20 = np.mean(close[-20:])
         sma_50 = np.mean(close[-50:])
         
-        # 計算波動率
+        # 
         returns = np.diff(close[-21:]) / close[-21:-1]
-        volatility = np.std(returns) * np.sqrt(252)  # 年化波動率
+        volatility = np.std(returns) * np.sqrt(252)  # 
         avg_volatility = np.std(np.diff(close[-50:-20]) / close[-50:-20]) * np.sqrt(252)
         
-        # 計算區間
+        # 
         range_20 = (max(high[-20:]) - min(low[-20:])) / np.mean(close[-20:])
         
-        # 計算趨勢強度
+        # 
         trend_strength = abs(sma_20 - sma_50) / sma_50 * 100
         
-        # ADX 計算 (簡化版)
+        # ADX  ()
         adx = self._calculate_adx_simple(high, low, close)
         
-        # 判斷市場狀態
+        # 
         if adx > 30 and trend_strength > 3:
             if close[-1] > sma_20 > sma_50:
-                regime.regime_type = "trending"
+                regime.regime_type = "uptrending"
                 regime.recommended_strategies = ['trend_following', 'breakout']
                 regime.avoid_strategies = ['mean_reversion']
             elif close[-1] < sma_20 < sma_50:
-                regime.regime_type = "trending"
+                regime.regime_type = "downtrending"
                 regime.recommended_strategies = ['trend_following', 'breakout']
                 regime.avoid_strategies = ['mean_reversion']
             regime.confidence = 0.7 + (adx - 30) / 100
         
         elif range_20 < 0.05 and volatility < avg_volatility * 0.8:
             regime.regime_type = "quiet"
-            regime.recommended_strategies = ['breakout']  # 等待突破
+            regime.recommended_strategies = ['breakout']  # 
             regime.avoid_strategies = ['trend_following', 'swing_trading']
             regime.confidence = 0.6
         
         elif volatility > avg_volatility * 1.5:
             regime.regime_type = "volatile"
-            regime.recommended_strategies = ['swing_trading']  # 波動中找波段
+            regime.recommended_strategies = ['swing_trading']  # 
             regime.avoid_strategies = ['breakout']
             regime.confidence = 0.65
         
@@ -275,7 +285,7 @@ class AIStrategyFusion:
             regime.avoid_strategies = []
             regime.confidence = 0.5
         
-        # 計算持續時間
+        # 
         regime.duration_bars = self._estimate_regime_duration(
             close, high, low, regime.regime_type
         )
@@ -290,10 +300,10 @@ class AIStrategyFusion:
         close: np.ndarray,
         period: int = 14
     ) -> float:
-        """簡化的 ADX 計算"""
+        """ ADX """
         n = len(close)
         if n < period * 2:
-            return 20.0  # 預設值
+            return 20.0  # 
         
         # +DM, -DM
         plus_dm = np.zeros(n)
@@ -315,7 +325,7 @@ class AIStrategyFusion:
                 abs(low[i] - close[i-1])
             )
         
-        # 平滑
+        # 
         atr = np.mean(tr[-period:]) if len(tr) >= period else 0
         plus_di = 100 * np.mean(plus_dm[-period:]) / atr if atr > 0 else 0
         minus_di = 100 * np.mean(minus_dm[-period:]) / atr if atr > 0 else 0
@@ -327,11 +337,11 @@ class AIStrategyFusion:
     def _estimate_regime_duration(
         self,
         close: np.ndarray,
-        high: np.ndarray,
-        low: np.ndarray,
+        _high: np.ndarray,
+        _low: np.ndarray,
         regime_type: str
     ) -> int:
-        """估計狀態持續時間"""
+        """"""
         duration = 0
         n = len(close)
         
@@ -340,7 +350,7 @@ class AIStrategyFusion:
             if abs(idx) >= n:
                 break
             
-            # 簡化判斷：檢查與當前狀態一致的時間
+            # 
             window_close = close[idx:idx+20] if idx+20 < 0 else close[idx:]
             
             if len(window_close) < 5:
@@ -360,7 +370,7 @@ class AIStrategyFusion:
         return duration
     
     # ========================
-    # 策略權重計算
+    # 
     # ========================
     
     def update_weights_for_market(
@@ -368,18 +378,18 @@ class AIStrategyFusion:
         market_condition: Union[MarketCondition, str],
         regime: MarketRegime
     ):
-        """根據市場狀態更新策略權重"""
+        """"""
         for name, weight in self.strategy_weights.items():
-            # 1. 基礎權重
+            # 1. 
             condition_weight = 0.0
             
-            # 2. 市場條件適應性
+            # 2. 
             if market_condition in weight.best_conditions:
                 condition_weight += 0.3
             elif market_condition in weight.worst_conditions:
                 condition_weight -= 0.3
             
-            # 3. 市場狀態建議
+            # 3. 
             if name in regime.recommended_strategies:
                 condition_weight += 0.2
             if name in regime.avoid_strategies:
@@ -387,7 +397,7 @@ class AIStrategyFusion:
             
             weight.market_condition_weight = condition_weight
             
-            # 4. 計算最終權重
+            # 4. 
             total = (
                 weight.base_weight +
                 weight.performance_weight +
@@ -395,14 +405,14 @@ class AIStrategyFusion:
                 weight.recent_performance_weight
             )
             
-            # 限制範圍
+            # 
             weight.final_weight = max(self.min_weight, min(self.max_weight, total))
         
-        # 正規化權重
+        # 
         self._normalize_weights()
     
     def update_weights_from_performance(self, strategy_name: str, trade_result: Dict):
-        """根據交易結果更新策略權重"""
+        """"""
         if not self.enable_learning:
             return
         
@@ -410,7 +420,7 @@ class AIStrategyFusion:
         if not weight:
             return
         
-        # 更新績效統計
+        # 
         weight.total_trades += 1
         
         r_multiple = trade_result.get('r_multiple', 0)
@@ -427,72 +437,195 @@ class AIStrategyFusion:
                 weight.total_trades
             )
         
-        # 更新近期績效
-        weight.recent_trades = min(weight.recent_trades + 1, 20)  # 最多追蹤 20 筆
+        # 
+        weight.recent_trades = min(weight.recent_trades + 1, 20)  #  20 
         if is_win:
             weight.recent_wins += 1
         
-        # 計算近期勝率
+        # 
         recent_win_rate = weight.recent_wins / weight.recent_trades if weight.recent_trades > 0 else 0.5
         
-        # 更新績效權重
-        performance_score = (weight.win_rate - 0.5) * 2  # -1 到 1
+        # 
+        performance_score = (weight.win_rate - 0.5) * 2  # -1  1
         recent_score = (recent_win_rate - 0.5) * 2
         
         weight.performance_weight = performance_score * 0.15
         weight.recent_performance_weight = recent_score * 0.1
         
-        # 衰減舊績效的影響
+        # 
         if weight.recent_trades >= 20:
-            # 模擬滑動窗口
+            # 
             weight.recent_wins = int(weight.recent_wins * self.performance_decay)
             weight.recent_trades = int(weight.recent_trades * self.performance_decay)
         
         logger.info(
-            f"更新 {strategy_name} 權重: "
-            f"勝率={weight.win_rate:.1%}, "
-            f"近期勝率={recent_win_rate:.1%}, "
-            f"最終權重={weight.final_weight:.2f}"
+            f" {strategy_name} : "
+            f"={weight.win_rate:.1%}, "
+            f"={recent_win_rate:.1%}, "
+            f"={weight.final_weight:.2f}"
         )
     
     def _normalize_weights(self):
-        """正規化權重使總和為 1"""
+        """權重正規化，確保總和為 1"""
         total = sum(w.final_weight for w in self.strategy_weights.values())
         
         if total > 0:
             for weight in self.strategy_weights.values():
                 weight.final_weight /= total
     
+    def _apply_asymmetric_filter(
+        self,
+        strategy_name: str,
+        setup: Optional[TradeSetup],
+        event_score: float
+    ) -> Optional[TradeSetup]:
+        """非對稱過濾器 - 根據新聞大腦評分過濾信號
+        
+        這是「司令部(News)對前線(Strategy)下達的交戰規則(ROE)」。
+        在極端環境下，對逆勢信號實施嚴格過濾，對順勢信號快速放行。
+        
+        Args:
+            strategy_name: 策略名稱
+            setup: 原始交易設置
+            event_score: 環境評分 (-10 到 +10)
+            
+        Returns:
+            過濾後的交易設置，被攔截則返回 None
+        """
+        if not setup:
+            return None
+        
+        # 環境閾值定義 (可由 AI 優化)
+        EXTREME_BEARISH = -5.0  # 極度看空
+        EXTREME_BULLISH = 5.0   # 極度看多
+        
+        # --- 情境 A: 環境極度看空 (如：戰爭+監管) ---
+        if event_score < EXTREME_BEARISH:
+            if setup.direction == 'long':
+                # 對「做多」信號實施「禁飛令」：只有最強信號才放行
+                if setup.signal_strength != SignalStrength.VERY_STRONG:
+                    logger.info(
+                        f"[非對稱過濾] 環境極空({event_score:.1f})，"
+                        f"攔截 {strategy_name} 的普通做多信號"
+                    )
+                    return None
+            # 對「做空」信號：順風，直接放行
+        
+        # --- 情境 B: 環境極度看多 ---
+        elif event_score > EXTREME_BULLISH:
+            if setup.direction == 'short' and setup.signal_strength != SignalStrength.VERY_STRONG:
+                    logger.info(
+                        f"[非對稱過濾] 環境極多({event_score:.1f})，"
+                        f"攔截 {strategy_name} 的普通做空信號"
+                    )
+                    return None
+        
+        return setup
+    
+    def _adjust_weights_by_event(self, event_context: EventContext):
+        """根據事件類型動態調整策略權重
+        
+        不同類型的事件適合不同的策略：
+        - 突發事件 (WAR/HACK): 趨勢策略權重提高
+        - 政策事件 (REGULATION): 觀望為主，降低所有權重
+        - 宏觀事件 (MACRO): 趨勢和突破策略權重提高
+        
+        Args:
+            event_context: 事件上下文
+        """
+        if not event_context or not event_context.event_type:
+            return
+        
+        event_type = event_context.event_type.upper()
+        intensity = event_context.intensity.upper()
+        
+        # 強度乘數
+        intensity_multiplier = {
+            'LOW': 0.5,
+            'MEDIUM': 1.0,
+            'HIGH': 1.5,
+            'EXTREME': 2.0,
+        }.get(intensity, 1.0)
+        
+        # --- 突發事件 (戰爭、駭客攻擊): 強趨勢，不回歸 ---
+        if event_type in ['WAR', 'HACK', 'BLACK_SWAN']:
+            adjustment = 0.2 * intensity_multiplier
+            self.strategy_weights['trend_following'].final_weight *= (1 + adjustment)
+            self.strategy_weights['breakout'].final_weight *= (1 + adjustment)
+            self.strategy_weights['mean_reversion'].final_weight *= (1 - adjustment)
+            logger.info(f"[事件權重調整] {event_type}: 提升趨勢/突破權重")
+        
+        # --- 監管事件: 謹慎觀望 ---
+        elif event_type in ['REGULATION', 'POLICY']:
+            adjustment = 0.15 * intensity_multiplier
+            # 降低所有激進策略的權重
+            for weight in self.strategy_weights.values():
+                weight.final_weight *= (1 - adjustment * 0.5)
+            logger.info(f"[事件權重調整] {event_type}: 整體降低權重，謹慎觀望")
+        
+        # --- 宏觀經濟事件: 趨勢主導 ---
+        elif event_type in ['MACRO', 'FED', 'CPI', 'EARNINGS']:
+            adjustment = 0.15 * intensity_multiplier
+            self.strategy_weights['trend_following'].final_weight *= (1 + adjustment)
+            self.strategy_weights['swing_trading'].final_weight *= (1 + adjustment * 0.5)
+            logger.info(f"[事件權重調整] {event_type}: 提升趨勢/波段權重")
+        
+        # 重新正規化權重
+        self._normalize_weights()
+    
     # ========================
-    # 策略融合
+    # 信號融合方法
     # ========================
     
     def generate_fusion_signal(
         self,
         ohlcv_data: np.ndarray,
-        additional_data: Optional[Dict] = None
+        additional_data: Optional[Dict] = None,
+        event_score: float = 0.0,  # 來自新聞大腦的環境評分 (-10 到 +10)
+        event_context: Optional[EventContext] = None  # 詳細事件上下文
     ) -> FusionSignal:
-        """生成融合訊號"""
+        """生成融合信號
+        
+        Args:
+            ohlcv_data: OHLCV K線數據
+            additional_data: 額外市場數據
+            event_score: 環境評分，來自新聞分析大腦 (-10 看空, +10 看多, 0 中性)
+            event_context: 詳細事件上下文，包含事件類型、強度等資訊
+        
+        Returns:
+            FusionSignal: 融合後的交易信號
+        """
         signal = FusionSignal(
             signal_id=f"FS_{datetime.now().strftime('%Y%m%d%H%M%S')}_{uuid.uuid4().hex[:8]}",
             timestamp=datetime.now(),
         )
         
+        # 0. 處理事件上下文，計算有效的 event_score
+        effective_event_score = event_score
+        if event_context:
+            effective_event_score = event_context.get_effective_score()
+            # 根據事件類型調整策略權重
+            self._adjust_weights_by_event(event_context)
+        
         # 1. 識別市場狀態
         regime = self.identify_market_regime(ohlcv_data)
         
-        # 2. 收集各策略訊號
+        # 2. 收集各策略信號
         market_analyses = {}
         trade_setups = {}
         
         for name, strategy in self.strategies.items():
             try:
-                # 分析市場
+                # 市場分析
                 analysis = strategy.analyze_market(ohlcv_data, additional_data)
                 market_analyses[name] = analysis
                 
-                # 評估進場條件
+                # 入場條件評估
                 setup = strategy.evaluate_entry_conditions(analysis, ohlcv_data)
+                
+                # 應用非對稱過濾器 (基於事件評分)
+                setup = self._apply_asymmetric_filter(name, setup, effective_event_score)
+                
                 trade_setups[name] = setup
                 
                 if setup:
@@ -504,9 +637,9 @@ class AIStrategyFusion:
         
         signal.strategy_signals = trade_setups
         
-        # 3. 更新市場條件權重
-        # 取第一個有效分析的市場條件
-        market_condition = "NORMAL"  # 預設使用字串
+        # 3. 
+        # 
+        market_condition = "NORMAL"  # 
         for analysis in market_analyses.values():
             mc = analysis.get('market_condition')
             if mc:
@@ -515,7 +648,7 @@ class AIStrategyFusion:
         
         self.update_weights_for_market(market_condition, regime)
         
-        # 4. 融合訊號
+        # 4. 
         if self.fusion_method == FusionMethod.WEIGHTED_VOTE:
             self._fuse_by_weighted_vote(signal)
         elif self.fusion_method == FusionMethod.BEST_PERFORMER:
@@ -527,19 +660,19 @@ class AIStrategyFusion:
         else:
             self._fuse_ensemble(signal, regime)
         
-        # 5. 檢測和解決衝突
+        # 5. 
         self._detect_and_resolve_conflicts(signal)
         
-        # 6. 最終決策
+        # 6. 
         self._make_final_decision(signal)
         
-        # 7. 記錄
+        # 7. 
         self.fusion_history.append(signal)
         
         return signal
     
     def _fuse_by_weighted_vote(self, signal: FusionSignal):
-        """加權投票融合"""
+        """"""
         long_votes = 0.0
         short_votes = 0.0
         total_weight = 0.0
@@ -573,7 +706,7 @@ class AIStrategyFusion:
         signal.fusion_method_used = FusionMethod.WEIGHTED_VOTE
     
     def _fuse_by_best_performer(self, signal: FusionSignal):
-        """選擇最佳績效策略"""
+        """"""
         best_strategy = None
         best_score = -1
         
@@ -583,10 +716,10 @@ class AIStrategyFusion:
             
             weight = self.strategy_weights[name]
             
-            # 計算綜合分數
+            # 
             score = (
                 weight.win_rate * 0.4 +
-                (weight.profit_factor / 3) * 0.3 +  # 假設 profit_factor 最高 3
+                (weight.profit_factor / 3) * 0.3 +  #  profit_factor  3
                 (weight.recent_wins / max(weight.recent_trades, 1)) * 0.3
             )
             
@@ -596,7 +729,7 @@ class AIStrategyFusion:
         
         if best_strategy:
             setup = signal.strategy_signals[best_strategy]
-            if setup:  # 確保 setup 不為 None
+            if setup:  #  setup  None
                 signal.consensus_direction = setup.direction
                 signal.consensus_strength = best_score
                 signal.confidence_score = best_score
@@ -605,8 +738,8 @@ class AIStrategyFusion:
         signal.fusion_method_used = FusionMethod.BEST_PERFORMER
     
     def _fuse_by_market_adaptive(self, signal: FusionSignal, regime: MarketRegime):
-        """市場適應性融合"""
-        # 優先考慮推薦策略
+        """"""
+        # 
         prioritized_strategies = regime.recommended_strategies
         
         best_setup = None
@@ -616,18 +749,18 @@ class AIStrategyFusion:
             if setup is None:
                 continue
             
-            # 基礎分數
+            # 
             score = self.strategy_weights[name].final_weight
             
-            # 推薦策略加分
+            # 
             if name in prioritized_strategies:
                 score *= 1.5
             
-            # 避免策略減分
+            # 
             if name in regime.avoid_strategies:
                 score *= 0.5
             
-            # 訊號強度加權
+            # 
             strength_multiplier = {
                 SignalStrength.VERY_STRONG: 1.5,
                 SignalStrength.STRONG: 1.2,
@@ -650,7 +783,7 @@ class AIStrategyFusion:
         signal.fusion_method_used = FusionMethod.MARKET_ADAPTIVE
     
     def _fuse_by_confidence(self, signal: FusionSignal):
-        """信心度基礎融合"""
+        """"""
         best_setup = None
         best_confidence = 0
         
@@ -658,10 +791,10 @@ class AIStrategyFusion:
             if setup is None:
                 continue
             
-            # 計算信心度
+            # 
             confidence = setup.entry_confirmations / max(setup.required_confirmations, 1)
             
-            # 結合策略權重
+            # 
             adjusted_confidence = confidence * self.strategy_weights[name].final_weight
             
             if adjusted_confidence > best_confidence:
@@ -677,30 +810,30 @@ class AIStrategyFusion:
         signal.fusion_method_used = FusionMethod.CONFIDENCE_BASED
     
     def _fuse_ensemble(self, signal: FusionSignal, regime: MarketRegime):
-        """集成方法：結合多種融合策略"""
-        # 1. 加權投票
+        """"""
+        # 1. 
         vote_signal = FusionSignal()
         vote_signal.strategy_signals = signal.strategy_signals
         self._fuse_by_weighted_vote(vote_signal)
         
-        # 2. 市場適應
+        # 2. 
         adaptive_signal = FusionSignal()
         adaptive_signal.strategy_signals = signal.strategy_signals
         self._fuse_by_market_adaptive(adaptive_signal, regime)
         
-        # 3. 信心度
+        # 3. 
         confidence_signal = FusionSignal()
         confidence_signal.strategy_signals = signal.strategy_signals
         self._fuse_by_confidence(confidence_signal)
         
-        # 集成結果
+        # 
         directions = [
             vote_signal.consensus_direction,
             adaptive_signal.consensus_direction,
             confidence_signal.consensus_direction,
         ]
         
-        # 多數決定方向
+        # 
         long_count = directions.count('long')
         short_count = directions.count('short')
         
@@ -709,7 +842,7 @@ class AIStrategyFusion:
         elif short_count > long_count:
             signal.consensus_direction = 'short'
         
-        # 平均信心度
+        # 
         scores = [
             vote_signal.confidence_score,
             adaptive_signal.confidence_score,
@@ -719,14 +852,14 @@ class AIStrategyFusion:
         signal.confidence_score = float(mean_score)
         signal.consensus_strength = signal.confidence_score
         
-        # 選擇最佳設置
+        # 
         if adaptive_signal.selected_setup:
             signal.selected_setup = adaptive_signal.selected_setup
         
         signal.fusion_method_used = FusionMethod.ENSEMBLE
     
     def _detect_and_resolve_conflicts(self, signal: FusionSignal):
-        """檢測和解決策略衝突"""
+        """"""
         long_strategies = []
         short_strategies = []
         
@@ -738,14 +871,14 @@ class AIStrategyFusion:
             else:
                 short_strategies.append(name)
         
-        # 檢測衝突
+        # 
         if long_strategies and short_strategies:
             signal.has_conflict = True
             signal.conflict_description = (
-                f"多空衝突: 做多策略={long_strategies}, 做空策略={short_strategies}"
+                f": ={long_strategies}, ={short_strategies}"
             )
             
-            # 衝突解決
+            # 
             long_weight = sum(
                 self.strategy_weights[s].final_weight for s in long_strategies
             )
@@ -754,19 +887,19 @@ class AIStrategyFusion:
             )
             
             if abs(long_weight - short_weight) < self.conflict_threshold:
-                # 衝突太激烈，不交易
-                signal.conflict_resolution = "衝突嚴重，建議觀望"
+                # 
+                signal.conflict_resolution = ""
                 signal.should_trade = False
             else:
-                # 傾向權重較高的方向
+                # 
                 if long_weight > short_weight:
-                    signal.conflict_resolution = f"權重傾向做多 ({long_weight:.2f} vs {short_weight:.2f})"
+                    signal.conflict_resolution = f" ({long_weight:.2f} vs {short_weight:.2f})"
                 else:
-                    signal.conflict_resolution = f"權重傾向做空 ({short_weight:.2f} vs {long_weight:.2f})"
+                    signal.conflict_resolution = f" ({short_weight:.2f} vs {long_weight:.2f})"
     
     def _make_final_decision(self, signal: FusionSignal):
-        """做出最終交易決策"""
-        # 檢查基本條件
+        """"""
+        # 
         if not signal.consensus_direction:
             signal.should_trade = False
             return
@@ -775,13 +908,13 @@ class AIStrategyFusion:
             signal.should_trade = False
             return
         
-        if signal.has_conflict and "觀望" in signal.conflict_resolution:
+        if signal.has_conflict and "" in signal.conflict_resolution:
             signal.should_trade = False
             return
         
-        # 選擇最佳設置
+        # 
         if not signal.selected_setup:
-            # 從同方向的策略中選擇
+            # 
             best_setup = None
             best_score = 0
             
@@ -797,7 +930,7 @@ class AIStrategyFusion:
         signal.should_trade = signal.selected_setup is not None
     
     # ========================
-    # 交易執行
+    # 
     # ========================
     
     def execute_fusion_signal(
@@ -805,11 +938,11 @@ class AIStrategyFusion:
         signal: FusionSignal,
         connector: Any,
     ) -> Optional[TradeExecution]:
-        """執行融合訊號"""
+        """"""
         if not signal.should_trade or not signal.selected_setup:
             return None
         
-        # 找到對應的策略
+        # 
         active_strategy_name = None
         for name, setup in signal.strategy_signals.items():
             if setup == signal.selected_setup:
@@ -817,12 +950,12 @@ class AIStrategyFusion:
                 break
         
         if not active_strategy_name:
-            logger.error("無法找到對應策略")
+            logger.error("")
             return None
         
         strategy = self.strategies[active_strategy_name]
         
-        # 執行進場
+        # 
         execution = strategy.execute_entry(signal.selected_setup, connector)
         
         if execution:
@@ -830,10 +963,10 @@ class AIStrategyFusion:
             self._active_strategy = active_strategy_name
             
             logger.info(
-                f"融合訊號執行: {signal.signal_id}, "
-                f"策略: {active_strategy_name}, "
-                f"方向: {signal.consensus_direction}, "
-                f"信心: {signal.confidence_score:.2f}"
+                f": {signal.signal_id}, "
+                f": {active_strategy_name}, "
+                f": {signal.consensus_direction}, "
+                f": {signal.confidence_score:.2f}"
             )
         
         return execution
@@ -843,16 +976,16 @@ class AIStrategyFusion:
         current_price: float,
         ohlcv_data: np.ndarray,
     ) -> Optional[PositionManagement]:
-        """管理活躍交易"""
+        """"""
         if not self._active_trade or not self._active_strategy:
             return None
         
         strategy = self.strategies[self._active_strategy]
         
-        # 更新價格
+        # 
         self._active_trade.average_exit_price = current_price
         
-        # 使用策略管理部位
+        # 
         management = strategy.manage_position(
             self._active_trade,
             current_price,
@@ -866,7 +999,7 @@ class AIStrategyFusion:
         current_price: float,
         ohlcv_data: np.ndarray,
     ) -> Tuple[bool, str]:
-        """檢查出場條件"""
+        """"""
         if not self._active_trade or not self._active_strategy:
             return False, ""
         
@@ -883,7 +1016,7 @@ class AIStrategyFusion:
         reason: str,
         connector: Any,
     ) -> bool:
-        """執行出場"""
+        """"""
         if not self._active_trade or not self._active_strategy:
             return False
         
@@ -896,7 +1029,7 @@ class AIStrategyFusion:
         )
         
         if success:
-            # 記錄結果並更新權重
+            # 
             trade_result = {
                 'strategy': self._active_strategy,
                 'r_multiple': self._active_trade.calculate_r_multiple(),
@@ -911,18 +1044,18 @@ class AIStrategyFusion:
                 trade_result
             )
             
-            # 重置狀態
+            # 
             self._active_trade = None
             self._active_strategy = None
         
         return success
     
     # ========================
-    # 報告和分析
+    # 
     # ========================
     
     def get_strategy_report(self) -> Dict[str, Any]:
-        """獲取策略報告"""
+        """"""
         report = {
             'fusion_method': self.fusion_method.value,
             'total_fusion_signals': len(self.fusion_history),
@@ -942,7 +1075,7 @@ class AIStrategyFusion:
                 'total_trades': weight.total_trades,
             }
         
-        # 最近績效
+        # 
         if self.trade_outcomes:
             recent = self.trade_outcomes[-20:]
             wins = sum(1 for t in recent if t.get('r_multiple', 0) > 0)
@@ -959,7 +1092,7 @@ class AIStrategyFusion:
         return report
     
     def save_state(self, filepath: str):
-        """保存狀態"""
+        """"""
         state = {
             'weights': {
                 name: {
@@ -972,7 +1105,7 @@ class AIStrategyFusion:
                 }
                 for name, w in self.strategy_weights.items()
             },
-            'trade_outcomes': self.trade_outcomes[-100:],  # 只保留最近 100 筆
+            'trade_outcomes': self.trade_outcomes[-100:],  #  100 
             'fusion_method': self.fusion_method.value,
             'saved_at': datetime.now().isoformat(),
         }
@@ -980,15 +1113,15 @@ class AIStrategyFusion:
         with open(filepath, 'w') as f:
             json.dump(state, f, indent=2)
         
-        logger.info(f"狀態已保存到 {filepath}")
+        logger.info(f" {filepath}")
     
     def load_state(self, filepath: str):
-        """載入狀態"""
+        """"""
         try:
             with open(filepath, 'r') as f:
                 state = json.load(f)
             
-            # 恢復權重
+            # 
             for name, data in state.get('weights', {}).items():
                 if name in self.strategy_weights:
                     w = self.strategy_weights[name]
@@ -1001,10 +1134,10 @@ class AIStrategyFusion:
             
             self.trade_outcomes = state.get('trade_outcomes', [])
             
-            # 重新計算最終權重
+            # 
             self._normalize_weights()
             
-            logger.info(f"狀態已從 {filepath} 載入")
+            logger.info(f" {filepath} ")
             
         except Exception as e:
-            logger.error(f"載入狀態失敗: {e}")
+            logger.error(f": {e}")

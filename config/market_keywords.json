@@ -1,33 +1,35 @@
 {
-  "version": "2.0",
-  "last_updated": "2026-01-19 19:00:40",
-  "total_keywords": 98,
+  "version": "3.0",
+  "last_updated": "2026-01-25 21:46:30",
+  "total_keywords": 217,
   "keywords": [
     {
       "keyword": "elon musk",
       "category": "person",
       "base_weight": 2.5,
-      "dynamic_weight": 1.08,
+      "dynamic_weight": 1.1664,
       "sentiment_bias": "uncertain",
       "description": "特斯拉CEO，推文常引發市場波動",
       "added_date": "2026-01-19",
-      "last_updated": "2026-01-19",
-      "hit_count": 4,
-      "prediction_count": 1,
-      "correct_count": 1
+      "last_updated": "2026-01-25",
+      "hit_count": 0,
+      "prediction_count": 2,
+      "correct_count": 2,
+      "subcategory": "tech_ceo"
     },
     {
       "keyword": "musk",
       "category": "person",
       "base_weight": 2.5,
-      "dynamic_weight": 1.0,
+      "dynamic_weight": 1.3604889600000003,
       "sentiment_bias": "uncertain",
       "description": "馬斯克",
       "added_date": "2026-01-19",
-      "last_updated": "2026-01-19",
-      "hit_count": 4,
-      "prediction_count": 0,
-      "correct_count": 0
+      "last_updated": "2026-01-25",
+      "hit_count": 0,
+      "prediction_count": 4,
+      "correct_count": 4,
+      "subcategory": "tech_ceo"
     },
     {
       "keyword": "vitalik",
@@ -40,7 +42,8 @@
       "last_updated": "2026-01-19",
       "hit_count": 0,
       "prediction_count": 0,
-      "correct_count": 0
+      "correct_count": 0,
+      "subcategory": "crypto_leader"
     },
     {
       "keyword": "vitalik buterin",
@@ -53,7 +56,8 @@
       "last_updated": "2026-01-19",
       "hit_count": 0,
       "prediction_count": 0,
-      "correct_count": 0
+      "correct_count": 0,
+      "subcategory": "crypto_leader"
     },
     {
       "keyword": "cz",
@@ -64,9 +68,10 @@
       "description": "幣安前CEO",
       "added_date": "2026-01-19",
       "last_updated": "2026-01-19",
-      "hit_count": 0,
+      "hit_count": 1,
       "prediction_count": 0,
-      "correct_count": 0
+      "correct_count": 0,
+      "subcategory": "crypto_leader"
     },
     {
       "keyword": "changpeng zhao",
@@ -79,7 +84,8 @@
       "last_updated": "2026-01-19",
       "hit_count": 0,
       "prediction_count": 0,
-      "correct_count": 0
+      "correct_count": 0,
+      "subcategory": "crypto_leader"
     },
     {
       "keyword": "michael saylor",
@@ -90,22 +96,24 @@
       "description": "MicroStrategy CEO，比特幣大多頭",
       "added_date": "2026-01-19",
       "last_updated": "2026-01-19",
-      "hit_count": 0,
+      "hit_count": 1,
       "prediction_count": 0,
-      "correct_count": 0
+      "correct_count": 0,
+      "subcategory": "crypto_leader"
     },
     {
       "keyword": "saylor",
       "category": "person",
       "base_weight": 2.0,
-      "dynamic_weight": 1.0,
+      "dynamic_weight": 1.08,
       "sentiment_bias": "positive",
       "description": "MicroStrategy CEO",
       "added_date": "2026-01-19",
-      "last_updated": "2026-01-19",
-      "hit_count": 0,
-      "prediction_count": 0,
-      "correct_count": 0
+      "last_updated": "2026-01-25",
+      "hit_count": 1,
+      "prediction_count": 1,
+      "correct_count": 1,
+      "subcategory": "crypto_leader"
     },
     {
       "keyword": "cathie wood",
@@ -118,7 +126,8 @@
       "last_updated": "2026-01-19",
       "hit_count": 0,
       "prediction_count": 0,
-      "correct_count": 0
+      "correct_count": 0,
+      "subcategory": "fund_manager"
     },
     {
       "keyword": "brian armstrong",
@@ -129,9 +138,10 @@
       "description": "Coinbase CEO",
       "added_date": "2026-01-19",
       "last_updated": "2026-01-19",
-      "hit_count": 0,
+      "hit_count": 1,
       "prediction_count": 0,
-      "correct_count": 0
+      "correct_count": 0,
+      "subcategory": "crypto_leader"
     },
     {
       "keyword": "sam bankman",
@@ -144,7 +154,8 @@
       "last_updated": "2026-01-19",
       "hit_count": 0,
       "prediction_count": 0,
-      "correct_count": 0
+      "correct_count": 0,
+      "subcategory": "general"
     },
     {
       "keyword": "sbf",
@@ -157,7 +168,8 @@
       "last_updated": "2026-01-19",
       "hit_count": 0,
       "prediction_count": 0,
-      "correct_count": 0
+      "correct_count": 0,
+      "subcategory": "crypto_leader"
     },
     {
       "keyword": "powell",
@@ -170,7 +182,8 @@
       "last_updated": "2026-01-19",
       "hit_count": 0,
       "prediction_count": 0,
-      "correct_count": 0
+      "correct_count": 0,
+      "subcategory": "fed_official"
     },
     {
       "keyword": "jerome powell",
@@ -183,7 +196,8 @@
       "last_updated": "2026-01-19",
       "hit_count": 0,
       "prediction_count": 0,
-      "correct_count": 0
+      "correct_count": 0,
+      "subcategory": "fed_official"
     },
     {
       "keyword": "yellen",
@@ -196,7 +210,8 @@
       "last_updated": "2026-01-19",
       "hit_count": 0,
       "prediction_count": 0,
-      "correct_count": 0
+      "correct_count": 0,
+      "subcategory": "fed_official"
     },
     {
       "keyword": "janet yellen",
@@ -209,7 +224,8 @@
       "last_updated": "2026-01-19",
       "hit_count": 0,
       "prediction_count": 0,
-      "correct_count": 0
+      "correct_count": 0,
+      "subcategory": "fed_official"
     },
     {
       "keyword": "gensler",
@@ -222,7 +238,8 @@
       "last_updated": "2026-01-19",
       "hit_count": 0,
       "prediction_count": 0,
-      "correct_count": 0
+      "correct_count": 0,
+      "subcategory": "regulator_official"
     },
     {
       "keyword": "gary gensler",
@@ -235,7 +252,8 @@
       "last_updated": "2026-01-19",
       "hit_count": 0,
       "prediction_count": 0,
-      "correct_count": 0
+      "correct_count": 0,
+      "subcategory": "regulator_official"
     },
     {
       "keyword": "lagarde",
@@ -248,20 +266,22 @@
       "last_updated": "2026-01-19",
       "hit_count": 0,
       "prediction_count": 0,
-      "correct_count": 0
+      "correct_count": 0,
+      "subcategory": "general"
     },
     {
       "keyword": "trump",
       "category": "person",
       "base_weight": 2.5,
-      "dynamic_weight": 1.0,
+      "dynamic_weight": 2.0,
       "sentiment_bias": "uncertain",
       "description": "美國前/現任總統",
       "added_date": "2026-01-19",
-      "last_updated": "2026-01-19",
-      "hit_count": 0,
-      "prediction_count": 0,
-      "correct_count": 0
+      "last_updated": "2026-01-25",
+      "hit_count": 4,
+      "prediction_count": 18,
+      "correct_count": 18,
+      "subcategory": "politician"
     },
     {
       "keyword": "biden",
@@ -274,7 +294,8 @@
       "last_updated": "2026-01-19",
       "hit_count": 0,
       "prediction_count": 0,
-      "correct_count": 0
+      "correct_count": 0,
+      "subcategory": "politician"
     },
     {
       "keyword": "warren buffett",
@@ -287,7 +308,8 @@
       "last_updated": "2026-01-19",
       "hit_count": 0,
       "prediction_count": 0,
-      "correct_count": 0
+      "correct_count": 0,
+      "subcategory": "general"
     },
     {
       "keyword": "buffett",
@@ -300,7 +322,8 @@
       "last_updated": "2026-01-19",
       "hit_count": 0,
       "prediction_count": 0,
-      "correct_count": 0
+      "correct_count": 0,
+      "subcategory": "general"
     },
     {
       "keyword": "larry fink",
@@ -313,20 +336,92 @@
       "last_updated": "2026-01-19",
       "hit_count": 0,
       "prediction_count": 0,
-      "correct_count": 0
+      "correct_count": 0,
+      "subcategory": "fund_manager"
+    },
+    {
+      "keyword": "sam altman",
+      "category": "person",
+      "base_weight": 2.5,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "uncertain",
+      "description": "OpenAI CEO / Worldcoin 創辦人，影響 AI 幣走勢",
+      "added_date": "2026-01-19",
+      "last_updated": "2026-01-19",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0,
+      "subcategory": "general"
+    },
+    {
+      "keyword": "jensen huang",
+      "category": "person",
+      "base_weight": 2.0,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "positive",
+      "description": "英偉達 NVIDIA CEO，其言論常帶動 AI 板塊行情",
+      "added_date": "2026-01-19",
+      "last_updated": "2026-01-19",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0,
+      "subcategory": "general"
+    },
+    {
+      "keyword": "justin sun",
+      "category": "person",
+      "base_weight": 2.0,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "uncertain",
+      "description": "孫宇晨，波場創辦人，其動向常引發市場關注",
+      "added_date": "2026-01-19",
+      "last_updated": "2026-01-19",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0,
+      "subcategory": "general"
+    },
+    {
+      "keyword": "arthur hayes",
+      "category": "person",
+      "base_weight": 1.8,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "uncertain",
+      "description": "BitMEX 創辦人，知名宏觀分析師與 KOL",
+      "added_date": "2026-01-19",
+      "last_updated": "2026-01-19",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0,
+      "subcategory": "general"
+    },
+    {
+      "keyword": "stani kulechov",
+      "category": "person",
+      "base_weight": 1.8,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "neutral",
+      "description": "Aave 創辦人，DeFi 領域領袖",
+      "added_date": "2026-01-19",
+      "last_updated": "2026-01-19",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0,
+      "subcategory": "general"
     },
     {
       "keyword": "fed",
       "category": "institution",
       "base_weight": 3.0,
-      "dynamic_weight": 1.08,
+      "dynamic_weight": 1.0,
       "sentiment_bias": "uncertain",
       "description": "美國聯邦儲備系統",
       "added_date": "2026-01-19",
       "last_updated": "2026-01-19",
       "hit_count": 0,
-      "prediction_count": 1,
-      "correct_count": 1
+      "prediction_count": 0,
+      "correct_count": 0,
+      "subcategory": "central_bank"
     },
     {
       "keyword": "federal reserve",
@@ -337,9 +432,10 @@
       "description": "美國聯邦儲備系統",
       "added_date": "2026-01-19",
       "last_updated": "2026-01-19",
-      "hit_count": 4,
+      "hit_count": 0,
       "prediction_count": 0,
-      "correct_count": 0
+      "correct_count": 0,
+      "subcategory": "central_bank"
     },
     {
       "keyword": "fomc",
@@ -352,46 +448,50 @@
       "last_updated": "2026-01-19",
       "hit_count": 0,
       "prediction_count": 0,
-      "correct_count": 0
+      "correct_count": 0,
+      "subcategory": "central_bank"
     },
     {
       "keyword": "sec",
       "category": "institution",
       "base_weight": 2.8,
-      "dynamic_weight": 1.0,
+      "dynamic_weight": 1.3604889600000003,
       "sentiment_bias": "uncertain",
       "description": "美國證券交易委員會",
       "added_date": "2026-01-19",
-      "last_updated": "2026-01-19",
-      "hit_count": 8,
-      "prediction_count": 0,
-      "correct_count": 0
+      "last_updated": "2026-01-25",
+      "hit_count": 2,
+      "prediction_count": 4,
+      "correct_count": 4,
+      "subcategory": "regulator"
     },
     {
       "keyword": "cftc",
       "category": "institution",
       "base_weight": 2.5,
-      "dynamic_weight": 1.0,
+      "dynamic_weight": 1.1664,
       "sentiment_bias": "uncertain",
       "description": "美國商品期貨交易委員會",
       "added_date": "2026-01-19",
-      "last_updated": "2026-01-19",
+      "last_updated": "2026-01-25",
       "hit_count": 0,
-      "prediction_count": 0,
-      "correct_count": 0
+      "prediction_count": 2,
+      "correct_count": 2,
+      "subcategory": "regulator"
     },
     {
       "keyword": "treasury",
-      "category": "institution",
+      "category": "macro",
       "base_weight": 2.5,
-      "dynamic_weight": 1.0,
+      "dynamic_weight": 1.3604889600000003,
       "sentiment_bias": "uncertain",
       "description": "美國財政部",
       "added_date": "2026-01-19",
-      "last_updated": "2026-01-19",
-      "hit_count": 0,
-      "prediction_count": 0,
-      "correct_count": 0
+      "last_updated": "2026-01-25",
+      "hit_count": 1,
+      "prediction_count": 4,
+      "correct_count": 4,
+      "subcategory": "fiscal_policy"
     },
     {
       "keyword": "doj",
@@ -402,9 +502,10 @@
       "description": "美國司法部",
       "added_date": "2026-01-19",
       "last_updated": "2026-01-19",
-      "hit_count": 0,
+      "hit_count": 1,
       "prediction_count": 0,
-      "correct_count": 0
+      "correct_count": 0,
+      "subcategory": "regulator"
     },
     {
       "keyword": "ecb",
@@ -417,7 +518,8 @@
       "last_updated": "2026-01-19",
       "hit_count": 0,
       "prediction_count": 0,
-      "correct_count": 0
+      "correct_count": 0,
+      "subcategory": "central_bank"
     },
     {
       "keyword": "pboc",
@@ -430,7 +532,8 @@
       "last_updated": "2026-01-19",
       "hit_count": 0,
       "prediction_count": 0,
-      "correct_count": 0
+      "correct_count": 0,
+      "subcategory": "central_bank"
     },
     {
       "keyword": "blackrock",
@@ -441,9 +544,10 @@
       "description": "全球最大資產管理公司",
       "added_date": "2026-01-19",
       "last_updated": "2026-01-19",
-      "hit_count": 4,
+      "hit_count": 0,
       "prediction_count": 0,
-      "correct_count": 0
+      "correct_count": 0,
+      "subcategory": "fund"
     },
     {
       "keyword": "fidelity",
@@ -456,7 +560,8 @@
       "last_updated": "2026-01-19",
       "hit_count": 0,
       "prediction_count": 0,
-      "correct_count": 0
+      "correct_count": 0,
+      "subcategory": "fund"
     },
     {
       "keyword": "grayscale",
@@ -469,20 +574,22 @@
       "last_updated": "2026-01-19",
       "hit_count": 0,
       "prediction_count": 0,
-      "correct_count": 0
+      "correct_count": 0,
+      "subcategory": "fund"
     },
     {
       "keyword": "jpmorgan",
       "category": "institution",
       "base_weight": 2.0,
-      "dynamic_weight": 1.0,
+      "dynamic_weight": 1.2597120000000002,
       "sentiment_bias": "uncertain",
       "description": "摩根大通",
       "added_date": "2026-01-19",
-      "last_updated": "2026-01-19",
+      "last_updated": "2026-01-25",
       "hit_count": 0,
-      "prediction_count": 0,
-      "correct_count": 0
+      "prediction_count": 3,
+      "correct_count": 3,
+      "subcategory": "bank"
     },
     {
       "keyword": "goldman sachs",
@@ -495,7 +602,8 @@
       "last_updated": "2026-01-19",
       "hit_count": 0,
       "prediction_count": 0,
-      "correct_count": 0
+      "correct_count": 0,
+      "subcategory": "bank"
     },
     {
       "keyword": "microstrategy",
@@ -508,7 +616,8 @@
       "last_updated": "2026-01-19",
       "hit_count": 0,
       "prediction_count": 0,
-      "correct_count": 0
+      "correct_count": 0,
+      "subcategory": "fund"
     },
     {
       "keyword": "tesla",
@@ -521,33 +630,36 @@
       "last_updated": "2026-01-19",
       "hit_count": 0,
       "prediction_count": 0,
-      "correct_count": 0
+      "correct_count": 0,
+      "subcategory": "general"
     },
     {
       "keyword": "binance",
       "category": "institution",
       "base_weight": 2.5,
-      "dynamic_weight": 1.0,
+      "dynamic_weight": 1.1664,
       "sentiment_bias": "uncertain",
       "description": "全球最大加密貨幣交易所",
       "added_date": "2026-01-19",
-      "last_updated": "2026-01-19",
-      "hit_count": 4,
-      "prediction_count": 0,
-      "correct_count": 0
+      "last_updated": "2026-01-25",
+      "hit_count": 3,
+      "prediction_count": 2,
+      "correct_count": 2,
+      "subcategory": "exchange"
     },
     {
       "keyword": "coinbase",
       "category": "institution",
       "base_weight": 2.3,
-      "dynamic_weight": 1.0,
+      "dynamic_weight": 1.3604889600000003,
       "sentiment_bias": "uncertain",
       "description": "美國最大合規交易所",
       "added_date": "2026-01-19",
-      "last_updated": "2026-01-19",
-      "hit_count": 0,
-      "prediction_count": 0,
-      "correct_count": 0
+      "last_updated": "2026-01-25",
+      "hit_count": 2,
+      "prediction_count": 4,
+      "correct_count": 4,
+      "subcategory": "exchange"
     },
     {
       "keyword": "ftx",
@@ -557,10 +669,11 @@
       "sentiment_bias": "negative",
       "description": "已破產交易所",
       "added_date": "2026-01-19",
-      "last_updated": "2026-01-19",
+      "last_updated": "2026-01-25",
       "hit_count": 0,
-      "prediction_count": 0,
-      "correct_count": 0
+      "prediction_count": 1,
+      "correct_count": 0,
+      "subcategory": "exchange"
     },
     {
       "keyword": "paypal",
@@ -573,11 +686,82 @@
       "last_updated": "2026-01-19",
       "hit_count": 0,
       "prediction_count": 0,
-      "correct_count": 0
+      "correct_count": 0,
+      "subcategory": "general"
+    },
+    {
+      "keyword": "mica",
+      "category": "legislation",
+      "base_weight": 2.5,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "uncertain",
+      "description": "歐盟加密資產市場法規，對合規性有重大影響",
+      "added_date": "2026-01-19",
+      "last_updated": "2026-01-19",
+      "hit_count": 1,
+      "prediction_count": 0,
+      "correct_count": 0,
+      "subcategory": "global_law"
+    },
+    {
+      "keyword": "fca",
+      "category": "institution",
+      "base_weight": 2.3,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "uncertain",
+      "description": "英國金融行為監管局",
+      "added_date": "2026-01-19",
+      "last_updated": "2026-01-19",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0,
+      "subcategory": "general"
+    },
+    {
+      "keyword": "sfc",
+      "category": "institution",
+      "base_weight": 2.2,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "uncertain",
+      "description": "香港證監會，影響亞洲市場情緒",
+      "added_date": "2026-01-19",
+      "last_updated": "2026-01-19",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0,
+      "subcategory": "general"
+    },
+    {
+      "keyword": "circle",
+      "category": "institution",
+      "base_weight": 2.0,
+      "dynamic_weight": 1.1664,
+      "sentiment_bias": "neutral",
+      "description": "USDC 發行方",
+      "added_date": "2026-01-19",
+      "last_updated": "2026-01-25",
+      "hit_count": 0,
+      "prediction_count": 2,
+      "correct_count": 2,
+      "subcategory": "general"
+    },
+    {
+      "keyword": "eigenlayer",
+      "category": "institution",
+      "base_weight": 2.5,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "positive",
+      "description": "Restaking 賽道龍頭",
+      "added_date": "2026-01-19",
+      "last_updated": "2026-01-19",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0,
+      "subcategory": "general"
     },
     {
       "keyword": "rate hike",
-      "category": "event",
+      "category": "macro",
       "base_weight": 3.0,
       "dynamic_weight": 1.0,
       "sentiment_bias": "negative",
@@ -586,11 +770,12 @@
       "last_updated": "2026-01-19",
       "hit_count": 0,
       "prediction_count": 0,
-      "correct_count": 0
+      "correct_count": 0,
+      "subcategory": "monetary_policy"
     },
     {
       "keyword": "rate cut",
-      "category": "event",
+      "category": "macro",
       "base_weight": 3.0,
       "dynamic_weight": 1.0,
       "sentiment_bias": "positive",
@@ -599,24 +784,26 @@
       "last_updated": "2026-01-19",
       "hit_count": 0,
       "prediction_count": 0,
-      "correct_count": 0
+      "correct_count": 0,
+      "subcategory": "monetary_policy"
     },
     {
       "keyword": "interest rate",
-      "category": "event",
+      "category": "macro",
       "base_weight": 2.8,
       "dynamic_weight": 1.0,
       "sentiment_bias": "uncertain",
       "description": "利率決策",
       "added_date": "2026-01-19",
       "last_updated": "2026-01-19",
-      "hit_count": 4,
+      "hit_count": 0,
       "prediction_count": 0,
-      "correct_count": 0
+      "correct_count": 0,
+      "subcategory": "monetary_policy"
     },
     {
       "keyword": "quantitative easing",
-      "category": "event",
+      "category": "macro",
       "base_weight": 2.5,
       "dynamic_weight": 1.0,
       "sentiment_bias": "positive",
@@ -625,11 +812,12 @@
       "last_updated": "2026-01-19",
       "hit_count": 0,
       "prediction_count": 0,
-      "correct_count": 0
+      "correct_count": 0,
+      "subcategory": "monetary_policy"
     },
     {
       "keyword": "qe",
-      "category": "event",
+      "category": "macro",
       "base_weight": 2.5,
       "dynamic_weight": 1.0,
       "sentiment_bias": "positive",
@@ -638,11 +826,12 @@
       "last_updated": "2026-01-19",
       "hit_count": 0,
       "prediction_count": 0,
-      "correct_count": 0
+      "correct_count": 0,
+      "subcategory": "monetary_policy"
     },
     {
       "keyword": "tapering",
-      "category": "event",
+      "category": "macro",
       "base_weight": 2.3,
       "dynamic_weight": 1.0,
       "sentiment_bias": "negative",
@@ -651,11 +840,12 @@
       "last_updated": "2026-01-19",
       "hit_count": 0,
       "prediction_count": 0,
-      "correct_count": 0
+      "correct_count": 0,
+      "subcategory": "monetary_policy"
     },
     {
       "keyword": "inflation",
-      "category": "event",
+      "category": "macro",
       "base_weight": 2.5,
       "dynamic_weight": 1.0,
       "sentiment_bias": "uncertain",
@@ -664,11 +854,12 @@
       "last_updated": "2026-01-19",
       "hit_count": 0,
       "prediction_count": 0,
-      "correct_count": 0
+      "correct_count": 0,
+      "subcategory": "economic_data"
     },
     {
       "keyword": "cpi",
-      "category": "event",
+      "category": "macro",
       "base_weight": 2.5,
       "dynamic_weight": 1.0,
       "sentiment_bias": "uncertain",
@@ -677,11 +868,12 @@
       "last_updated": "2026-01-19",
       "hit_count": 0,
       "prediction_count": 0,
-      "correct_count": 0
+      "correct_count": 0,
+      "subcategory": "economic_data"
     },
     {
       "keyword": "nonfarm",
-      "category": "event",
+      "category": "macro",
       "base_weight": 2.3,
       "dynamic_weight": 1.0,
       "sentiment_bias": "uncertain",
@@ -690,7 +882,8 @@
       "last_updated": "2026-01-19",
       "hit_count": 0,
       "prediction_count": 0,
-      "correct_count": 0
+      "correct_count": 0,
+      "subcategory": "economic_data"
     },
     {
       "keyword": "etf approved",
@@ -701,9 +894,10 @@
       "description": "ETF 獲批",
       "added_date": "2026-01-19",
       "last_updated": "2026-01-19",
-      "hit_count": 4,
+      "hit_count": 0,
       "prediction_count": 0,
-      "correct_count": 0
+      "correct_count": 0,
+      "subcategory": "adoption"
     },
     {
       "keyword": "etf approval",
@@ -716,7 +910,8 @@
       "last_updated": "2026-01-19",
       "hit_count": 0,
       "prediction_count": 0,
-      "correct_count": 0
+      "correct_count": 0,
+      "subcategory": "adoption"
     },
     {
       "keyword": "etf rejected",
@@ -729,7 +924,8 @@
       "last_updated": "2026-01-19",
       "hit_count": 0,
       "prediction_count": 0,
-      "correct_count": 0
+      "correct_count": 0,
+      "subcategory": "adoption"
     },
     {
       "keyword": "spot etf",
@@ -742,7 +938,8 @@
       "last_updated": "2026-01-19",
       "hit_count": 0,
       "prediction_count": 0,
-      "correct_count": 0
+      "correct_count": 0,
+      "subcategory": "general"
     },
     {
       "keyword": "etf filing",
@@ -755,20 +952,22 @@
       "last_updated": "2026-01-19",
       "hit_count": 0,
       "prediction_count": 0,
-      "correct_count": 0
+      "correct_count": 0,
+      "subcategory": "adoption"
     },
     {
       "keyword": "hack",
       "category": "event",
       "base_weight": 3.0,
-      "dynamic_weight": 1.08,
+      "dynamic_weight": 1.0,
       "sentiment_bias": "negative",
       "description": "駭客攻擊",
       "added_date": "2026-01-19",
       "last_updated": "2026-01-19",
-      "hit_count": 4,
-      "prediction_count": 1,
-      "correct_count": 1
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0,
+      "subcategory": "security"
     },
     {
       "keyword": "hacked",
@@ -781,7 +980,8 @@
       "last_updated": "2026-01-19",
       "hit_count": 0,
       "prediction_count": 0,
-      "correct_count": 0
+      "correct_count": 0,
+      "subcategory": "security"
     },
     {
       "keyword": "exploit",
@@ -794,7 +994,8 @@
       "last_updated": "2026-01-19",
       "hit_count": 0,
       "prediction_count": 0,
-      "correct_count": 0
+      "correct_count": 0,
+      "subcategory": "security"
     },
     {
       "keyword": "stolen",
@@ -805,9 +1006,10 @@
       "description": "被盜",
       "added_date": "2026-01-19",
       "last_updated": "2026-01-19",
-      "hit_count": 4,
+      "hit_count": 0,
       "prediction_count": 0,
-      "correct_count": 0
+      "correct_count": 0,
+      "subcategory": "security"
     },
     {
       "keyword": "rug pull",
@@ -820,7 +1022,8 @@
       "last_updated": "2026-01-19",
       "hit_count": 0,
       "prediction_count": 0,
-      "correct_count": 0
+      "correct_count": 0,
+      "subcategory": "security"
     },
     {
       "keyword": "scam",
@@ -833,20 +1036,22 @@
       "last_updated": "2026-01-19",
       "hit_count": 0,
       "prediction_count": 0,
-      "correct_count": 0
+      "correct_count": 0,
+      "subcategory": "security"
     },
     {
       "keyword": "lawsuit",
       "category": "event",
       "base_weight": 2.5,
-      "dynamic_weight": 1.0,
+      "dynamic_weight": 1.1664,
       "sentiment_bias": "negative",
       "description": "訴訟",
       "added_date": "2026-01-19",
-      "last_updated": "2026-01-19",
-      "hit_count": 4,
-      "prediction_count": 0,
-      "correct_count": 0
+      "last_updated": "2026-01-25",
+      "hit_count": 1,
+      "prediction_count": 2,
+      "correct_count": 2,
+      "subcategory": "legal_action"
     },
     {
       "keyword": "investigation",
@@ -859,11 +1064,12 @@
       "last_updated": "2026-01-19",
       "hit_count": 0,
       "prediction_count": 0,
-      "correct_count": 0
+      "correct_count": 0,
+      "subcategory": "legal_action"
     },
     {
       "keyword": "ban",
-      "category": "event",
+      "category": "legislation",
       "base_weight": 2.8,
       "dynamic_weight": 1.0,
       "sentiment_bias": "negative",
@@ -872,7 +1078,8 @@
       "last_updated": "2026-01-19",
       "hit_count": 0,
       "prediction_count": 0,
-      "correct_count": 0
+      "correct_count": 0,
+      "subcategory": "global_law"
     },
     {
       "keyword": "banned",
@@ -883,9 +1090,10 @@
       "description": "被禁",
       "added_date": "2026-01-19",
       "last_updated": "2026-01-19",
-      "hit_count": 0,
+      "hit_count": 1,
       "prediction_count": 0,
-      "correct_count": 0
+      "correct_count": 0,
+      "subcategory": "general"
     },
     {
       "keyword": "crackdown",
@@ -898,24 +1106,26 @@
       "last_updated": "2026-01-19",
       "hit_count": 0,
       "prediction_count": 0,
-      "correct_count": 0
+      "correct_count": 0,
+      "subcategory": "general"
     },
     {
       "keyword": "regulation",
-      "category": "event",
+      "category": "legislation",
       "base_weight": 2.0,
-      "dynamic_weight": 1.0,
+      "dynamic_weight": 1.2597120000000002,
       "sentiment_bias": "uncertain",
       "description": "監管",
       "added_date": "2026-01-19",
-      "last_updated": "2026-01-19",
+      "last_updated": "2026-01-25",
       "hit_count": 0,
-      "prediction_count": 0,
-      "correct_count": 0
+      "prediction_count": 3,
+      "correct_count": 3,
+      "subcategory": "us_law"
     },
     {
       "keyword": "halving",
-      "category": "event",
+      "category": "tech",
       "base_weight": 2.8,
       "dynamic_weight": 1.0,
       "sentiment_bias": "positive",
@@ -924,7 +1134,8 @@
       "last_updated": "2026-01-19",
       "hit_count": 0,
       "prediction_count": 0,
-      "correct_count": 0
+      "correct_count": 0,
+      "subcategory": "blockchain"
     },
     {
       "keyword": "all-time high",
@@ -937,7 +1148,8 @@
       "last_updated": "2026-01-19",
       "hit_count": 0,
       "prediction_count": 0,
-      "correct_count": 0
+      "correct_count": 0,
+      "subcategory": "market"
     },
     {
       "keyword": "ath",
@@ -950,7 +1162,8 @@
       "last_updated": "2026-01-19",
       "hit_count": 0,
       "prediction_count": 0,
-      "correct_count": 0
+      "correct_count": 0,
+      "subcategory": "market"
     },
     {
       "keyword": "crash",
@@ -963,7 +1176,8 @@
       "last_updated": "2026-01-19",
       "hit_count": 0,
       "prediction_count": 0,
-      "correct_count": 0
+      "correct_count": 0,
+      "subcategory": "market"
     },
     {
       "keyword": "plunge",
@@ -976,7 +1190,8 @@
       "last_updated": "2026-01-19",
       "hit_count": 0,
       "prediction_count": 0,
-      "correct_count": 0
+      "correct_count": 0,
+      "subcategory": "general"
     },
     {
       "keyword": "surge",
@@ -987,22 +1202,24 @@
       "description": "暴漲",
       "added_date": "2026-01-19",
       "last_updated": "2026-01-19",
-      "hit_count": 0,
+      "hit_count": 3,
       "prediction_count": 0,
-      "correct_count": 0
+      "correct_count": 0,
+      "subcategory": "general"
     },
     {
       "keyword": "rally",
       "category": "event",
       "base_weight": 1.8,
-      "dynamic_weight": 1.0,
+      "dynamic_weight": 1.08,
       "sentiment_bias": "positive",
       "description": "反彈",
       "added_date": "2026-01-19",
-      "last_updated": "2026-01-19",
-      "hit_count": 0,
-      "prediction_count": 0,
-      "correct_count": 0
+      "last_updated": "2026-01-25",
+      "hit_count": 1,
+      "prediction_count": 1,
+      "correct_count": 1,
+      "subcategory": "market"
     },
     {
       "keyword": "liquidation",
@@ -1015,7 +1232,8 @@
       "last_updated": "2026-01-19",
       "hit_count": 0,
       "prediction_count": 0,
-      "correct_count": 0
+      "correct_count": 0,
+      "subcategory": "market"
     },
     {
       "keyword": "bankruptcy",
@@ -1026,9 +1244,10 @@
       "description": "破產",
       "added_date": "2026-01-19",
       "last_updated": "2026-01-19",
-      "hit_count": 0,
+      "hit_count": 1,
       "prediction_count": 0,
-      "correct_count": 0
+      "correct_count": 0,
+      "subcategory": "general"
     },
     {
       "keyword": "hard fork",
@@ -1041,11 +1260,12 @@
       "last_updated": "2026-01-19",
       "hit_count": 0,
       "prediction_count": 0,
-      "correct_count": 0
+      "correct_count": 0,
+      "subcategory": "general"
     },
     {
       "keyword": "upgrade",
-      "category": "event",
+      "category": "tech",
       "base_weight": 1.8,
       "dynamic_weight": 1.0,
       "sentiment_bias": "positive",
@@ -1054,7 +1274,8 @@
       "last_updated": "2026-01-19",
       "hit_count": 0,
       "prediction_count": 0,
-      "correct_count": 0
+      "correct_count": 0,
+      "subcategory": "blockchain"
     },
     {
       "keyword": "mainnet",
@@ -1067,20 +1288,22 @@
       "last_updated": "2026-01-19",
       "hit_count": 0,
       "prediction_count": 0,
-      "correct_count": 0
+      "correct_count": 0,
+      "subcategory": "general"
     },
     {
       "keyword": "listing",
       "category": "event",
       "base_weight": 2.0,
-      "dynamic_weight": 1.0,
+      "dynamic_weight": 1.08,
       "sentiment_bias": "positive",
       "description": "上市",
       "added_date": "2026-01-19",
-      "last_updated": "2026-01-19",
-      "hit_count": 0,
-      "prediction_count": 0,
-      "correct_count": 0
+      "last_updated": "2026-01-25",
+      "hit_count": 1,
+      "prediction_count": 1,
+      "correct_count": 1,
+      "subcategory": "adoption"
     },
     {
       "keyword": "delisting",
@@ -1093,7 +1316,8 @@
       "last_updated": "2026-01-19",
       "hit_count": 0,
       "prediction_count": 0,
-      "correct_count": 0
+      "correct_count": 0,
+      "subcategory": "adoption"
     },
     {
       "keyword": "partnership",
@@ -1106,59 +1330,176 @@
       "last_updated": "2026-01-19",
       "hit_count": 0,
       "prediction_count": 0,
-      "correct_count": 0
+      "correct_count": 0,
+      "subcategory": "adoption"
     },
     {
       "keyword": "whale",
       "category": "event",
-      "base_weight": 2.0,
+      "base_weight": 2.5,
       "dynamic_weight": 1.0,
       "sentiment_bias": "uncertain",
-      "description": "大戶動向",
+      "description": "大鱷/巨鯨，持有大量加密貨幣的個人或機構",
       "added_date": "2026-01-19",
       "last_updated": "2026-01-19",
       "hit_count": 0,
       "prediction_count": 0,
-      "correct_count": 0
+      "correct_count": 0,
+      "subcategory": "general"
+    },
+    {
+      "keyword": "ai",
+      "category": "tech",
+      "base_weight": 2.8,
+      "dynamic_weight": 1.3604889600000003,
+      "sentiment_bias": "positive",
+      "description": "人工智慧板塊，如 WLD, TAO, RNDR",
+      "added_date": "2026-01-19",
+      "last_updated": "2026-01-25",
+      "hit_count": 1,
+      "prediction_count": 4,
+      "correct_count": 4,
+      "subcategory": "ai"
+    },
+    {
+      "keyword": "depin",
+      "category": "event",
+      "base_weight": 2.3,
+      "dynamic_weight": 1.08,
+      "sentiment_bias": "positive",
+      "description": "去中心化物理基礎設施",
+      "added_date": "2026-01-19",
+      "last_updated": "2026-01-25",
+      "hit_count": 0,
+      "prediction_count": 1,
+      "correct_count": 1,
+      "subcategory": "general"
+    },
+    {
+      "keyword": "rwa",
+      "category": "event",
+      "base_weight": 2.5,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "positive",
+      "description": "真實世界資產代幣化，如貝萊德的 BUIDL",
+      "added_date": "2026-01-19",
+      "last_updated": "2026-01-19",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0,
+      "subcategory": "general"
+    },
+    {
+      "keyword": "restaking",
+      "category": "event",
+      "base_weight": 2.2,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "positive",
+      "description": "再質押，增加資金效率",
+      "added_date": "2026-01-19",
+      "last_updated": "2026-01-19",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0,
+      "subcategory": "general"
+    },
+    {
+      "keyword": "airdrop",
+      "category": "event",
+      "base_weight": 2.0,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "uncertain",
+      "description": "空投，常伴隨市場熱度增加",
+      "added_date": "2026-01-19",
+      "last_updated": "2026-01-19",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0,
+      "subcategory": "general"
+    },
+    {
+      "keyword": "points",
+      "category": "event",
+      "base_weight": 1.5,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "neutral",
+      "description": "積分活動，空投預期",
+      "added_date": "2026-01-19",
+      "last_updated": "2026-01-19",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0,
+      "subcategory": "general"
+    },
+    {
+      "keyword": "layer 2",
+      "category": "tech",
+      "base_weight": 2.0,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "positive",
+      "description": "L2 擴展方案，如 Base, Arbitrum, Optimism",
+      "added_date": "2026-01-19",
+      "last_updated": "2026-01-19",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0,
+      "subcategory": "blockchain"
+    },
+    {
+      "keyword": "l2",
+      "category": "tech",
+      "base_weight": 2.0,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "positive",
+      "description": "Layer 2 擴展方案",
+      "added_date": "2026-01-19",
+      "last_updated": "2026-01-19",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0,
+      "subcategory": "blockchain"
     },
     {
       "keyword": "bitcoin",
       "category": "coin",
       "base_weight": 2.0,
-      "dynamic_weight": 1.0,
+      "dynamic_weight": 2.0,
       "sentiment_bias": "neutral",
       "description": "BTC",
       "added_date": "2026-01-19",
-      "last_updated": "2026-01-19",
-      "hit_count": 4,
-      "prediction_count": 0,
-      "correct_count": 0
+      "last_updated": "2026-01-25",
+      "hit_count": 20,
+      "prediction_count": 17,
+      "correct_count": 17,
+      "subcategory": "major"
     },
     {
       "keyword": "btc",
       "category": "coin",
       "base_weight": 2.0,
-      "dynamic_weight": 1.0,
+      "dynamic_weight": 1.1664,
       "sentiment_bias": "neutral",
       "description": "BTC",
       "added_date": "2026-01-19",
-      "last_updated": "2026-01-19",
-      "hit_count": 0,
-      "prediction_count": 0,
-      "correct_count": 0
+      "last_updated": "2026-01-25",
+      "hit_count": 1,
+      "prediction_count": 2,
+      "correct_count": 2,
+      "subcategory": "major"
     },
     {
       "keyword": "ethereum",
       "category": "coin",
       "base_weight": 2.0,
-      "dynamic_weight": 1.0,
+      "dynamic_weight": 1.2597120000000002,
       "sentiment_bias": "neutral",
       "description": "ETH",
       "added_date": "2026-01-19",
-      "last_updated": "2026-01-19",
-      "hit_count": 0,
-      "prediction_count": 0,
-      "correct_count": 0
+      "last_updated": "2026-01-25",
+      "hit_count": 5,
+      "prediction_count": 3,
+      "correct_count": 3,
+      "subcategory": "major"
     },
     {
       "keyword": "eth",
@@ -1169,22 +1510,24 @@
       "description": "ETH",
       "added_date": "2026-01-19",
       "last_updated": "2026-01-19",
-      "hit_count": 0,
+      "hit_count": 1,
       "prediction_count": 0,
-      "correct_count": 0
+      "correct_count": 0,
+      "subcategory": "major"
     },
     {
       "keyword": "solana",
       "category": "coin",
       "base_weight": 1.8,
-      "dynamic_weight": 1.0,
+      "dynamic_weight": 1.2597120000000002,
       "sentiment_bias": "neutral",
       "description": "SOL",
       "added_date": "2026-01-19",
-      "last_updated": "2026-01-19",
-      "hit_count": 0,
-      "prediction_count": 0,
-      "correct_count": 0
+      "last_updated": "2026-01-25",
+      "hit_count": 2,
+      "prediction_count": 3,
+      "correct_count": 3,
+      "subcategory": "altcoin"
     },
     {
       "keyword": "sol",
@@ -1197,46 +1540,50 @@
       "last_updated": "2026-01-19",
       "hit_count": 0,
       "prediction_count": 0,
-      "correct_count": 0
+      "correct_count": 0,
+      "subcategory": "altcoin"
     },
     {
       "keyword": "xrp",
       "category": "coin",
       "base_weight": 1.8,
-      "dynamic_weight": 1.0,
+      "dynamic_weight": 1.08,
       "sentiment_bias": "neutral",
       "description": "XRP",
       "added_date": "2026-01-19",
-      "last_updated": "2026-01-19",
+      "last_updated": "2026-01-25",
       "hit_count": 0,
-      "prediction_count": 0,
-      "correct_count": 0
+      "prediction_count": 1,
+      "correct_count": 1,
+      "subcategory": "altcoin"
     },
     {
       "keyword": "dogecoin",
       "category": "coin",
       "base_weight": 1.8,
-      "dynamic_weight": 1.0,
+      "dynamic_weight": 1.08,
       "sentiment_bias": "uncertain",
       "description": "DOGE",
       "added_date": "2026-01-19",
-      "last_updated": "2026-01-19",
-      "hit_count": 4,
-      "prediction_count": 0,
-      "correct_count": 0
+      "last_updated": "2026-01-25",
+      "hit_count": 0,
+      "prediction_count": 1,
+      "correct_count": 1,
+      "subcategory": "altcoin"
     },
     {
       "keyword": "doge",
       "category": "coin",
       "base_weight": 1.8,
-      "dynamic_weight": 1.0,
+      "dynamic_weight": 1.08,
       "sentiment_bias": "uncertain",
       "description": "DOGE",
       "added_date": "2026-01-19",
-      "last_updated": "2026-01-19",
+      "last_updated": "2026-01-25",
       "hit_count": 0,
-      "prediction_count": 0,
-      "correct_count": 0
+      "prediction_count": 1,
+      "correct_count": 1,
+      "subcategory": "altcoin"
     },
     {
       "keyword": "tether",
@@ -1247,9 +1594,10 @@
       "description": "USDT",
       "added_date": "2026-01-19",
       "last_updated": "2026-01-19",
-      "hit_count": 0,
+      "hit_count": 1,
       "prediction_count": 0,
-      "correct_count": 0
+      "correct_count": 0,
+      "subcategory": "stablecoin"
     },
     {
       "keyword": "usdt",
@@ -1262,20 +1610,1468 @@
       "last_updated": "2026-01-19",
       "hit_count": 0,
       "prediction_count": 0,
-      "correct_count": 0
+      "correct_count": 0,
+      "subcategory": "stablecoin"
     },
     {
       "keyword": "usdc",
       "category": "coin",
       "base_weight": 1.5,
-      "dynamic_weight": 1.0,
+      "dynamic_weight": 1.08,
       "sentiment_bias": "neutral",
       "description": "USD Coin",
+      "added_date": "2026-01-19",
+      "last_updated": "2026-01-25",
+      "hit_count": 0,
+      "prediction_count": 1,
+      "correct_count": 1,
+      "subcategory": "stablecoin"
+    },
+    {
+      "keyword": "wld",
+      "category": "coin",
+      "base_weight": 2.2,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "uncertain",
+      "description": "Worldcoin",
       "added_date": "2026-01-19",
       "last_updated": "2026-01-19",
       "hit_count": 0,
       "prediction_count": 0,
+      "correct_count": 0,
+      "subcategory": "general"
+    },
+    {
+      "keyword": "tao",
+      "category": "coin",
+      "base_weight": 2.0,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "neutral",
+      "description": "Bittensor",
+      "added_date": "2026-01-19",
+      "last_updated": "2026-01-19",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0,
+      "subcategory": "general"
+    },
+    {
+      "keyword": "pepe",
+      "category": "coin",
+      "base_weight": 2.5,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "uncertain",
+      "description": "熱門迷因幣",
+      "added_date": "2026-01-19",
+      "last_updated": "2026-01-19",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0,
+      "subcategory": "general"
+    },
+    {
+      "keyword": "tia",
+      "category": "coin",
+      "base_weight": 2.0,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "neutral",
+      "description": "Celestia，模組化區塊鏈代表",
+      "added_date": "2026-01-19",
+      "last_updated": "2026-01-19",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0,
+      "subcategory": "general"
+    },
+    {
+      "keyword": "pyusd",
+      "category": "coin",
+      "base_weight": 1.5,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "neutral",
+      "description": "PayPal 穩定幣",
+      "added_date": "2026-01-19",
+      "last_updated": "2026-01-19",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0,
+      "subcategory": "general"
+    },
+    {
+      "keyword": "大鱷",
+      "category": "event",
+      "base_weight": 2.5,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "uncertain",
+      "description": "持有大量資產的投資者",
+      "added_date": "2026-01-19",
+      "last_updated": "2026-01-19",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0,
+      "subcategory": "general"
+    },
+    {
+      "keyword": "巨鯨",
+      "category": "event",
+      "base_weight": 2.5,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "uncertain",
+      "description": "持有大量資產的投資者",
+      "added_date": "2026-01-19",
+      "last_updated": "2026-01-19",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0,
+      "subcategory": "general"
+    },
+    {
+      "keyword": "whale alert",
+      "category": "event",
+      "base_weight": 2.3,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "uncertain",
+      "description": "大戶轉帳警報",
+      "added_date": "2026-01-19",
+      "last_updated": "2026-01-19",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0,
+      "subcategory": "general"
+    },
+    {
+      "keyword": "鯨魚",
+      "category": "event",
+      "base_weight": 2.5,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "uncertain",
+      "description": "大戶",
+      "added_date": "2026-01-19",
+      "last_updated": "2026-01-19",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0,
+      "subcategory": "general"
+    },
+    {
+      "keyword": "韭菜",
+      "category": "event",
+      "base_weight": 1.8,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "negative",
+      "description": "散戶投資者，容易被割",
+      "added_date": "2026-01-19",
+      "last_updated": "2026-01-19",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0,
+      "subcategory": "general"
+    },
+    {
+      "keyword": "retail investor",
+      "category": "event",
+      "base_weight": 1.5,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "neutral",
+      "description": "散戶投資者",
+      "added_date": "2026-01-19",
+      "last_updated": "2026-01-19",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0,
+      "subcategory": "general"
+    },
+    {
+      "keyword": "fomo",
+      "category": "event",
+      "base_weight": 2.0,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "uncertain",
+      "description": "Fear Of Missing Out，害怕錯過",
+      "added_date": "2026-01-19",
+      "last_updated": "2026-01-19",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0,
+      "subcategory": "general"
+    },
+    {
+      "keyword": "fud",
+      "category": "event",
+      "base_weight": 2.2,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "negative",
+      "description": "Fear, Uncertainty, Doubt，恐慌、不確定、懷疑",
+      "added_date": "2026-01-19",
+      "last_updated": "2026-01-19",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0,
+      "subcategory": "general"
+    },
+    {
+      "keyword": "梭哈",
+      "category": "event",
+      "base_weight": 2.0,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "uncertain",
+      "description": "全倉買入/All in",
+      "added_date": "2026-01-19",
+      "last_updated": "2026-01-19",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0,
+      "subcategory": "general"
+    },
+    {
+      "keyword": "all in",
+      "category": "event",
+      "base_weight": 2.0,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "uncertain",
+      "description": "全倉買入",
+      "added_date": "2026-01-19",
+      "last_updated": "2026-01-19",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0,
+      "subcategory": "general"
+    },
+    {
+      "keyword": "抄底",
+      "category": "event",
+      "base_weight": 1.8,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "positive",
+      "description": "在低點買入",
+      "added_date": "2026-01-19",
+      "last_updated": "2026-01-19",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0,
+      "subcategory": "general"
+    },
+    {
+      "keyword": "buy the dip",
+      "category": "event",
+      "base_weight": 1.8,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "positive",
+      "description": "逢低買入",
+      "added_date": "2026-01-19",
+      "last_updated": "2026-01-19",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0,
+      "subcategory": "general"
+    },
+    {
+      "keyword": "割肉",
+      "category": "event",
+      "base_weight": 2.0,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "negative",
+      "description": "虧損賣出",
+      "added_date": "2026-01-19",
+      "last_updated": "2026-01-19",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0,
+      "subcategory": "general"
+    },
+    {
+      "keyword": "panic sell",
+      "category": "event",
+      "base_weight": 2.0,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "negative",
+      "description": "恐慌性賣出",
+      "added_date": "2026-01-19",
+      "last_updated": "2026-01-19",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0,
+      "subcategory": "general"
+    },
+    {
+      "keyword": "止損",
+      "category": "event",
+      "base_weight": 1.5,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "neutral",
+      "description": "停損",
+      "added_date": "2026-01-19",
+      "last_updated": "2026-01-19",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0,
+      "subcategory": "general"
+    },
+    {
+      "keyword": "stop loss",
+      "category": "event",
+      "base_weight": 1.5,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "neutral",
+      "description": "停損",
+      "added_date": "2026-01-19",
+      "last_updated": "2026-01-19",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0,
+      "subcategory": "general"
+    },
+    {
+      "keyword": "追高",
+      "category": "event",
+      "base_weight": 1.8,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "uncertain",
+      "description": "價格上漲時買入",
+      "added_date": "2026-01-19",
+      "last_updated": "2026-01-19",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0,
+      "subcategory": "general"
+    },
+    {
+      "keyword": "chase",
+      "category": "event",
+      "base_weight": 1.8,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "uncertain",
+      "description": "追價",
+      "added_date": "2026-01-19",
+      "last_updated": "2026-01-19",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0,
+      "subcategory": "general"
+    },
+    {
+      "keyword": "牛市",
+      "category": "event",
+      "base_weight": 2.0,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "positive",
+      "description": "上漲趨勢/Bull Market",
+      "added_date": "2026-01-19",
+      "last_updated": "2026-01-19",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0,
+      "subcategory": "general"
+    },
+    {
+      "keyword": "bull market",
+      "category": "event",
+      "base_weight": 2.0,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "positive",
+      "description": "牛市",
+      "added_date": "2026-01-19",
+      "last_updated": "2026-01-19",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0,
+      "subcategory": "general"
+    },
+    {
+      "keyword": "熊市",
+      "category": "event",
+      "base_weight": 2.0,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "negative",
+      "description": "下跌趨勢/Bear Market",
+      "added_date": "2026-01-19",
+      "last_updated": "2026-01-19",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0,
+      "subcategory": "general"
+    },
+    {
+      "keyword": "bear market",
+      "category": "event",
+      "base_weight": 2.0,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "negative",
+      "description": "熊市",
+      "added_date": "2026-01-19",
+      "last_updated": "2026-01-19",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0,
+      "subcategory": "market"
+    },
+    {
+      "keyword": "橫盤",
+      "category": "event",
+      "base_weight": 1.5,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "neutral",
+      "description": "價格震盪整理",
+      "added_date": "2026-01-19",
+      "last_updated": "2026-01-19",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0,
+      "subcategory": "general"
+    },
+    {
+      "keyword": "sideways",
+      "category": "event",
+      "base_weight": 1.5,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "neutral",
+      "description": "橫盤整理",
+      "added_date": "2026-01-19",
+      "last_updated": "2026-01-19",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0,
+      "subcategory": "general"
+    },
+    {
+      "keyword": "consolidation",
+      "category": "event",
+      "base_weight": 1.5,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "neutral",
+      "description": "整理",
+      "added_date": "2026-01-19",
+      "last_updated": "2026-01-19",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0,
+      "subcategory": "general"
+    },
+    {
+      "keyword": "爆倉",
+      "category": "event",
+      "base_weight": 2.8,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "negative",
+      "description": "保證金不足被強制平倉",
+      "added_date": "2026-01-19",
+      "last_updated": "2026-01-19",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0,
+      "subcategory": "general"
+    },
+    {
+      "keyword": "liquidated",
+      "category": "event",
+      "base_weight": 2.8,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "negative",
+      "description": "被清算",
+      "added_date": "2026-01-19",
+      "last_updated": "2026-01-19",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0,
+      "subcategory": "general"
+    },
+    {
+      "keyword": "rekt",
+      "category": "event",
+      "base_weight": 2.5,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "negative",
+      "description": "慘賠/爆倉（wrecked 的俚語）",
+      "added_date": "2026-01-19",
+      "last_updated": "2026-01-19",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0,
+      "subcategory": "general"
+    },
+    {
+      "keyword": "hodl",
+      "category": "event",
+      "base_weight": 1.8,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "positive",
+      "description": "長期持有（Hold 的拼錯梗）",
+      "added_date": "2026-01-19",
+      "last_updated": "2026-01-19",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0,
+      "subcategory": "general"
+    },
+    {
+      "keyword": "屯幣",
+      "category": "event",
+      "base_weight": 1.8,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "positive",
+      "description": "長期持有",
+      "added_date": "2026-01-19",
+      "last_updated": "2026-01-19",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0,
+      "subcategory": "general"
+    },
+    {
+      "keyword": "to the moon",
+      "category": "event",
+      "base_weight": 2.0,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "positive",
+      "description": "飛向月球（價格暴漲）",
+      "added_date": "2026-01-19",
+      "last_updated": "2026-01-19",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0,
+      "subcategory": "general"
+    },
+    {
+      "keyword": "moon",
+      "category": "event",
+      "base_weight": 2.0,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "positive",
+      "description": "暴漲",
+      "added_date": "2026-01-19",
+      "last_updated": "2026-01-19",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0,
+      "subcategory": "general"
+    },
+    {
+      "keyword": "lambo",
+      "category": "event",
+      "base_weight": 1.8,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "positive",
+      "description": "藍寶堅尼（暴富的象徵）",
+      "added_date": "2026-01-19",
+      "last_updated": "2026-01-19",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0,
+      "subcategory": "general"
+    },
+    {
+      "keyword": "wen lambo",
+      "category": "event",
+      "base_weight": 1.8,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "positive",
+      "description": "何時暴富（調侃）",
+      "added_date": "2026-01-19",
+      "last_updated": "2026-01-19",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0,
+      "subcategory": "general"
+    },
+    {
+      "keyword": "diamond hands",
+      "category": "event",
+      "base_weight": 1.8,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "positive",
+      "description": "鑽石手，堅定持有不賣",
+      "added_date": "2026-01-19",
+      "last_updated": "2026-01-19",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0,
+      "subcategory": "general"
+    },
+    {
+      "keyword": "paper hands",
+      "category": "event",
+      "base_weight": 1.8,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "negative",
+      "description": "紙手，容易恐慌賣出",
+      "added_date": "2026-01-19",
+      "last_updated": "2026-01-19",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0,
+      "subcategory": "general"
+    },
+    {
+      "keyword": "鑽石手",
+      "category": "event",
+      "base_weight": 1.8,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "positive",
+      "description": "堅定持有者",
+      "added_date": "2026-01-19",
+      "last_updated": "2026-01-19",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0,
+      "subcategory": "general"
+    },
+    {
+      "keyword": "紙手",
+      "category": "event",
+      "base_weight": 1.8,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "negative",
+      "description": "容易恐慌的投資者",
+      "added_date": "2026-01-19",
+      "last_updated": "2026-01-19",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0,
+      "subcategory": "general"
+    },
+    {
+      "keyword": "pump and dump",
+      "category": "event",
+      "base_weight": 2.5,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "negative",
+      "description": "拉高倒貨",
+      "added_date": "2026-01-19",
+      "last_updated": "2026-01-19",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0,
+      "subcategory": "general"
+    },
+    {
+      "keyword": "拉盤",
+      "category": "event",
+      "base_weight": 2.0,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "uncertain",
+      "description": "大量買入拉高價格",
+      "added_date": "2026-01-19",
+      "last_updated": "2026-01-19",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0,
+      "subcategory": "general"
+    },
+    {
+      "keyword": "砸盤",
+      "category": "event",
+      "base_weight": 2.0,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "negative",
+      "description": "大量賣出壓低價格",
+      "added_date": "2026-01-19",
+      "last_updated": "2026-01-19",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0,
+      "subcategory": "general"
+    },
+    {
+      "keyword": "dump",
+      "category": "event",
+      "base_weight": 2.0,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "negative",
+      "description": "傾銷",
+      "added_date": "2026-01-19",
+      "last_updated": "2026-01-19",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0,
+      "subcategory": "market"
+    },
+    {
+      "keyword": "shill",
+      "category": "event",
+      "base_weight": 2.0,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "negative",
+      "description": "惡意推銷/吹捧",
+      "added_date": "2026-01-19",
+      "last_updated": "2026-01-19",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0,
+      "subcategory": "general"
+    },
+    {
+      "keyword": "老鼠倉",
+      "category": "event",
+      "base_weight": 2.5,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "negative",
+      "description": "內幕交易",
+      "added_date": "2026-01-19",
+      "last_updated": "2026-01-19",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0,
+      "subcategory": "general"
+    },
+    {
+      "keyword": "insider trading",
+      "category": "event",
+      "base_weight": 2.5,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "negative",
+      "description": "內幕交易",
+      "added_date": "2026-01-19",
+      "last_updated": "2026-01-19",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0,
+      "subcategory": "general"
+    },
+    {
+      "keyword": "支撐位",
+      "category": "event",
+      "base_weight": 1.5,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "neutral",
+      "description": "價格支撐點",
+      "added_date": "2026-01-19",
+      "last_updated": "2026-01-19",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0,
+      "subcategory": "general"
+    },
+    {
+      "keyword": "support",
+      "category": "event",
+      "base_weight": 1.5,
+      "dynamic_weight": 1.08,
+      "sentiment_bias": "neutral",
+      "description": "支撐位",
+      "added_date": "2026-01-19",
+      "last_updated": "2026-01-25",
+      "hit_count": 0,
+      "prediction_count": 1,
+      "correct_count": 1,
+      "subcategory": "market"
+    },
+    {
+      "keyword": "壓力位",
+      "category": "event",
+      "base_weight": 1.5,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "neutral",
+      "description": "價格阻力點",
+      "added_date": "2026-01-19",
+      "last_updated": "2026-01-19",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0,
+      "subcategory": "general"
+    },
+    {
+      "keyword": "resistance",
+      "category": "event",
+      "base_weight": 1.5,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "neutral",
+      "description": "壓力位",
+      "added_date": "2026-01-19",
+      "last_updated": "2026-01-19",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0,
+      "subcategory": "market"
+    },
+    {
+      "keyword": "突破",
+      "category": "event",
+      "base_weight": 2.0,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "positive",
+      "description": "價格突破關鍵位置",
+      "added_date": "2026-01-19",
+      "last_updated": "2026-01-19",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0,
+      "subcategory": "general"
+    },
+    {
+      "keyword": "breakout",
+      "category": "event",
+      "base_weight": 2.0,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "positive",
+      "description": "突破",
+      "added_date": "2026-01-19",
+      "last_updated": "2026-01-19",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0,
+      "subcategory": "market"
+    },
+    {
+      "keyword": "金叉",
+      "category": "event",
+      "base_weight": 1.8,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "positive",
+      "description": "短期均線上穿長期均線",
+      "added_date": "2026-01-19",
+      "last_updated": "2026-01-19",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0,
+      "subcategory": "general"
+    },
+    {
+      "keyword": "golden cross",
+      "category": "event",
+      "base_weight": 1.8,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "positive",
+      "description": "金叉",
+      "added_date": "2026-01-19",
+      "last_updated": "2026-01-19",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0,
+      "subcategory": "general"
+    },
+    {
+      "keyword": "死叉",
+      "category": "event",
+      "base_weight": 1.8,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "negative",
+      "description": "短期均線下穿長期均線",
+      "added_date": "2026-01-19",
+      "last_updated": "2026-01-19",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0,
+      "subcategory": "general"
+    },
+    {
+      "keyword": "death cross",
+      "category": "event",
+      "base_weight": 1.8,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "negative",
+      "description": "死叉",
+      "added_date": "2026-01-19",
+      "last_updated": "2026-01-19",
+      "hit_count": 1,
+      "prediction_count": 0,
+      "correct_count": 0,
+      "subcategory": "general"
+    },
+    {
+      "keyword": "based",
+      "category": "event",
+      "base_weight": 1.8,
+      "dynamic_weight": 1.1664,
+      "sentiment_bias": "positive",
+      "description": "源自 Base 鏈，代表認同或牛市情緒",
+      "added_date": "2026-01-19",
+      "last_updated": "2026-01-25",
+      "hit_count": 1,
+      "prediction_count": 2,
+      "correct_count": 2,
+      "subcategory": "general"
+    },
+    {
+      "keyword": "gm",
+      "category": "event",
+      "base_weight": 1.2,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "positive",
+      "description": "Good Morning，社群活躍指標",
+      "added_date": "2026-01-19",
+      "last_updated": "2026-01-19",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0,
+      "subcategory": "general"
+    },
+    {
+      "keyword": "pvp",
+      "category": "event",
+      "base_weight": 2.0,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "negative",
+      "description": "玩家對抗，形容市場流動性枯竭、互相收割",
+      "added_date": "2026-01-19",
+      "last_updated": "2026-01-19",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0,
+      "subcategory": "general"
+    },
+    {
+      "keyword": "alpha",
+      "category": "event",
+      "base_weight": 1.8,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "positive",
+      "description": "領先市場的投資資訊",
+      "added_date": "2026-01-19",
+      "last_updated": "2026-01-19",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0,
+      "subcategory": "general"
+    },
+    {
+      "keyword": "sybil",
+      "category": "event",
+      "base_weight": 1.5,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "negative",
+      "description": "女巫攻擊，通常與空投限制相關",
+      "added_date": "2026-01-19",
+      "last_updated": "2026-01-19",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0,
+      "subcategory": "general"
+    },
+    {
+      "keyword": "fomc meeting",
+      "category": "macro",
+      "subcategory": "monetary_policy",
+      "base_weight": 3.0,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "uncertain",
+      "description": "聯準會利率決議會議",
+      "added_date": "2026-01-25",
+      "last_updated": "2026-01-25",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0
+    },
+    {
+      "keyword": "fed minutes",
+      "category": "macro",
+      "subcategory": "monetary_policy",
+      "base_weight": 2.5,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "uncertain",
+      "description": "聯準會會議紀要",
+      "added_date": "2026-01-25",
+      "last_updated": "2026-01-25",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0
+    },
+    {
+      "keyword": "dot plot",
+      "category": "macro",
+      "subcategory": "monetary_policy",
+      "base_weight": 2.5,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "uncertain",
+      "description": "聯準會利率點陣圖",
+      "added_date": "2026-01-25",
+      "last_updated": "2026-01-25",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0
+    },
+    {
+      "keyword": "jackson hole",
+      "category": "macro",
+      "subcategory": "monetary_policy",
+      "base_weight": 2.5,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "uncertain",
+      "description": "傑克森霍爾央行年會",
+      "added_date": "2026-01-25",
+      "last_updated": "2026-01-25",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0
+    },
+    {
+      "keyword": "core cpi",
+      "category": "macro",
+      "subcategory": "economic_data",
+      "base_weight": 2.5,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "uncertain",
+      "description": "核心消費者物價指數",
+      "added_date": "2026-01-25",
+      "last_updated": "2026-01-25",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0
+    },
+    {
+      "keyword": "core pce",
+      "category": "macro",
+      "subcategory": "economic_data",
+      "base_weight": 2.5,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "uncertain",
+      "description": "核心個人消費支出",
+      "added_date": "2026-01-25",
+      "last_updated": "2026-01-25",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0
+    },
+    {
+      "keyword": "initial claims",
+      "category": "macro",
+      "subcategory": "economic_data",
+      "base_weight": 2.0,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "uncertain",
+      "description": "初請失業金人數",
+      "added_date": "2026-01-25",
+      "last_updated": "2026-01-25",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0
+    },
+    {
+      "keyword": "ism",
+      "category": "macro",
+      "subcategory": "economic_data",
+      "base_weight": 2.0,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "uncertain",
+      "description": "製造業/服務業PMI",
+      "added_date": "2026-01-25",
+      "last_updated": "2026-01-25",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0
+    },
+    {
+      "keyword": "debt limit",
+      "category": "macro",
+      "subcategory": "fiscal_policy",
+      "base_weight": 2.5,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "negative",
+      "description": "債務上限",
+      "added_date": "2026-01-25",
+      "last_updated": "2026-01-25",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0
+    },
+    {
+      "keyword": "fiscal cliff",
+      "category": "macro",
+      "subcategory": "fiscal_policy",
+      "base_weight": 2.5,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "negative",
+      "description": "財政懸崖",
+      "added_date": "2026-01-25",
+      "last_updated": "2026-01-25",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0
+    },
+    {
+      "keyword": "risk off",
+      "category": "macro",
+      "subcategory": "global_event",
+      "base_weight": 2.0,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "negative",
+      "description": "避險情緒",
+      "added_date": "2026-01-25",
+      "last_updated": "2026-01-25",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0
+    },
+    {
+      "keyword": "risk on",
+      "category": "macro",
+      "subcategory": "global_event",
+      "base_weight": 2.0,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "positive",
+      "description": "風險偏好",
+      "added_date": "2026-01-25",
+      "last_updated": "2026-01-25",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0
+    },
+    {
+      "keyword": "flight to safety",
+      "category": "macro",
+      "subcategory": "global_event",
+      "base_weight": 2.0,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "negative",
+      "description": "資金逃向安全資產",
+      "added_date": "2026-01-25",
+      "last_updated": "2026-01-25",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0
+    },
+    {
+      "keyword": "contagion",
+      "category": "macro",
+      "subcategory": "global_event",
+      "base_weight": 2.5,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "negative",
+      "description": "風險蔓延",
+      "added_date": "2026-01-25",
+      "last_updated": "2026-01-25",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0
+    },
+    {
+      "keyword": "systemic risk",
+      "category": "macro",
+      "subcategory": "global_event",
+      "base_weight": 2.5,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "negative",
+      "description": "系統性風險",
+      "added_date": "2026-01-25",
+      "last_updated": "2026-01-25",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0
+    },
+    {
+      "keyword": "sab 121",
+      "category": "legislation",
+      "subcategory": "us_law",
+      "base_weight": 2.5,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "negative",
+      "description": "SEC銀行託管加密資產規則",
+      "added_date": "2026-01-25",
+      "last_updated": "2026-01-25",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0
+    },
+    {
+      "keyword": "wells notice",
+      "category": "legislation",
+      "subcategory": "us_law",
+      "base_weight": 2.5,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "negative",
+      "description": "SEC執法預告",
+      "added_date": "2026-01-25",
+      "last_updated": "2026-01-25",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0
+    },
+    {
+      "keyword": "defi regulation",
+      "category": "legislation",
+      "subcategory": "us_law",
+      "base_weight": 2.0,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "uncertain",
+      "description": "DeFi監管",
+      "added_date": "2026-01-25",
+      "last_updated": "2026-01-25",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0
+    },
+    {
+      "keyword": "staking regulation",
+      "category": "legislation",
+      "subcategory": "us_law",
+      "base_weight": 2.0,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "uncertain",
+      "description": "質押監管",
+      "added_date": "2026-01-25",
+      "last_updated": "2026-01-25",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0
+    },
+    {
+      "keyword": "cbdc",
+      "category": "legislation",
+      "subcategory": "global_law",
+      "base_weight": 2.0,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "uncertain",
+      "description": "央行數位貨幣",
+      "added_date": "2026-01-25",
+      "last_updated": "2026-01-25",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0
+    },
+    {
+      "keyword": "digital euro",
+      "category": "legislation",
+      "subcategory": "global_law",
+      "base_weight": 2.0,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "uncertain",
+      "description": "數位歐元",
+      "added_date": "2026-01-25",
+      "last_updated": "2026-01-25",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0
+    },
+    {
+      "keyword": "digital yuan",
+      "category": "legislation",
+      "subcategory": "global_law",
+      "base_weight": 2.0,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "uncertain",
+      "description": "數位人民幣",
+      "added_date": "2026-01-25",
+      "last_updated": "2026-01-25",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0
+    },
+    {
+      "keyword": "futures etf",
+      "category": "event",
+      "subcategory": "adoption",
+      "base_weight": 2.5,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "positive",
+      "description": "期貨ETF",
+      "added_date": "2026-01-25",
+      "last_updated": "2026-01-25",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0
+    },
+    {
+      "keyword": "etf inflow",
+      "category": "event",
+      "subcategory": "adoption",
+      "base_weight": 2.5,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "positive",
+      "description": "ETF資金流入",
+      "added_date": "2026-01-25",
+      "last_updated": "2026-01-25",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0
+    },
+    {
+      "keyword": "etf outflow",
+      "category": "event",
+      "subcategory": "adoption",
+      "base_weight": 2.5,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "negative",
+      "description": "ETF資金流出",
+      "added_date": "2026-01-25",
+      "last_updated": "2026-01-25",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0
+    },
+    {
+      "keyword": "accumulation",
+      "category": "event",
+      "subcategory": "market",
+      "base_weight": 2.0,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "positive",
+      "description": "吸籌",
+      "added_date": "2026-01-25",
+      "last_updated": "2026-01-25",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0
+    },
+    {
+      "keyword": "capitulation",
+      "category": "event",
+      "subcategory": "market",
+      "base_weight": 2.5,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "negative",
+      "description": "恐慌性拋售",
+      "added_date": "2026-01-25",
+      "last_updated": "2026-01-25",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0
+    },
+    {
+      "keyword": "ai agent",
+      "category": "tech",
+      "subcategory": "ai",
+      "base_weight": 2.0,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "positive",
+      "description": "AI代理",
+      "added_date": "2026-01-25",
+      "last_updated": "2026-01-25",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0
+    },
+    {
+      "keyword": "deepseek",
+      "category": "tech",
+      "subcategory": "ai",
+      "base_weight": 2.0,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "uncertain",
+      "description": "DeepSeek AI",
+      "added_date": "2026-01-25",
+      "last_updated": "2026-01-25",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0
+    },
+    {
+      "keyword": "chatgpt",
+      "category": "tech",
+      "subcategory": "ai",
+      "base_weight": 1.5,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "uncertain",
+      "description": "ChatGPT",
+      "added_date": "2026-01-25",
+      "last_updated": "2026-01-25",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0
+    },
+    {
+      "keyword": "waller",
+      "category": "person",
+      "subcategory": "fed_official",
+      "base_weight": 2.0,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "uncertain",
+      "description": "Fed理事沃勒",
+      "added_date": "2026-01-25",
+      "last_updated": "2026-01-25",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0
+    },
+    {
+      "keyword": "bostic",
+      "category": "person",
+      "subcategory": "fed_official",
+      "base_weight": 2.0,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "uncertain",
+      "description": "亞特蘭大Fed主席博斯蒂克",
+      "added_date": "2026-01-25",
+      "last_updated": "2026-01-25",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0
+    },
+    {
+      "keyword": "kashkari",
+      "category": "person",
+      "subcategory": "fed_official",
+      "base_weight": 2.0,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "uncertain",
+      "description": "明尼亞波利斯Fed主席卡什卡利",
+      "added_date": "2026-01-25",
+      "last_updated": "2026-01-25",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0
+    },
+    {
+      "keyword": "bank of japan",
+      "category": "institution",
+      "subcategory": "central_bank",
+      "base_weight": 2.0,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "uncertain",
+      "description": "日本央行",
+      "added_date": "2026-01-25",
+      "last_updated": "2026-01-25",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0
+    },
+    {
+      "keyword": "bank of england",
+      "category": "institution",
+      "subcategory": "central_bank",
+      "base_weight": 2.0,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "uncertain",
+      "description": "英國央行",
+      "added_date": "2026-01-25",
+      "last_updated": "2026-01-25",
+      "hit_count": 0,
+      "prediction_count": 0,
+      "correct_count": 0
+    },
+    {
+      "keyword": "boe",
+      "category": "institution",
+      "subcategory": "central_bank",
+      "base_weight": 2.0,
+      "dynamic_weight": 1.0,
+      "sentiment_bias": "uncertain",
+      "description": "英國央行",
+      "added_date": "2026-01-25",
+      "last_updated": "2026-01-25",
+      "hit_count": 0,
+      "prediction_count": 0,
       "correct_count": 0
     }
-  ]
+  ],
+  "category_stats": {
+    "person/tech_ceo": 2,
+    "person/crypto_leader": 8,
+    "person/fund_manager": 2,
+    "person/general": 9,
+    "person/fed_official": 7,
+    "person/regulator_official": 2,
+    "person/politician": 2,
+    "institution/central_bank": 8,
+    "institution/regulator": 3,
+    "macro/fiscal_policy": 3,
+    "institution/fund": 4,
+    "institution/bank": 2,
+    "institution/general": 6,
+    "institution/exchange": 3,
+    "legislation/global_law": 5,
+    "macro/monetary_policy": 10,
+    "macro/economic_data": 7,
+    "event/adoption": 10,
+    "event/general": 69,
+    "event/security": 6,
+    "event/legal_action": 2,
+    "legislation/us_law": 5,
+    "tech/blockchain": 4,
+    "event/market": 12,
+    "tech/ai": 4,
+    "coin/major": 4,
+    "coin/altcoin": 5,
+    "coin/stablecoin": 3,
+    "coin/general": 5,
+    "macro/global_event": 5
+  }
 }

@@ -1,7 +1,30 @@
 """
-風險管理模塊初始化
+風險管理模組 - Risk Management Module
+====================================
+
+整合倉位管理和風險控制：
+- RiskManager: 核心風險管理器
+- RiskParameters: 風險參數配置
+- PositionSizing: 倉位計算
+- PortfolioRisk: 投資組合風險
 """
 
-from .risk_manager import RiskManager, RiskParameters, PositionSizeCalculator, DrawdownTracker, TradeCounter
+from .position_manager import (
+    RiskManager,
+    RiskParameters,
+    RiskLevel,
+    PositionType,
+    PositionSizing,
+    PortfolioRisk,
+    RiskAlert,
+)
 
-__all__ = ['RiskManager', 'RiskParameters', 'PositionSizeCalculator', 'DrawdownTracker', 'TradeCounter']
+__all__ = [
+    'RiskManager',
+    'RiskParameters',
+    'RiskLevel',
+    'PositionType',
+    'PositionSizing',
+    'PortfolioRisk',
+    'RiskAlert',
+]
