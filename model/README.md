@@ -116,6 +116,30 @@ model_path = "model/my_100m_model.pth"
 model_path = Path(__file__).parent.parent / "model" / "my_100m_model.pth"
 ```
 
+### 與 Analysis 模組整合
+
+模型的 1024 維輸入特徵由 `analysis` 模組的 `MarketMicrostructure` 類生成：
+
+```python
+from bioneuronai.analysis import MarketMicrostructure
+
+# 初始化特徵工程器
+feature_engineer = MarketMicrostructure()
+
+# 生成模型輸入特徵
+features_1024d = feature_engineer.create_model_features(market_data, orderbook_data)
+
+# 輸入到模型進行預測
+prediction = model.predict(features_1024d)
+```
+
+特徵包括：
+- 技術指標計算
+- 市場微觀結構分析
+- 成交量分布特徵
+- 清算風險評估
+- 時間和季節性特徵
+
 ## 📝 注意事項
 
 1. **特徵標準化**: 輸入特徵需要標準化/歸一化

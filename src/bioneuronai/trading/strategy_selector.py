@@ -1,17 +1,44 @@
 """
- - Strategy Selector
+策略選擇器 - Strategy Selector
 
+根據市場狀態智能選擇最佳交易策略。
+
+功能:
+1. 10 種預定義策略配置
+2. 市場狀態識別
+3. AI Fusion 整合 (2026-01-25 新增)
+4. EventContext 事件驅動調整 (2026-01-25 新增)
+
+更新日期: 2026-01-25
 """
 
 import json
 import logging
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Tuple, Set
+from typing import Dict, List, Optional, Tuple, Set, Any
 from dataclasses import dataclass
 from enum import Enum
 import numpy as np
 
 logger = logging.getLogger(__name__)
+
+# 從 schemas 導入 EventContext (Single Source of Truth - 2026-01-25)
+try:
+    from schemas.rag import EventContext
+    EVENTCONTEXT_AVAILABLE = True
+except ImportError:
+    EVENTCONTEXT_AVAILABLE = False
+    EventContext = None
+
+# 嘗試導入 AIStrategyFusion (可選)
+try:
+    from ..strategies.strategy_fusion import AIStrategyFusion, FusionMethod
+    AI_FUSION_AVAILABLE = True
+except ImportError:
+    AI_FUSION_AVAILABLE = False
+    AIStrategyFusion = None
+    FusionMethod = None
+
 
 class StrategyType(Enum):
     """"""
@@ -80,12 +107,43 @@ class StrategyPerformanceMetrics:
     market_conditions_performance: Dict[str, float]
 
 class StrategySelector:
-    """ - """
+    """策略選擇器 - 根據市場狀態智能選擇策略
     
-    def __init__(self):
+    功能:
+    1. 10 種預定義策略配置
+    2. 市場狀態識別
+    3. AI Fusion 整合 (可選)
+    4. EventContext 事件驅動調整 (可選)
+    """
+    
+    def __init__(self, enable_ai_fusion: bool = True, timeframe: str = "1h"):
+        """
+        初始化策略選擇器
+        
+        Args:
+            enable_ai_fusion: 是否啟用 AI Fusion (需要 AIStrategyFusion 可用)
+            timeframe: 時間框架
+        """
         self.available_strategies = self._initialize_strategies()
         self.strategy_performance_history = {}
         self.market_regime_history = []
+        self.timeframe = timeframe
+        
+        # AI Fusion 整合 (2026-01-25 新增)
+        self._ai_fusion = None
+        if enable_ai_fusion and AI_FUSION_AVAILABLE:
+            try:
+                self._ai_fusion = AIStrategyFusion(
+                    timeframe=timeframe,
+                    fusion_method=FusionMethod.MARKET_ADAPTIVE,
+                    enable_learning=True,
+                )
+                logger.info("✅ AI Fusion 已啟用")
+            except Exception as e:
+                logger.warning(f"AI Fusion 初始化失敗: {e}")
+        
+        # 事件上下文緩存
+        self._current_event_context: Optional[Any] = None
         
     def _initialize_strategies(self) -> Dict[str, StrategyConfig]:
         """"""
@@ -746,7 +804,7 @@ class StrategySelector:
         )
     
     def get_available_strategies_summary(self) -> Dict:
-        """"""
+        """獲取可用策略摘要"""
         summary = {}
         
         for name, strategy in self.available_strategies.items():
@@ -760,3 +818,123 @@ class StrategySelector:
             }
         
         return summary
+    
+    # ========== AI Fusion 整合 (2026-01-25 新增) ==========
+    
+    def set_event_context(self, event_context: Optional[Any] = None):
+        """
+        設置事件上下文 - 供事件驅動調整使用
+        
+        Args:
+            event_context: EventContext 實例或字典
+        """
+        self._current_event_context = event_context
+        if event_context:
+            logger.debug(f"事件上下文已設置: {event_context}")
+    
+    def get_ai_fusion_signal(
+        self,
+        ohlcv_data: np.ndarray,
+        symbol: str = "BTCUSDT",
+        event_score: float = 0.0,
+        event_context: Optional[Any] = None,
+    ) -> Optional[Dict[str, Any]]:
+        """
+        獲取 AI Fusion 融合信號
+        
+        整合 AIStrategyFusion 的能力，提供事件驅動的策略融合。
+        
+        Args:
+            ohlcv_data: OHLCV 數據
+            symbol: 交易對符號
+            event_score: 事件評分 (-10 到 +10)
+            event_context: EventContext 實例 (可選)
+            
+        Returns:
+            融合信號字典，或 None (如果 AI Fusion 不可用)
+        """
+        if not self._ai_fusion:
+            logger.debug("AI Fusion 不可用")
+            return None
+        
+        # 使用傳入的或緩存的事件上下文
+        ctx = event_context or self._current_event_context
+        
+        try:
+            # 調用 AIStrategyFusion
+            signal = self._ai_fusion.generate_signal(
+                ohlcv_data=ohlcv_data,
+                symbol=symbol,
+                event_score=event_score,
+                event_context=ctx,
+            )
+            
+            return {
+                "signal_type": signal.signal_type if signal else None,
+                "confidence": signal.confidence if signal else 0,
+                "fusion_method": signal.fusion_method_used.value if signal and signal.fusion_method_used else None,
+                "reasoning": signal.reasoning if signal else "",
+                "has_event_adjustment": event_score != 0,
+            }
+        except Exception as e:
+            logger.error(f"AI Fusion 信號生成失敗: {e}")
+            return None
+    
+    def recommend_with_ai_fusion(
+        self,
+        ohlcv_data: np.ndarray,
+        capital: float,
+        risk_tolerance: str = "medium",
+        symbol: str = "BTCUSDT",
+        event_score: float = 0.0,
+    ) -> StrategySelection:
+        """
+        結合 AI Fusion 的策略推薦
+        
+        這是 select_strategy() 的增強版本，整合 AI Fusion 信號。
+        
+        Args:
+            ohlcv_data: OHLCV 數據
+            capital: 資金
+            risk_tolerance: 風險容忍度
+            symbol: 交易對
+            event_score: 事件評分
+            
+        Returns:
+            StrategySelection 物件
+        """
+        # 1. 先獲取基礎策略選擇
+        base_selection = self.select_strategy(
+            ohlcv_data=ohlcv_data,
+            capital=capital,
+            risk_tolerance=risk_tolerance,
+        )
+        
+        # 2. 如果 AI Fusion 可用，融合信號
+        if self._ai_fusion and len(ohlcv_data) >= 50:
+            ai_signal = self.get_ai_fusion_signal(
+                ohlcv_data=ohlcv_data,
+                symbol=symbol,
+                event_score=event_score,
+            )
+            
+            if ai_signal:
+                # 調整置信度
+                ai_confidence = ai_signal.get("confidence", 0.5)
+                base_selection.confidence_score = (
+                    base_selection.confidence_score * 0.4 + ai_confidence * 0.6
+                )
+                
+                # 更新推理說明
+                base_selection.reasoning += f"\n[AI Fusion] {ai_signal.get('reasoning', '')}"
+                
+                # 事件調整標記
+                if ai_signal.get("has_event_adjustment"):
+                    base_selection.reasoning += f"\n[Event] 事件評分: {event_score}"
+        
+        return base_selection
+    
+    @property
+    def ai_fusion_available(self) -> bool:
+        """檢查 AI Fusion 是否可用"""
+        return self._ai_fusion is not None

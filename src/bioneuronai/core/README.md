@@ -96,11 +96,11 @@ from bioneuronai.core import (
 ## 🔗 依賴關係
 
 **內部依賴：**
-- `analysis` - 新聞分析服務
-- `data_models` - 數據模型定義
-- `connectors` - 交易所連接器
-- `risk_management` - 風險管理
-- `strategy_fusion` - 策略融合
+- `analysis` - 市場分析服務（新聞情緒、關鍵字識別、特徵工程、市場狀態檢測）
+- `data` - 數據連接器和數據庫管理
+- `trading` - 交易執行和風險管理
+- `strategies` - 交易策略庫
+- `schemas` - 數據模型定義
 
 **外部依賴：**
 - `ccxt` - 交易所 API

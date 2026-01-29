@@ -25,6 +25,15 @@ import asyncio
 from .market_analyzer import MarketAnalyzer
 from .risk_manager import RiskManager
 
+# 導入事件評估器 (Step 4 神經接通)
+try:
+    from ..analysis.news import get_rule_evaluator, RuleBasedEvaluator
+    from ..strategies.strategy_fusion import EventContext
+    EVENT_SYSTEM_AVAILABLE = True
+except ImportError:
+    EVENT_SYSTEM_AVAILABLE = False
+    get_rule_evaluator = None
+
 logger = logging.getLogger(__name__)
 
 class TradingPlanController:
@@ -41,6 +50,15 @@ class TradingPlanController:
         # 初始化分析模組
         self.market_analyzer = MarketAnalyzer()
         self.risk_manager = RiskManager()
+        
+        # 初始化事件評估器 (新聞大腦)
+        self._rule_evaluator: Optional['RuleBasedEvaluator'] = None
+        if EVENT_SYSTEM_AVAILABLE and get_rule_evaluator is not None:
+            try:
+                self._rule_evaluator = get_rule_evaluator()
+                logger.info("🧠 事件評估器已連接 (RuleBasedEvaluator)")
+            except Exception as e:
+                logger.warning(f"⚠️ 事件評估器初始化失敗: {e}")
         
         # 10步驟配置
         self.steps = {
@@ -97,26 +115,44 @@ class TradingPlanController:
         try:
             # 步驟 1: 系統檢查（簡化）
             logger.info(f"\n{'='*70}")
-            logger.info(f"步驟 1/10: 系統環境檢查")
+            logger.info("步驟 1/10: 系統環境檢查")
             logger.info(f"{'='*70}")
             step1_result = await self._step1_system_check()
             plan["steps_results"][1] = step1_result
             
             # 步驟 2: 宏觀市場掃描（暫時跳過，需要外部 API）
             logger.info(f"\n{'='*70}")
-            logger.info(f"步驟 2/10: 宏觀市場掃描 (已跳過)")
+            logger.info("步驟 2/10: 宏觀市場掃描 (已跳過)")
             logger.info(f"{'='*70}")
             plan["steps_results"][2] = {"status": "SKIPPED", "message": "需要外部 API"}
             
             # 步驟 3: 技術面分析（使用真實分析）
             logger.info(f"\n{'='*70}")
-            logger.info(f"步驟 3/10: 技術面分析")
+            logger.info("步驟 3/10: 技術面分析")
             logger.info(f"{'='*70}")
             step3_result = await self._step3_technical_analysis(klines)
             plan["steps_results"][3] = step3_result
             
-            # 步驟 4-6: 策略相關（簡化）
-            for step_num in [4, 5, 6]:
+            # 步驟 4: 基本面情緒分析（整合事件系統）
+            logger.info(f"\n{'='*70}")
+            logger.info("步驟 4/10: 基本面情緒分析")
+            logger.info(f"{'='*70}")
+            step4_result = await self._step4_sentiment_analysis()
+            plan["steps_results"][4] = step4_result
+            
+            # 提取事件資訊供後續步驟使用
+            event_score = step4_result.get("event_score", 0.0)
+            event_context = step4_result.get("event_context")
+            plan["event_score"] = event_score
+            plan["event_context"] = event_context
+            
+            # 如果事件分數過低，發出警告
+            if event_score < -0.5:
+                logger.warning(f"⚠️ 重大負面事件！Event Score: {event_score:+.3f}")
+                logger.warning("   建議暫停交易或大幅降低倉位")
+            
+            # 步驟 5-6: 策略相關（簡化）
+            for step_num in [5, 6]:
                 logger.info(f"\n{'='*70}")
                 logger.info(f"步驟 {step_num}/10: {self.steps[step_num]['name']} (簡化)")
                 logger.info(f"{'='*70}")
@@ -124,14 +160,14 @@ class TradingPlanController:
             
             # 步驟 7: 風險參數計算（使用真實計算）
             logger.info(f"\n{'='*70}")
-            logger.info(f"步驟 7/10: 風險參數計算")
+            logger.info("步驟 7/10: 風險參數計算")
             logger.info(f"{'='*70}")
             step7_result = await self._step7_risk_calculation(step3_result, account_balance)
             plan["steps_results"][7] = step7_result
             
             # 步驟 8: 資金管理（使用真實計算）
             logger.info(f"\n{'='*70}")
-            logger.info(f"步驟 8/10: 資金管理規劃")
+            logger.info("步驟 8/10: 資金管理規劃")
             logger.info(f"{'='*70}")
             entry_price = 50000  # 示例
             stop_loss_price = entry_price * 0.97  # 3% 止損
@@ -322,21 +358,73 @@ class TradingPlanController:
                 "trend": "NEUTRAL"
             }
     
-    async def _step4_sentiment_analysis(self) -> Dict:
-        """4: """
-        logger.info(" ...")
-        logger.info("🤖 ...")
-        logger.info(" ...")
+    async def _step4_sentiment_analysis(self, symbol: str = "BTCUSDT") -> Dict:
+        """4: 基本面情緒分析 - 整合事件評估系統"""
+        logger.info("📰 執行新聞情緒分析 ...")
+        logger.info("🧠 查詢事件記憶 ...")
         
-        # TODO:  RAG 
-        return {
+        result = {
             "status": "SUCCESS",
-            "news_count": 25,
-            "sentiment_score": 0.15,
-            "sentiment": "SLIGHTLY_POSITIVE",
-            "keywords_matched": ["etf", "approval", "partnership"],
-            "breaking_news_risk": "SAFE"
+            "news_count": 0,
+            "sentiment_score": 0.0,
+            "sentiment": "NEUTRAL",
+            "keywords_matched": [],
+            "breaking_news_risk": "SAFE",
+            # 新增：事件系統整合
+            "event_score": 0.0,
+            "active_events": [],
+            "event_context": None
         }
+        
+        # 使用事件評估系統
+        if self._rule_evaluator:
+            try:
+                # 獲取當前事件分數和活躍事件
+                event_score, active_events = self._rule_evaluator.get_current_event_score(symbol)
+                
+                result["event_score"] = event_score
+                result["active_events"] = active_events
+                
+                # 構建 EventContext 供 strategy_fusion 使用
+                if EVENT_SYSTEM_AVAILABLE and active_events:
+                    # 找出最主要的事件類型
+                    primary_event = max(active_events, key=lambda e: abs(e.get('score', 0)))
+                    
+                    result["event_context"] = {
+                        "event_score": event_score,
+                        "event_type": primary_event.get('event_type', 'UNKNOWN'),
+                        "intensity": abs(primary_event.get('score', 0)),
+                        "decay_factor": 1.0,  # 可以從 metadata 計算
+                        "source_confidence": primary_event.get('source_confidence', 0.5)
+                    }
+                    
+                    logger.info(f"  ✓ 事件分數: {event_score:+.3f}")
+                    logger.info(f"  ✓ 活躍事件: {len(active_events)} 個")
+                    for evt in active_events[:3]:  # 顯示前3個
+                        logger.info(f"    - [{evt.get('event_type')}] {evt.get('headline', '')[:40]}...")
+                else:
+                    logger.info("  ✓ 目前無活躍市場事件")
+                
+                # 根據事件分數判斷風險等級
+                if event_score < -0.5:
+                    result["breaking_news_risk"] = "HIGH"
+                    result["sentiment"] = "NEGATIVE"
+                elif event_score < -0.2:
+                    result["breaking_news_risk"] = "ELEVATED"
+                    result["sentiment"] = "SLIGHTLY_NEGATIVE"
+                elif event_score > 0.3:
+                    result["sentiment"] = "POSITIVE"
+                    result["breaking_news_risk"] = "SAFE"
+                
+                # 清理過期事件
+                self._rule_evaluator.cleanup_expired_events()
+                
+            except Exception as e:
+                logger.warning(f"⚠️ 事件評估失敗: {e}")
+        else:
+            logger.info("  ⚠️ 事件系統未啟用，使用預設值")
+        
+        return result
     
     async def _step5_strategy_evaluation(self) -> Dict:
         """5: """

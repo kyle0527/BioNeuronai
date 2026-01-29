@@ -39,8 +39,19 @@ from .mean_reversion import MeanReversionStrategy
 from .breakout_trading import BreakoutTradingStrategy
 from .strategy_fusion import AIStrategyFusion, FusionMethod, FusionSignal, MarketRegime
 
+# 策略選擇器模組 (2026-01-25 新增)
+from .selector import (
+    StrategySelector,
+    StrategyType,
+    StrategyConfigTemplate,
+    StrategySelectionResult,
+    StrategyRecommendation,
+    MarketEvaluator,
+    get_recommended_strategy,
+)
+
 __all__ = [
-    # 
+    # 基礎類
     'BaseStrategy',
     'StrategyState',
     'TradeSetup',
@@ -49,15 +60,24 @@ __all__ = [
     'RiskParameters',
     'StrategyPerformance',
     
-    # 
+    # 策略實現
     'TrendFollowingStrategy',
     'SwingTradingStrategy',
     'MeanReversionStrategy',
     'BreakoutTradingStrategy',
     
-    # AI 
+    # AI 融合
     'AIStrategyFusion',
     'FusionMethod',
     'FusionSignal',
     'MarketRegime',
+    
+    # 策略選擇器 (2026-01-25 新增)
+    'StrategySelector',
+    'StrategyType',
+    'StrategyConfigTemplate',
+    'StrategySelectionResult',
+    'StrategyRecommendation',
+    'MarketEvaluator',
+    'get_recommended_strategy',
 ]

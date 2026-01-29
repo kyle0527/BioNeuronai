@@ -334,7 +334,7 @@ class TrendFollowingStrategy(BaseStrategy):
             'analysis_summary': self._generate_analysis_summary(trend, market_condition),
         }
     
-    def _prepare_price_data(self, ohlcv_data: np.ndarray) -> Dict[str, np.ndarray]:
+    def _prepare_price_data(self, ohlcv_data: np.ndarray) -> Dict[str, Any]:
         """準備價格數據"""
         return {
             'open': ohlcv_data[:, 1],
@@ -342,7 +342,7 @@ class TrendFollowingStrategy(BaseStrategy):
             'low': ohlcv_data[:, 3],
             'close': ohlcv_data[:, 4],
             'volume': ohlcv_data[:, 5],
-            'current_price': ohlcv_data[:, 4][-1]
+            'current_price': float(ohlcv_data[:, 4][-1])
         }
     
     def _calculate_trend_indicators(self, price_data: Dict) -> Dict[str, Any]:
@@ -451,17 +451,17 @@ class TrendFollowingStrategy(BaseStrategy):
         else:
             return MarketCondition.SIDEWAYS
     
-    def _calculate_key_levels(self, price_data: Dict, indicators: Dict) -> Dict[str, float]:
+    def _calculate_key_levels(self, price_data: Dict, indicators: Dict) -> Dict[str, Any]:
         """計算關鍵技術水準"""
         recent_high = np.max(price_data['high'][-20:])
         recent_low = np.min(price_data['low'][-20:])
         
         return {
-            'resistance': recent_high,
-            'support': recent_low,
-            'ema21': indicators['ema21'][-1],
-            'ema55': indicators['ema55'][-1],
-            'ema200': indicators['ema200'][-1] if not np.isnan(indicators['ema200'][-1]) else None,
+            'resistance': float(recent_high),
+            'support': float(recent_low),
+            'ema21': float(indicators['ema21'][-1]),
+            'ema55': float(indicators['ema55'][-1]),
+            'ema200': float(indicators['ema200'][-1]) if not np.isnan(indicators['ema200'][-1]) else None,
         }
     
     def _assess_volatility(self, atr: np.ndarray) -> str:
@@ -545,6 +545,10 @@ class TrendFollowingStrategy(BaseStrategy):
         # 基礎數據驗證
         trend, indicators, volume_profile, current_price = self._extract_analysis_data(market_analysis)
         if not self._validate_trend_prerequisites(trend, current_price):
+            return None
+        
+        # 類型檢查（確保不為 None）
+        if trend is None or current_price is None:
             return None
         
         # 確定交易方向

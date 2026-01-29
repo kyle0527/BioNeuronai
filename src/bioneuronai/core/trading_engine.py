@@ -11,7 +11,7 @@ from typing import Dict, List, Optional, Any
 from pathlib import Path
 from dataclasses import dataclass, asdict
 
-from bioneuronai.analysis.news_analyzer import CryptoNewsAnalyzer
+from bioneuronai.analysis.news import CryptoNewsAnalyzer
 from bioneuronai.analysis.feature_engineering import MarketMicrostructure
 from bioneuronai.analysis.market_regime import RegimeAnalysis
 
@@ -19,7 +19,7 @@ from bioneuronai.analysis.market_regime import RegimeAnalysis
 from bioneuronai.core.inference_engine import TradingSignal as AITradingSignal
 from bioneuronai.core.inference_engine import SignalType
 from bioneuronai.data.binance_futures import OrderResult
-from bioneuronai.analysis.news_analyzer import NewsAnalysisResult
+from bioneuronai.analysis.news import NewsAnalysisResult
 
 # 核心模組導入 - 使用原始數據模型
 from ..trading_strategies import MarketData, TradingSignal, StrategyFusion
@@ -143,8 +143,8 @@ class TradingEngine:
         self.max_position_size = 0.01  # 最大持倉大小
         
         # 數據存儲目錄與數據庫
-        self.data_dir = Path("trading_data")
-        self.data_dir.mkdir(exist_ok=True)
+        self.data_dir = Path("src") / "trading_data"
+        self.data_dir.mkdir(parents=True, exist_ok=True)
         
         # 初始化數據庫管理器
         self.db_manager: DatabaseManager = get_database_manager(

@@ -1,7 +1,7 @@
 # BioNeuronai 代碼修復與開發指南
 
 > **基於 AIVA Common 專業化標準，適配加密貨幣交易系統**  
-> **最後更新**: 2026年1月22日
+> **最後更新**: 2026年1月25日
 
 ---
 
@@ -24,13 +24,13 @@
 
 ### 🎯 單一數據來源 (Single Source of Truth)
 
-**基本理念**: `src/bioneuronai/schemas/` 是所有數據結構的唯一定義來源
+**基本理念**: `src/schemas/` 是所有數據結構的唯一定義來源
 
 ```python
 # ✅ 正確做法 - 從 schemas 導入
-from src.bioneuronai.schemas.market import MarketData, OrderData
-from src.bioneuronai.schemas.trading import Signal, TradeResult
-from src.bioneuronai.schemas.rag import RAGNewsItem, NewsSentiment
+from schemas.market import MarketData, OrderData
+from schemas.trading import Signal, TradeResult
+from schemas.rag import RAGNewsItem, NewsSentiment
 
 # ❌ 錯誤做法 - 在其他模組重複定義
 class MarketData(BaseModel):  # 禁止！schemas 已定義
@@ -77,7 +77,7 @@ class MarketData(BaseModel):  # 禁止！schemas 已定義
 
 ```bash
 # 檢查是否已有相似的 Schema
-grep -r "class YourClassName" src/bioneuronai/schemas/
+grep -r "class YourClassName" src/schemas/
 
 # 檢查功能是否已實現
 grep -r "def your_function" src/bioneuronai/
@@ -285,13 +285,17 @@ import numpy as np
 from pydantic import BaseModel, Field
 
 # 3. 本地 schemas（最高優先級）
-from src.bioneuronai.schemas.market import MarketData, OrderData
-from src.bioneuronai.schemas.trading import Signal, Position
-from src.bioneuronai.schemas.rag import RAGNewsItem
+from schemas.market import MarketData, OrderData
+from schemas.trading import Signal, Position
+from schemas.rag import RAGNewsItem
 
 # 4. 本地配置
 from config.trading_config import TradingConfig
 from config.trading_costs import TradingCosts
+
+# 5. 關鍵字管理（新聞分析）
+from bioneuronai.analysis.market_keywords import KeywordManager
+from bioneuronai.analysis.keyword_learner import KeywordLearner
 
 # 5. 本地模組
 from src.bioneuronai.data.binance_futures import BinanceFuturesConnector
@@ -1374,17 +1378,34 @@ class NewsAnalyzer:
 ### 📚 關鍵文檔位置
 
 ```
-src/bioneuronai/schemas/    # 所有 Schema 定義
+src/schemas/                # 所有 Schema 定義（單一數據來源）
 ├── market.py               # 市場數據
 ├── trading.py              # 交易相關
 ├── rag.py                  # 新聞分析
 ├── risk.py                 # 風險管理
-└── indicators.py           # 技術指標
+├── orders.py               # 訂單結構
+├── positions.py            # 持倉結構
+├── portfolio.py            # 投資組合
+├── strategy.py             # 策略相關
+├── database.py             # 資料庫結構
+├── api.py                  # API 回應結構
+├── commands.py             # 指令結構
+└── enums.py                # 列舉定義
 
 config/                     # 配置檔案
 ├── trading_config.py       # 交易配置
 ├── trading_costs.py        # 交易成本
-└── market_keywords.json    # 新聞關鍵字
+├── market_keywords.json    # 新聞關鍵字（舊版單一檔案）
+├── market_keywords.db      # 關鍵字 SQLite 快取
+└── keywords/               # 關鍵字分類目錄（v3.0 新架構）
+    ├── _index.json         # 索引檔
+    ├── person.json         # 人物（crypto_leader, fed_official, politician）
+    ├── institution.json    # 機構（central_bank, regulator, exchange）
+    ├── macro.json          # 宏觀經濟（monetary_policy, economic_data）
+    ├── legislation.json    # 法規政策（us_law, global_law, tax_policy）
+    ├── event.json          # 事件（market, security, adoption）
+    ├── coin.json           # 幣種（major, altcoin, stablecoin）
+    └── tech.json           # 技術（ai, blockchain）
 
 docs/                       # 文檔
 ├── NEWS_ANALYZER_GUIDE.md  # 新聞分析使用手冊
@@ -1409,7 +1430,7 @@ python use_trading_engine_v2.py
 
 # 執行新聞分析
 python -c "
-from src.bioneuronai.analysis.news_analyzer import CryptoNewsAnalyzer
+from bioneuronai.analysis import CryptoNewsAnalyzer
 analyzer = CryptoNewsAnalyzer()
 result = analyzer.analyze_news('BTCUSDT')
 result.print_news_with_links(max_items=5)
@@ -1426,7 +1447,7 @@ result.print_news_with_links(max_items=5)
 
 ---
 
-**最後更新**: 2026年1月22日  
+**最後更新**: 2026年1月25日  
 **維護者**: BioNeuronai 開發團隊  
 **基於**: AIVA Common 專業化標準 v6.3
 

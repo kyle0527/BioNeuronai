@@ -1,0 +1,35 @@
+{
+  "version": "3.0",
+  "last_updated": "2026-01-26 21:43:15",
+  "total_keywords": 217,
+  "categories": {
+    "person": {
+      "file": "person.json",
+      "count": 32
+    },
+    "institution": {
+      "file": "institution.json",
+      "count": 26
+    },
+    "macro": {
+      "file": "macro.json",
+      "count": 25
+    },
+    "legislation": {
+      "file": "legislation.json",
+      "count": 10
+    },
+    "event": {
+      "file": "event.json",
+      "count": 99
+    },
+    "tech": {
+      "file": "tech.json",
+      "count": 8
+    },
+    "coin": {
+      "file": "coin.json",
+      "count": 17
+    }
+  }
+}

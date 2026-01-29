@@ -1,10 +1,33 @@
 """
- v2 - 
+策略選擇器 v2 - 內部使用版本
 ====================================
 
+⚠️ DEPRECATION NOTICE (2026-01-25):
+此模組的功能已整合到主要的 strategy_selector.py 中。
+請使用: from bioneuronai.trading import StrategySelector
 
+此模組保留用於:
+1. 向後兼容
+2. 內部測試
+3. 進階的 AI Fusion 專用場景
+
+主要 StrategySelector 現已支援:
+- AI Fusion 整合 (enable_ai_fusion=True)
+- EventContext 事件驅動調整
+- get_ai_fusion_signal() 方法
+- recommend_with_ai_fusion() 方法
+
+遷移指南:
+    # 舊代碼
+    from bioneuronai.trading.strategy_selector_v2 import StrategySelector
+    selector = StrategySelector()
+    
+    # 新代碼
+    from bioneuronai.trading import StrategySelector
+    selector = StrategySelector(enable_ai_fusion=True)
 """
 
+import warnings
 import logging
 from datetime import datetime
 from typing import Dict, List, Optional, Any
@@ -12,7 +35,15 @@ from dataclasses import dataclass, field
 from enum import Enum
 import numpy as np
 
-# 
+# 發出 deprecation 警告
+warnings.warn(
+    "strategy_selector_v2 is deprecated. "
+    "Use strategy_selector.StrategySelector with enable_ai_fusion=True instead.",
+    DeprecationWarning,
+    stacklevel=2
+)
+
+# 原有導入
 from ..strategies import (
     BaseStrategy,
     TradeSetup,
@@ -26,6 +57,12 @@ from ..strategies import (
     MarketRegime as FusionMarketRegime,
 )
 from ..strategies.base_strategy import MarketCondition, SignalStrength
+
+# 從 schemas 導入 EventContext (Single Source of Truth - 2026-01-25)
+try:
+    from schemas.rag import EventContext
+except ImportError:
+    from ..strategies.strategy_fusion import EventContext
 
 logger = logging.getLogger(__name__)
 
@@ -146,7 +183,6 @@ class StrategySelector:
         close = ohlcv_data[:, 4]
         high = ohlcv_data[:, 2]
         low = ohlcv_data[:, 3]
-        volume = ohlcv_data[:, 5]
         
         n = len(close)
         if n < 50:
@@ -240,16 +276,19 @@ class StrategySelector:
     def recommend_strategy(
         self,
         ohlcv_data: np.ndarray,
-        account_balance: float = 10000.0,
         use_ai_fusion: bool = True,
+        event_score: float = 0.0,
+        event_context: Optional[EventContext] = None,
     ) -> StrategyRecommendation:
         """
-        
+        根據市場狀況推薦策略 (整合事件系統)
         
         Args:
-            ohlcv_data: OHLCV 
-            account_balance: 
-            use_ai_fusion:  AI 
+            ohlcv_data: OHLCV 數據
+            account_balance: 帳戶餘額
+            use_ai_fusion: 是否使用 AI 融合策略
+            event_score: 環境評分 (-10 到 +10)，來自新聞大腦
+            event_context: 事件上下文
             
         Returns:
             StrategyRecommendation
@@ -298,9 +337,13 @@ class StrategySelector:
             recommendation.primary_strategy = StrategyType(best_strategy[0])
             recommendation.primary_confidence = best_strategy[1]
         
-        # 4.  AI 
+        # 4.  AI  (整合事件分數)
         if use_ai_fusion:
-            fusion_signal = self.ai_fusion.generate_fusion_signal(ohlcv_data)
+            fusion_signal = self.ai_fusion.generate_fusion_signal(
+                ohlcv_data,
+                event_score=event_score,
+                event_context=event_context
+            )
             
             if fusion_signal.should_trade:
                 # AI 
@@ -352,11 +395,7 @@ class StrategySelector:
         strategy = recommendation.primary_strategy
         
         if strategy == StrategyType.TREND_FOLLOWING:
-            if market_regime == MarketRegime.TRENDING_BULL:
-                recommendation.reasoning.append(
-                    ""
-                )
-            elif market_regime == MarketRegime.TRENDING_BEAR:
+            if market_regime in [MarketRegime.TRENDING_BULL, MarketRegime.TRENDING_BEAR]:
                 recommendation.reasoning.append(
                     ""
                 )
@@ -366,12 +405,7 @@ class StrategySelector:
                 "/"
             )
         
-        elif strategy == StrategyType.MEAN_REVERSION:
-            recommendation.reasoning.append(
-                ""
-            )
-        
-        elif strategy == StrategyType.BREAKOUT:
+        elif strategy in [StrategyType.MEAN_REVERSION, StrategyType.BREAKOUT]:
             recommendation.reasoning.append(
                 ""
             )
@@ -411,14 +445,25 @@ class StrategySelector:
     def get_ai_fusion_signal(
         self,
         ohlcv_data: np.ndarray,
+        event_score: float = 0.0,
+        event_context: Optional[EventContext] = None,
     ) -> Dict[str, Any]:
         """
-         AI 
+        獲取 AI 融合信號 (整合事件分數)
+        
+        Args:
+            ohlcv_data: OHLCV 數據
+            event_score: 環境評分 (-10 到 +10)
+            event_context: 事件上下文
         
         Returns:
-            
+            融合信號字典
         """
-        signal = self.ai_fusion.generate_fusion_signal(ohlcv_data)
+        signal = self.ai_fusion.generate_fusion_signal(
+            ohlcv_data,
+            event_score=event_score,
+            event_context=event_context
+        )
         
         return {
             'should_trade': signal.should_trade,

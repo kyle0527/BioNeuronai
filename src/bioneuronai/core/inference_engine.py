@@ -23,7 +23,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Any, Union
 from dataclasses import dataclass, field
 from enum import Enum
-from datetime import datetime
+from datetime import datetime, timezone
 import json
 
 logger = logging.getLogger(__name__)
@@ -290,7 +290,6 @@ class FeaturePipeline:
     
     def build_features(
         self,
-        symbol: str,
         current_price: float,
         klines: List[Dict],  # K
         order_book: Optional[Any] = None,
@@ -601,7 +600,7 @@ class FeaturePipeline:
         """"""
         features = np.zeros(32, dtype=np.float32)
         
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         
         #  ()
         hour_sin = np.sin(2 * np.pi * now.hour / 24)
@@ -1165,7 +1164,6 @@ class InferenceEngine:
         
         # 1. 
         features = self.feature_pipeline.build_features(
-            symbol=symbol,
             current_price=current_price,
             klines=klines,
             order_book=order_book,
@@ -1275,14 +1273,14 @@ if __name__ == "__main__":
             klines=mock_klines
         )
         
-        print(f"\n:")
+        print("\n 結果:")
         print(signal)
-        print(f"\n:")
+        print("\n 詳細信息:")
         for key, value in signal.to_dict().items():
             print(f"  {key}: {value}")
         
         # 
-        print(f"\n:")
+        print("\n 統計資訊:")
         for key, value in engine.get_stats().items():
             print(f"  {key}: {value}")
         

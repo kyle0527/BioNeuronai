@@ -33,6 +33,9 @@ logger = logging.getLogger(__name__)
 class DatabaseManager:
     """交易系統數據庫管理器"""
     
+    # 常量定義
+    SYMBOL_FILTER = " AND symbol = ?"
+    
     def __init__(self, db_path: str = "trading_data/trading.db", backup_enabled: bool = True):
         """
         初始化數據庫管理器
@@ -302,6 +305,8 @@ class DatabaseManager:
                     score REAL,
                     keywords TEXT,
                     impact TEXT,
+                    duration_hours REAL DEFAULT 0.0,
+                    related_news_count INTEGER DEFAULT 0,
                     analyzed_at TEXT DEFAULT CURRENT_TIMESTAMP
                 )
             """)
@@ -427,7 +432,7 @@ class DatabaseManager:
                 query += " AND timestamp <= ?"
                 params.append(end_date)
             if symbol:
-                query += " AND symbol = ?"
+                query += self.SYMBOL_FILTER
                 params.append(symbol)
             
             query += " ORDER BY timestamp DESC LIMIT ?"
@@ -657,13 +662,24 @@ class DatabaseManager:
     
     def save_news_analysis(self, news_info: Dict) -> Optional[int]:
         """保存新聞分析結果"""
+        # 如果沒有提供持續時間和相關新聞數量，自動計算
+        keywords = news_info.get('keywords', [])
+        
+        duration_hours = news_info.get('duration_hours')
+        if duration_hours is None and keywords:
+            duration_hours = self.estimate_news_duration(keywords)
+        
+        related_count = news_info.get('related_news_count')
+        if related_count is None and keywords:
+            related_count = self.count_related_news(keywords)
+        
         with self._get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("""
                 INSERT INTO news_analysis (
                     title, source, url, published_at, sentiment, 
-                    score, keywords, impact
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    score, keywords, impact, duration_hours, related_news_count
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 news_info.get('title'),
                 news_info.get('source'),
@@ -671,8 +687,10 @@ class DatabaseManager:
                 news_info.get('published_at'),
                 news_info.get('sentiment'),
                 news_info.get('score'),
-                json.dumps(news_info.get('keywords', []), ensure_ascii=False),
-                news_info.get('impact')
+                json.dumps(keywords, ensure_ascii=False),
+                news_info.get('impact'),
+                duration_hours or 0.0,
+                related_count or 0
             ))
             
             return cursor.lastrowid
@@ -704,6 +722,47 @@ class DatabaseManager:
                 results.append(data)
             
             return results
+    
+    def estimate_news_duration(self, keywords: List[str]) -> float:
+        """估計新聞持續時間（小時）"""
+        base_duration = 4.0  # 基礎4小時
+        
+        # 根據關鍵字類型調整
+        impact_multiplier = 1.0
+        if any(kw.lower() in ['ban', 'regulation', 'government', 'fed', 'ecb'] for kw in keywords):
+            impact_multiplier = 3.0  # 監管新聞持續更長
+        elif any(kw.lower() in ['partnership', 'adoption', 'milestone'] for kw in keywords):
+            impact_multiplier = 2.0  # 積極發展新聞
+        elif any(kw.lower() in ['hack', 'breach', 'exploit'] for kw in keywords):
+            impact_multiplier = 2.5  # 安全事件
+        
+        return base_duration * impact_multiplier
+    
+    def count_related_news(self, keywords: List[str], hours: int = 24) -> int:
+        """計算相關新聞數量"""
+        if not keywords:
+            return 0
+        
+        # 查找在指定時間範圍內包含相似關鍵字的新聞
+        start_time = (datetime.now() - timedelta(hours=hours)).isoformat()
+        
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            
+            # 簡單的關鍵字匹配（可以改進為更複雜的相似度計算）
+            keyword_conditions = " OR ".join(["keywords LIKE ?" for _ in keywords])
+            params = [f"%{kw}%" for kw in keywords]
+            params.append(start_time)
+            
+            query = f"""
+                SELECT COUNT(*) as count FROM news_analysis 
+                WHERE ({keyword_conditions}) AND published_at >= ?
+            """
+            
+            cursor.execute(query, params)
+            result = cursor.fetchone()
+            
+            return result['count'] if result else 0
     
     # ==================== 性能指標 ====================
     

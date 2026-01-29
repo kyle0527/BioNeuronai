@@ -4,7 +4,7 @@
 > **版本**: v2.0  
 > **最後更新**: 2026年1月22日  
 > **狀態**: ✅ 完成  
-> **檔案位置**: `src/bioneuronai/analysis/market_keywords.py`
+> **檔案位置**: `src/bioneuronai/analysis/keywords/` (子模組)
 
 ---
 
@@ -103,7 +103,7 @@ class PredictionRecord:
 ### 基本使用
 
 ```python
-from src.bioneuronai.market_keywords import KeywordManager, MarketKeywords
+from bioneuronai.analysis import KeywordManager, MarketKeywords
 
 # 方式1: 使用 KeywordManager (完整功能)
 km = KeywordManager()

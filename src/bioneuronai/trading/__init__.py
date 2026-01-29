@@ -15,7 +15,7 @@ Date: 2026-01-22
 
 # 交易計劃相關
 from .market_analyzer import MarketAnalyzer
-from .strategy_selector import StrategySelector  
+from ..strategies.selector import StrategySelector  # 從新模組導入 (2026-01-25)
 from .risk_manager import RiskManager
 from .pair_selector import PairSelector
 from .plan_controller import TradingPlanController

@@ -47,6 +47,9 @@ from .swing_trading import SwingTradingStrategy
 from .mean_reversion import MeanReversionStrategy
 from .breakout_trading import BreakoutTradingStrategy
 
+# 從 schemas 導入 EventContext (Single Source of Truth - 2026-01-25)
+from schemas.rag import EventContext
+
 logger = logging.getLogger(__name__)
 
 
@@ -120,6 +123,11 @@ class MarketRegime:
     avoid_strategies: List[str] = field(default_factory=list)
 
 
+# NOTE: EventContext 已遷移至 schemas/rag.py (Single Source of Truth)
+# 從 schemas 導入: from ..schemas.rag import EventContext
+# 保留此註釋供向後兼容參考 (2026-01-25)
+
+
 class AIStrategyFusion:
     """
     AI 
@@ -145,11 +153,7 @@ class AIStrategyFusion:
             'breakout': BreakoutTradingStrategy(timeframe),
         }
         
-        # 
-        self.strategy_weights: Dict[str, StrategyWeight] = {}
-        self._initialize_weights()
-        
-        #  ()
+        #  () - 必須在 _initialize_weights 之前設置
         self._market_preference = {
             'trend_following': {
                 'best': [MarketCondition.STRONG_UPTREND, MarketCondition.STRONG_DOWNTREND,
@@ -170,6 +174,10 @@ class AIStrategyFusion:
                 'worst': [MarketCondition.SIDEWAYS, MarketCondition.HIGH_VOLATILITY],
             },
         }
+        
+        # 初始化權重 (必須在 _market_preference 之後)
+        self.strategy_weights: Dict[str, StrategyWeight] = {}
+        self._initialize_weights()
         
         # 
         self.fusion_history: List[FusionSignal] = []
@@ -458,50 +466,173 @@ class AIStrategyFusion:
         )
     
     def _normalize_weights(self):
-        """ 1"""
+        """權重正規化，確保總和為 1"""
         total = sum(w.final_weight for w in self.strategy_weights.values())
         
         if total > 0:
             for weight in self.strategy_weights.values():
                 weight.final_weight /= total
     
+    def _apply_asymmetric_filter(
+        self,
+        strategy_name: str,
+        setup: Optional[TradeSetup],
+        event_score: float
+    ) -> Optional[TradeSetup]:
+        """非對稱過濾器 - 根據新聞大腦評分過濾信號
+        
+        這是「司令部(News)對前線(Strategy)下達的交戰規則(ROE)」。
+        在極端環境下，對逆勢信號實施嚴格過濾，對順勢信號快速放行。
+        
+        Args:
+            strategy_name: 策略名稱
+            setup: 原始交易設置
+            event_score: 環境評分 (-10 到 +10)
+            
+        Returns:
+            過濾後的交易設置，被攔截則返回 None
+        """
+        if not setup:
+            return None
+        
+        # 環境閾值定義 (可由 AI 優化)
+        EXTREME_BEARISH = -5.0  # 極度看空
+        EXTREME_BULLISH = 5.0   # 極度看多
+        
+        # --- 情境 A: 環境極度看空 (如：戰爭+監管) ---
+        if event_score < EXTREME_BEARISH:
+            if setup.direction == 'long':
+                # 對「做多」信號實施「禁飛令」：只有最強信號才放行
+                if setup.signal_strength != SignalStrength.VERY_STRONG:
+                    logger.info(
+                        f"[非對稱過濾] 環境極空({event_score:.1f})，"
+                        f"攔截 {strategy_name} 的普通做多信號"
+                    )
+                    return None
+            # 對「做空」信號：順風，直接放行
+        
+        # --- 情境 B: 環境極度看多 ---
+        elif event_score > EXTREME_BULLISH:
+            if setup.direction == 'short' and setup.signal_strength != SignalStrength.VERY_STRONG:
+                    logger.info(
+                        f"[非對稱過濾] 環境極多({event_score:.1f})，"
+                        f"攔截 {strategy_name} 的普通做空信號"
+                    )
+                    return None
+        
+        return setup
+    
+    def _adjust_weights_by_event(self, event_context: EventContext):
+        """根據事件類型動態調整策略權重
+        
+        不同類型的事件適合不同的策略：
+        - 突發事件 (WAR/HACK): 趨勢策略權重提高
+        - 政策事件 (REGULATION): 觀望為主，降低所有權重
+        - 宏觀事件 (MACRO): 趨勢和突破策略權重提高
+        
+        Args:
+            event_context: 事件上下文
+        """
+        if not event_context or not event_context.event_type:
+            return
+        
+        event_type = event_context.event_type.upper()
+        intensity = event_context.intensity.upper()
+        
+        # 強度乘數
+        intensity_multiplier = {
+            'LOW': 0.5,
+            'MEDIUM': 1.0,
+            'HIGH': 1.5,
+            'EXTREME': 2.0,
+        }.get(intensity, 1.0)
+        
+        # --- 突發事件 (戰爭、駭客攻擊): 強趨勢，不回歸 ---
+        if event_type in ['WAR', 'HACK', 'BLACK_SWAN']:
+            adjustment = 0.2 * intensity_multiplier
+            self.strategy_weights['trend_following'].final_weight *= (1 + adjustment)
+            self.strategy_weights['breakout'].final_weight *= (1 + adjustment)
+            self.strategy_weights['mean_reversion'].final_weight *= (1 - adjustment)
+            logger.info(f"[事件權重調整] {event_type}: 提升趨勢/突破權重")
+        
+        # --- 監管事件: 謹慎觀望 ---
+        elif event_type in ['REGULATION', 'POLICY']:
+            adjustment = 0.15 * intensity_multiplier
+            # 降低所有激進策略的權重
+            for weight in self.strategy_weights.values():
+                weight.final_weight *= (1 - adjustment * 0.5)
+            logger.info(f"[事件權重調整] {event_type}: 整體降低權重，謹慎觀望")
+        
+        # --- 宏觀經濟事件: 趨勢主導 ---
+        elif event_type in ['MACRO', 'FED', 'CPI', 'EARNINGS']:
+            adjustment = 0.15 * intensity_multiplier
+            self.strategy_weights['trend_following'].final_weight *= (1 + adjustment)
+            self.strategy_weights['swing_trading'].final_weight *= (1 + adjustment * 0.5)
+            logger.info(f"[事件權重調整] {event_type}: 提升趨勢/波段權重")
+        
+        # 重新正規化權重
+        self._normalize_weights()
+    
     # ========================
-    # 
+    # 信號融合方法
     # ========================
     
     def generate_fusion_signal(
         self,
         ohlcv_data: np.ndarray,
-        additional_data: Optional[Dict] = None
+        additional_data: Optional[Dict] = None,
+        event_score: float = 0.0,  # 來自新聞大腦的環境評分 (-10 到 +10)
+        event_context: Optional[EventContext] = None  # 詳細事件上下文
     ) -> FusionSignal:
-        """"""
+        """生成融合信號
+        
+        Args:
+            ohlcv_data: OHLCV K線數據
+            additional_data: 額外市場數據
+            event_score: 環境評分，來自新聞分析大腦 (-10 看空, +10 看多, 0 中性)
+            event_context: 詳細事件上下文，包含事件類型、強度等資訊
+        
+        Returns:
+            FusionSignal: 融合後的交易信號
+        """
         signal = FusionSignal(
             signal_id=f"FS_{datetime.now().strftime('%Y%m%d%H%M%S')}_{uuid.uuid4().hex[:8]}",
             timestamp=datetime.now(),
         )
         
-        # 1. 
+        # 0. 處理事件上下文，計算有效的 event_score
+        effective_event_score = event_score
+        if event_context:
+            effective_event_score = event_context.get_effective_score()
+            # 根據事件類型調整策略權重
+            self._adjust_weights_by_event(event_context)
+        
+        # 1. 識別市場狀態
         regime = self.identify_market_regime(ohlcv_data)
         
-        # 2. 
+        # 2. 收集各策略信號
         market_analyses = {}
         trade_setups = {}
         
         for name, strategy in self.strategies.items():
             try:
-                # 
+                # 市場分析
                 analysis = strategy.analyze_market(ohlcv_data, additional_data)
                 market_analyses[name] = analysis
                 
-                # 
+                # 入場條件評估
                 setup = strategy.evaluate_entry_conditions(analysis, ohlcv_data)
+                
+                # 應用非對稱過濾器 (基於事件評分)
+                setup = self._apply_asymmetric_filter(name, setup, effective_event_score)
+                
                 trade_setups[name] = setup
                 
                 if setup:
                     signal.contributing_strategies.append(name)
                 
             except Exception as e:
-                logger.error(f" {name} : {e}")
+                logger.error(f"策略 {name} 分析失敗: {e}")
                 trade_setups[name] = None
         
         signal.strategy_signals = trade_setups

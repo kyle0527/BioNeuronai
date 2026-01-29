@@ -3,15 +3,15 @@ BioNeuronai - AI
 ====================================
 
  v2.1:
-- core: 
-- analysis: 
+- core:  (Battle Royale)
+- analysis:  (RLHF)
+- strategies: RL Meta-Agent 
 - automation: SOP 
 - services: 
 - planning: 
 - data_models: 
 - connectors: API 
 - risk_management: 
-- strategies: 
 """
 
 __version__ = "2.1.0"
@@ -49,6 +49,20 @@ from .core import (
 #  AI 
 from .core.inference_engine import TradingSignal as AITradingSignal
 
+#  ()
+try:
+    from .core.self_improvement import (
+        StrategyGene,
+        EvolutionEngine,
+        PopulationManager
+    )
+    GENETIC_ALGO_AVAILABLE = True
+except ImportError:
+    GENETIC_ALGO_AVAILABLE = False
+    StrategyGene = None
+    EvolutionEngine = None
+    PopulationManager = None
+
 # 
 from .analysis import (
     CryptoNewsAnalyzer,
@@ -59,6 +73,18 @@ from .analysis import (
     KeywordMatch
 )
 
+#  (RLHF)
+try:
+    from .analysis.news_prediction_loop import (
+        NewsPrediction,
+        NewsPredictionLoop
+    )
+    NEWS_PREDICTION_AVAILABLE = True
+except ImportError:
+    NEWS_PREDICTION_AVAILABLE = False
+    NewsPrediction = None
+    NewsPredictionLoop = None
+
 # 
 from .trading import (
     TradingPlanController,
@@ -67,6 +93,18 @@ from .trading import (
     PairSelector
 )
 # : SOPAutomationSystem, PreTradeCheckSystem, TradingPlanGenerator
+
+#  RL Meta-Agent ()
+try:
+    from .strategies.rl_fusion_agent import (
+        RLMetaAgent,
+        StrategyFusionEnv
+    )
+    RL_FUSION_AVAILABLE = True
+except ImportError:
+    RL_FUSION_AVAILABLE = False
+    RLMetaAgent = None
+    StrategyFusionEnv = None
 
 # 
 CryptoFuturesTrader = TradingEngine
@@ -88,6 +126,12 @@ __all__ = [
     "AITradingSignal",
     "create_inference_engine",
     
+    #  ()
+    "StrategyGene",
+    "EvolutionEngine",
+    "PopulationManager",
+    "GENETIC_ALGO_AVAILABLE",
+    
     # 
     "MarketData",
     "TradingSignal",
@@ -103,6 +147,11 @@ __all__ = [
     # 
     "StrategyFusion",
     
+    #  RL Meta-Agent ()
+    "RLMetaAgent",
+    "StrategyFusionEnv",
+    "RL_FUSION_AVAILABLE",
+    
     # 
     "CryptoNewsAnalyzer",
     "NewsArticle",
@@ -110,6 +159,11 @@ __all__ = [
     "get_news_analyzer",
     "MarketKeywords",
     "KeywordMatch",
+    
+    #  (RLHF)
+    "NewsPrediction",
+    "NewsPredictionLoop",
+    "NEWS_PREDICTION_AVAILABLE",
     
     # 
     "TradingPlanController",
@@ -121,3 +175,19 @@ __all__ = [
 print(f"[BioNeuronai v{__version__}] ")
 print(f": {len(__all__)} ")
 print(": core | analysis | strategies | trading | data | risk_management")
+
+# 
+if GENETIC_ALGO_AVAILABLE:
+    print("✅ ")
+else:
+    print("⚠️  (numpy)")
+
+if RL_FUSION_AVAILABLE:
+    print("✅ RL Meta-Agent ")
+else:
+    print("⚠️  RL Meta-Agent (stable-baselines3 + gymnasium)")
+
+if NEWS_PREDICTION_AVAILABLE:
+    print("✅ ")
+else:
+    print("⚠️  ")
