@@ -7,6 +7,7 @@
 """
 
 import logging
+import time
 from typing import List, Dict, Optional, Any, Union
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -14,6 +15,14 @@ from enum import Enum
 import numpy as np
 
 logger = logging.getLogger(__name__)
+
+# 導入監控（可選）
+try:
+    from ..monitoring import get_monitor
+    MONITORING_AVAILABLE = True
+except ImportError:
+    MONITORING_AVAILABLE = False
+    get_monitor = None
 
 
 class RetrievalSource(Enum):
@@ -96,35 +105,68 @@ class UnifiedRetriever:
         Returns:
             List[RetrievalResult] 檢索結果列表
         """
-        if isinstance(query, str):
-            query = RetrievalQuery(query=query)
+        start_time = time.time()
+        error = None
+        result_count = 0
+        sources_used = []
         
-        results = []
+        try:
+            if isinstance(query, str):
+                query = RetrievalQuery(query=query)
+            
+            results = []
+            
+            # 根據指定來源檢索
+            sources = query.sources
+            if RetrievalSource.ALL in sources:
+                sources = [
+                    RetrievalSource.INTERNAL_KNOWLEDGE,
+                    RetrievalSource.WEB_SEARCH,
+                    RetrievalSource.NEWS_API
+                ]
+            
+            sources_used = [s.value for s in sources]
+            
+            for source in sources:
+                try:
+                    source_results = self._retrieve_from_source(query, source)
+                    results.extend(source_results)
+                except Exception as e:
+                    logger.warning(f"從 {source.value} 檢索失敗: {e}")
+            
+            # 按相關性排序
+            results.sort(key=lambda x: x.relevance_score, reverse=True)
+            
+            # 過濾低相關性結果
+            results = [r for r in results if r.relevance_score >= query.min_relevance]
+            
+            # 限制返回數量
+            results = results[:query.top_k]
+            result_count = len(results)
+            
+            return results
         
-        # 根據指定來源檢索
-        sources = query.sources
-        if RetrievalSource.ALL in sources:
-            sources = [
-                RetrievalSource.INTERNAL_KNOWLEDGE,
-                RetrievalSource.WEB_SEARCH,
-                RetrievalSource.NEWS_API
-            ]
+        except Exception as e:
+            error = str(e)
+            logger.error(f"檢索失敗: {e}")
+            return []
         
-        for source in sources:
-            try:
-                source_results = self._retrieve_from_source(query, source)
-                results.extend(source_results)
-            except Exception as e:
-                logger.warning(f"從 {source.value} 檢索失敗: {e}")
-        
-        # 按相關性排序
-        results.sort(key=lambda x: x.relevance_score, reverse=True)
-        
-        # 過濾低相關性結果
-        results = [r for r in results if r.relevance_score >= query.min_relevance]
-        
-        # 限制返回數量
-        return results[:query.top_k]
+        finally:
+            # 記錄監控指標
+            latency_ms = (time.time() - start_time) * 1000
+            if MONITORING_AVAILABLE and get_monitor is not None:
+                try:
+                    monitor = get_monitor()
+                    source_label = "hybrid" if len(sources_used) > 1 else (sources_used[0] if sources_used else "unknown")
+                    monitor.log_retrieval(
+                        latency_ms=latency_ms,
+                        cache_hit=False,  # TODO: 實現快取檢測
+                        result_count=result_count,
+                        source=source_label,
+                        error=error
+                    )
+                except Exception as mon_error:
+                    logger.debug(f"監控記錄失敗: {mon_error}")
     
     def _retrieve_from_source(
         self,

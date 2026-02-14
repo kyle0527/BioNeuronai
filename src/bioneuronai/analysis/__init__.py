@@ -71,6 +71,7 @@ from .keywords import (
     KeywordManager,
     get_keyword_manager,
     MarketKeywords,
+    KeywordLearner,  # ✅ 從 learner.py 導入
 )
 
 # 新聞分析 (從 news/ 子模組導入)
@@ -81,6 +82,7 @@ from .news import (
     get_news_analyzer,
     RuleBasedEvaluator,
     get_rule_evaluator,
+    NewsPredictionLoop,  # ✅ 從 prediction_loop.py 導入
 )
 
 # 
@@ -124,6 +126,7 @@ __all__ = [
     'KeywordManager',
     'get_keyword_manager',
     'MarketKeywords',
+    'KeywordLearner',  # ✅ 新增導出
     
     # 新聞分析
     'CryptoNewsAnalyzer',
@@ -131,6 +134,7 @@ __all__ = [
     'NewsAnalysisResult',
     'get_news_analyzer',
     'RuleBasedEvaluator',
+    'NewsPredictionLoop',  # ✅ 新增導出
     'get_rule_evaluator',
     
     # 特徵工程

@@ -1,8 +1,8 @@
 # 風險管理模組 (Risk Management)
 
 **路徑**: `src/bioneuronai/risk_management/`  
-**版本**: v1.0  
-**更新日期**: 2026-01-22
+**版本**: v4.0  
+**更新日期**: 2026-02-14
 
 ---
 

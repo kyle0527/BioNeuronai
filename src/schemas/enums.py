@@ -375,3 +375,143 @@ class EventIntensity(str, Enum):
     MEDIUM = "MEDIUM"     # 中等影響 - 需要關注
     HIGH = "HIGH"         # 高影響 - 需要調整策略
     EXTREME = "EXTREME"   # 極端影響 - Hard Stop 觸發條件
+
+
+# ========== Event Sourcing 枚舉 (2026-02-14 新增) ==========
+
+class TradeEventType(str, Enum):
+    """交易事件類型 - Event Sourcing 統一定義
+    
+    用於交易系統事件溯源，記錄所有交易相關事件。
+    
+    最後更新: 2026-02-14
+    """
+    
+    # 訂單生命週期事件
+    ORDER_PLACED = "ORDER_PLACED"         # 訂單提交
+    ORDER_ACCEPTED = "ORDER_ACCEPTED"     # 訂單被接受
+    ORDER_REJECTED = "ORDER_REJECTED"     # 訂單被拒絕
+    ORDER_FILLED = "ORDER_FILLED"         # 訂單完全成交
+    ORDER_PARTIALLY_FILLED = "ORDER_PARTIALLY_FILLED"  # 訂單部分成交
+    ORDER_CANCELED = "ORDER_CANCELED"     # 訂單取消
+    ORDER_EXPIRED = "ORDER_EXPIRED"       # 訂單過期
+    ORDER_MODIFIED = "ORDER_MODIFIED"     # 訂單修改
+    
+    # 倉位事件
+    POSITION_OPENED = "POSITION_OPENED"   # 開倉
+    POSITION_CLOSED = "POSITION_CLOSED"   # 平倉
+    POSITION_INCREASED = "POSITION_INCREASED"  # 加倉
+    POSITION_REDUCED = "POSITION_REDUCED"      # 減倉
+    POSITION_LIQUIDATED = "POSITION_LIQUIDATED"  # 強制平倉
+    
+    # 風險事件
+    STOP_LOSS_TRIGGERED = "STOP_LOSS_TRIGGERED"        # 止損觸發
+    TAKE_PROFIT_TRIGGERED = "TAKE_PROFIT_TRIGGERED"    # 止盈觸發
+    MARGIN_CALL = "MARGIN_CALL"           # 追繳保證金
+    RISK_LIMIT_REACHED = "RISK_LIMIT_REACHED"  # 達到風險限制
+    
+    # 系統事件
+    SIGNAL_GENERATED = "SIGNAL_GENERATED"  # 交易信號生成
+    STRATEGY_STARTED = "STRATEGY_STARTED"  # 策略啟動
+    STRATEGY_STOPPED = "STRATEGY_STOPPED"  # 策略停止
+    STRATEGY_PAUSED = "STRATEGY_PAUSED"    # 策略暫停
+    
+    # 帳戶事件
+    DEPOSIT = "DEPOSIT"                   # 入金
+    WITHDRAWAL = "WITHDRAWAL"             # 出金
+    FEE_CHARGED = "FEE_CHARGED"          # 手續費扣除
+    FUNDING_FEE = "FUNDING_FEE"          # 資金費率
+
+
+class BacktestStatus(str, Enum):
+    """回測狀態 - 回測系統統一定義
+    
+    最後更新: 2026-02-14
+    """
+    
+    PENDING = "PENDING"         # 等待執行
+    RUNNING = "RUNNING"         # 執行中
+    COMPLETED = "COMPLETED"     # 完成
+    FAILED = "FAILED"           # 失敗
+    CANCELED = "CANCELED"       # 取消
+
+
+class PredictionType(str, Enum):
+    """ML 預測類型 - 機器學習模組統一定義
+    
+    最後更新: 2026-02-14
+    """
+    
+    PRICE = "PRICE"             # 價格預測
+    DIRECTION = "DIRECTION"     # 方向預測 (漲/跌)
+    VOLATILITY = "VOLATILITY"   # 波動率預測
+    TREND = "TREND"             # 趨勢預測
+    REVERSAL = "REVERSAL"       # 反轉預測
+    SENTIMENT = "SENTIMENT"     # 情緒預測
+
+
+class ModelStatus(str, Enum):
+    """ML 模型狀態 - 機器學習模組統一定義
+    
+    最後更新: 2026-02-14
+    """
+    
+    TRAINING = "TRAINING"       # 訓練中
+    READY = "READY"             # 準備就緒
+    DEPLOYED = "DEPLOYED"       # 已部署
+    DEPRECATED = "DEPRECATED"   # 已棄用
+    FAILED = "FAILED"           # 失敗
+
+
+class AlertSeverity(str, Enum):
+    """警報嚴重程度 - 警報系統統一定義
+    
+    最後更新: 2026-02-14
+    """
+    
+    INFO = "INFO"               # 資訊
+    WARNING = "WARNING"         # 警告
+    CRITICAL = "CRITICAL"       # 關鍵
+    EMERGENCY = "EMERGENCY"     # 緊急
+
+
+class AlertType(str, Enum):
+    """警報類型 - 警報系統統一定義
+    
+    最後更新: 2026-02-14
+    """
+    
+    # 價格警報
+    PRICE_ABOVE = "PRICE_ABOVE"           # 價格超過
+    PRICE_BELOW = "PRICE_BELOW"           # 價格低於
+    PRICE_CHANGE_PCT = "PRICE_CHANGE_PCT" # 價格變化百分比
+    
+    # 技術指標警報
+    RSI_OVERBOUGHT = "RSI_OVERBOUGHT"     # RSI 超買
+    RSI_OVERSOLD = "RSI_OVERSOLD"         # RSI 超賣
+    MACD_CROSSOVER = "MACD_CROSSOVER"     # MACD 交叉
+    VOLUME_SPIKE = "VOLUME_SPIKE"         # 成交量異常
+    
+    # 風險警報
+    DRAWDOWN_LIMIT = "DRAWDOWN_LIMIT"     # 回撤限制
+    POSITION_LIMIT = "POSITION_LIMIT"     # 倉位限制
+    MARGIN_WARNING = "MARGIN_WARNING"     # 保證金警告
+    
+    # 系統警報
+    API_ERROR = "API_ERROR"               # API 錯誤
+    CONNECTION_LOST = "CONNECTION_LOST"   # 連接丟失
+    STRATEGY_ERROR = "STRATEGY_ERROR"     # 策略錯誤
+
+
+class NotificationChannel(str, Enum):
+    """通知渠道 - 警報系統統一定義
+    
+    最後更新: 2026-02-14
+    """
+    
+    EMAIL = "EMAIL"
+    SMS = "SMS"
+    TELEGRAM = "TELEGRAM"
+    DISCORD = "DISCORD"
+    WEBHOOK = "WEBHOOK"
+    IN_APP = "IN_APP"

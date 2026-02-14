@@ -40,6 +40,9 @@ from .manager import KeywordManager, get_keyword_manager
 # 靜態工具類
 from .static_utils import MarketKeywords
 
+# 關鍵字學習器
+from .learner import KeywordLearner  # ✅ 從新位置導入
+
 __all__ = [
     # 資料模型
     'Keyword',
@@ -52,4 +55,6 @@ __all__ = [
     'get_keyword_manager',
     # 靜態工具
     'MarketKeywords',
+    # 學習器
+    'KeywordLearner',  # ✅ 新增導出
 ]

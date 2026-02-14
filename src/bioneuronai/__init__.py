@@ -75,10 +75,14 @@ from .analysis import (
 
 #  (RLHF)
 try:
-    from .analysis.news_prediction_loop import (
-        NewsPrediction,
+    from .analysis.news import (  # ✅ 修正：從 news 子模組導入
         NewsPredictionLoop
     )
+    # 檢查是否有 NewsPrediction 類
+    try:
+        from .analysis.news.prediction_loop import NewsPrediction
+    except (ImportError, AttributeError):
+        NewsPrediction = None
     NEWS_PREDICTION_AVAILABLE = True
 except ImportError:
     NEWS_PREDICTION_AVAILABLE = False

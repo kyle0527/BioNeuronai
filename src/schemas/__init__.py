@@ -4,7 +4,24 @@ BioNeuronai Schemas 模組
 統一導出所有的 Pydantic 模型。
 基於 AIVA Common v6.3 標準和 Pydantic v2 最佳實踐。
 專注於幣安期貨交易需求。
+
+更新日誌:
+- v2.3.0: 新增 types, events, backtesting, ml_models, alerts 模組
+- v2.0.0: 初始版本
 """
+
+# 類型定義和版本控制
+from .types import (
+    SCHEMA_VERSION,
+    PositiveDecimal,
+    Percentage,
+    Leverage,
+    RSIValue,
+    BinanceSymbol,
+    USDTSymbol,
+    Price,
+    Quantity,
+)
 
 # 核心枚舉
 from .enums import (
@@ -48,6 +65,15 @@ from .enums import (
     # 事件系統 (2026-01-25 新增)
     EventType,
     EventIntensity,
+    
+    # Event Sourcing 和新功能 (2026-02-14 新增)
+    TradeEventType,
+    BacktestStatus,
+    PredictionType,
+    ModelStatus,
+    AlertSeverity,
+    AlertType,
+    NotificationChannel,
 )
 
 # 市場數據模型
@@ -138,6 +164,45 @@ except ImportError:
     # strategy.py 文件可能有導入錯誤，先跳過
     pass
 
+# Event Sourcing 模型 (2026-02-14 新增)
+from .events import (
+    EventMetadata,
+    TradeEvent,
+    OrderEvent,
+    PositionEvent,
+    RiskEvent,
+    EventStore,
+    EventQuery,
+)
+
+# 回測模型 (2026-02-14 新增)
+from .backtesting import (
+    BacktestConfig,
+    TradeRecord,
+    BacktestResult,
+    WalkForwardResult,
+    MonteCarloResult,
+)
+
+# 機器學習模型 (2026-02-14 新增)
+from .ml_models import (
+    FeatureConfig,
+    ModelConfig,
+    ModelMetrics,
+    ModelPrediction,
+    ModelRegistry,
+    TrainingJob,
+)
+
+# 警報系統模型 (2026-02-14 新增)
+from .alerts import (
+    AlertCondition,
+    AlertRule,
+    AlertEvent,
+    NotificationConfig,
+    AlertSummary,
+)
+
 # RAG 相關模型
 try:
     from .rag import (
@@ -166,13 +231,24 @@ except ImportError:
     # rag.py 文件可能有導入錯誤，先跳過
     pass
 
-# 版本信息
-__version__ = "2.0.0"
+# 版本信息 (與 SCHEMA_VERSION 同步)
+__version__ = SCHEMA_VERSION
 __description__ = "專為幣安期貨交易設計的 Pydantic 模型庫 (基於 AIVA Common v6.3)"
 __author__ = "BioNeuronai Team"
 
 # 導出清單 - 按類別組織
 __all__ = [
+    # 版本和類型
+    "SCHEMA_VERSION",
+    "PositiveDecimal",
+    "Percentage",
+    "Leverage",
+    "RSIValue",
+    "BinanceSymbol",
+    "USDTSymbol",
+    "Price",
+    "Quantity",
+    
     # 枚舉類型
     "RiskLevel",
     "PositionType",
@@ -279,4 +355,44 @@ __all__ = [
     # 策略推薦 (2026-01-25 新增)
     "StrategyRecommendation",
     "STRATEGY_MARKET_FIT",
+    
+    # Event Sourcing 新增枚舉 (2026-02-14)
+    "TradeEventType",
+    "BacktestStatus",
+    "PredictionType",
+    "ModelStatus",
+    "AlertSeverity",
+    "AlertType",
+    "NotificationChannel",
+    
+    # Event Sourcing 模型 (2026-02-14)
+    "EventMetadata",
+    "TradeEvent",
+    "OrderEvent",
+    "PositionEvent",
+    "RiskEvent",
+    "EventStore",
+    "EventQuery",
+    
+    # 回測模型 (2026-02-14)
+    "BacktestConfig",
+    "TradeRecord",
+    "BacktestResult",
+    "WalkForwardResult",
+    "MonteCarloResult",
+    
+    # 機器學習模型 (2026-02-14)
+    "FeatureConfig",
+    "ModelConfig",
+    "ModelMetrics",
+    "ModelPrediction",
+    "ModelRegistry",
+    "TrainingJob",
+    
+    # 警報系統 (2026-02-14)
+    "AlertCondition",
+    "AlertRule",
+    "AlertEvent",
+    "NotificationConfig",
+    "AlertSummary",
 ]

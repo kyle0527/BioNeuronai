@@ -1,4 +1,8 @@
-# Core 核心模組
+# Core 核心模組 v4.0
+
+> **更新日期**: 2026-02-14  
+> **版本**: v4.0.0  
+> **核心功能**: Trading Engine + Self-Improvement + Strategy Evolution
 
 核心交易引擎和自我改進系統。
 

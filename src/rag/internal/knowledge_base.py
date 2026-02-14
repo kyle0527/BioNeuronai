@@ -20,6 +20,15 @@ from pathlib import Path
 from enum import Enum
 import numpy as np
 
+# 導入可選的 FAISS 索引
+try:
+    from .faiss_index import VectorIndex, create_index
+    FAISS_INDEX_AVAILABLE = True
+except ImportError:
+    FAISS_INDEX_AVAILABLE = False
+    VectorIndex = None
+    create_index = None
+
 logger = logging.getLogger(__name__)
 
 
@@ -152,13 +161,22 @@ class InternalKnowledgeBase:
         self,
         storage_path: Optional[str] = None,
         embedding_service=None,
-        auto_load: bool = True
+        auto_load: bool = True,
+        use_faiss: bool = True
     ):
         self.storage_path = Path(storage_path) if storage_path else None
         self.embedding_service = embedding_service
         self.documents: Dict[str, KnowledgeDocument] = {}
         self._embeddings_matrix: Optional[np.ndarray] = None
         self._doc_ids: List[str] = []
+        
+        # FAISS 向量索引（可選加速）
+        self._vector_index: Optional[VectorIndex] = None
+        self._use_faiss = use_faiss and FAISS_INDEX_AVAILABLE
+        if self._use_faiss and create_index:
+            # 預設使用 384 維（all-MiniLM-L6-v2）
+            self._vector_index = create_index(dimension=384)
+            logger.info("✅ FAISS 向量索引已啟用")
         
         if auto_load:
             self._load_default_rules()
@@ -284,12 +302,22 @@ class InternalKnowledgeBase:
         # 向量搜索
         if self.embedding_service and self._embeddings_matrix is not None:
             query_result = self.embedding_service.embed(query)
-            similarities = self.embedding_service.find_similar(
-                query_result.embedding,
-                [self.documents[doc_id].embedding for doc_id in self._doc_ids
-                 if self.documents[doc_id].embedding is not None],
-                top_k=len(self._doc_ids)
-            )
+            
+            # 優先使用 FAISS 加速搜索
+            if self._use_faiss and self._vector_index is not None:
+                distances, indices = self._vector_index.search(
+                    query_result.embedding,
+                    k=min(top_k * 2, len(self._doc_ids))  # 多取一些用於過濾
+                )
+                similarities = list(zip(indices, distances))
+            else:
+                # 降級到原始方法
+                similarities = self.embedding_service.find_similar(
+                    query_result.embedding,
+                    [self.documents[doc_id].embedding for doc_id in self._doc_ids
+                     if self.documents[doc_id].embedding is not None],
+                    top_k=len(self._doc_ids)
+                )
             
             results = []
             for idx, score in similarities:
@@ -365,6 +393,12 @@ class InternalKnowledgeBase:
         
         if embeddings:
             self._embeddings_matrix = np.array(embeddings)
+            
+            # 如果啟用 FAISS，重建索引
+            if self._use_faiss and self._vector_index is not None:
+                self._vector_index.reset()
+                self._vector_index.add(self._embeddings_matrix)
+                logger.debug(f"FAISS 索引已更新: {len(embeddings)} 個向量")
     
     def save_to_storage(self):
         """保存到存儲"""

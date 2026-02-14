@@ -54,10 +54,13 @@ class SOPAutomationSystem:
     
     def _import_modules(self):
         """導入所需模組"""
+        self.market_data_collector = None
         try:
             from .. import CryptoFuturesTrader
             from ..analysis import CryptoNewsAnalyzer
             from ..trading_strategies import StrategyFusion
+            from ..analysis.daily_report.market_data import MarketDataCollector
+            self.market_data_collector = MarketDataCollector()
             self.modules_available = True
             logger.info("[OK] 所有交易模組導入成功")
         except ImportError as e:
@@ -300,37 +303,41 @@ class SOPAutomationSystem:
     # ========== 輔助方法 ==========
     
     def _get_global_market_data(self) -> Optional[Dict]:
-        """獲取全球市場數據 - 模擬實現，等待外部數據源整合"""
+        """獲取全球市場數據 - 使用 MarketDataCollector"""
         try:
-            # 模擬實現，實際需要整合外部市場數據 API
-            # 可選方案:
-            # 1. TradingView API - 全球指數數據
-            # 2. Yahoo Finance API - 美股期貨
-            # 3. Investing.com API - 全球市場情緒
+            if self.market_data_collector:
+                data = self.market_data_collector.get_global_market_data()
+                if data:
+                    # 轉換格式以符合 SOP 系統需求
+                    return {
+                        "us_futures": data.get("global_stock_trend", "NEUTRAL"),
+                        "asian_markets": data.get("global_stock_trend", "NEUTRAL"),
+                        "european_markets": data.get("global_stock_trend", "NEUTRAL"),
+                        "data_source": data.get("data_source", "Yahoo Finance + Fear & Greed Index + Binance 24hr Ticker"),
+                        "last_update": data.get("timestamp", datetime.now().isoformat()),
+                        "raw_data": data
+                    }
             
-            logger.warning("全球市場數據功能未實現，返回中性值")
+            logger.warning("MarketDataCollector 不可用，返回中性值")
             return {
                 "us_futures": "NEUTRAL",
-                "asian_markets": "NEUTRAL", 
+                "asian_markets": "NEUTRAL",
                 "european_markets": "NEUTRAL",
-                "data_source": "PLACEHOLDER",
+                "data_source": "fallback",
                 "last_update": datetime.now().isoformat(),
-                "note": "需要整合外部市場數據源"
+                "note": "MarketDataCollector 未初始化"
             }
         except Exception as e:
             logger.error(f"獲取全球市場數據失敗: {e}")
             return None
     
     def _check_economic_calendar(self) -> List[str]:
-        """檢查經濟日曆 - 模擬實現，等待外部經濟日曆 API 整合"""
+        """檢查經濟日曆 - 使用 MarketDataCollector"""
         try:
-            # 模擬實現，實際需要整合經濟日曆 API
-            # 可選方案:
-            # 1. Investing.com Economic Calendar API
-            # 2. TradingEconomics API
-            # 3. Federal Reserve Economic Data (FRED)
+            if self.market_data_collector:
+                return self.market_data_collector.check_economic_calendar()
             
-            logger.warning("經濟日曆功能未實現，返回空列表")
+            logger.warning("MarketDataCollector 不可用，返回空列表")
             return []
         except Exception as e:
             logger.error(f"檢查經濟日曆失敗: {e}")

@@ -20,7 +20,8 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Any
 from dataclasses import asdict
 
-from .keywords import KeywordManager, Keyword
+from .manager import KeywordManager  # ✅ 修正：從 manager.py 導入
+from .models import Keyword  # ✅ 修正：從 models.py 導入
 
 logger = logging.getLogger(__name__)
 

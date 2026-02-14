@@ -163,7 +163,7 @@ class KeywordManager:
             
             for row in rows:
                 kw = Keyword(
-                    keyword=row[0],
+                    word=row[0],
                     category=row[1],
                     base_weight=row[2],
                     dynamic_weight=row[3],
@@ -175,7 +175,7 @@ class KeywordManager:
                     prediction_count=row[9],
                     correct_count=row[10]
                 )
-                self.keywords[kw.keyword] = kw
+                self.keywords[kw.word] = kw
             
             return True
         except Exception as e:
@@ -196,7 +196,7 @@ class KeywordManager:
                      prediction_count, correct_count)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ''', (
-                    kw.keyword, kw.category, kw.base_weight, kw.dynamic_weight,
+                    kw.word, kw.category, kw.base_weight, kw.dynamic_weight,
                     kw.sentiment_bias, kw.description, kw.added_date, kw.last_updated,
                     kw.hit_count, kw.prediction_count, kw.correct_count
                 ))
@@ -218,7 +218,7 @@ class KeywordManager:
         
         for kw in self.keywords.values():
             # 判斷是否為中文
-            is_chinese = any('\u4e00' <= c <= '\u9fff' for c in kw.keyword)
+            is_chinese = any('\u4e00' <= c <= '\u9fff' for c in kw.word)
             
             if is_chinese:
                 # 中文不需要 word boundary
@@ -239,7 +239,7 @@ class KeywordManager:
     def _create_match(self, kw: Keyword) -> KeywordMatch:
         """建立 KeywordMatch 物件"""
         return KeywordMatch(
-            keyword=kw.keyword,
+            keyword=kw.word,
             category=kw.category,
             effective_weight=kw.effective_weight,
             sentiment_bias=kw.sentiment_bias,
@@ -270,7 +270,7 @@ class KeywordManager:
         
         today = datetime.now().strftime("%Y-%m-%d")
         new_kw = Keyword(
-            keyword=kw_lower,
+            word=kw_lower,
             category=category,
             base_weight=base_weight,
             dynamic_weight=1.0,
@@ -326,7 +326,7 @@ class KeywordManager:
                 old_weight = kw.dynamic_weight
                 kw.dynamic_weight = 1.0
                 kw.last_updated = today
-                refreshed.append((kw.keyword, old_weight))
+                refreshed.append((kw.word, old_weight))
         
         if refreshed:
             self._save_keywords()
@@ -790,7 +790,7 @@ class KeywordManager:
         for kw in self.keywords.values():
             if kw.prediction_count >= min_predictions:
                 performance.append({
-                    'keyword': kw.keyword,
+                    'keyword': kw.word,
                     'category': kw.category,
                     'accuracy': kw.accuracy,
                     'predictions': kw.prediction_count,
@@ -878,14 +878,14 @@ class KeywordManager:
         
         print("\n權重最高關鍵字:")
         for kw in top:
-            print(f"   • {kw.keyword}: {kw.effective_weight:.2f} "
+            print(f"   • {kw.word}: {kw.effective_weight:.2f} "
                   f"(基礎:{kw.base_weight}, 動態:{kw.dynamic_weight:.2f}, "
                   f"準確率:{kw.accuracy:.0%})")
         
         if stale:
             print("\n⚠️ 過時關鍵字 (需要更新):")
             for kw in stale[:5]:
-                print(f"   • {kw.keyword}: {kw.days_since_updated} 天, "
+                print(f"   • {kw.word}: {kw.days_since_updated} 天, "
                       f"準確率:{kw.accuracy:.0%}")
         
         print("\n" + "=" * 60)

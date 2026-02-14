@@ -1,25 +1,26 @@
 # 策略模組 (Trading Strategies)
 
 **路徑**: `src/bioneuronai/strategies/`  
-**版本**: v2.1 (策略融合版)  
-**更新日期**: 2026-01-22
+**版本**: v4.0 (策略進化版)  
+**更新日期**: 2026-02-14
 
 ---
 
 ## 📋 目錄
 
 1. [模組概述](#模組概述)
-2. [核心文件](#核心文件)
-3. [策略分類](#策略分類)
-4. [策略融合](#策略融合)
-5. [使用示例](#使用示例)
-6. [相關文檔](#相關文檔)
+2. [🆕 策略進化系統](#策略進化系統)
+3. [核心文件](#核心文件)
+4. [策略分類](#策略分類)
+5. [策略融合](#策略融合)
+6. [使用示例](#使用示例)
+7. [相關文檔](#相關文檔)
 
 ---
 
 ## 🎯 模組概述
 
-策略模組包含多種量化交易策略，支持獨立使用或融合使用。
+策略模組包含多種量化交易策略，支持獨立使用、融合使用，以及通過遺傳算法自動進化優化。
 
 ### 模組職責
 - ✅ 交易信號生成
@@ -27,6 +28,153 @@
 - ✅ 策略績效評估
 - ✅ 參數優化
 - ✅ 回測支持
+- 🆕 **策略進化優化** (遺傳算法)
+- 🆕 **階段路由** (動態策略選擇)
+- 🆕 **組合優化** (全局多階段優化)
+
+---
+
+## 🆕 策略進化系統
+
+**v4.0 重大更新** - 完整的三層策略進化架構 (2026-02-14 完成)
+
+### 系統架構
+
+```
+全局優化器 (PortfolioOptimizer)
+    ↓
+    ├─> 階段1: Market Open → Arena → TrendFollowing
+    ├─> 階段2: Mid Session → Arena → SwingTrading
+    └─> 階段3: Market Close → Arena → MeanReversion
+```
+
+### 三大核心組件
+
+#### 1. StrategyArena (策略競技場)
+**文件**: `strategy_arena.py` (637行)  
+**狀態**: ✅ 生產就緒 (0錯誤)
+
+**功能**:
+- 遺傳算法參數優化 (選擇、交配、突變)
+- 多代進化 (10-50代可配置)
+- 多指標評估 (夏普比率、最大回撤、勝率)
+- 自動回測與驗證
+- NumPy Generator API (完全可重現)
+
+**使用示例**:
+```python
+from src.bioneuronai.strategies.strategy_arena import StrategyArena, ArenaConfig
+
+# 創建競技場
+arena = StrategyArena(ArenaConfig(
+    population_size=20,
+    num_generations=10,
+    mutation_rate=0.15,
+    crossover_rate=0.7,
+    random_seed=42
+))
+
+# 進化最佳策略
+best_strategy = arena.evolve_strategy(
+    strategy_type="trend_following",
+    market_data=market_data
+)
+
+print(f"最佳適應度: {arena.best_fitness:.4f}")
+```
+
+#### 2. PhaseRouter (階段路由器)
+**文件**: `phase_router.py` (644行)  
+**狀態**: ✅ 生產就緒 (0錯誤)
+
+**功能**:
+- 9個交易階段動態識別
+  - MARKET_OPEN (開盤)
+  - EARLY_SESSION (早盤)
+  - MID_SESSION (盤中)
+  - LATE_SESSION (尾盤)
+  - MARKET_CLOSE (收盤)
+  - PRE_NEWS (新聞前)
+  - POST_NEWS (新聞後)
+  - HIGH_VOLATILITY (高波動)
+  - LOW_VOLATILITY (低波動)
+- 事件驅動切換 (時間/新聞/波動)
+- 階段特定風險調整
+- 優先級邏輯 (新聞 > 波動 > 時間)
+
+**使用示例**:
+```python
+from src.bioneuronai.strategies.phase_router import TradingPhaseRouter
+
+# 創建路由器
+router = TradingPhaseRouter(timeframe="1h")
+
+# 路由交易決策
+decision = router.route_trading_decision(
+    current_time=datetime.now(),
+    market_data={
+        'volatility': 0.65,
+        'has_news_event': False,
+        'ohlcv': ohlcv_data
+    }
+)
+
+print(f"當前階段: {decision['phase']}")
+print(f"選用策略: {decision['strategy_used']}")
+print(f"風險倍數: {decision['config']['risk_multiplier']}")
+```
+
+#### 3. PortfolioOptimizer (組合優化器)
+**文件**: `portfolio_optimizer.py` (732行)  
+**狀態**: ✅ 生產就緒 (0錯誤)
+
+**功能**:
+- 全局多階段策略組合優化
+- 高層遺傳算法 (染色體 = 策略組合)
+- 多目標優化 (回報 + 風險 + 穩定性)
+- 交叉方法 (單點/兩點/均勻)
+- 突變操作 (策略替換/參數微調)
+- 精英保留機制
+
+**使用示例**:
+```python
+from src.bioneuronai.strategies.portfolio_optimizer import StrategyPortfolioOptimizer
+
+# 創建優化器
+optimizer = StrategyPortfolioOptimizer(
+    num_phases=3,
+    strategies_per_phase=4
+)
+
+# 進化最佳組合
+best_portfolio = optimizer.evolve_portfolio(
+    population_size=30,
+    num_generations=50,
+    market_data=historical_data
+)
+
+print(f"最佳組合適應度: {best_portfolio['fitness']:.4f}")
+```
+
+### 演示系統
+**文件**: `demo_strategy_evolution.py`  
+**狀態**: ✅ 完整可用
+
+```bash
+python demo_strategy_evolution.py
+
+# 4種演示模式:
+# 1: 策略競技場演示
+# 2: 階段路由器演示
+# 3: 組合優化器演示
+# 4: 完整工作流程演示
+```
+
+### 相關文檔
+- [策略進化使用指南](../../../docs/STRATEGY_EVOLUTION_GUIDE.md)
+- [實現總結](../../../docs/STRATEGY_EVOLUTION_IMPLEMENTATION_SUMMARY.md)
+- [網路集成計劃](../../../docs/STRATEGY_EVOLUTION_WEB_INTEGRATION_PLAN.md)
+- [錯誤修復報告](../../../docs/ERROR_FIX_COMPLETE_20260214.md)
 
 ---
 
@@ -388,4 +536,18 @@ print(f"最大回撤: {results['max_drawdown']}")
 
 ---
 
-**最後更新**: 2026年1月22日
+## 🎯 策略進化系統性能
+
+| 組件 | 代碼量 | 錯誤數 | 狀態 | 完成日期 |
+|------|--------|--------|------|----------|
+| StrategyArena | 637行 | 0 | ✅ 生產就緒 | 2026-02-14 |
+| PhaseRouter | 644行 | 0 | ✅ 生產就緒 | 2026-02-14 |
+| PortfolioOptimizer | 732行 | 0 | ✅ 生產就緒 | 2026-02-14 |
+| FAISS Index | 231行 | 0 | ✅ 生產就緒 | 2026-02-13 |
+| Demo System | 420行 | 0 | ✅ 完整可用 | 2026-02-14 |
+
+**總計**: 2,664行代碼，0錯誤，100% 生產就緒
+
+---
+
+**最後更新**: 2026年2月14日

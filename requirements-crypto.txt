@@ -8,6 +8,10 @@ requests>=2.31.0         # HTTP 請求
 numpy>=1.24.0           # 數值計算
 pandas>=2.0.0           # 數據分析
 
+# RAG 系統依賴（必要 - 用於嵌入和檢索）
+sentence-transformers>=2.0.0  # 文本嵌入模型
+torch>=2.0.0                  # PyTorch (sentence-transformers 依賴)
+
 # 技術指標（可選 - 用於進階策略）
 ta-lib>=0.4.0           # 技術分析庫
 # 注意：ta-lib 需要額外安裝 C 庫
@@ -15,9 +19,8 @@ ta-lib>=0.4.0           # 技術分析庫
 # Linux/Mac: 先安裝 ta-lib C 庫，然後 pip install ta-lib
 
 # 機器學習（可選 - 用於高級 AI 策略）
-# scikit-learn>=1.3.0
+scikit-learn>=1.3.0     # 機器學習基礎庫
 # tensorflow>=2.13.0
-# torch>=2.0.0
 
 # 可視化（可選）
 # matplotlib>=3.7.0

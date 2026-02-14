@@ -52,6 +52,9 @@ from .evaluator import (
     EventRule,
 )
 
+# 預測循環系統
+from .prediction_loop import NewsPredictionLoop  # ✅ 從新位置導入
+
 # 公開 API
 __all__ = [
     # 數據模型
@@ -64,4 +67,6 @@ __all__ = [
     "RuleBasedEvaluator",
     "get_rule_evaluator",
     "EventRule",
+    # 預測循環
+    "NewsPredictionLoop",  # ✅ 新增導出
 ]

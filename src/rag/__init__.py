@@ -115,6 +115,49 @@ def get_rag_status() -> dict:
     }
 
 
+def create_unified_retriever(
+    embedding_service=None,
+    knowledge_base=None,
+    include_news: bool = True
+):
+    """
+    創建預設配置的 UnifiedRetriever
+    
+    自動連接 NewsAdapter（如果可用）以提供新聞搜索功能。
+    
+    Args:
+        embedding_service: 可選的 EmbeddingService 實例
+        knowledge_base: 可選的 InternalKnowledgeBase 實例
+        include_news: 是否包含新聞來源（預設 True）
+    
+    Returns:
+        UnifiedRetriever: 配置好的檢索器實例
+    
+    使用範例:
+        from rag import create_unified_retriever
+        retriever = create_unified_retriever()
+        results = retriever.retrieve("BTC 最新消息")
+    """
+    if not CORE_AVAILABLE or UnifiedRetriever is None:
+        raise ImportError("RAG 核心組件不可用，請確認 sentence-transformers 已安裝")
+    
+    # 準備組件
+    news_api = None
+    if include_news and NEWS_ADAPTER_AVAILABLE and get_news_adapter is not None:
+        try:
+            news_api = get_news_adapter()
+            logger.info("✅ NewsAdapter 已連接到 UnifiedRetriever")
+        except Exception as e:
+            logger.warning(f"NewsAdapter 初始化失敗: {e}")
+    
+    # 創建檢索器
+    return UnifiedRetriever(
+        embedding_service=embedding_service,
+        knowledge_base=knowledge_base,
+        news_api=news_api
+    )
+
+
 __all__ = [
     # 核心
     'EmbeddingService',
@@ -145,6 +188,9 @@ __all__ = [
     
     # 交易前檢查 (整合 trading 模組)
     'PreTradeCheckSystem',
+    
+    # 工廠函數 (2026-01-27 新增)
+    'create_unified_retriever',
     
     # 狀態檢查
     'get_rag_status',
