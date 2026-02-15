@@ -1,5 +1,16 @@
 # 歸檔文件說明
 
+## 📋 目錄
+
+- [歸檔日期](#歸檔日期)
+- [歸檔原因](#歸檔原因)
+- [歸檔文件列表](#歸檔文件列表)
+- [專案中的真正 AI 模型](#專案中的真正-ai-模型)
+- [如需使用歸檔文件](#如需使用歸檔文件)
+- [歸檔子目錄](#歸檔子目錄)
+
+---
+
 本資料夾包含已歸檔的舊版模組，這些模組不是實用的 AI 模型。
 
 ## 歸檔日期
@@ -46,7 +57,7 @@
 ## 專案中的真正 AI 模型
 
 ### ✅ TinyLLM（推薦使用）
-- **文件**: `src/bioneuronai/tiny_llm.py`
+- **文件**: `src/nlp/tiny_llm.py`
 - **架構**: GPT-like Transformer
 - **參數**: 124M
 - **功能**:
@@ -60,12 +71,12 @@
   - ✅ 17 個核心功能
 
 ### 模型位置
-- 基礎模型: `models/tiny_llm_en_zh/`
-- 訓練模型: `models/tiny_llm_en_zh_trained/` ⭐ **推薦**
+- 基礎模型: `model/tiny_llm_en_zh/`
+- 訓練模型: `model/tiny_llm_en_zh_trained/` ⭐ **推薦**
 
-### 使用工具
-- `use_model.py` - 完整的模型使用工具
-- `use_rag.py` - RAG 檢索增強生成
+### 工具腳本
+- `tools/ai_trade_nexttick.py` - AI 模擬交易
+- `tools/demo_strategy_evolution.py` - 策略進化示範
 
 ## 如需使用歸檔文件
 
@@ -75,14 +86,32 @@
 2. 恢復 `__init__.py` 中的導入
 3. 注意：這些不是語言模型，無法進行對話或文本生成
 
+---
+
+## 歸檔子目錄
+
+| 子目錄 | 說明 |
+|--------|------|
+| [docs_v3/](docs_v3/README.md) | v3.x 版操作手冊（已被 v4.0 取代） |
+| `old_docs/` | 舊版技術文檔（架構分析、狀態報告等 16 份） |
+| `old_scripts/` | 舊版腳本（use_crypto_trader.py 等 18 個） |
+| `old_data/` | 舊版數據（test_predictions、tradetrain_src 等） |
+| `old_src/` | 舊版原始碼 |
+| `jules_session/` | Jules 整合工作階段記錄 |
+| `reports/` | 歷次分析與整合報告（16 份） |
+| `reports_20260215/` | 2026-02-15 產生的修復與驗證報告 |
+
+完整歸檔索引請見 [ARCHIVE_INDEX.md](ARCHIVE_INDEX.md)。
+
 ## 建議
 
 對於任何 AI 語言相關的任務，請使用：
-- ✅ **TinyLLM** - 完整的語言模型
-- ✅ **use_model.py** - 模型使用工具
-- ✅ **RAG 系統** - 知識增強問答
+- ✅ **TinyLLM** (`src/nlp/`) - 完整的語言模型
+- ✅ **RAG 系統** (`src/rag/`) - 知識增強問答
 
 ---
 
 **歸檔者**: BioNeuronAI Team  
 **日期**: 2026-01-19
+
+> 📖 上層目錄：[根目錄 README](../README.md)

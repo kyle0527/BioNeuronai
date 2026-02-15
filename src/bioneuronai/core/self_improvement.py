@@ -46,6 +46,9 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+# 常量定義
+DEFAULT_EVOLUTION_DIR = "./evolution_data"
+
 
 # ============================================================================
 # 策略基因定義 (Strategy Gene)
@@ -161,7 +164,7 @@ class EvolutionEngine:
         mutation_rate: float = 0.15,  # 突變率 15%
         elite_rate: float = 0.10,  # 精英率 10%（直接保留）
         fitness_metric: FitnessMetric = FitnessMetric.BALANCED,
-        data_dir: str = "./evolution_data",
+        data_dir: str = DEFAULT_EVOLUTION_DIR,
     ):
         self.population_size = population_size
         self.survival_rate = survival_rate
@@ -251,7 +254,7 @@ class EvolutionEngine:
         import time
         eval_start = time.time()
         logger.info(f"📊 開始評估第 {self.generation} 代族群 ({len(self.population)} 個策略)...")
-        logger.info(f"=" * 80)
+        logger.info("=" * 80)
         
         results = []
         for i, gene in enumerate(self.population):
@@ -288,7 +291,7 @@ class EvolutionEngine:
         results.sort(key=lambda x: x.fitness_score, reverse=True)
         
         eval_elapsed = time.time() - eval_start
-        logger.info(f"\n" + "=" * 80)
+        logger.info("\n" + "=" * 80)
         logger.info(f"✅ 評估完成! 最佳適應度: {results[0].fitness_score:.4f} | 總耗時: {eval_elapsed:.2f}s")
         
         trades_count = sum(1 for r in results if r.total_trades > 0)
@@ -606,142 +609,190 @@ class PopulationManager:
         
         return stats
     
+    def _calculate_indicators(self, closes: List[float], gene: StrategyGene) -> Dict[str, float]:
+        """計算技術指標（MA 和 RSI）"""
+        # 均線
+        ma_fast = sum(closes[-gene.ma_fast:]) / gene.ma_fast
+        ma_slow = sum(closes[-gene.ma_slow:]) / gene.ma_slow
+        
+        # RSI
+        gains = []
+        losses = []
+        for i in range(1, min(gene.rsi_period + 1, len(closes))):
+            change = closes[-i] - closes[-(i+1)]
+            if change > 0:
+                gains.append(change)
+                losses.append(0)
+            else:
+                gains.append(0)
+                losses.append(abs(change))
+        
+        avg_gain = sum(gains) / len(gains) if gains else 0
+        avg_loss = sum(losses) / len(losses) if losses else 0
+        rs = avg_gain / avg_loss if avg_loss > 0 else 100
+        rsi = 100 - (100 / (1 + rs))
+        
+        return {"ma_fast": ma_fast, "ma_slow": ma_slow, "rsi": rsi}
+    
+    def _get_position(self, connector: Any, symbol: str) -> Optional[Dict]:
+        """獲取指定交易對的持倉"""
+        account = connector.get_account_info()
+        for p in account["positions"]:
+            if p["symbol"] == symbol and abs(p["positionAmt"]) > 0:
+                return p
+        return None
+    
+    def _generate_signal(self, gene: StrategyGene, indicators: Dict[str, float]) -> Optional[str]:
+        """根據策略類型和指標生成交易信號"""
+        ma_fast = indicators["ma_fast"]
+        ma_slow = indicators["ma_slow"]
+        rsi = indicators["rsi"]
+        
+        if gene.strategy_type == "trend_following":
+            if ma_fast > ma_slow and rsi < gene.rsi_overbought:
+                return "long"
+            if ma_fast < ma_slow and rsi > gene.rsi_oversold:
+                return "short"
+        elif gene.strategy_type == "mean_reversion":
+            if rsi < gene.rsi_oversold:
+                return "long"
+            if rsi > gene.rsi_overbought:
+                return "short"
+        return None
+    
+    def _close_existing_position(self, connector: Any, pos: Dict, symbol: str, is_long: bool) -> None:
+        """平掉現有持倉"""
+        pos_amt = float(pos["positionAmt"])
+        if is_long and pos_amt < 0:
+            connector.place_order(symbol, "BUY", "MARKET", abs(pos_amt))
+        elif not is_long and pos_amt > 0:
+            connector.place_order(symbol, "SELL", "MARKET", pos_amt)
+    
+    def _can_open_long(self, pos: Optional[Dict]) -> bool:
+        """檢查是否可以開多"""
+        return not pos or float(pos["positionAmt"]) <= 0
+    
+    def _can_open_short(self, pos: Optional[Dict]) -> bool:
+        """檢查是否可以開空"""
+        return not pos or float(pos["positionAmt"]) >= 0
+    
+    def _execute_signal(
+        self, connector: Any, signal: str, pos: Optional[Dict],
+        symbol: str, gene: StrategyGene, price: float
+    ) -> Optional[Dict]:
+        """執行交易信號，返回交易記錄"""
+        if signal == "long" and self._can_open_long(pos):
+            if pos:
+                self._close_existing_position(connector, pos, symbol, is_long=True)
+            order = connector.place_order(symbol, "BUY", "MARKET", gene.position_size_pct)
+            if order:
+                return {'type': 'long', 'price': price, 'size': gene.position_size_pct}
+        
+        if signal == "short" and self._can_open_short(pos):
+            if pos:
+                self._close_existing_position(connector, pos, symbol, is_long=False)
+            order = connector.place_order(symbol, "SELL", "MARKET", gene.position_size_pct)
+            if order:
+                return {'type': 'short', 'price': price, 'size': gene.position_size_pct}
+        return None
+    
+    def _close_all_positions(self, connector: Any) -> None:
+        """平所有倉位"""
+        account = connector.get_account_info()
+        for p in account["positions"]:
+            if abs(p["positionAmt"]) > 0:
+                side = "SELL" if float(p["positionAmt"]) > 0 else "BUY"
+                connector.place_order(p["symbol"], side, "MARKET", abs(float(p["positionAmt"])))
+    
+    def _create_failure_result(self, gene: StrategyGene) -> BacktestResult:
+        """創建失敗的回測結果"""
+        return BacktestResult(
+            gene_id=gene.gene_id,
+            total_return=-0.5,
+            win_rate=0.0,
+            profit_factor=0.0,
+            sharpe_ratio=-5.0,
+            max_drawdown=1.0,
+            total_trades=0,
+            fitness_score=-999,
+        )
+    
     def _backtest_wrapper(self, gene: StrategyGene, market_data: Any) -> BacktestResult:
         """回測包裝函數 - 使用真實的技術指標策略回測"""
         import time
         start_time = time.time()
         
         try:
-            # 使用傳入的 MockBinanceConnector
-            from ..backtest import MockBinanceConnector
-            
-            if not isinstance(market_data, dict) or 'connector' not in market_data:
-                raise ValueError("market_data 必須包含 'connector' (MockBinanceConnector 實例)")
-            
-            connector = market_data['connector']
+            connector = self._validate_and_get_connector(market_data)
+            self._reset_connector(connector)
             
             logger.info(f"   🧬 測試策略 {gene.gene_id[-8:]}: {gene.strategy_type} | MA({gene.ma_fast},{gene.ma_slow}) RSI({gene.rsi_period})")
             
-            # 重置 connector 到起始狀態
-            connector.data_stream.state.current_index = 0
-            connector.virtual_account.reset()
+            self._run_backtest_loop(connector, gene)
+            self._close_all_positions(connector)
             
-            # 根據 gene 參數執行策略
-            trades = []
-            positions = {}
-            
-            while connector.next_tick():
-                bar = connector._current_bar
-                if not bar:
-                    continue
-                
-                symbol = bar.symbol
-                price = bar.close
-                
-                # 獲取足夠的歷史數據計算指標
-                klines = connector.data_stream.get_klines_until_now(max(gene.ma_slow, gene.bb_period) + 10)
-                if len(klines) < gene.ma_slow:
-                    continue
-                
-                # 計算技術指標
-                closes = [k['close'] for k in klines]
-                
-                # 均線
-                ma_fast = sum(closes[-gene.ma_fast:]) / gene.ma_fast
-                ma_slow = sum(closes[-gene.ma_slow:]) / gene.ma_slow
-                
-                # RSI
-                gains = []
-                losses = []
-                for i in range(1, min(gene.rsi_period + 1, len(closes))):
-                    change = closes[-i] - closes[-(i+1)]
-                    if change > 0:
-                        gains.append(change)
-                        losses.append(0)
-                    else:
-                        gains.append(0)
-                        losses.append(abs(change))
-                
-                avg_gain = sum(gains) / len(gains) if gains else 0
-                avg_loss = sum(losses) / len(losses) if losses else 0
-                rs = avg_gain / avg_loss if avg_loss > 0 else 100
-                rsi = 100 - (100 / (1 + rs))
-                
-                # 檢查持倉
-                account = connector.get_account_info()
-                pos = None
-                for p in account["positions"]:
-                    if p["symbol"] == symbol and abs(p["positionAmt"]) > 0:
-                        pos = p
-                        break
-                
-                # 策略信號
-                signal = None
-                
-                if gene.strategy_type == "trend_following":
-                    if ma_fast > ma_slow and rsi < gene.rsi_overbought:
-                        signal = "long"
-                    elif ma_fast < ma_slow and rsi > gene.rsi_oversold:
-                        signal = "short"
-                        
-                elif gene.strategy_type == "mean_reversion":
-                    if rsi < gene.rsi_oversold:
-                        signal = "long"
-                    elif rsi > gene.rsi_overbought:
-                        signal = "short"
-                
-                # 執行交易
-                if signal == "long" and (not pos or float(pos["positionAmt"]) <= 0):
-                    if pos and float(pos["positionAmt"]) < 0:
-                        connector.place_order(symbol, "BUY", "MARKET", abs(float(pos["positionAmt"])))
-                    order = connector.place_order(symbol, "BUY", "MARKET", gene.position_size_pct)
-                    if order:
-                        trades.append({'type': 'long', 'price': price, 'size': gene.position_size_pct})
-                        
-                elif signal == "short" and (not pos or float(pos["positionAmt"]) >= 0):
-                    if pos and float(pos["positionAmt"]) > 0:
-                        connector.place_order(symbol, "SELL", "MARKET", float(pos["positionAmt"]))
-                    order = connector.place_order(symbol, "SELL", "MARKET", gene.position_size_pct)
-                    if order:
-                        trades.append({'type': 'short', 'price': price, 'size': gene.position_size_pct})
-            
-            # 平所有倉位
-            account = connector.get_account_info()
-            for p in account["positions"]:
-                if abs(p["positionAmt"]) > 0:
-                    side = "SELL" if float(p["positionAmt"]) > 0 else "BUY"
-                    connector.place_order(p["symbol"], side, "MARKET", abs(float(p["positionAmt"])))
-            
-            # 獲取統計
-            stats = connector.virtual_account.get_stats()
-            elapsed = time.time() - start_time
-            
-            logger.info(f"      ✅ 完成: 交易{stats['total_trades']}筆 | 回報{stats['total_return']:.2f}% | 勝率{stats['win_rate']:.1f}% | 用時{elapsed:.2f}s")
-            
-            return BacktestResult(
-                gene_id=gene.gene_id,
-                total_return=stats['total_return'] / 100.0,
-                win_rate=stats['win_rate'] / 100.0,
-                profit_factor=stats.get('profit_factor', 1.0),
-                sharpe_ratio=stats.get('sharpe_ratio', 0.0),
-                max_drawdown=stats.get('max_drawdown', 0.0) / 100.0,
-                total_trades=stats['total_trades'],
-                fitness_score=0.0,
-            )
+            return self._build_result(connector, gene, start_time)
             
         except Exception as e:
             elapsed = time.time() - start_time
             logger.error(f"      ❌ 回測失敗 ({gene.gene_id[-8:]}): {e} | 用時{elapsed:.2f}s")
-            return BacktestResult(
-                gene_id=gene.gene_id,
-                total_return=-0.5,
-                win_rate=0.0,
-                profit_factor=0.0,
-                sharpe_ratio=-5.0,
-                max_drawdown=1.0,
-                total_trades=0,
-                fitness_score=-999,
-            )
+            return self._create_failure_result(gene)
+    
+    def _validate_and_get_connector(self, market_data: Any) -> Any:
+        """驗證並獲取 connector"""
+        if not isinstance(market_data, dict) or 'connector' not in market_data:
+            raise ValueError("market_data 必須包含 'connector' (MockBinanceConnector 實例)")
+        return market_data['connector']
+    
+    def _reset_connector(self, connector: Any) -> None:
+        """重置 connector 到起始狀態"""
+        connector.data_stream.state.current_index = 0
+        connector.virtual_account.reset()
+    
+    def _run_backtest_loop(self, connector: Any, gene: StrategyGene) -> List[Dict]:
+        """運行回測主循環"""
+        trades = []
+        min_data_len = max(gene.ma_slow, gene.bb_period) + 10
+        
+        while connector.next_tick():
+            bar = connector._current_bar
+            if not bar:
+                continue
+            
+            klines = connector.data_stream.get_klines_until_now(min_data_len)
+            if len(klines) < gene.ma_slow:
+                continue
+            
+            closes = [k['close'] for k in klines]
+            indicators = self._calculate_indicators(closes, gene)
+            signal = self._generate_signal(gene, indicators)
+            
+            if signal:
+                pos = self._get_position(connector, bar.symbol)
+                trade = self._execute_signal(connector, signal, pos, bar.symbol, gene, bar.close)
+                if trade:
+                    trades.append(trade)
+        
+        return trades
+    
+    def _build_result(self, connector: Any, gene: StrategyGene, start_time: float) -> BacktestResult:
+        """構建回測結果"""
+        import time
+        stats = connector.virtual_account.get_stats()
+        elapsed = time.time() - start_time
+        
+        logger.info(f"      ✅ 完成: 交易{stats['total_trades']}筆 | 回報{stats['total_return']:.2f}% | 勝率{stats['win_rate']:.1f}% | 用時{elapsed:.2f}s")
+        
+        return BacktestResult(
+            gene_id=gene.gene_id,
+            total_return=stats['total_return'] / 100.0,
+            win_rate=stats['win_rate'] / 100.0,
+            profit_factor=stats.get('profit_factor', 1.0),
+            sharpe_ratio=stats.get('sharpe_ratio', 0.0),
+            max_drawdown=stats.get('max_drawdown', 0.0) / 100.0,
+            total_trades=stats['total_trades'],
+            fitness_score=0.0,
+        )
     
     def _generate_report(self, stats: Dict):
         """生成演化報告"""
@@ -768,7 +819,7 @@ class PopulationManager:
 class SelfImprovementSystem:
     """AI 自我改進系統 - 基因演算法版本（兼容舊接口）"""
     
-    def __init__(self, data_dir: str = "./evolution_data"):
+    def __init__(self, data_dir: str = DEFAULT_EVOLUTION_DIR):
         # 創建演化引擎
         self.evolution_engine = EvolutionEngine(data_dir=data_dir)
         self.population_manager = PopulationManager(
@@ -801,7 +852,7 @@ class SelfImprovementSystem:
         }
 
 
-def create_self_improvement_system(data_dir: str = "./evolution_data") -> SelfImprovementSystem:
+def create_self_improvement_system(data_dir: str = DEFAULT_EVOLUTION_DIR) -> SelfImprovementSystem:
     """創建自我改進系統"""
     return SelfImprovementSystem(data_dir)
 
@@ -818,13 +869,11 @@ if __name__ == "__main__":
     print("=" * 80)
     
     # 導入真實的回測引擎
-    import sys
-    sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-    from bioneuronai.backtest import MockBinanceConnector
+    from backtest import MockBinanceConnector
     
     # 創建真實數據連接器
     print("\n準備真實歷史數據...")
-    data_dir = Path(__file__).parent.parent.parent.parent / "training_data" / "data_downloads" / "binance_historical"
+    data_dir = Path(__file__).parent.parent.parent.parent / "data" / "bioneuronai" / "historical" / "data_downloads" / "binance_historical"
     
     connector = MockBinanceConnector(
         symbol="ETHUSDT",

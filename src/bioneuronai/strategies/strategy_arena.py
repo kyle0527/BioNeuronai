@@ -38,7 +38,7 @@ from .trend_following import TrendFollowingStrategy
 from .swing_trading import SwingTradingStrategy
 from .mean_reversion import MeanReversionStrategy
 from .breakout_trading import BreakoutTradingStrategy
-from ..backtest.backtest_engine import BacktestEngine, BacktestConfig
+from backtest.backtest_engine import BacktestEngine, BacktestConfig
 
 logger = logging.getLogger(__name__)
 

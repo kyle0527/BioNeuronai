@@ -5,6 +5,7 @@
 所有風險管理類別統一從 risk_management.position_manager 導入
 """
 
+import asyncio
 import json
 import logging
 from datetime import datetime, timedelta
@@ -54,6 +55,9 @@ class RiskManager:
         self.historical_drawdowns = []
         self.correlation_cache = {}
         
+        # 用於模擬數據生成的隨機數生成器 (可重現性)
+        self._rng = np.random.default_rng(seed=42)
+        
         # 交易記錄與統計
         self.trade_history: List[Dict] = []
         self.current_balance: float = 0.0
@@ -70,9 +74,9 @@ class RiskManager:
             except Exception as e:
                 logger.warning(f"⚠️ RiskManager 無法連接數據庫: {e}")
         
-        # 統計數據文件路徑（兼容舊版）
-        self.stats_dir = Path("trading_data")
-        self.stats_dir.mkdir(exist_ok=True)
+        # 統計數據文件路徑
+        self.stats_dir = Path("data/bioneuronai/trading/runtime")
+        self.stats_dir.mkdir(exist_ok=True, parents=True)
         
     def _initialize_risk_parameters(self) -> Dict[str, RiskParameters]:
         """初始化風險參數 - 使用 risk_management 模組的 RiskParameters 類別"""
@@ -123,7 +127,8 @@ class RiskManager:
                                     stop_loss_price: float, account_balance: float,
                                     risk_level: str = "MODERATE", 
                                     additional_factors: Optional[Dict] = None) -> PositionSizing:
-        """"""
+        """計算建議倉位大小"""
+        await asyncio.sleep(0)  # Async yield point for task scheduling
         logger.info(f" : {symbol}")
         logger.info(f"   : {entry_price:.2f}")
         logger.info(f"   : {stop_loss_price:.2f}")
@@ -141,23 +146,23 @@ class RiskManager:
                 account_balance, stop_distance, risk_params
             )
             
-            # 3. 
-            kelly_size = await self._calculate_kelly_size(
+            # 3. Kelly 公式計算
+            kelly_size = self._calculate_kelly_size(
                 symbol, entry_price, stop_loss_price, additional_factors
             )
             
-            # 4. 
-            volatility_adjusted_size = await self._calculate_volatility_adjusted_size(
+            # 4. 波動率調整
+            volatility_adjusted_size = self._calculate_volatility_adjusted_size(
                 symbol, risk_based_size, additional_factors
             )
             
-            # 5. 
-            liquidity_adjusted_size = await self._apply_liquidity_constraints(
+            # 5. 流動性約束
+            liquidity_adjusted_size = self._apply_liquidity_constraints(
                 symbol, volatility_adjusted_size, additional_factors
             )
             
-            # 6. 
-            correlation_adjusted_size = await self._apply_correlation_constraints(
+            # 6. 相關性約束
+            correlation_adjusted_size = self._apply_correlation_constraints(
                 symbol, liquidity_adjusted_size, risk_params
             )
             
@@ -224,35 +229,36 @@ class RiskManager:
     
     async def assess_portfolio_risk(self, current_positions: Dict, 
                                   market_data: Dict, account_info: Dict) -> PortfolioRisk:
-        """"""
-        logger.info(" ...")
+        """評估投資組合風險"""
+        await asyncio.sleep(0)  # Async yield point for task scheduling
+        logger.info("評估投資組合風險...")
         
         try:
-            # 1. 
+            # 1. 計算總曝險
             total_exposure = self._calculate_total_exposure(current_positions, market_data)
             
-            # 2. VaR
-            var_results = await self._calculate_var(current_positions, market_data)
+            # 2. 計算VaR
+            var_results = self._calculate_var(current_positions, market_data)
             
-            # 3. 
-            correlation_matrix = await self._calculate_correlation_matrix(current_positions)
+            # 3. 計算相關矩陣
+            correlation_matrix = self._calculate_correlation_matrix(current_positions)
             
-            # 4. 
+            # 4. 分析集中度風險
             concentration_risk = self._analyze_concentration_risk(current_positions, account_info)
             
-            # 5. 
-            liquidity_risk = await self._assess_liquidity_risk(current_positions, market_data)
+            # 5. 評估流動性風險
+            liquidity_risk = self._assess_liquidity_risk(current_positions, market_data)
             
-            # 6. 
+            # 6. 計算槓桿比率
             leverage_ratio = self._calculate_leverage_ratio(current_positions, account_info)
             
-            # 7. 
+            # 7. 分析最大回撤
             max_drawdown = self._analyze_maximum_drawdown(current_positions)
             
-            # 8. 
-            expected_shortfall = await self._calculate_expected_shortfall(current_positions, market_data)
+            # 8. 計算預期虧損
+            expected_shortfall = self._calculate_expected_shortfall(current_positions, market_data)
             
-            # 9. 
+            # 9. 計算風險調整收益
             risk_adjusted_return = self._calculate_risk_adjusted_return(current_positions, account_info)
             
             portfolio_risk = PortfolioRisk(
@@ -269,8 +275,8 @@ class RiskManager:
                 risk_adjusted_return=risk_adjusted_return
             )
             
-            # 
-            await self._generate_risk_alerts(portfolio_risk, account_info)
+            # 生成風險警報
+            self._generate_risk_alerts(portfolio_risk, account_info)
             
             return portfolio_risk
             
@@ -423,89 +429,97 @@ class RiskManager:
         risk_amount = account_balance * risk_params.max_risk_per_trade
         return risk_amount / stop_distance if stop_distance > 0 else 0
     
-    async def _calculate_kelly_size(self, _symbol: str, entry_price: float, 
+    def _calculate_kelly_size(self, _symbol: str, entry_price: float, 
                                   stop_loss_price: float, _additional_factors: Optional[Dict] = None) -> float:
-        """"""
+        """使用Kelly公式計算倉位大小"""
+        # _symbol 和 _additional_factors 保留用於未來整合真實數據
+        _ = (_symbol, _additional_factors)
         try:
-            # 
-            win_rate = np.random.uniform(0.45, 0.65)  # 45%-65%
-            avg_win = np.random.uniform(0.02, 0.08)   # 2%-8%
-            avg_loss = abs(entry_price - stop_loss_price) / entry_price  # 
+            # 目前使用模擬數據，未來將整合回測結果
+            win_rate = self._rng.uniform(0.45, 0.65)  # 45%-65%
+            avg_win = self._rng.uniform(0.02, 0.08)   # 2%-8%
+            avg_loss = abs(entry_price - stop_loss_price) / entry_price  # 實際止損距離
             
             if avg_loss == 0:
                 return 0
             
-            # : f* = (bp - q) / b
-            #  b = , p = , q = 1-p
+            # Kelly公式: f* = (bp - q) / b
+            # 其中 b = 購率, p = 勝率, q = 1-p
             odds_ratio = avg_win / avg_loss
             kelly_fraction = (odds_ratio * win_rate - (1 - win_rate)) / odds_ratio
             
-            # 25%
+            # 限制最大6Kelly分數25%
             kelly_fraction = max(0, min(0.25, kelly_fraction))
             
             return kelly_fraction
             
         except Exception as e:
-            logger.error(f": {e}")
-            return 0.05  # 5%
+            logger.error(f"Kelly計算失敗: {e}")
+            return 0.05  # 預設5%
     
-    async def _calculate_volatility_adjusted_size(self, symbol: str, base_size: float, 
+    def _calculate_volatility_adjusted_size(self, symbol: str, base_size: float, 
                                                 additional_factors: Optional[Dict] = None) -> float:
-        """"""
+        """根據波動率調整倉位大小"""
+        # symbol 和 additional_factors 保留用於未來整合真實波動率數據
+        _ = (symbol, additional_factors)
         try:
-            # 
-            volatility = np.random.uniform(0.15, 0.60)  # 15%-60%
+            # 目前使用模擬數據，未來將整合市場數據
+            volatility = self._rng.uniform(0.15, 0.60)  # 15%-60%
             
-            # 25%
+            # 基準波動率設為25%
             base_volatility = 0.25
             volatility_adjustment = base_volatility / volatility
             
-            # 0.5-2.0
+            # 限制調整係數在0.5-2.0之間
             volatility_adjustment = max(0.5, min(2.0, volatility_adjustment))
             
             return base_size * volatility_adjustment
             
         except Exception as e:
-            logger.error(f": {e}")
+            logger.error(f"波動率調整失敗: {e}")
             return base_size
     
-    async def _apply_liquidity_constraints(self, symbol: str, base_size: float, 
+    def _apply_liquidity_constraints(self, symbol: str, base_size: float, 
                                          additional_factors: Optional[Dict] = None) -> float:
-        """"""
+        """應用流動性約束"""
+        # symbol 和 additional_factors 保留用於未來整合真實市場深度數據
+        _ = (symbol, additional_factors)
         try:
-            # 
-            market_depth = np.random.uniform(0.5, 2.0)  # 
-            daily_volume = np.random.uniform(10000, 100000)  # 
+            # 目前使用模擬數據，未來將整合交易所深度API
+            market_depth = self._rng.uniform(0.5, 2.0)  # 市場深度系數
+            daily_volume = self._rng.uniform(10000, 100000)  # 日交易量
             
-            # 2%
+            # 最大倉位不超過日交易量的2%
             max_size_by_volume = daily_volume * 0.02
             
-            # 
+            # 應用流動性約束
             liquidity_adjusted_size = min(base_size, max_size_by_volume) * market_depth
             
             return max(0, liquidity_adjusted_size)
             
         except Exception as e:
-            logger.error(f": {e}")
-            return base_size * 0.8  # 
+            logger.error(f"流動性約束失敗: {e}")
+            return base_size * 0.8  # 預設提降20%
     
-    async def _apply_correlation_constraints(self, symbol: str, base_size: float, 
+    def _apply_correlation_constraints(self, symbol: str, base_size: float, 
                                            risk_params: RiskParameters) -> float:
-        """"""
+        """應用相關性約束"""
+        # symbol 保留用於未來真實相關性計算
+        _ = symbol
         try:
-            # 
+            # 檢查現有持倉
             existing_symbols = list(self.portfolio_positions.keys())
             
             if not existing_symbols:
                 return base_size
             
-            # 
+            # 目前使用模擬相關係數，未來將整合歷史數據
             correlations = {
-                existing_symbol: np.random.uniform(-0.3, 0.9)
+                existing_symbol: self._rng.uniform(-0.3, 0.9)
                 for existing_symbol in existing_symbols
             }
             
-            # 
+            # 檢查最高相關性
             max_correlation = max(correlations.values()) if correlations else 0
             
             if max_correlation > risk_params.max_correlation:
@@ -515,12 +529,14 @@ class RiskManager:
             return base_size
             
         except Exception as e:
-            logger.error(f": {e}")
+            logger.error(f"相關性約束失敗: {e}")
             return base_size
     
     def _apply_concentration_constraints(self, symbol: str, base_size: float, 
                                        risk_params: RiskParameters, account_balance: float) -> float:
-        """"""
+        """應用集中度約束"""
+        # symbol 保留用於未來依符號設定不同集中度限制
+        _ = symbol
         try:
             # 
             max_position_value = account_balance * risk_params.position_concentration
@@ -538,7 +554,9 @@ class RiskManager:
     # ==========  ==========
     
     def _calculate_total_exposure(self, positions: Dict, market_data: Dict) -> float:
-        """"""
+        """計算總曝险"""
+        # market_data 保留用於未來整合即時價格數據
+        _ = market_data
         total_exposure = 0
         
         for symbol, position in positions.items():
@@ -548,13 +566,15 @@ class RiskManager:
         
         return total_exposure
     
-    async def _calculate_var(self, positions: Dict, market_data: Dict) -> Dict:
-        """(VaR)"""
+    def _calculate_var(self, positions: Dict, market_data: Dict) -> Dict:
+        """計算風險價值(VaR)"""
+        # positions 和 market_data 保留用於未來整合真實持倉數據
+        _ = (positions, market_data)
         try:
-            # 
-            portfolio_returns = np.random.normal(0.001, 0.025, 1000)  # 0.1%2.5%
+            # 目前使用模擬分佈，未來將整合歷史收益數據
+            portfolio_returns = self._rng.normal(0.001, 0.025, 1000)  # 均值0.1%標準差2.5%
             
-            # VaR
+            # 計算VaR
             var_95 = np.percentile(portfolio_returns, 5) * -1  # 95% VaR
             var_99 = np.percentile(portfolio_returns, 1) * -1  # 99% VaR
             
@@ -564,11 +584,11 @@ class RiskManager:
             }
             
         except Exception as e:
-            logger.error(f"VaR: {e}")
+            logger.error(f"VaR計算失敗: {e}")
             return {"var_95": 0.02, "var_99": 0.03}
     
-    async def _calculate_correlation_matrix(self, positions: Dict) -> Dict:
-        """"""
+    def _calculate_correlation_matrix(self, positions: Dict) -> Dict:
+        """計算相關矩陣"""
         try:
             symbols = list(positions.keys())
             correlation_matrix = {}
@@ -579,14 +599,14 @@ class RiskManager:
                     if i == j:
                         correlation_matrix[symbol1][symbol2] = 1.0
                     else:
-                        # 
-                        correlation = np.random.uniform(0.3, 0.8)
+                        # 目前使用模擬相關係數，未來將整合歷史數據
+                        correlation = self._rng.uniform(0.3, 0.8)
                         correlation_matrix[symbol1][symbol2] = correlation
             
             return correlation_matrix
             
         except Exception as e:
-            logger.error(f": {e}")
+            logger.error(f"相關矩陣計算失敗: {e}")
             return {}
     
     def _analyze_concentration_risk(self, positions: Dict, account_info: Dict) -> Dict:
@@ -620,18 +640,20 @@ class RiskManager:
             logger.error(f": {e}")
             return {}
     
-    async def _assess_liquidity_risk(self, positions: Dict, market_data: Dict) -> float:
-        """"""
+    def _assess_liquidity_risk(self, positions: Dict, market_data: Dict) -> float:
+        """評估流動性風險"""
+        # market_data 保留用於未來整合即時市場深度數據
+        _ = market_data
         try:
             liquidity_scores = []
             
             for symbol, position in positions.items():
-                # 
-                bid_ask_spread = np.random.uniform(0.001, 0.01)  # 0.1%-1%
-                market_depth = np.random.uniform(0.5, 2.0)       # 
-                trading_volume = np.random.uniform(0.1, 10.0)    # 
+                # 目前使用模擬數據，未來將整合交易所API
+                bid_ask_spread = self._rng.uniform(0.001, 0.01)  # 0.1%-1%
+                market_depth = self._rng.uniform(0.5, 2.0)       # 市場深度係數
+                trading_volume = self._rng.uniform(0.1, 10.0)    # 交易量系數
                 
-                #  (0-1)
+                # 計算流動性分數 (0-1)
                 spread_score = max(0, 1 - bid_ask_spread * 100)
                 depth_score = min(1, market_depth / 2.0)
                 volume_score = min(1, trading_volume / 5.0)
@@ -639,15 +661,15 @@ class RiskManager:
                 position_liquidity = (spread_score + depth_score + volume_score) / 3
                 liquidity_scores.append(position_liquidity)
             
-            #  (1 - )
+            # 計算流動性風險: 流動性越高，風險越低
             avg_liquidity = np.mean(liquidity_scores) if liquidity_scores else 0.5
             liquidity_risk = float(1 - avg_liquidity)
             
             return liquidity_risk
             
         except Exception as e:
-            logger.error(f": {e}")
-            return 0.3  # 
+            logger.error(f"流動性風險評估失敗: {e}")
+            return 0.3  # 預設中等風險
     
     def _calculate_leverage_ratio(self, positions: Dict, account_info: Dict) -> float:
         """"""
@@ -667,17 +689,19 @@ class RiskManager:
             return 1.0
     
     def _analyze_maximum_drawdown(self, positions: Dict) -> float:
-        """"""
+        """分析最大回撤"""
+        # positions 保留用於未來整合真實持倉歷史數據
+        _ = positions
         try:
-            # 
-            portfolio_values: List[float] = [100000.0]  # 100,000
+            # 目前使用模擬數據，未來將整合歷史交易記錄
+            portfolio_values: List[float] = [100000.0]  # 初始資產 100,000
             
-            for i in range(100):  # 100
-                daily_return = np.random.normal(0.001, 0.02)  # 
+            for _ in range(100):  # 模擬100天
+                daily_return = self._rng.normal(0.001, 0.02)  # 模擬日報酬
                 new_value = float(portfolio_values[-1] * (1 + daily_return))
                 portfolio_values.append(new_value)
             
-            # 
+            # 計算最大回撤
             peak = portfolio_values[0]
             max_drawdown = 0
             
@@ -690,14 +714,16 @@ class RiskManager:
             return max_drawdown
             
         except Exception as e:
-            logger.error(f": {e}")
-            return 0.1  # 10%
+            logger.error(f"回撤分析失敗: {e}")
+            return 0.1  # 預設10%
     
-    async def _calculate_expected_shortfall(self, positions: Dict, market_data: Dict) -> float:
-        """(ES)"""
+    def _calculate_expected_shortfall(self, positions: Dict, market_data: Dict) -> float:
+        """計算預期虐損(ES)"""
+        # positions 和 market_data 保留用於未來整合真實持倉數據
+        _ = (positions, market_data)
         try:
-            # 
-            returns = np.random.normal(0.001, 0.025, 10000)
+            # 目前使用模擬數據，未來將整合歷史收益數據
+            returns = self._rng.normal(0.001, 0.025, 10000)
             
             # 95% VaR
             var_95 = np.percentile(returns, 5)
@@ -713,21 +739,23 @@ class RiskManager:
             return 0.035  # 3.5%
     
     def _calculate_risk_adjusted_return(self, positions: Dict, account_info: Dict) -> float:
-        """"""
+        """計算風險調整後收益 (Sharpe Ratio)"""
+        # positions 和 account_info 保留用於未來整合真實績效數據
+        _ = (positions, account_info)
         try:
-            # 
-            annual_return = np.random.uniform(0.08, 0.25)  # 8%-25%
-            volatility = np.random.uniform(0.15, 0.35)     # 15%-35%
+            # 目前使用模擬數據，未來將整合歷史績效
+            annual_return = self._rng.uniform(0.08, 0.25)  # 8%-25%
+            volatility = self._rng.uniform(0.15, 0.35)     # 15%-35%
             
-            #  (3%)
+            # 計算 Sharpe Ratio (無風險利率 3%)
             risk_free_rate = 0.03
             sharpe_ratio = (annual_return - risk_free_rate) / volatility
             
             return sharpe_ratio
             
         except Exception as e:
-            logger.error(f": {e}")
-            return 1.0  # 
+            logger.error(f"風險調整收益計算失敗: {e}")
+            return 1.0  # 預設值
     
     # ==========  ==========
     
@@ -768,11 +796,12 @@ class RiskManager:
     
     async def _check_correlation_limits(self, positions: Dict, 
                                       risk_params: RiskParameters) -> List[RiskAlert]:
-        """"""
+        """檢查相關性限制"""
+        await asyncio.sleep(0)  # Async yield point
         alerts = []
         
         try:
-            correlation_matrix = await self._calculate_correlation_matrix(positions)
+            correlation_matrix = self._calculate_correlation_matrix(positions)
             
             for symbol1, correlations in correlation_matrix.items():
                 for symbol2, correlation in correlations.items():
@@ -820,9 +849,10 @@ class RiskManager:
     
     async def _optimize_correlations(self, positions: Dict, 
                                    risk_params: RiskParameters) -> Dict:
-        """"""
+        """優化相關性配置"""
+        await asyncio.sleep(0)  # Async yield point
         try:
-            correlation_matrix = await self._calculate_correlation_matrix(positions)
+            correlation_matrix = self._calculate_correlation_matrix(positions)
             optimized_positions = positions.copy()
             
             # 
@@ -874,32 +904,34 @@ class RiskManager:
             logger.error(f": {e}")
             return positions
     
-    async def _generate_risk_alerts(self, portfolio_risk: PortfolioRisk, 
-                                   account_info: Dict):
-        """"""
+    def _generate_risk_alerts(self, portfolio_risk: PortfolioRisk, 
+                                   account_info: Dict) -> None:
+        """生成風險警報"""
+        # account_info 保留用於未來根據帳戶狀態生成警報
+        _ = account_info
         try:
-            # VaR
-            if portfolio_risk.var_1day_95 > 0.03:  # 3%
+            # 檢查VaR風險
+            if portfolio_risk.var_1day_95 > 0.03:  # 超過3%
                 self.risk_alerts.append(RiskAlert(
                     alert_type="HIGH_VAR_DETECTED",
                     severity="MEDIUM",
-                    message=f"95% VaR{portfolio_risk.var_1day_95:.2%}",
-                    suggested_action="",
+                    message=f"95% VaR過高: {portfolio_risk.var_1day_95:.2%}",
+                    suggested_action="考慮減少倉位",
                     timestamp=datetime.now()
                 ))
             
-            # 
+            # 檢查流動性風險
             if portfolio_risk.liquidity_risk > 0.5:
                 self.risk_alerts.append(RiskAlert(
                     alert_type="HIGH_LIQUIDITY_RISK",
                     severity="MEDIUM",
-                    message=f"{portfolio_risk.liquidity_risk:.2%}",
-                    suggested_action="",
+                    message=f"流動性風險高: {portfolio_risk.liquidity_risk:.2%}",
+                    suggested_action="考慮切換至高流動性交易對",
                     timestamp=datetime.now()
                 ))
         
         except Exception as e:
-            logger.error(f": {e}")
+            logger.error(f"風險警報生成失敗: {e}")
     
     # ==========  ==========
     
@@ -956,6 +988,31 @@ class RiskManager:
     
     # ========== 交易檢查與記錄方法 ==========
     
+    def _check_drawdown_limit(self, risk_params: RiskParameters) -> Optional[str]:
+        """檢查回撤限制，返回錯誤原因或 None"""
+        if self.peak_balance > 0 and self.current_balance > 0:
+            current_drawdown = (self.peak_balance - self.current_balance) / self.peak_balance
+            if current_drawdown > risk_params.max_drawdown_limit:
+                return f"超過最大回撤限制: {current_drawdown:.1%} > {risk_params.max_drawdown_limit:.1%}"
+        return None
+    
+    def _check_daily_trade_limit(self) -> Optional[str]:
+        """檢查每日交易次數限制，返回錯誤原因或 None"""
+        today = datetime.now().date()
+        if self.last_trade_date and self.last_trade_date.date() == today:
+            if self.daily_trade_count >= 10:
+                return f"超過每日交易次數限制: {self.daily_trade_count} >= 10"
+        return None
+    
+    def _check_critical_alerts(self) -> Optional[str]:
+        """檢查高優先級風險警報，返回錯誤原因或 None"""
+        critical_alerts = [a for a in self.risk_alerts 
+                         if a.severity in ["CRITICAL", "HIGH"] 
+                         and (datetime.now() - a.timestamp).seconds < 3600]
+        if critical_alerts:
+            return f"存在 {len(critical_alerts)} 個高優先級風險警報"
+        return None
+    
     def check_can_trade(self, signal_confidence: float, account_balance: float, 
                        risk_level: str = "MODERATE") -> Tuple[bool, str]:
         """
@@ -977,28 +1034,20 @@ class RiskManager:
                 return False, f"信號置信度過低: {signal_confidence:.1%} < 50%"
             
             # 2. 檢查回撤限制
-            if self.peak_balance > 0 and self.current_balance > 0:
-                current_drawdown = (self.peak_balance - self.current_balance) / self.peak_balance
-                if current_drawdown > risk_params.max_drawdown_limit:
-                    return False, f"超過最大回撤限制: {current_drawdown:.1%} > {risk_params.max_drawdown_limit:.1%}"
+            if reason := self._check_drawdown_limit(risk_params):
+                return False, reason
             
-            # 3. 檢查每日交易次數 (最多 10 次)
-            today = datetime.now().date()
-            if self.last_trade_date and self.last_trade_date.date() == today:
-                if self.daily_trade_count >= 10:
-                    return False, f"超過每日交易次數限制: {self.daily_trade_count} >= 10"
+            # 3. 檢查每日交易次數
+            if reason := self._check_daily_trade_limit():
+                return False, reason
             
             # 4. 檢查餘額充足性 (最低 100 USD)
             if account_balance < 100:
                 return False, f"帳戶餘額不足: ${account_balance:.2f} < $100"
             
             # 5. 檢查高優先級風險警報
-            critical_alerts = [a for a in self.risk_alerts 
-                             if a.severity in ["CRITICAL", "HIGH"] 
-                             and (datetime.now() - a.timestamp).seconds < 3600]  # 1小時內
-            
-            if critical_alerts:
-                return False, f"存在 {len(critical_alerts)} 個高優先級風險警報"
+            if reason := self._check_critical_alerts():
+                return False, reason
             
             # 6. 檢查槓桿限制
             if self.portfolio_positions:
@@ -1006,7 +1055,7 @@ class RiskManager:
                     self.portfolio_positions, 
                     {'balance': account_balance}
                 )
-                if current_leverage > risk_params.max_leverage * 0.9:  # 90% 槓桿使用率
+                if current_leverage > risk_params.max_leverage * 0.9:
                     return False, f"接近槓桿上限: {current_leverage:.1f}x / {risk_params.max_leverage:.1f}x"
             
             # 所有檢查通過
@@ -1315,8 +1364,7 @@ class RiskManager:
             
             if stats_history:
                 logger.info(f"📊 從數據庫加載 {len(stats_history)} 條風險統計記錄")
-                # 返回第一條記錄或最新記錄（如果需要單個記錄）
-                # 如果需要返回列表，應該修改函數簽名
+                # 當前實現返回最新記錄，如需返回完整列表可擴展API
                 return stats_history[0] if stats_history else None
             else:
                 logger.info("📭 數據庫中無風險統計記錄")

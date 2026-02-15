@@ -45,8 +45,8 @@ class SOPAutomationSystem:
     """SOP 自動化系統"""
     
     def __init__(self):
-        self.data_dir = Path("sop_automation_data")
-        self.data_dir.mkdir(exist_ok=True)
+        self.data_dir = Path("data/bioneuronai/trading/sop")
+        self.data_dir.mkdir(exist_ok=True, parents=True)
         self.check_results = []
         
         # 嘗試導入相關模組

@@ -1,14 +1,20 @@
 """
- - Market Analyzer
+BioNeuronai - Market Analyzer
 
+職責：市場分析（整合外部數據源）
+更新：2026-02-15 - 添加 WebDataFetcher 整合
 """
 
+import asyncio
 import json
 import logging
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Any
 from dataclasses import dataclass
 import numpy as np
+
+# 從 schemas 導入數據模型（遵循單一數據來源原則）
+from schemas.external_data import ExternalDataSnapshot, MarketSentiment
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +59,14 @@ class FundamentalEnvironment:
     social_sentiment: float
 
 class MarketAnalyzer:
-    """ - """
+    """
+    市場分析器 - 整合外部數據源
+    
+    新增功能 (2026-02-15):
+    - 整合 WebDataFetcher 抓取外部數據
+    - 綜合市場情緒計算（恐慌貪婪指數 + 技術指標）
+    - 宏觀市場掃描（全球市值、DeFi TVL、穩定幣供應）
+    """
     
     def __init__(self):
         self.analysis_history = []
@@ -64,38 +77,49 @@ class MarketAnalyzer:
             "liquidity": 0.15,
             "fundamentals": 0.20
         }
+        
+        # 外部數據緩存（避免過度調用 API）
+        self.external_data_cache: Optional[ExternalDataSnapshot] = None
+        self.cache_timestamp: Optional[datetime] = None
+        self.cache_ttl_minutes = 15  # 快取 15 分鐘
+        
+        # NumPy 隨機數生成器（使用新版 Generator API，帶種子確保可重現性）
+        self._rng = np.random.default_rng(seed=42)
     
     async def analyze_current_market_condition(self, klines: Optional[List[Dict]] = None) -> MarketCondition:
         """ - 基於 K線數據 """
         logger.info("正在分析市場條件 ...")
         
+        # 異步讓步點（允許其他協程執行）
+        await asyncio.sleep(0)
+        
         try:
             # 1. 趨勢分析
-            trend_analysis = await self._analyze_market_trend(klines)
+            trend_analysis = self._analyze_market_trend(klines)
             logger.info(f"  ✓ 趨勢分析: {trend_analysis['overall_trend']} (強度: {trend_analysis['strength']:.2f})")
             
             # 2. 波動率分析
-            volatility_analysis = await self._analyze_volatility(klines)
+            volatility_analysis = self._analyze_volatility(klines)
             logger.info(f"  ✓ 波動率: {volatility_analysis['level']} ({volatility_analysis['value']:.1f}%)")
             
             # 3. 市場階段
-            phase_analysis = await self._identify_market_phase(klines)
+            phase_analysis = self._identify_market_phase(klines)
             logger.info(f"  ✓ 市場階段: {phase_analysis['phase']} (信心: {phase_analysis['confidence']:.2f})")
             
             # 4. 情緒分析
-            sentiment_analysis = await self._analyze_market_sentiment(klines)
+            sentiment_analysis = self._analyze_market_sentiment(klines)
             logger.info(f"  ✓ 市場情緒: {sentiment_analysis['score']:.2f} | 恐慌貪婪: {sentiment_analysis['fear_greed']}")
             
             # 5. 流動性分析
-            liquidity_analysis = await self._analyze_liquidity_condition(klines)
+            liquidity_analysis = self._analyze_liquidity_condition(klines)
             logger.info(f"  ✓ 流動性: {liquidity_analysis['condition']} (分數: {liquidity_analysis['depth_score']:.2f})")
             
             # 6. 外部因素
-            external_analysis = await self._analyze_external_factors(klines)
+            external_analysis = self._analyze_external_factors(klines)
             logger.info(f"  ✓ 外部因素: {len(external_analysis['factors'])} 個警示")
             
             # 7. 相關性分析
-            correlation_analysis = await self._analyze_asset_correlations(klines)
+            correlation_analysis = self._analyze_asset_correlations()
             logger.info(f"  ✓ 資產相關性 BTC-ETH: {correlation_analysis['btc_eth']:.3f}")
             
             # 8. 綜合評估
@@ -127,23 +151,27 @@ class MarketAnalyzer:
     
     async def analyze_technical_environment(self, symbols: List[str]) -> TechnicalEnvironment:
         """"""
+        _ = symbols  # 預留參數，未來用於多幣種分析
         logger.info(" ...")
+        
+        # 異步讓步點（允許其他協程執行）
+        await asyncio.sleep(0)
         
         try:
             # 
-            timeframe_analysis = await self._multi_timeframe_analysis(symbols)
+            timeframe_analysis = self._multi_timeframe_analysis()
             
             # 
-            levels_analysis = await self._analyze_key_levels(symbols)
+            levels_analysis = self._analyze_key_levels()
             
             # 
-            indicators_analysis = await self._comprehensive_indicator_analysis(symbols)
+            indicators_analysis = self._comprehensive_indicator_analysis()
             
             # 
-            pattern_analysis = await self._detect_chart_patterns(symbols)
+            pattern_analysis = self._detect_chart_patterns()
             
-            # 
-            momentum_analysis = await self._analyze_market_momentum(symbols)
+            #
+            momentum_analysis = self._analyze_market_momentum()
             
             return TechnicalEnvironment(
                 timestamp=datetime.now(),
@@ -165,27 +193,30 @@ class MarketAnalyzer:
         """"""
         logger.info(" ...")
         
+        # 異步讓步點（允許其他協程執行）
+        await asyncio.sleep(0)
+        
         try:
-            # 
-            macro_analysis = await self._analyze_macro_events()
+            #
+            macro_analysis = self._analyze_macro_events()
             
             # 
-            regulatory_analysis = await self._analyze_regulatory_climate()
+            regulatory_analysis = self._analyze_regulatory_climate()
             
             # 
-            adoption_analysis = await self._analyze_adoption_trends()
+            adoption_analysis = self._analyze_adoption_trends()
+            
+            #
+            institutional_analysis = self._analyze_institutional_flows()
             
             # 
-            institutional_analysis = await self._analyze_institutional_flows()
+            onchain_analysis = self._analyze_onchain_metrics()
             
             # 
-            onchain_analysis = await self._analyze_onchain_metrics()
+            news_sentiment = self._analyze_news_sentiment()
             
             # 
-            news_sentiment = await self._analyze_news_sentiment()
-            
-            # 
-            social_sentiment = await self._analyze_social_sentiment()
+            social_sentiment = self._analyze_social_sentiment()
             
             return FundamentalEnvironment(
                 timestamp=datetime.now(),
@@ -204,7 +235,7 @@ class MarketAnalyzer:
     
     # ==========  ==========
     
-    async def _analyze_market_trend(self, klines: Optional[List[Dict]] = None) -> Dict:
+    def _analyze_market_trend(self, klines: Optional[List[Dict]] = None) -> Dict:
         """基於真實 K線數據分析趨勢"""
         if not klines or len(klines) < 50:
             logger.warning("K線數據不足，使用保守評估")
@@ -262,7 +293,7 @@ class MarketAnalyzer:
             'strength': strength
         }
     
-    async def _analyze_volatility(self, klines: Optional[List[Dict]] = None) -> Dict:
+    def _analyze_volatility(self, klines: Optional[List[Dict]] = None) -> Dict:
         """基於真實數據計算波動率"""
         if not klines or len(klines) < 20:
             return {
@@ -303,7 +334,7 @@ class MarketAnalyzer:
             'percentile_30d': 50.0  # 需要更多歷史數據才能計算
         }
     
-    async def _identify_market_phase(self, klines: Optional[List[Dict]] = None) -> Dict:
+    def _identify_market_phase(self, klines: Optional[List[Dict]] = None) -> Dict:
         """基於成交量和價格關係判斷市場階段"""
         if not klines or len(klines) < 30:
             return {
@@ -352,7 +383,7 @@ class MarketAnalyzer:
             'volume_change_pct': vol_change * 100
         }
     
-    async def _analyze_market_sentiment(self, klines: Optional[List[Dict]] = None) -> Dict:
+    def _analyze_market_sentiment(self, klines: Optional[List[Dict]] = None) -> Dict:
         """基於價格和成交量動能評估市場情緒"""
         if not klines or len(klines) < 14:
             return {
@@ -395,7 +426,7 @@ class MarketAnalyzer:
             }
         }
     
-    async def _analyze_liquidity_condition(self, klines: Optional[List[Dict]] = None) -> Dict:
+    def _analyze_liquidity_condition(self, klines: Optional[List[Dict]] = None) -> Dict:
         """基於成交量評估流動性"""
         if not klines or len(klines) < 10:
             return {
@@ -438,7 +469,7 @@ class MarketAnalyzer:
             'overall_score': float(overall_score)
         }
     
-    async def _analyze_external_factors(self, klines: Optional[List[Dict]] = None) -> Dict:
+    def _analyze_external_factors(self, klines: Optional[List[Dict]] = None) -> Dict:
         """基於波動率判斷可能存在的外部因素"""
         if not klines or len(klines) < 20:
             return {
@@ -472,9 +503,13 @@ class MarketAnalyzer:
             'impact_scores': impact_scores
         }
     
-    async def _analyze_asset_correlations(self, klines: Optional[List[Dict]] = None) -> Dict:
-        """暫時返回默認相關性，需要多幣種數據才能計算"""
-        # TODO: 當有多個交易對的數據時，計算真實相關性
+    def _analyze_asset_correlations(self) -> Dict:
+        """
+        資產相關性分析
+        
+        返回預設相關性係數，未來可擴展為多幣種實時計算
+        """
+        # 預設相關性係數（基於歷史經驗值）
         return {
             'btc_eth': 0.85,  # 加密貨幣間通常高度相關
             'btc_stocks': 0.5,  # 中等相關
@@ -484,7 +519,7 @@ class MarketAnalyzer:
     
     def _synthesize_market_analysis(self, *analyses) -> Dict:
         """"""
-        trend_analysis, volatility_analysis, phase_analysis, sentiment_analysis, liquidity_analysis, external_analysis, correlation_analysis = analyses
+        trend_analysis, volatility_analysis, phase_analysis, _, liquidity_analysis, external_analysis, _ = analyses
         
         # 
         confidence_factors = [
@@ -530,15 +565,15 @@ class MarketAnalyzer:
     
     # ==========  ==========
     
-    async def _multi_timeframe_analysis(self, symbols: List[str]) -> Dict:
-        """"""
+    def _multi_timeframe_analysis(self) -> Dict:
+        """多時間週期分析（模擬數據）"""
         timeframes = ['15m', '1h', '4h', '1d']
         analysis = {}
         
         for tf in timeframes:
             analysis[tf] = {
-                'trend': np.random.choice(['UP', 'DOWN', 'SIDEWAYS']),
-                'strength': np.random.uniform(0.3, 0.9)
+                'trend': self._rng.choice(['UP', 'DOWN', 'SIDEWAYS']),
+                'strength': self._rng.uniform(0.3, 0.9)
             }
         
         # 
@@ -549,8 +584,8 @@ class MarketAnalyzer:
             'dominant': dominant
         }
     
-    async def _analyze_key_levels(self, symbols: List[str]) -> Dict:
-        """"""
+    def _analyze_key_levels(self) -> Dict:
+        """關鍵價位分析（基於固定比例）"""
         # 
         base_price = 50000.0  # BTC
         
@@ -571,44 +606,45 @@ class MarketAnalyzer:
             'resistance': resistance_levels
         }
     
-    async def _comprehensive_indicator_analysis(self, symbols: List[str]) -> Dict:
-        """"""
+    def _comprehensive_indicator_analysis(self) -> Dict:
+        """綜合指標分析（模擬數據）"""
         indicators = {
-            'rsi_14': np.random.uniform(20, 80),
-            'rsi_21': np.random.uniform(25, 75),
-            'macd_signal': np.random.choice(['BULL', 'BEAR', 'NEUTRAL']),
-            'bb_position': np.random.uniform(0.2, 0.8),  # 
-            'stoch_k': np.random.uniform(10, 90),
-            'stoch_d': np.random.uniform(15, 85),
-            'cci': np.random.uniform(-200, 200),
-            'williams_r': np.random.uniform(-100, 0)
+            'rsi_14': self._rng.uniform(20, 80),
+            'rsi_21': self._rng.uniform(25, 75),
+            'macd_signal': self._rng.choice(['BULL', 'BEAR', 'NEUTRAL']),
+            'bb_position': self._rng.uniform(0.2, 0.8),  # 
+            'stoch_k': self._rng.uniform(10, 90),
+            'stoch_d': self._rng.uniform(15, 85),
+            'cci': self._rng.uniform(-200, 200),
+            'williams_r': self._rng.uniform(-100, 0)
         }
         
         return {'values': indicators}
     
-    async def _detect_chart_patterns(self, symbols: List[str]) -> Dict:
-        """"""
-        patterns = ['', '', '', '', '', '', '', '']
-        detected = np.random.choice(patterns, size=np.random.randint(0, 3), replace=False).tolist()
+    def _detect_chart_patterns(self) -> Dict:
+        """圖表型態偵測（模擬數據）"""
+        patterns = ['趨勢線', '整理區間', '三角形', '頭肩', '雙頂', '雙底', '旗形', '墂形']
+        num_patterns = self._rng.integers(0, 3)
+        detected = self._rng.choice(patterns, size=num_patterns, replace=False).tolist() if num_patterns > 0 else []
         
         return {
             'patterns': detected,
-            'breakout_prob': np.random.uniform(0.3, 0.8),
-            'reversal_signals': ['RSI', ''] if np.random.random() > 0.7 else []
+            'breakout_prob': self._rng.uniform(0.3, 0.8),
+            'reversal_signals': ['RSI', '背離'] if self._rng.random() > 0.7 else []
         }
     
-    async def _analyze_market_momentum(self, symbols: List[str]) -> Dict:
-        """"""
+    def _analyze_market_momentum(self) -> Dict:
+        """市場動能分析（模擬數據）"""
         return {
-            'strength': np.random.uniform(0.3, 0.9),
-            'direction': np.random.choice(['BULLISH', 'BEARISH', 'NEUTRAL']),
-            'acceleration': np.random.uniform(-0.5, 0.5)
+            'strength': self._rng.uniform(0.3, 0.9),
+            'direction': self._rng.choice(['BULLISH', 'BEARISH', 'NEUTRAL']),
+            'acceleration': self._rng.uniform(-0.5, 0.5)
         }
     
     # ==========  ==========
     
-    async def _analyze_macro_events(self) -> Dict:
-        """"""
+    def _analyze_macro_events(self) -> Dict:
+        """宏觀事件分析"""
         events = [
             {'event': 'FOMC', 'date': '2026-01-20', 'impact': 'HIGH'},
             {'event': 'CPI', 'date': '2026-01-25', 'impact': 'MEDIUM'},
@@ -617,39 +653,39 @@ class MarketAnalyzer:
         
         return {'events': events}
     
-    async def _analyze_regulatory_climate(self) -> Dict:
-        """"""
+    def _analyze_regulatory_climate(self) -> Dict:
+        """監管環境分析（模擬數據）"""
         climates = ['POSITIVE', 'NEUTRAL', 'NEGATIVE']
-        return {'climate': np.random.choice(climates)}
+        return {'climate': self._rng.choice(climates)}
     
-    async def _analyze_adoption_trends(self) -> Dict:
-        """"""
+    def _analyze_adoption_trends(self) -> Dict:
+        """採用趨勢分析（模擬數據）"""
         trends = ['INCREASING', 'STABLE', 'DECLINING']
-        return {'trend': np.random.choice(trends, p=[0.5, 0.4, 0.1])}
+        return {'trend': self._rng.choice(trends, p=[0.5, 0.4, 0.1])}
     
-    async def _analyze_institutional_flows(self) -> Dict:
-        """"""
+    def _analyze_institutional_flows(self) -> Dict:
+        """機構資金流分析（模擬數據）"""
         flows = ['INFLOW', 'NEUTRAL', 'OUTFLOW']
-        return {'flow': np.random.choice(flows, p=[0.4, 0.4, 0.2])}
+        return {'flow': self._rng.choice(flows, p=[0.4, 0.4, 0.2])}
     
-    async def _analyze_onchain_metrics(self) -> Dict:
-        """"""
+    def _analyze_onchain_metrics(self) -> Dict:
+        """鏈上指標分析（模擬數據）"""
         metrics = {
-            'active_addresses': np.random.randint(800000, 1200000),
-            'transaction_volume': np.random.uniform(10, 50),  # 
-            'exchange_inflow': np.random.uniform(-20, 20),    # %
-            'whale_activity': np.random.choice(['HIGH', 'MEDIUM', 'LOW'])
+            'active_addresses': int(self._rng.integers(800000, 1200000)),
+            'transaction_volume': self._rng.uniform(10, 50),  # 
+            'exchange_inflow': self._rng.uniform(-20, 20),    # %
+            'whale_activity': self._rng.choice(['HIGH', 'MEDIUM', 'LOW'])
         }
         
         return {'metrics': metrics}
     
-    async def _analyze_news_sentiment(self) -> Dict:
-        """"""
-        return {'score': np.random.uniform(-0.3, 0.3)}
+    def _analyze_news_sentiment(self) -> Dict:
+        """新聞情緒分析（模擬數據）"""
+        return {'score': self._rng.uniform(-0.3, 0.3)}
     
-    async def _analyze_social_sentiment(self) -> Dict:
-        """"""
-        return {'score': np.random.uniform(-0.5, 0.5)}
+    def _analyze_social_sentiment(self) -> Dict:
+        """社交情緒分析（模擬數據）"""
+        return {'score': self._rng.uniform(-0.5, 0.5)}
     
     # ==========  ==========
     
@@ -767,3 +803,288 @@ class MarketAnalyzer:
             tr_list.append(tr)
         
         return float(np.mean(tr_list))
+    
+    # ========== 外部數據整合（新增 2026-02-15）==========
+    
+    async def fetch_external_data(self, force_refresh: bool = False) -> Optional[ExternalDataSnapshot]:
+        """
+        抓取外部市場數據（帶緩存機制）
+        
+        Args:
+            force_refresh: 強制刷新緩存
+            
+        Returns:
+            ExternalDataSnapshot 或 None
+        """
+        # 檢查緩存
+        if not force_refresh and self.external_data_cache and self.cache_timestamp:
+            age_minutes = (datetime.now() - self.cache_timestamp).total_seconds() / 60
+            if age_minutes < self.cache_ttl_minutes:
+                logger.info(f"💾 使用緩存的外部數據（{age_minutes:.1f} 分鐘前）")
+                return self.external_data_cache
+        
+        # 抓取新數據
+        try:
+            from bioneuronai.data.web_data_fetcher import WebDataFetcher
+            
+            async with WebDataFetcher() as fetcher:
+                snapshot = await fetcher.fetch_all()
+                
+                # 更新緩存
+                self.external_data_cache = snapshot
+                self.cache_timestamp = datetime.now()
+                
+                return snapshot
+        
+        except Exception as e:
+            logger.error(f"❌ 抓取外部數據失敗: {e}", exc_info=True)
+            return self.external_data_cache  # 返回舊緩存（如果有）
+    
+    async def calculate_comprehensive_sentiment(
+        self,
+        klines: Optional[List[Dict]] = None,
+        external_data: Optional[ExternalDataSnapshot] = None
+    ) -> MarketSentiment:
+        """
+        計算綜合市場情緒（整合多個數據源）
+        
+        組成：
+        1. 恐慌貪婪指數（Alternative.me）- 30%
+        2. 技術指標情緒（RSI, 動能）- 30%
+        3. 市場動量（成交量, 市值變化）- 25%
+        4. 新聞情緒（如果有 RAG 數據）- 15%
+        
+        Args:
+            klines: K線數據
+            external_data: 外部數據快照
+            
+        Returns:
+            MarketSentiment 對象
+        """
+        logger.info("🧠 計算綜合市場情緒...")
+        
+        # 異步讓步點（允許其他協程執行）
+        await asyncio.sleep(0)
+        
+        components = {}
+        sentiment_scores = []
+        weights = []
+        
+        # 1. 恐慌貪婪指數 (如果有外部數據)
+        if external_data and external_data.fear_greed:
+            # 轉換 0-100 到 -1 到 +1
+            fg_value = external_data.fear_greed.value
+            fg_score = (fg_value - 50) / 50  # 標準化到 -1 到 1
+            sentiment_scores.append(fg_score)
+            weights.append(0.30)
+            components["fear_greed_index"] = fg_value
+            logger.info(f"  ✓ 恐慌貪婪: {fg_value} → {fg_score:+.3f}")
+        
+        # 2. 技術指標情緒
+        if klines and len(klines) >= 14:
+            tech_sentiment = self._analyze_market_sentiment(klines)
+            sentiment_scores.append(tech_sentiment["score"])
+            weights.append(0.30)
+            components["rsi"] = tech_sentiment["components"]["rsi"]
+            components["price_momentum"] = tech_sentiment["components"]["price_momentum"]
+            logger.info(f"  ✓ 技術指標: {tech_sentiment['score']:+.3f}")
+        
+        # 3. 市場動量
+        if external_data and external_data.global_market:
+            gm = external_data.global_market
+            
+            # 市值變化 (-10% 到 +10% 映射到 -1 到 +1)
+            mc_change = gm.market_cap_change_24h / 10  # 除以 10 進行壓縮
+            mc_score = np.tanh(mc_change)  # 壓縮到 -1 到 1
+            
+            sentiment_scores.append(mc_score)
+            weights.append(0.25)
+            components["market_cap_change_24h"] = gm.market_cap_change_24h
+            logger.info(f"  ✓ 市場動量: {gm.market_cap_change_24h:+.2f}% → {mc_score:+.3f}")
+        
+        # 4. 新聞情緒（預留介面，待 RAG 系統整合）
+        # 未來可透過 bioneuronai.analysis.news.analyzer 提供新聞情緒分析
+        
+        # 計算加權平均
+        if not sentiment_scores:
+            logger.warning("⚠️ 無可用數據計算情緒，使用中性值")
+            overall_sentiment = 0.0
+            confidence = 0.1
+        else:
+            # 標準化權重
+            total_weight = sum(weights)
+            normalized_weights = [w / total_weight for w in weights]
+            
+            # 加權平均
+            overall_sentiment = sum(s * w for s, w in zip(sentiment_scores, normalized_weights))
+            confidence = min(total_weight / 0.85, 1.0)  # 最大權重總和為 0.85
+            
+            logger.info(f"  ✓ 綜合情緒: {overall_sentiment:+.3f} (信心: {confidence:.2f})")
+        
+        # 創建 MarketSentiment 對象
+        market_sentiment = MarketSentiment(
+            overall_sentiment=float(overall_sentiment),
+            fear_greed_score=(sentiment_scores[0] if sentiment_scores else 0.0),
+            news_sentiment=0.0,  # 待實現
+            social_sentiment=None,
+            market_momentum=(sentiment_scores[2] if len(sentiment_scores) > 2 else 0.0),
+            confidence_level=float(confidence),
+            timestamp=datetime.now(),
+            components=components
+        )
+        
+        return market_sentiment
+    
+    async def scan_macro_market(
+        self,
+        check_mode: str = "daily"
+    ) -> Dict[str, Any]:
+        """
+        宏觀市場掃描（步驟 2 - 實現）
+        
+        數據來源：
+        - Alternative.me (恐慌貪婪指數)
+        - CoinGecko (全球市場數據)
+        - DefiLlama (DeFi TVL)
+        - CoinGecko (穩定幣供應)
+        
+        Args:
+            check_mode: "daily" (每日) 或 "quick" (快速)
+            
+        Returns:
+            包含所有宏觀指標的字典
+        """
+        logger.info("=" * 70)
+        logger.info("🌍 步驟 2: 宏觀市場掃描")
+        logger.info("=" * 70)
+        
+        # 抓取外部數據
+        external_data = await self.fetch_external_data()
+        
+        if not external_data:
+            logger.error("❌ 無法獲取外部數據")
+            return {
+                "status": "FAILED",
+                "error": "無法連接到外部數據源"
+            }
+        
+        result = {
+            "status": "SUCCESS",
+            "check_mode": check_mode,
+            "timestamp": external_data.timestamp.isoformat(),
+            "data_sources": [ds.value for ds in external_data.data_sources],
+            "fetch_duration_ms": external_data.fetch_duration_ms
+        }
+        
+        # 1. 恐慌貪婪指數
+        if external_data.fear_greed:
+            fg = external_data.fear_greed
+            result["fear_greed_index"] = {
+                "value": fg.value,
+                "classification": fg.value_classification,
+                "interpretation": self._interpret_fear_greed(fg.value)
+            }
+            logger.info(f"  ✓ 恐慌貪婪指數: {fg.value} ({fg.value_classification})")
+        
+        # 2. 全球市場數據
+        if external_data.global_market:
+            gm = external_data.global_market
+            result["global_market"] = {
+                "total_market_cap_usd": gm.total_market_cap,
+                "total_volume_24h_usd": gm.total_volume_24h,
+                "btc_dominance_pct": gm.btc_dominance,
+                "eth_dominance_pct": gm.eth_dominance,
+                "market_cap_change_24h_pct": gm.market_cap_change_24h
+            }
+            logger.info(f"  ✓ 全球市值: ${gm.total_market_cap/1e12:.2f}T ({gm.market_cap_change_24h:+.2f}%)")
+            logger.info(f"  ✓ BTC 占比: {gm.btc_dominance:.1f}%")
+        
+        # 3. DeFi TVL
+        if external_data.defi_metrics:
+            defi = external_data.defi_metrics
+            result["defi_tvl"] = {
+                "total_tvl_usd": defi.total_tvl,
+                "top_chains": defi.chains
+            }
+            logger.info(f"  ✓ DeFi TVL: ${defi.total_tvl/1e9:.1f}B")
+        
+        # 4. 穩定幣供應
+        if external_data.stablecoin_metrics:
+            sc = external_data.stablecoin_metrics
+            result["stablecoin_supply"] = {
+                "total_supply_usd": sc.total_supply,
+                "by_token": sc.supply_by_token
+            }
+            logger.info(f"  ✓ 穩定幣供應: ${sc.total_supply/1e9:.1f}B")
+        
+        # 5. 市場狀態評估
+        if external_data.fear_greed and external_data.global_market:
+            market_state = self._assess_market_state(
+                external_data.fear_greed.value,
+                external_data.global_market.market_cap_change_24h,
+                external_data.global_market.btc_dominance
+            )
+            result["market_state"] = market_state
+            logger.info(f"  ✓ 市場狀態: {market_state['condition']} ({market_state['recommendation']})")
+        
+        # 6. 錯誤報告
+        if external_data.errors:
+            result["errors"] = external_data.errors
+            logger.warning(f"  ⚠️ 部分數據源失敗: {len(external_data.errors)} 個")
+        
+        logger.info("=" * 70)
+        return result
+    
+    def _interpret_fear_greed(self, value: int) -> str:
+        """解釋恐慌貪婪指數"""
+        if value <= 25:
+            return "極度恐慌 - 可能是買入機會"
+        elif value <= 45:
+            return "恐慌 - 市場謹慎"
+        elif value <= 55:
+            return "中性 - 市場平衡"
+        elif value <= 75:
+            return "貪婪 - 注意風險"
+        else:
+            return "極度貪婪 - 考慮獲利了結"
+    
+    def _assess_market_state(
+        self,
+        fear_greed: int,
+        market_cap_change: float,
+        btc_dominance: float
+    ) -> Dict[str, str]:
+        """評估市場狀態"""
+        # 綜合評估
+        if fear_greed <= 30 and market_cap_change < -3:
+            condition = "EXTREME_FEAR"
+            recommendation = "強烈買入信號"
+        elif fear_greed >= 75 and market_cap_change > 5:
+            condition = "EXTREME_GREED"
+            recommendation = "考慮減倉"
+        elif 45 <= fear_greed <= 55:
+            condition = "NEUTRAL"
+            recommendation = "觀望或按計劃執行"
+        elif market_cap_change > 3:
+            condition = "BULLISH"
+            recommendation = "趨勢跟隨策略"
+        elif market_cap_change < -3:
+            condition = "BEARISH"
+            recommendation = "保守防守"
+        else:
+            condition = "MIXED"
+            recommendation = "綜合策略"
+        
+        # BTC 占比分析
+        if btc_dominance > 60:
+            btc_note = "BTC 主導，山寨幣可能表現不佳"
+        elif btc_dominance < 40:
+            btc_note = "山寨季可能來臨"
+        else:
+            btc_note = "市場相對平衡"
+        
+        return {
+            "condition": condition,
+            "recommendation": recommendation,
+            "btc_dominance_note": btc_note
+        }

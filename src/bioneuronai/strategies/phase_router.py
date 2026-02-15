@@ -53,6 +53,13 @@ class TradingPhase(Enum):
     LOW_VOLATILITY = "low_volatility"     # 低波動期
 
 
+class TradeActionPhase(Enum):
+    """交易動作階段 - 入場/持倉/出場分開使用不同策略"""
+    ENTRY = "entry"       # 入場階段 - 決定何時/如何進場
+    HOLD = "hold"         # 持倉階段 - 監控加減倉時機
+    EXIT = "exit"         # 出場階段 - 決定何時/如何出場
+
+
 class PhaseAction(Enum):
     """階段動作"""
     ENTER_LONG = "enter_long"       # 做多入場
@@ -78,6 +85,12 @@ class PhaseConfig:
     secondary_strategy: Optional[str] = None
     fallback_strategy: str = "swing_trading"
     
+    # 交易動作階段專屬策略配置 (AI 可動態調整)
+    # 若設置，則覆蓋 primary_strategy
+    entry_strategy: Optional[str] = None   # 入場專用策略
+    hold_strategy: Optional[str] = None    # 持倉專用策略
+    exit_strategy: Optional[str] = None    # 出場專用策略
+    
     # 推薦動作
     preferred_actions: List[PhaseAction] = field(default_factory=lambda: [PhaseAction.HOLD])
     forbidden_actions: List[PhaseAction] = field(default_factory=list)
@@ -93,6 +106,31 @@ class PhaseConfig:
     # 過渡設置
     allow_carry_position: bool = True  # 是否允許持倉跨階段
     force_exit_on_end: bool = False    # 階段結束時強制平倉
+
+
+@dataclass
+class StrategyPerformanceRecord:
+    """策略績效記錄 - 用於 AI 動態選擇"""
+    strategy_name: str
+    phase: TradingPhase
+    action_phase: TradeActionPhase
+    
+    # 績效指標
+    total_trades: int = 0
+    winning_trades: int = 0
+    total_pnl: float = 0.0
+    win_rate: float = 0.5
+    avg_pnl: float = 0.0
+    sharpe_ratio: float = 0.0
+    profit_factor: float = 1.0
+    
+    # 最近表現 (用於快速適應)
+    recent_trades: int = 0
+    recent_wins: int = 0
+    recent_pnl: float = 0.0
+    
+    # 時間戳
+    last_updated: datetime = field(default_factory=datetime.now)
 
 
 @dataclass
@@ -119,14 +157,20 @@ class TradingPhaseRouter:
     
     根據時間、市場狀態、新聞事件等動態路由到不同策略
     實現「開盤用A、中盤用B、收盤用C」的智能策略組合
+    
+    核心功能:
+    - 動態策略註冊/移除（可隨時增減策略）
+    - AI 績效學習（根據歷史表現自動選擇策略）
+    - 交易動作階段分離（入場/持倉/出場分別用不同策略）
     """
     
-    def __init__(self, timeframe: str = "1h"):
+    def __init__(self, timeframe: str = "1h", enable_ai_selection: bool = True):
         self.timeframe = timeframe
+        self.enable_ai_selection = enable_ai_selection
         self.current_state: Optional[PhaseState] = None
         self.phase_history: List[PhaseState] = []
         
-        # 初始化所有策略實例
+        # 初始化所有策略實例（可動態增減）
         self.strategies: Dict[str, BaseStrategy] = {
             'trend_following': TrendFollowingStrategy(timeframe),
             'swing_trading': SwingTradingStrategy(timeframe),
@@ -137,13 +181,244 @@ class TradingPhaseRouter:
         # 階段配置（可自定義）
         self.phase_configs = self._create_default_phase_configs()
         
-        # 性能追蹤
+        # 性能追蹤（用於 AI 選擇）
         self.phase_performance: Dict[TradingPhase, Dict[str, float]] = {}
+        
+        # 策略績效記錄（key: "phase_actionphase_strategy"）
+        self.strategy_performance: Dict[str, StrategyPerformanceRecord] = {}
         
         logger.info("🎯 交易階段路由器已初始化")
         logger.info(f"   - 時間框架: {timeframe}")
         logger.info(f"   - 可用策略: {list(self.strategies.keys())}")
         logger.info(f"   - 階段數量: {len(self.phase_configs)}")
+        logger.info(f"   - AI 選擇: {'啟用' if enable_ai_selection else '停用'}")
+    
+    # ==========================================
+    # 策略動態註冊/移除
+    # ==========================================
+    
+    def register_strategy(self, name: str, strategy: BaseStrategy) -> bool:
+        """
+        動態註冊策略（支持任意增減）
+        
+        Args:
+            name: 策略名稱
+            strategy: 策略實例
+            
+        Returns:
+            是否成功
+        """
+        if name in self.strategies:
+            logger.warning(f"⚠️ 策略 {name} 已存在，將被覆蓋")
+        
+        self.strategies[name] = strategy
+        logger.info(f"✅ 已註冊策略: {name} ({strategy.__class__.__name__})")
+        return True
+    
+    def unregister_strategy(self, name: str) -> bool:
+        """
+        移除策略
+        
+        Args:
+            name: 策略名稱
+            
+        Returns:
+            是否成功
+        """
+        if name not in self.strategies:
+            logger.warning(f"⚠️ 策略 {name} 不存在")
+            return False
+        
+        # 檢查是否有階段正在使用此策略
+        for phase, config in self.phase_configs.items():
+            if config.primary_strategy == name:
+                logger.warning(f"⚠️ 策略 {name} 正被 {phase.value} 使用，已切換為 swing_trading")
+                config.primary_strategy = "swing_trading"
+        
+        del self.strategies[name]
+        logger.info(f"🗑️ 已移除策略: {name}")
+        return True
+    
+    def list_strategies(self) -> List[str]:
+        """列出所有可用策略"""
+        return list(self.strategies.keys())
+    
+    # ==========================================
+    # AI 策略選擇器
+    # ==========================================
+    
+    def get_best_strategy_for_action(
+        self,
+        phase: TradingPhase,
+        action_phase: TradeActionPhase,
+    ) -> str:
+        """
+        AI 根據績效選擇最佳策略
+        
+        Args:
+            phase: 交易階段
+            action_phase: 交易動作階段（入場/持倉/出場）
+            
+        Returns:
+            最佳策略名稱
+        """
+        if not self.enable_ai_selection:
+            # 不使用 AI，直接返回配置的策略
+            return self._get_configured_strategy(phase, action_phase)
+        
+        # 查找該階段+動作的所有績效記錄
+        candidates: List[Tuple[str, float]] = []
+        
+        for strategy_name in self.strategies.keys():
+            key = f"{phase.value}_{action_phase.value}_{strategy_name}"
+            
+            if key in self.strategy_performance:
+                record = self.strategy_performance[key]
+                # 計算綜合得分（可調整權重）
+                score = self._calculate_strategy_score(record)
+                candidates.append((strategy_name, score))
+            else:
+                # 沒有記錄，給予中等初始分數（鼓勵探索）
+                candidates.append((strategy_name, 0.5))
+        
+        if not candidates:
+            return self._get_configured_strategy(phase, action_phase)
+        
+        # 選擇得分最高的策略
+        candidates.sort(key=lambda x: x[1], reverse=True)
+        best_strategy = candidates[0][0]
+        
+        logger.debug(f"🤖 AI 選擇: {phase.value}/{action_phase.value} → {best_strategy}")
+        
+        return best_strategy
+    
+    def _calculate_strategy_score(self, record: StrategyPerformanceRecord) -> float:
+        """計算策略綜合得分"""
+        # 權重配置
+        win_rate_weight = 0.3
+        profit_factor_weight = 0.25
+        recent_weight = 0.25
+        sharpe_weight = 0.2
+        
+        # 正規化各指標
+        win_rate_score = record.win_rate
+        pf_score = min(record.profit_factor / 3.0, 1.0)  # profit_factor 3.0 算滿分
+        sharpe_score = min(max(record.sharpe_ratio / 2.0, 0), 1.0)  # sharpe 2.0 算滿分
+        
+        # 最近績效
+        if record.recent_trades > 0:
+            recent_win_rate = record.recent_wins / record.recent_trades
+        else:
+            recent_win_rate = 0.5
+        
+        score = (
+            win_rate_weight * win_rate_score +
+            profit_factor_weight * pf_score +
+            recent_weight * recent_win_rate +
+            sharpe_weight * sharpe_score
+        )
+        
+        return score
+    
+    def _get_configured_strategy(
+        self,
+        phase: TradingPhase,
+        action_phase: TradeActionPhase
+    ) -> str:
+        """獲取配置的策略（非 AI 模式）"""
+        config = self.phase_configs[phase]
+        
+        # 優先使用動作階段專屬策略
+        if action_phase == TradeActionPhase.ENTRY and config.entry_strategy:
+            return config.entry_strategy
+        if action_phase == TradeActionPhase.HOLD and config.hold_strategy:
+            return config.hold_strategy
+        if action_phase == TradeActionPhase.EXIT and config.exit_strategy:
+            return config.exit_strategy
+        
+        # 降級到主策略
+        return config.primary_strategy
+    
+    def update_strategy_performance(
+        self,
+        phase: TradingPhase,
+        action_phase: TradeActionPhase,
+        strategy_name: str,
+        trade_pnl: float,
+        trade_won: bool,
+    ):
+        """
+        更新策略績效（用於 AI 學習）
+        
+        Args:
+            phase: 交易階段
+            action_phase: 交易動作階段
+            strategy_name: 策略名稱
+            trade_pnl: 交易損益
+            trade_won: 是否獲利
+        """
+        key = f"{phase.value}_{action_phase.value}_{strategy_name}"
+        
+        if key not in self.strategy_performance:
+            self.strategy_performance[key] = StrategyPerformanceRecord(
+                strategy_name=strategy_name,
+                phase=phase,
+                action_phase=action_phase,
+            )
+        
+        record = self.strategy_performance[key]
+        
+        # 更新總體統計
+        record.total_trades += 1
+        record.total_pnl += trade_pnl
+        if trade_won:
+            record.winning_trades += 1
+        
+        # 計算衍生指標
+        record.win_rate = record.winning_trades / record.total_trades
+        record.avg_pnl = record.total_pnl / record.total_trades
+        
+        # 更新最近績效（只保留最近 20 筆）
+        record.recent_trades = min(record.recent_trades + 1, 20)
+        if record.recent_trades < 20:
+            record.recent_wins += 1 if trade_won else 0
+            record.recent_pnl += trade_pnl
+        
+        record.last_updated = datetime.now()
+        
+        logger.debug(f"📊 更新績效: {key} | 勝率: {record.win_rate:.1%}")
+    
+    def configure_phase_strategies(
+        self,
+        phase: TradingPhase,
+        entry_strategy: Optional[str] = None,
+        hold_strategy: Optional[str] = None,
+        exit_strategy: Optional[str] = None,
+    ):
+        """
+        為特定階段配置入場/持倉/出場策略
+        
+        示例：開盤用突破入場、趨勢持倉、均值回歸出場
+        
+        Args:
+            phase: 交易階段
+            entry_strategy: 入場策略
+            hold_strategy: 持倉策略
+            exit_strategy: 出場策略
+        """
+        config = self.phase_configs[phase]
+        
+        if entry_strategy and entry_strategy in self.strategies:
+            config.entry_strategy = entry_strategy
+        if hold_strategy and hold_strategy in self.strategies:
+            config.hold_strategy = hold_strategy
+        if exit_strategy and exit_strategy in self.strategies:
+            config.exit_strategy = exit_strategy
+        
+        logger.info(f"✨ 階段 {phase.value} 策略配置:")
+        logger.info(f"   - 入場: {config.entry_strategy or config.primary_strategy}")
+        logger.info(f"   - 持倉: {config.hold_strategy or config.primary_strategy}")
+        logger.info(f"   - 出場: {config.exit_strategy or config.primary_strategy}")
     
     def _create_default_phase_configs(self) -> Dict[TradingPhase, PhaseConfig]:
         """創建預設階段配置"""
@@ -342,16 +617,27 @@ class TradingPhaseRouter:
     def get_strategy_for_phase(
         self,
         phase: TradingPhase,
+        action_phase: TradeActionPhase = TradeActionPhase.ENTRY,
     ) -> BaseStrategy:
         """
         獲取當前階段的最優策略
         
         Args:
             phase: 交易階段
+            action_phase: 交易動作階段（入場/持倉/出場）
         
         Returns:
             策略實例
         """
+        # 使用 AI 選擇最佳策略
+        strategy_name = self.get_best_strategy_for_action(phase, action_phase)
+        
+        # 嘗試獲取策略實例
+        strategy = self.strategies.get(strategy_name)
+        if strategy:
+            return strategy
+        
+        # 降級嘗試
         config = self.phase_configs[phase]
         
         # 嘗試主策略
@@ -379,15 +665,19 @@ class TradingPhaseRouter:
         market_data: Dict[str, Any],
         has_position: bool = False,
         position_direction: Optional[str] = None,
+        action_phase: Optional[TradeActionPhase] = None,
     ) -> Dict[str, Any]:
         """
         路由交易決策 - 主入口函數
+        
+        支援 AI 策略編排：根據交易動作階段（入場/持倉/出場）選擇最優策略
         
         Args:
             current_time: 當前時間
             market_data: 市場數據
             has_position: 是否有持倉
             position_direction: 持倉方向 ('long'/'short')
+            action_phase: 交易動作階段（入場/持倉/出場），若為 None 則自動推斷
         
         Returns:
             交易決策結果
@@ -410,14 +700,23 @@ class TradingPhaseRouter:
         if self.current_state is None or self.current_state.current_phase != current_phase:
             self._transition_to_phase(current_phase, current_time)
         
-        # 3. 獲取階段配置和策略
-        config = self.phase_configs[current_phase]
-        strategy = self.get_strategy_for_phase(current_phase)
+        # 3. 自動推斷交易動作階段
+        if action_phase is None:
+            if not has_position:
+                action_phase = TradeActionPhase.ENTRY
+            else:
+                # 這裡可以根據持倉時間等因素決定是 HOLD 還是 EXIT
+                # 簡化：有持倉時預設為 HOLD
+                action_phase = TradeActionPhase.HOLD
         
-        # 4. 檢查階段動作限制
+        # 4. 獲取階段配置和策略（AI 選擇最優策略）
+        config = self.phase_configs[current_phase]
+        strategy = self.get_strategy_for_phase(current_phase, action_phase)
+        
+        # 5. 檢查階段動作限制
         action_allowed = self._check_action_allowed(config, has_position, position_direction)
         
-        # 5. 生成交易信號
+        # 6. 生成交易信號
         if action_allowed:
             ohlcv_data = market_data.get('ohlcv', np.array([]))  # type: ignore
             market_analysis = strategy.analyze_market(ohlcv_data)
@@ -428,11 +727,13 @@ class TradingPhaseRouter:
         else:
             signal = None
         
-        # 6. 構建決策結果
+        # 7. 構建決策結果（包含 AI 策略編排信息）
         decision = {
             'timestamp': current_time.isoformat(),
             'phase': current_phase.value,
+            'action_phase': action_phase.value,
             'strategy_used': strategy.__class__.__name__,
+            'ai_selection_enabled': self.enable_ai_selection,
             'signal': signal,
             'config': {
                 'position_size_multiplier': config.position_size_multiplier,
@@ -444,7 +745,12 @@ class TradingPhaseRouter:
             'volatility': volatility,
         }
         
-        logger.info(f"📍 階段路由: {current_phase.value} | 策略: {strategy.__class__.__name__}")
+        logger.info(
+            f"📍 階段路由: {current_phase.value} | "
+            f"動作: {action_phase.value} | "
+            f"策略: {strategy.__class__.__name__} | "
+            f"AI選擇: {'✓' if self.enable_ai_selection else '✗'}"
+        )
         
         return decision
     

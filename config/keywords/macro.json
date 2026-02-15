@@ -1,11 +1,11 @@
 {
   "category": "macro",
   "description": "總體經濟 - 貨幣政策、經濟數據、財政政策、全球事件等",
-  "last_updated": "2026-01-26 21:43:15",
+  "last_updated": "2026-02-15 15:40:56",
   "count": 25,
   "keywords": [
     {
-      "keyword": "treasury",
+      "word": "treasury",
       "category": "macro",
       "base_weight": 2.5,
       "dynamic_weight": 1.3604889600000003,
@@ -16,10 +16,10 @@
       "hit_count": 1,
       "prediction_count": 4,
       "correct_count": 4,
-      "subcategory": "fiscal_policy"
+      "subcategory": "general"
     },
     {
-      "keyword": "rate hike",
+      "word": "rate hike",
       "category": "macro",
       "base_weight": 3.0,
       "dynamic_weight": 1.0,
@@ -30,10 +30,10 @@
       "hit_count": 0,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "monetary_policy"
+      "subcategory": "general"
     },
     {
-      "keyword": "rate cut",
+      "word": "rate cut",
       "category": "macro",
       "base_weight": 3.0,
       "dynamic_weight": 1.0,
@@ -44,10 +44,10 @@
       "hit_count": 0,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "monetary_policy"
+      "subcategory": "general"
     },
     {
-      "keyword": "interest rate",
+      "word": "interest rate",
       "category": "macro",
       "base_weight": 2.8,
       "dynamic_weight": 1.0,
@@ -58,10 +58,10 @@
       "hit_count": 0,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "monetary_policy"
+      "subcategory": "general"
     },
     {
-      "keyword": "quantitative easing",
+      "word": "quantitative easing",
       "category": "macro",
       "base_weight": 2.5,
       "dynamic_weight": 1.0,
@@ -72,10 +72,10 @@
       "hit_count": 0,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "monetary_policy"
+      "subcategory": "general"
     },
     {
-      "keyword": "qe",
+      "word": "qe",
       "category": "macro",
       "base_weight": 2.5,
       "dynamic_weight": 1.0,
@@ -86,10 +86,10 @@
       "hit_count": 0,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "monetary_policy"
+      "subcategory": "general"
     },
     {
-      "keyword": "tapering",
+      "word": "tapering",
       "category": "macro",
       "base_weight": 2.3,
       "dynamic_weight": 1.0,
@@ -100,10 +100,10 @@
       "hit_count": 0,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "monetary_policy"
+      "subcategory": "general"
     },
     {
-      "keyword": "inflation",
+      "word": "inflation",
       "category": "macro",
       "base_weight": 2.5,
       "dynamic_weight": 1.0,
@@ -114,10 +114,10 @@
       "hit_count": 0,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "economic_data"
+      "subcategory": "general"
     },
     {
-      "keyword": "cpi",
+      "word": "cpi",
       "category": "macro",
       "base_weight": 2.5,
       "dynamic_weight": 1.0,
@@ -128,10 +128,10 @@
       "hit_count": 0,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "economic_data"
+      "subcategory": "general"
     },
     {
-      "keyword": "nonfarm",
+      "word": "nonfarm",
       "category": "macro",
       "base_weight": 2.3,
       "dynamic_weight": 1.0,
@@ -142,10 +142,10 @@
       "hit_count": 0,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "economic_data"
+      "subcategory": "general"
     },
     {
-      "keyword": "fomc meeting",
+      "word": "fomc meeting",
       "category": "macro",
       "base_weight": 3.0,
       "dynamic_weight": 1.0,
@@ -156,10 +156,10 @@
       "hit_count": 0,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "monetary_policy"
+      "subcategory": "general"
     },
     {
-      "keyword": "fed minutes",
+      "word": "fed minutes",
       "category": "macro",
       "base_weight": 2.5,
       "dynamic_weight": 1.0,
@@ -170,10 +170,10 @@
       "hit_count": 0,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "monetary_policy"
+      "subcategory": "general"
     },
     {
-      "keyword": "dot plot",
+      "word": "dot plot",
       "category": "macro",
       "base_weight": 2.5,
       "dynamic_weight": 1.0,
@@ -184,10 +184,10 @@
       "hit_count": 0,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "monetary_policy"
+      "subcategory": "general"
     },
     {
-      "keyword": "jackson hole",
+      "word": "jackson hole",
       "category": "macro",
       "base_weight": 2.5,
       "dynamic_weight": 1.0,
@@ -198,10 +198,10 @@
       "hit_count": 0,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "monetary_policy"
+      "subcategory": "general"
     },
     {
-      "keyword": "core cpi",
+      "word": "core cpi",
       "category": "macro",
       "base_weight": 2.5,
       "dynamic_weight": 1.0,
@@ -212,10 +212,10 @@
       "hit_count": 0,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "economic_data"
+      "subcategory": "general"
     },
     {
-      "keyword": "core pce",
+      "word": "core pce",
       "category": "macro",
       "base_weight": 2.5,
       "dynamic_weight": 1.0,
@@ -226,10 +226,10 @@
       "hit_count": 0,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "economic_data"
+      "subcategory": "general"
     },
     {
-      "keyword": "initial claims",
+      "word": "initial claims",
       "category": "macro",
       "base_weight": 2.0,
       "dynamic_weight": 1.0,
@@ -240,10 +240,10 @@
       "hit_count": 0,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "economic_data"
+      "subcategory": "general"
     },
     {
-      "keyword": "ism",
+      "word": "ism",
       "category": "macro",
       "base_weight": 2.0,
       "dynamic_weight": 1.0,
@@ -254,10 +254,10 @@
       "hit_count": 0,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "economic_data"
+      "subcategory": "general"
     },
     {
-      "keyword": "debt limit",
+      "word": "debt limit",
       "category": "macro",
       "base_weight": 2.5,
       "dynamic_weight": 1.0,
@@ -268,10 +268,10 @@
       "hit_count": 0,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "fiscal_policy"
+      "subcategory": "general"
     },
     {
-      "keyword": "fiscal cliff",
+      "word": "fiscal cliff",
       "category": "macro",
       "base_weight": 2.5,
       "dynamic_weight": 1.0,
@@ -282,10 +282,10 @@
       "hit_count": 0,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "fiscal_policy"
+      "subcategory": "general"
     },
     {
-      "keyword": "risk off",
+      "word": "risk off",
       "category": "macro",
       "base_weight": 2.0,
       "dynamic_weight": 1.0,
@@ -296,10 +296,10 @@
       "hit_count": 0,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "global_event"
+      "subcategory": "general"
     },
     {
-      "keyword": "risk on",
+      "word": "risk on",
       "category": "macro",
       "base_weight": 2.0,
       "dynamic_weight": 1.0,
@@ -310,10 +310,10 @@
       "hit_count": 0,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "global_event"
+      "subcategory": "general"
     },
     {
-      "keyword": "flight to safety",
+      "word": "flight to safety",
       "category": "macro",
       "base_weight": 2.0,
       "dynamic_weight": 1.0,
@@ -324,10 +324,10 @@
       "hit_count": 0,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "global_event"
+      "subcategory": "general"
     },
     {
-      "keyword": "contagion",
+      "word": "contagion",
       "category": "macro",
       "base_weight": 2.5,
       "dynamic_weight": 1.0,
@@ -338,10 +338,10 @@
       "hit_count": 0,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "global_event"
+      "subcategory": "general"
     },
     {
-      "keyword": "systemic risk",
+      "word": "systemic risk",
       "category": "macro",
       "base_weight": 2.5,
       "dynamic_weight": 1.0,
@@ -352,7 +352,7 @@
       "hit_count": 0,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "global_event"
+      "subcategory": "general"
     }
   ]
 }

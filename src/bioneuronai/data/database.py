@@ -87,7 +87,7 @@ class SignalRecord:
 class TradingDatabase:
     """交易資料庫管理器"""
     
-    def __init__(self, db_path: str = "trading_data/trading.db"):
+    def __init__(self, db_path: str = "data/bioneuronai/trading/runtime/trading.db"):
         """初始化資料庫"""
         self.db_path = Path(db_path)
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
@@ -714,7 +714,7 @@ if __name__ == "__main__":
     print("🧪 測試交易資料庫...\n")
     print("=" * 60)
     
-    db = TradingDatabase("trading_data/test_trading.db")
+    db = TradingDatabase("data/bioneuronai/trading/runtime/test_trading.db")
     
     # 測試交易對
     print("\n📊 交易對列表（按分類）：")

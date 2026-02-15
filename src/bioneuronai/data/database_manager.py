@@ -36,7 +36,7 @@ class DatabaseManager:
     # 常量定義
     SYMBOL_FILTER = " AND symbol = ?"
     
-    def __init__(self, db_path: str = "trading_data/trading.db", backup_enabled: bool = True):
+    def __init__(self, db_path: str = "data/bioneuronai/trading/runtime/trading.db", backup_enabled: bool = True):
         """
         初始化數據庫管理器
         
@@ -73,7 +73,7 @@ class DatabaseManager:
         
         try:
             yield self._local.conn
-        except Exception as e:
+        except Exception:
             self._local.conn.rollback()
             raise
         else:
@@ -530,7 +530,7 @@ class DatabaseManager:
                 query += " AND timestamp >= ?"
                 params.append(start_date)
             if symbol:
-                query += " AND symbol = ?"
+                query += self.SYMBOL_FILTER
                 params.append(symbol)
             if strategy:
                 query += " AND strategy_name = ?"
@@ -641,7 +641,7 @@ class DatabaseManager:
             params = [start_date]
             
             if symbol:
-                query += " AND symbol = ?"
+                query += self.SYMBOL_FILTER
                 params.append(symbol)
             
             query += " ORDER BY timestamp DESC"
@@ -1099,7 +1099,7 @@ class DatabaseManager:
         except Exception as e:
             logger.error(f"備份失敗: {e}")
     
-    def export_to_json(self, output_dir: str = "trading_data/exports"):
+    def export_to_json(self, output_dir: str = "data/bioneuronai/trading/exports"):
         """導出所有數據到 JSON 文件（用於遷移或分析）"""
         output_path = Path(output_dir)
         output_path.mkdir(exist_ok=True, parents=True)
@@ -1343,7 +1343,7 @@ _db_manager: Optional[DatabaseManager] = None
 _db_path_cache: Optional[str] = None
 
 
-def get_database_manager(db_path: str = "src/trading_data/trading.db") -> DatabaseManager:
+def get_database_manager(db_path: str = "data/bioneuronai/trading/runtime/trading.db") -> DatabaseManager:
     """獲取數據庫管理器單例"""
     global _db_manager, _db_path_cache
     

@@ -1,25 +1,25 @@
 {
   "category": "person",
   "description": "人物 - 幣圈領袖、Fed官員、政治人物、分析師等",
-  "last_updated": "2026-01-26 21:43:15",
+  "last_updated": "2026-02-15 15:40:55",
   "count": 32,
   "keywords": [
     {
-      "keyword": "elon musk",
+      "word": "elon musk",
       "category": "person",
-      "base_weight": 2.6499999999999995,
+      "base_weight": 3.5,
       "dynamic_weight": 2.0,
-      "sentiment_bias": "uncertain",
+      "sentiment_bias": "positive",
       "description": "特斯拉CEO，推文常引發市場波動",
       "added_date": "2026-01-19",
-      "last_updated": "2026-01-26",
+      "last_updated": "2026-02-15",
       "hit_count": 0,
-      "prediction_count": 22,
-      "correct_count": 22,
-      "subcategory": "tech_ceo"
+      "prediction_count": 42,
+      "correct_count": 42,
+      "subcategory": "general"
     },
     {
-      "keyword": "musk",
+      "word": "musk",
       "category": "person",
       "base_weight": 2.5,
       "dynamic_weight": 1.3604889600000003,
@@ -30,10 +30,10 @@
       "hit_count": 0,
       "prediction_count": 4,
       "correct_count": 4,
-      "subcategory": "tech_ceo"
+      "subcategory": "general"
     },
     {
-      "keyword": "vitalik",
+      "word": "vitalik",
       "category": "person",
       "base_weight": 2.0,
       "dynamic_weight": 1.0,
@@ -44,10 +44,10 @@
       "hit_count": 0,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "crypto_leader"
+      "subcategory": "general"
     },
     {
-      "keyword": "vitalik buterin",
+      "word": "vitalik buterin",
       "category": "person",
       "base_weight": 2.0,
       "dynamic_weight": 1.0,
@@ -58,10 +58,10 @@
       "hit_count": 0,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "crypto_leader"
+      "subcategory": "general"
     },
     {
-      "keyword": "cz",
+      "word": "cz",
       "category": "person",
       "base_weight": 2.0,
       "dynamic_weight": 1.0,
@@ -72,10 +72,10 @@
       "hit_count": 1,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "crypto_leader"
+      "subcategory": "general"
     },
     {
-      "keyword": "changpeng zhao",
+      "word": "changpeng zhao",
       "category": "person",
       "base_weight": 2.0,
       "dynamic_weight": 1.0,
@@ -86,10 +86,10 @@
       "hit_count": 0,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "crypto_leader"
+      "subcategory": "general"
     },
     {
-      "keyword": "michael saylor",
+      "word": "michael saylor",
       "category": "person",
       "base_weight": 2.0,
       "dynamic_weight": 1.0,
@@ -100,10 +100,10 @@
       "hit_count": 1,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "crypto_leader"
+      "subcategory": "general"
     },
     {
-      "keyword": "saylor",
+      "word": "saylor",
       "category": "person",
       "base_weight": 2.0,
       "dynamic_weight": 1.08,
@@ -114,10 +114,10 @@
       "hit_count": 1,
       "prediction_count": 1,
       "correct_count": 1,
-      "subcategory": "crypto_leader"
+      "subcategory": "general"
     },
     {
-      "keyword": "cathie wood",
+      "word": "cathie wood",
       "category": "person",
       "base_weight": 1.8,
       "dynamic_weight": 1.0,
@@ -128,10 +128,10 @@
       "hit_count": 0,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "fund_manager"
+      "subcategory": "general"
     },
     {
-      "keyword": "brian armstrong",
+      "word": "brian armstrong",
       "category": "person",
       "base_weight": 1.5,
       "dynamic_weight": 1.0,
@@ -142,10 +142,10 @@
       "hit_count": 1,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "crypto_leader"
+      "subcategory": "general"
     },
     {
-      "keyword": "sam bankman",
+      "word": "sam bankman",
       "category": "person",
       "base_weight": 2.0,
       "dynamic_weight": 1.0,
@@ -159,7 +159,7 @@
       "subcategory": "general"
     },
     {
-      "keyword": "sbf",
+      "word": "sbf",
       "category": "person",
       "base_weight": 2.0,
       "dynamic_weight": 1.0,
@@ -170,10 +170,10 @@
       "hit_count": 0,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "crypto_leader"
+      "subcategory": "general"
     },
     {
-      "keyword": "powell",
+      "word": "powell",
       "category": "person",
       "base_weight": 3.0,
       "dynamic_weight": 1.0,
@@ -184,10 +184,10 @@
       "hit_count": 0,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "fed_official"
+      "subcategory": "general"
     },
     {
-      "keyword": "jerome powell",
+      "word": "jerome powell",
       "category": "person",
       "base_weight": 3.0,
       "dynamic_weight": 1.0,
@@ -198,10 +198,10 @@
       "hit_count": 0,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "fed_official"
+      "subcategory": "general"
     },
     {
-      "keyword": "yellen",
+      "word": "yellen",
       "category": "person",
       "base_weight": 2.8,
       "dynamic_weight": 1.0,
@@ -212,10 +212,10 @@
       "hit_count": 0,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "fed_official"
+      "subcategory": "general"
     },
     {
-      "keyword": "janet yellen",
+      "word": "janet yellen",
       "category": "person",
       "base_weight": 2.8,
       "dynamic_weight": 1.0,
@@ -226,10 +226,10 @@
       "hit_count": 0,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "fed_official"
+      "subcategory": "general"
     },
     {
-      "keyword": "gensler",
+      "word": "gensler",
       "category": "person",
       "base_weight": 2.5,
       "dynamic_weight": 1.0,
@@ -240,10 +240,10 @@
       "hit_count": 0,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "regulator_official"
+      "subcategory": "general"
     },
     {
-      "keyword": "gary gensler",
+      "word": "gary gensler",
       "category": "person",
       "base_weight": 2.5,
       "dynamic_weight": 1.0,
@@ -254,10 +254,10 @@
       "hit_count": 0,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "regulator_official"
+      "subcategory": "general"
     },
     {
-      "keyword": "lagarde",
+      "word": "lagarde",
       "category": "person",
       "base_weight": 2.5,
       "dynamic_weight": 1.0,
@@ -271,7 +271,7 @@
       "subcategory": "general"
     },
     {
-      "keyword": "trump",
+      "word": "trump",
       "category": "person",
       "base_weight": 2.5,
       "dynamic_weight": 2.0,
@@ -282,10 +282,10 @@
       "hit_count": 4,
       "prediction_count": 18,
       "correct_count": 18,
-      "subcategory": "politician"
+      "subcategory": "general"
     },
     {
-      "keyword": "biden",
+      "word": "biden",
       "category": "person",
       "base_weight": 2.3,
       "dynamic_weight": 1.0,
@@ -296,10 +296,10 @@
       "hit_count": 0,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "politician"
+      "subcategory": "general"
     },
     {
-      "keyword": "warren buffett",
+      "word": "warren buffett",
       "category": "person",
       "base_weight": 2.0,
       "dynamic_weight": 1.0,
@@ -313,7 +313,7 @@
       "subcategory": "general"
     },
     {
-      "keyword": "buffett",
+      "word": "buffett",
       "category": "person",
       "base_weight": 2.0,
       "dynamic_weight": 1.0,
@@ -327,7 +327,7 @@
       "subcategory": "general"
     },
     {
-      "keyword": "larry fink",
+      "word": "larry fink",
       "category": "person",
       "base_weight": 2.2,
       "dynamic_weight": 1.0,
@@ -338,10 +338,10 @@
       "hit_count": 0,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "fund_manager"
+      "subcategory": "general"
     },
     {
-      "keyword": "sam altman",
+      "word": "sam altman",
       "category": "person",
       "base_weight": 2.5,
       "dynamic_weight": 1.0,
@@ -355,7 +355,7 @@
       "subcategory": "general"
     },
     {
-      "keyword": "jensen huang",
+      "word": "jensen huang",
       "category": "person",
       "base_weight": 2.0,
       "dynamic_weight": 1.0,
@@ -369,7 +369,7 @@
       "subcategory": "general"
     },
     {
-      "keyword": "justin sun",
+      "word": "justin sun",
       "category": "person",
       "base_weight": 2.0,
       "dynamic_weight": 1.0,
@@ -383,7 +383,7 @@
       "subcategory": "general"
     },
     {
-      "keyword": "arthur hayes",
+      "word": "arthur hayes",
       "category": "person",
       "base_weight": 1.8,
       "dynamic_weight": 1.0,
@@ -397,7 +397,7 @@
       "subcategory": "general"
     },
     {
-      "keyword": "stani kulechov",
+      "word": "stani kulechov",
       "category": "person",
       "base_weight": 1.8,
       "dynamic_weight": 1.0,
@@ -411,7 +411,7 @@
       "subcategory": "general"
     },
     {
-      "keyword": "waller",
+      "word": "waller",
       "category": "person",
       "base_weight": 2.0,
       "dynamic_weight": 1.0,
@@ -422,10 +422,10 @@
       "hit_count": 0,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "fed_official"
+      "subcategory": "general"
     },
     {
-      "keyword": "bostic",
+      "word": "bostic",
       "category": "person",
       "base_weight": 2.0,
       "dynamic_weight": 1.0,
@@ -436,10 +436,10 @@
       "hit_count": 0,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "fed_official"
+      "subcategory": "general"
     },
     {
-      "keyword": "kashkari",
+      "word": "kashkari",
       "category": "person",
       "base_weight": 2.0,
       "dynamic_weight": 1.0,
@@ -450,7 +450,7 @@
       "hit_count": 0,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "fed_official"
+      "subcategory": "general"
     }
   ]
 }

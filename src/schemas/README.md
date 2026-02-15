@@ -7,7 +7,7 @@
 [![Schema Version](https://img.shields.io/badge/schema_version-2.3.0-orange.svg)]()
 
 > **✅ 系統狀態**: 100% 功能完整，零錯誤零警告，Pydantic v2 完全兼容，專為幣安期貨交易設計  
-> **🔄 最後更新**: 2026年2月14日  
+> **🔄 最後更新**: 2026年2月15日  
 > **📋 符合標準**: [PEP 257](https://peps.python.org/pep-0257/), [Pydantic v2 官方標準](https://docs.pydantic.dev/), [幣安期貨 API 官方文檔](https://developers.binance.com/docs/derivatives)
 
 **BioNeuronAI Schemas** 是 BioNeuronAI 交易系統的**核心數據基準**，基於 Pydantic v2 構建，提供完整的類型安全、數據驗證和序列化功能，專為 AI 驅動的加密貨幣期貨交易而設計。
@@ -58,7 +58,7 @@
 
 ## 📊 模組統計
 
-**根據實際程式碼統計（2026年2月14日驗證）**：
+**根據實際程式碼統計（2026年2月15日驗證）**：
 
 | 項目 | 數量 | 說明 |
 |------|------|------|
@@ -91,6 +91,7 @@ schemas/
 ├── api.py               # API 通信模型
 ├── commands.py          # 命令系統模型 (AIVA Common v6.3)
 ├── database.py          # 資料庫操作模型
+├── external_data.py     # 🆕 外部數據源模型 (恐慌貪婪指數、DeFi、穩定幣)
 ├── rag.py               # RAG 和事件系統模型
 └── README.md            # 本文件 (基準文檔)
 ```
@@ -363,15 +364,16 @@ signal = TradingSignal(
 
 | 模組 | 主要模型 | 說明 |
 |------|---------|---------|
-| `api.py` | ApiCredentials, ApiResponse, BinanceApiError, WebSocketMessage, ExchangeInfo | API 通信 |
+| `api.py` | ApiCredentials, ApiResponse, BinanceApiError, WebSocketMessage, ApiStatusInfo, ExchangeInfo | API 通信 |
 | `orders.py` | BinanceOrderRequest, BinanceOrderResponse, OrderBook | 訂單管理 |
 | `positions.py` | BinancePosition, PositionRisk, AccountBalance | 倉位管理 |
 | `market.py` | MarketData | 市場數據 |
 | `portfolio.py` | Portfolio, PortfolioSummary, PortfolioAnalytics, RiskMetrics | 投資組合 |
 | `risk.py` | RiskParameters, PositionSizing, PortfolioRisk, RiskAlert | 風險管理 |
-| `database.py` | DatabaseConfig, DatabaseQuery, DatabaseResult, DatabaseConnection, TradingDataRecord | 資料庫 |
-| `commands.py` | AICommand, AICommandResult, TradingCommand, AnalysisCommand | 命令系統 |
-| `rag.py` | EventContext, EventRule, RAGRiskItem, PreTradeCheckRequest | RAG 系統 |
+| `database.py` | DatabaseConfig, DatabaseQuery, DatabaseResult, DatabaseConnection, TradingDataRecord, DatabaseService | 資料庫 |
+| `commands.py` | AICommand, AICommandResult, TradingCommand, AnalysisCommand, RiskManagementCommand, SystemCommand | 命令系統 |
+| `external_data.py` | FearGreedIndex, GlobalMarketData, DeFiMetrics, StablecoinMetrics, EconomicEvent, MarketSentiment, ExternalDataSnapshot | 外部數據源 |
+| `rag.py` | EventContext, EventRule, RAGRiskItem, RAGNewsItem, PreTradeCheckRequest, PreTradeCheckResponse, SearchResult | RAG 系統 |
 
 ---
 
@@ -443,88 +445,6 @@ alert_rule = AlertRule(
     )
 )
 ```
-|------|------|
-| `EventContext` | **事件上下文** (2026-01-25 新增) - 包含事件類型、強度、影響評分、建議動作 |
-| `EventRule` | **事件規則** (2026-01-25 新增) - 定義事件觸發條件和處理邏輯 |
-| `RAGRiskItem` | RAG 風險項目 |
-| `RAGNewsItem` | RAG 新聞項目 |
-| `PreTradeCheckRequest` | 交易前檢查請求 |
-| `PreTradeCheckResponse` | 交易前檢查響應 |
-| `SearchResult` | 搜索結果 |
-| `RetrievalQuery` | 檢索查詢 |
-| `RetrievalResult` | 檢索結果 |
-| `KnowledgeDocumentSchema` | 知識文檔結構 |
-
-```python
-from schemas.rag import EventContext, EventRule
-from schemas.enums import EventType, EventIntensity
-
-# 創建事件上下文
-context = EventContext(
-    event_type=EventType.HACK,
-    intensity=EventIntensity.HIGH,
-    impact_score=-7.5,
-    suggested_action="reduce_position",
-    affected_symbols=["BTCUSDT", "ETHUSDT"],
-)
-```
-
-### 4️⃣ 其他核心模組
-
-| 模組 | 主要模型 | 說明 |
-|------|---------|------|
-| `api.py` | ApiCredentials, ApiResponse, BinanceApiError, WebSocketMessage, ExchangeInfo | API 通信 |
-| `orders.py` | BinanceOrderRequest, BinanceOrderResponse, OrderBook | 訂單管理 |
-| `positions.py` | BinancePosition, PositionRisk, AccountBalance | 倉位管理 |
-| `market.py` | MarketData | 市場數據 |
-| `portfolio.py` | Portfolio, PortfolioSummary, PortfolioAnalytics, RiskMetrics | 投資組合 |
-| `risk.py` | RiskParameters, PositionSizing, PortfolioRisk, RiskAlert | 風險管理 |
-| `database.py` | DatabaseConfig, DatabaseQuery, DatabaseResult, DatabaseConnection, TradingDataRecord | 資料庫 |
-| `commands.py` | AICommand, AICommandResult, TradingCommand, AnalysisCommand | 命令系統 |
-| `trading.py` | TradingSignal | 交易信號 |
-
----
-
-## 🚀 快速開始
-
-### 基本使用
-
-```python
-# 從統一入口導入
-from schemas import (
-    # 枚舉
-    StrategyType, MarketRegime, Complexity,
-    EventType, EventIntensity, RiskLevel,
-    OrderType, OrderSide, TimeInForce,
-    
-    # 模型
-    StrategyRecommendation, StrategyConfig,
-    EventContext, EventRule,
-    BinanceOrderRequest, BinancePosition,
-    
-    # 常數
-    STRATEGY_MARKET_FIT,
-)
-
-# 創建策略推薦
-recommendation = StrategyRecommendation(
-    primary_strategy=StrategyType.TREND_FOLLOWING,
-    primary_confidence=0.85,
-    market_regime=MarketRegime.TRENDING_BULL,
-    risk_level=RiskLevel.MEDIUM,
-    strategy_weights={
-        "trend_following": 0.4,
-        "momentum": 0.3,
-        "breakout": 0.2,
-    },
-    reasoning=["市場體制: trending_bull", "趨勢跟隨策略在牛市表現最佳"],
-)
-
-# 查詢策略適配
-fit = STRATEGY_MARKET_FIT[StrategyType.MEAN_REVERSION]
-print(f"均值回歸最適合: {fit['best']}")
-print(f"均值回歸應避免: {fit['avoid']}")
-```
 
 ---
 
@@ -589,55 +509,7 @@ StrategyConfig, StrategySelection, StrategyRecommendation,
 StrategyPerformanceMetrics, TradeSetup,
 RAGRiskItem, RAGNewsItem, PreTradeCheckRequest, PreTradeCheckResponse,
 SearchResult, RetrievalQuery, RetrievalResult, KnowledgeDocumentSchema,
-EventContext, EventRule
-```
-
-#### 常數
-```python
-STRATEGY_MARKET_FIT  # Dict[StrategyType, Dict[str, list[MarketRegime]]]
-```
-NewsCategory, SearchEngine, RetrievalSource
-```
-
-#### Pydantic 模型 (50+ 個)
-```python
-# 市場數據
-MarketData
-
-# 交易信號
-TradingSignal
-
-# 訂單管理
-BinanceOrderRequest, BinanceOrderResponse, OrderBook
-
-# 倉位管理
-BinancePosition, PositionRisk, AccountBalance
-
-# 投資組合
-Portfolio, PortfolioSummary, PortfolioAnalytics, RiskMetrics
-
-# API 通信
-ApiCredentials, ApiResponse, BinanceApiError, WebSocketMessage, ExchangeInfo
-
-# 命令系統
-AICommand, AICommandResult, TradingCommand, AnalysisCommand,
-RiskManagementCommand, SystemCommand
-
-# 資料庫
-DatabaseConfig, DatabaseQuery, DatabaseResult, DatabaseConnection,
-TradingDataRecord, DatabaseService
-
-# 風險管理
-RiskParameters, PositionSizing, PortfolioRisk, RiskAlert
-
-# 策略管理
-StrategyConfig, StrategySelection, StrategyRecommendation,
-StrategyPerformanceMetrics, TradeSetup
-
-# RAG 系統
-RAGRiskItem, RAGNewsItem, PreTradeCheckRequest, PreTradeCheckResponse,
-SearchResult, RetrievalQuery, RetrievalResult, KnowledgeDocumentSchema,
-EventContext, EventRule
+EventContext, EventRule,
 ```
 
 #### 常數
@@ -755,4 +627,8 @@ def get_suitable_strategies(regime: MarketRegime) -> list[StrategyType]:
 
 ---
 
-*最後更新: 2026年2月14日 | 版本: v2.3.0 | 作者: BioNeuronAI Team*
+*最後更新: 2026年2月15日 | 版本: v2.3.0 | 作者: BioNeuronAI Team*
+
+---
+
+> 📖 上層目錄：[src/README.md](../README.md)

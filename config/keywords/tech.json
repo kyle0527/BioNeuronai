@@ -1,11 +1,11 @@
 {
   "category": "tech",
   "description": "技術 - AI、區塊鏈技術等",
-  "last_updated": "2026-01-26 21:43:15",
+  "last_updated": "2026-02-15 15:40:56",
   "count": 8,
   "keywords": [
     {
-      "keyword": "halving",
+      "word": "halving",
       "category": "tech",
       "base_weight": 2.8,
       "dynamic_weight": 1.0,
@@ -16,10 +16,10 @@
       "hit_count": 0,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "blockchain"
+      "subcategory": "general"
     },
     {
-      "keyword": "upgrade",
+      "word": "upgrade",
       "category": "tech",
       "base_weight": 1.8,
       "dynamic_weight": 1.0,
@@ -30,10 +30,10 @@
       "hit_count": 0,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "blockchain"
+      "subcategory": "general"
     },
     {
-      "keyword": "ai",
+      "word": "ai",
       "category": "tech",
       "base_weight": 2.8,
       "dynamic_weight": 1.3604889600000003,
@@ -44,10 +44,10 @@
       "hit_count": 1,
       "prediction_count": 4,
       "correct_count": 4,
-      "subcategory": "ai"
+      "subcategory": "general"
     },
     {
-      "keyword": "layer 2",
+      "word": "layer 2",
       "category": "tech",
       "base_weight": 2.0,
       "dynamic_weight": 1.0,
@@ -58,10 +58,10 @@
       "hit_count": 0,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "blockchain"
+      "subcategory": "general"
     },
     {
-      "keyword": "l2",
+      "word": "l2",
       "category": "tech",
       "base_weight": 2.0,
       "dynamic_weight": 1.0,
@@ -72,10 +72,10 @@
       "hit_count": 0,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "blockchain"
+      "subcategory": "general"
     },
     {
-      "keyword": "ai agent",
+      "word": "ai agent",
       "category": "tech",
       "base_weight": 2.0,
       "dynamic_weight": 1.0,
@@ -86,10 +86,10 @@
       "hit_count": 0,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "ai"
+      "subcategory": "general"
     },
     {
-      "keyword": "deepseek",
+      "word": "deepseek",
       "category": "tech",
       "base_weight": 2.0,
       "dynamic_weight": 1.0,
@@ -100,10 +100,10 @@
       "hit_count": 0,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "ai"
+      "subcategory": "general"
     },
     {
-      "keyword": "chatgpt",
+      "word": "chatgpt",
       "category": "tech",
       "base_weight": 1.5,
       "dynamic_weight": 1.0,
@@ -114,7 +114,7 @@
       "hit_count": 0,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "ai"
+      "subcategory": "general"
     }
   ]
 }

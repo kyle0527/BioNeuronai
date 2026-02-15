@@ -1,7 +1,7 @@
 # 技術文檔索引
 
 > BioNeuronai 交易系統技術文檔導航  
-> **最後更新**: 2026年1月22日
+> **最後更新**: 2026年2月15日
 
 ---
 
@@ -9,9 +9,8 @@
 
 1. [核心文檔](#核心文檔)
 2. [快速開始](#快速開始)
-3. [開發指南](#開發指南)
-4. [API 參考](#api-參考)
-5. [故障排除](#故障排除)
+3. [文檔結構](#文檔結構)
+4. [外部資源](#外部資源)
 
 ---
 
@@ -25,24 +24,16 @@
   - 最佳實踐
   - 故障排除
 
-### 📖 使用指南
-- **[加密貨幣交易指南](../CRYPTO_TRADING_GUIDE.md)**
-  - 交易基礎知識
-  - 系統使用教程
-  
-- **[交易策略指南](../TRADING_STRATEGIES_GUIDE.md)**
-  - 策略詳細說明
-  - 使用場景分析
+### 📖 其他技術文檔
+- **[認知複雜度削減指南](./COMPLEXITY_REDUCTION_GUIDE.md)**
+- **[市場關鍵字系統](./MARKET_KEYWORDS_SYSTEM.md)**
 
+### 📋 參考文檔（位於 docs/）
 - **[策略快速參考](../STRATEGIES_QUICK_REFERENCE.md)**
   - 快速查詢表
   - 參數配置
 
-### 📋 標準操作程序
-- **[交易 SOP](../CRYPTO_TRADING_SOP.md)**
-  - 交易前檢查清單
-  - 風險管理流程
-  - 應急處理程序
+> **📝 注意**: 部分舊版文檔（交易指南、策略詳解、交易 SOP）已移至 [archived/docs_v3/](../../archived/docs_v3/) 歸檔目錄。
 
 ---
 
@@ -50,33 +41,24 @@
 
 ### 新用戶
 1. 閱讀 [模組化架構技術手冊](./MODULAR_ARCHITECTURE_GUIDE.md) 的「快速開始」章節
-2. 查看 [加密貨幣交易指南](../CRYPTO_TRADING_GUIDE.md)
+2. 查看 [策略快速參考](../STRATEGIES_QUICK_REFERENCE.md)
 3. 運行示例代碼
 
 ### 開發者
 1. 閱讀 [模組化架構技術手冊](./MODULAR_ARCHITECTURE_GUIDE.md) 完整內容
-2. 查看 [架構重構說明](../../ARCHITECTURE_REFACTORING.md)
+2. 查看 [專案結構](../PROJECT_STRUCTURE.md)
 3. 參考 API 文檔開發新功能
-
-### 從舊版遷移
-1. 查看 [遷移指南](./MODULAR_ARCHITECTURE_GUIDE.md#遷移指南)
-2. 向後兼容性說明
-3. 更新導入語句
 
 ---
 
 ## 📂 文檔結構
 
 ```
-docs/
-├── tech/                               # 技術文檔
-│   ├── README.md                       # 本文件（索引）
-│   └── MODULAR_ARCHITECTURE_GUIDE.md   # 架構技術手冊 ⭐
-│
-├── CRYPTO_TRADING_GUIDE.md             # 交易指南
-├── CRYPTO_TRADING_SOP.md               # 標準操作程序
-├── STRATEGIES_QUICK_REFERENCE.md       # 策略快速參考
-└── TRADING_STRATEGIES_GUIDE.md         # 策略詳細指南
+docs/tech/
+├── README.md                       # 本文件（索引）
+├── MODULAR_ARCHITECTURE_GUIDE.md   # 架構技術手冊 ⭐
+├── COMPLEXITY_REDUCTION_GUIDE.md   # 認知複雜度指南
+└── MARKET_KEYWORDS_SYSTEM.md       # 關鍵字系統說明
 ```
 
 ---
@@ -85,27 +67,11 @@ docs/
 
 - **項目主頁**: [GitHub - kyle0527/BioNeuronai](https://github.com/kyle0527/BioNeuronai)
 - **根目錄 README**: [../../README.md](../../README.md)
-- **架構重構說明**: [../../ARCHITECTURE_REFACTORING.md](../../ARCHITECTURE_REFACTORING.md)
+- **歸檔文檔**: [archived/docs_v3/](../../archived/docs_v3/)
 
 ---
 
-## 📝 文檔維護
-
-- **最後更新**: 2026年1月19日
-- **版本**: v2.0
-- **維護**: BioNeuronai 開發團隊
-
----
-
-## 💡 推薦閱讀順序
-
-### 對於交易者
-1. 📖 [加密貨幣交易指南](../CRYPTO_TRADING_GUIDE.md)
-2. 📋 [交易 SOP](../CRYPTO_TRADING_SOP.md)
-3. 📊 [策略快速參考](../STRATEGIES_QUICK_REFERENCE.md)
-
-### 對於開發者
-1. 🏗️ [模組化架構技術手冊](./MODULAR_ARCHITECTURE_GUIDE.md) ⭐
+> 📖 上層目錄：[docs/README.md](../README.md)
 2. 🔧 [架構重構說明](../../ARCHITECTURE_REFACTORING.md)
 3. 📖 [交易策略指南](../TRADING_STRATEGIES_GUIDE.md)
 

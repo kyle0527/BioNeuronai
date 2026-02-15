@@ -1,83 +1,121 @@
-# RAG 核心模組 (RAG Core)
+# RAG Core — 核心檢索與嵌入模組
 
-**路徑**: `src/bioneuronai/rag/core/`  
-**版本**: v1.0  
-**更新日期**: 2026-01-22
+> **版本**: v2.0.0 | **更新日期**: 2026-02-15
 
 ---
 
-## 📋 目錄
+## 模組定位
 
-1. [模組概述](#模組概述)
-2. [核心文件](#核心文件)
-3. [主要功能](#主要功能)
-4. [使用示例](#使用示例)
+`src/rag/core/` 提供 RAG 系統的兩大核心能力：**向量嵌入 (Embedding)** 和 **統一檢索 (Retrieval)**。
 
 ---
 
-## 🎯 模組概述
+## 目錄結構
 
-RAG (Retrieval-Augmented Generation) 核心模組，提供文檔嵌入和檢索功能。
-
-### 模組職責
-- ✅ 文本向量化
-- ✅ 相似度計算
-- ✅ 文檔檢索
-- ✅ 語義搜索
-
----
-
-## 📁 核心文件
-
-### `embeddings.py`
-文本嵌入模組，將文本轉換為向量表示。
-
-**主要功能**:
-- 文本向量化
-- 嵌入模型管理
-- 批量處理
-
-### `retriever.py`
-文檔檢索模組，根據查詢檢索相關文檔。
-
-**主要功能**:
-- 語義搜索
-- 相似度排序
-- 結果過濾
-
----
-
-## 🛠️ 主要功能
-
-### 1. 文本嵌入
-將文本轉換為高維向量表示。
-
-### 2. 文檔檢索
-根據查詢向量檢索最相關的文檔。
-
-### 3. 語義匹配
-計算文本之間的語義相似度。
-
----
-
-## 💡 使用示例
-
-```python
-from src.bioneuronai.rag.core import Embeddings, Retriever
-
-# 初始化嵌入模型
-embeddings = Embeddings()
-
-# 文本向量化
-vector = embeddings.embed("比特幣價格上漲")
-
-# 初始化檢索器
-retriever = Retriever()
-
-# 檢索相關文檔
-results = retriever.search(query="BTC市場分析", top_k=5)
+```
+core/
+├── __init__.py          # 匯出核心類別
+├── embeddings.py        # 向量嵌入服務 (288 行)
+└── retriever.py         # 統一檢索器 (337 行)
 ```
 
 ---
 
-**最後更新**: 2026年1月22日
+## embeddings.py — 向量嵌入服務
+
+支持多種嵌入後端的統一嵌入介面。
+
+### EmbeddingModel 枚舉
+
+| 模型 | 說明 |
+|------|------|
+| `LOCAL_MINILM` | sentence-transformers MiniLM |
+| `LOCAL_MPNET` | sentence-transformers MPNet |
+| `LOCAL_MULTILINGUAL` | 多語言本地模型 |
+| `OPENAI_SMALL` | OpenAI text-embedding-3-small |
+| `OPENAI_LARGE` | OpenAI text-embedding-3-large |
+| `OPENAI_ADA` | OpenAI text-embedding-ada-002 |
+| `CUSTOM` | 自訂模型 |
+
+### EmbeddingService 類別
+
+| 方法 | 說明 |
+|------|------|
+| `embed(text)` | 單條文本向量化 |
+| `embed_batch(texts)` | 批量文本向量化 |
+| `find_similar()` | 相似度搜索 |
+| `cosine_similarity()` | 餘弦相似度（靜態方法） |
+| `euclidean_distance()` | 歐幾里得距離（靜態方法） |
+| `get_stats()` | 取得統計資訊 |
+
+### EmbeddingResult 資料類
+
+嵌入結果：`text`, `embedding`, `model`, `dimensions`, `created_at`, `metadata`。
+
+```python
+from src.rag.core import EmbeddingService, EmbeddingModel
+
+service = EmbeddingService(model=EmbeddingModel.LOCAL_MINILM)
+result = service.embed("BTC 今日走勢分析")
+# result.embedding → numpy array
+```
+
+---
+
+## retriever.py — 統一檢索器
+
+整合內部知識庫、網路搜索、新聞 API 等多種數據源的統一檢索介面。
+
+### RetrievalSource 枚舉
+
+| 來源 | 說明 |
+|------|------|
+| `INTERNAL_KNOWLEDGE` | 內部知識庫 |
+| `WEB_SEARCH` | 網路搜索 |
+| `NEWS_API` | 新聞 API |
+| `SOCIAL_MEDIA` | 社群媒體 |
+| `HISTORICAL_DATA` | 歷史數據 |
+| `TRADING_RULES` | 交易規則 |
+| `ALL` | 所有來源 |
+
+### UnifiedRetriever 類別
+
+| 方法 | 說明 |
+|------|------|
+| `retrieve(query)` | 通用檢索（接受 `RetrievalQuery`） |
+| `retrieve_for_trading(symbol, ...)` | 交易專用檢索（快捷方法） |
+| `get_stats()` | 取得統計資訊 |
+
+### 相關資料類
+
+- `RetrievalQuery` — 檢索查詢（query, sources, top_k, min_relevance, time_range_hours, filters）
+- `RetrievalResult` — 檢索結果（content, source, relevance_score, timestamp, url, title, metadata）
+
+```python
+from src.rag.core import UnifiedRetriever, RetrievalQuery, RetrievalSource
+
+retriever = UnifiedRetriever()
+query = RetrievalQuery(
+    query="BTC 大額轉帳",
+    sources=[RetrievalSource.NEWS_API, RetrievalSource.INTERNAL_KNOWLEDGE],
+    top_k=5
+)
+results = retriever.retrieve(query)
+```
+
+---
+
+## 公開介面
+
+```python
+from src.rag.core import (
+    EmbeddingService, EmbeddingModel, EmbeddingResult,
+    UnifiedRetriever, RetrievalResult, RetrievalQuery, RetrievalSource,
+)
+```
+
+---
+
+> 📖 相關：[RAG 總覽](../README.md) | [Internal 知識庫](../internal/README.md) | [Services 服務層](../services/README.md)
+>
+> 📖 上層目錄：[src/rag/README.md](../README.md)

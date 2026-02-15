@@ -1,260 +1,274 @@
-# RAG 系統 (Retrieval-Augmented Generation)
+# RAG 模組 — 檢索增強生成系統
 
-**路徑**: `src/bioneuronai/rag/`  
-**版本**: v1.0  
-**更新日期**: 2026-01-22
+> **版本**: v2.0.0 | **更新日期**: 2026-02-15
 
 ---
 
-## 📋 目錄
+## 目錄
 
-1. [系統概述](#系統概述)
-2. [子模組結構](#子模組結構)
-3. [工作流程](#工作流程)
-4. [使用示例](#使用示例)
-5. [相關文檔](#相關文檔)
-
----
-
-## 🎯 系統概述
-
-RAG (Retrieval-Augmented Generation) 系統為 AI 模型提供外部知識檢索能力，增強生成結果的準確性和相關性。
-
-### 系統職責
-- ✅ 文本向量化 (Embeddings)
-- ✅ 相似性檢索 (Retrieval)
-- ✅ 知識庫管理 (Knowledge Base)
-- ✅ 服務層接口 (Services)
+- [模組定位](#模組定位)
+- [架構總覽](#架構總覽)
+- [目錄結構](#目錄結構)
+- [子模組說明](#子模組說明)
+- [工作流程](#工作流程)
+- [快速開始](#快速開始)
+- [API 參考](#api-參考)
+- [可用性旗標](#可用性旗標)
+- [整合模組](#整合模組)
+- [技術規格](#技術規格)
 
 ---
 
-## 📦 子模組結構
+## 模組定位
 
-### 1. [core/](core/README.md) - 核心組件
-基礎的文本嵌入和檢索功能。
+`src/rag/` 是 BioNeuronai 的**檢索增強生成 (RAG)** 系統，整合向量嵌入、語義檢索、內部知識庫和外部數據源，為交易決策提供上下文增強的資訊檢索能力。
 
-**核心文件**:
-- `embeddings.py` - 文本向量化
-- `retriever.py` - 文檔檢索
-
-**主要功能**:
-- 文本轉向量
-- 向量相似度計算
-- Top-K 檢索
-
-### 2. [internal/](internal/README.md) - 內部模塊
-知識庫的內部實現。
-
-**核心文件**:
-- `knowledge_base.py` - 知識庫管理
-
-**主要功能**:
-- 文檔存儲
-- 索引管理
-- 版本控制
-
-### 3. [services/](services/README.md) - 服務層
-對外提供的服務接口 (當前為佔位模組)。
-
-**規劃功能**:
-- API 接口
-- 批量處理
-- 異步查詢
+> ⚠️ 此模組取代了 `src/nlp/rag_system.py`（已廢棄），是 RAG 功能的唯一正式實現。
 
 ---
 
-## 🔄 工作流程
+## 架構總覽
 
 ```
-用戶查詢
-    │
-    ▼
-[embeddings.py]
-將查詢轉換為向量
-    │
-    ▼
-[retriever.py]
-在向量空間中檢索
-    │
-    ▼
-[knowledge_base.py]
-獲取完整文檔內容
-    │
-    ▼
-[services/]
-返回結構化結果
-    │
-    ▼
-AI 模型生成答案
+┌──────────────────────────────────────────────────────────┐
+│                      RAG 系統架構                         │
+├─────────────┬────────────────────────────────────────────┤
+│  Core 層     │  EmbeddingService ←→ UnifiedRetriever      │
+│             │  向量嵌入 + 統一檢索介面                      │
+├─────────────┼────────────────────────────────────────────┤
+│  Internal 層 │  InternalKnowledgeBase + VectorIndex        │
+│             │  文檔管理 + FAISS 向量索引                    │
+├─────────────┼────────────────────────────────────────────┤
+│  Services 層 │  NewsAdapter + PreTradeCheckSystem           │
+│             │  外部數據橋接（新聞 + 交易前檢查）             │
+├─────────────┼────────────────────────────────────────────┤
+│  Monitoring  │  RAGMonitor                                 │
+│             │  請求追蹤 / 延遲統計 / 快取命中率              │
+└─────────────┴────────────────────────────────────────────┘
 ```
 
 ---
 
-## 🏗️ 系統架構
+## 目錄結構
 
 ```
-rag/
-│
-├── core/                  # 核心層
-│   ├── embeddings.py      # 文本 → 向量
-│   └── retriever.py       # 向量 → 文檔
-│
-├── internal/              # 數據層
-│   └── knowledge_base.py  # 文檔存儲與索引
-│
-└── services/              # 服務層 (規劃中)
-    └── __init__.py        # 服務接口
+src/rag/
+├── __init__.py                  # 模組入口 (205 行)，統一匯出 + 工廠函數
+├── README.md                    # 本文件
+├── core/
+│   ├── __init__.py              # 匯出核心類別
+│   ├── embeddings.py            # 向量嵌入服務 (288 行)
+│   ├── retriever.py             # 統一檢索器 (337 行)
+│   └── README.md
+├── internal/
+│   ├── __init__.py              # 匯出知識庫類別
+│   ├── knowledge_base.py        # 內部知識庫 (461 行)
+│   ├── faiss_index.py           # FAISS 向量索引 (197 行)
+│   └── README.md
+├── services/
+│   ├── __init__.py              # 匯出服務類別
+│   ├── news_adapter.py          # 新聞適配器 (358 行)
+│   └── README.md
+└── monitoring/
+    ├── __init__.py              # RAG 監控器 (273 行)
+    └── README.md
 ```
 
 ---
 
-## 💡 使用示例
+## 子模組說明
 
-### 1. 完整 RAG 流程
+### Core — 核心嵌入與檢索
+
+| 檔案 | 行數 | 主要類別 | 說明 |
+|------|------|----------|------|
+| `embeddings.py` | 288 | `EmbeddingService`, `EmbeddingModel`, `EmbeddingResult` | 支持本地模型 + OpenAI API，含快取機制 |
+| `retriever.py` | 337 | `UnifiedRetriever`, `RetrievalQuery`, `RetrievalResult`, `RetrievalSource` | 整合 7 種數據源的統一檢索 |
+
+### Internal — 內部知識庫
+
+| 檔案 | 行數 | 主要類別 | 說明 |
+|------|------|----------|------|
+| `knowledge_base.py` | 461 | `InternalKnowledgeBase`, `KnowledgeDocument`, `DocumentType` | 文檔 CRUD + 語義搜索 + 持久化 |
+| `faiss_index.py` | 197 | `VectorIndex` | FAISS 向量索引，不可用時降級為 NumPy |
+
+### Services — 外部數據橋接
+
+| 檔案 | 行數 | 主要類別 | 說明 |
+|------|------|----------|------|
+| `news_adapter.py` | 358 | `NewsAdapter`, `NewsSearchResult` | CryptoNewsAnalyzer 的 RAG 相容封裝 |
+
+### Monitoring — 系統監控
+
+| 檔案 | 行數 | 主要類別 | 說明 |
+|------|------|----------|------|
+| `__init__.py` | 273 | `RAGMonitor`, `RetrievalMetrics` | 請求追蹤、延遲、快取、錯誤統計 |
+
+---
+
+## 工作流程
+
+```
+使用者查詢
+    │
+    ▼
+UnifiedRetriever.retrieve(query)
+    │
+    ├─ 內部知識庫 ─→ InternalKnowledgeBase.search()
+    │                    └─ VectorIndex (FAISS/NumPy)
+    │
+    ├─ 新聞搜索 ───→ NewsAdapter.search()
+    │                    └─ CryptoNewsAnalyzer
+    │
+    ├─ 交易規則 ───→ 內建 DEFAULT_TRADING_RULES
+    │
+    └─ 其他來源 ───→ Web / Social / Historical
+    │
+    ▼
+RetrievalResult[] ──→ RAGMonitor.log_retrieval()
+    │
+    ▼
+排序 + 過濾 → 傳回結果
+```
+
+---
+
+## 快速開始
+
+### 建立檢索器
+
 ```python
-from src.bioneuronai.rag.core import Embeddings, Retriever
-from src.bioneuronai.rag.internal import KnowledgeBase
+from src.rag import create_unified_retriever
 
-# 初始化組件
-embeddings = Embeddings()
-kb = KnowledgeBase()
-retriever = Retriever(embeddings, kb)
-
-# 添加文檔到知識庫
-documents = [
-    "加密貨幣是數字或虛擬貨幣...",
-    "比特幣是第一個去中心化的加密貨幣...",
-    "以太坊支持智能合約..."
-]
-kb.add_documents(documents)
-
-# 檢索相關文檔
-query = "什麼是智能合約?"
-results = retriever.retrieve(query, top_k=3)
-
-# 使用檢索結果增強 AI 回答
-context = "\n".join([doc['content'] for doc in results])
-answer = ai_model.generate(query, context=context)
+retriever = create_unified_retriever()
 ```
 
-### 2. 只使用嵌入功能
+### 執行檢索
+
 ```python
-from src.bioneuronai.rag.core import Embeddings
+from src.rag.core import RetrievalQuery, RetrievalSource
 
-# 初始化嵌入模型
-embeddings = Embeddings(model='sentence-transformers')
-
-# 生成文本向量
-text = "區塊鏈技術"
-vector = embeddings.encode(text)
-
-# 計算相似度
-text1 = "比特幣"
-text2 = "以太坊"
-similarity = embeddings.cosine_similarity(text1, text2)
-```
-
-### 3. 獨立使用知識庫
-```python
-from src.bioneuronai.rag.internal import KnowledgeBase
-
-# 初始化知識庫
-kb = KnowledgeBase(storage_path='./knowledge_db')
-
-# 添加帶元數據的文檔
-kb.add_document(
-    content="趨勢跟隨策略適用於單邊上漲行情",
-    metadata={
-        'category': 'trading_strategy',
-        'strategy_type': 'trend_following',
-        'timestamp': '2026-01-22'
-    }
+query = RetrievalQuery(
+    query="BTC 大額轉帳風險",
+    sources=[RetrievalSource.INTERNAL_KNOWLEDGE, RetrievalSource.NEWS_API],
+    top_k=5,
+    min_relevance=0.3
 )
+results = retriever.retrieve(query)
 
-# 按類別檢索
-strategy_docs = kb.get_by_category('trading_strategy')
-
-# 按時間檢索
-recent_docs = kb.get_recent(days=7)
+for r in results:
+    print(f"[{r.source.value}] {r.title} (相關性: {r.relevance_score:.2f})")
 ```
 
----
+### 交易專用檢索
 
-## 🔧 配置選項
-
-### 嵌入模型配置
 ```python
-embeddings_config = {
-    'model': 'sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2',
-    'device': 'cuda',  # or 'cpu'
-    'batch_size': 32,
-    'normalize': True
-}
+results = retriever.retrieve_for_trading(symbol="BTCUSDT")
 ```
 
-### 檢索器配置
+### 管理知識庫
+
 ```python
-retriever_config = {
-    'top_k': 5,
-    'similarity_threshold': 0.7,
-    'rerank': True,
-    'diversity_weight': 0.3
-}
+from src.rag.internal import InternalKnowledgeBase, KnowledgeDocument, DocumentType
+
+kb = InternalKnowledgeBase()
+kb.add_document(KnowledgeDocument(
+    id="rule-custom-001",
+    title="自訂風控規則",
+    content="連續虧損 3 次後暫停交易 24 小時",
+    doc_type=DocumentType.TRADING_RULE,
+    tags=["risk", "custom"]
+))
 ```
 
-### 知識庫配置
+### 查看監控
+
 ```python
-kb_config = {
-    'storage_type': 'vector_db',  # or 'sqlite', 'json'
-    'index_type': 'hnsw',         # or 'flat', 'ivf'
-    'dimension': 384,
-    'metric': 'cosine'
-}
+from src.rag.monitoring import get_monitor
+
+monitor = get_monitor()
+monitor.print_stats()
 ```
 
 ---
 
-## 📊 性能指標
+## API 參考
 
-| 操作 | 延遲 | 吞吐量 |
-|------|------|--------|
-| 文本嵌入 | < 50ms | 1000 docs/s |
-| 向量檢索 | < 10ms | 10000 queries/s |
-| 文檔添加 | < 5ms | 5000 docs/s |
+### `__init__.py` 頂層函數
 
----
+| 函數 | 回傳類型 | 說明 |
+|------|----------|------|
+| `create_unified_retriever()` | `UnifiedRetriever` | 工廠函數，建立預設配置的檢索器 |
+| `get_rag_status()` | `dict` | 取得 RAG 模組狀態（各子模組可用性） |
 
-## 🛣️ 開發路線圖
+### 核心匯出
 
-### v1.0 (當前)
-- ✅ 基礎嵌入功能
-- ✅ 簡單檢索
-- ✅ 知識庫存儲
-
-### v1.1 (規劃)
-- ⏳ 多模型支持
-- ⏳ 混合檢索 (向量 + 關鍵字)
-- ⏳ 查詢重寫
-
-### v2.0 (未來)
-- 📋 分佈式檢索
-- 📋 實時索引更新
-- 📋 多語言支持
+```python
+from src.rag import (
+    # Core
+    EmbeddingService, EmbeddingModel, EmbeddingResult,
+    UnifiedRetriever, RetrievalResult, RetrievalQuery, RetrievalSource,
+    # Internal
+    InternalKnowledgeBase, KnowledgeDocument, DocumentType,
+    # Services
+    NewsAdapter, NewsSearchResult, get_news_adapter,
+    # Factory
+    create_unified_retriever, get_rag_status,
+)
+```
 
 ---
 
-## 📚 相關文檔
+## 可用性旗標
 
-- **子模組文檔**:
-  - [核心組件](core/README.md)
-  - [內部模塊](internal/README.md)
-  - [服務層](services/README.md)
-  
-- **其他模組**:
-  - [分析工具](../analysis/README.md)
-  - [核心系統](../core/README.md)
-  - [父模組](../README.md)
+`__init__.py` 定義了 5 個布林旗標，指示各依賴模組是否可用：
+
+| 旗標 | 依賴 | 說明 |
+|------|------|------|
+| `CORE_AVAILABLE` | rag.core | 核心嵌入 + 檢索 |
+| `INTERNAL_KB_AVAILABLE` | rag.internal | 內部知識庫 |
+| `ANALYSIS_AVAILABLE` | bioneuronai.analysis | 關鍵字 + 新聞分析 |
+| `PRETRADE_AVAILABLE` | bioneuronai.trading | 交易前檢查 |
+| `NEWS_ADAPTER_AVAILABLE` | rag.services | 新聞適配器 |
+
+```python
+from src.rag import CORE_AVAILABLE, ANALYSIS_AVAILABLE
+if CORE_AVAILABLE:
+    retriever = create_unified_retriever()
+```
 
 ---
 
-**最後更新**: 2026年1月22日
+## 整合模組
+
+RAG 模組與 bioneuronai 的以下模組整合：
+
+| 整合來源 | 匯入 | 用途 |
+|----------|------|------|
+| `bioneuronai.analysis.keywords` | `KeywordManager` | 關鍵字匹配 |
+| `bioneuronai.analysis.news` | `CryptoNewsAnalyzer` | 新聞分析 |
+| `bioneuronai.trading.pretrade_automation` | `PreTradeCheckSystem` | 交易前檢查 |
+| `schemas.rag` | RAG Pydantic 模型 | 結構化數據定義 |
+
+---
+
+## 技術規格
+
+| 項目 | 規格 |
+|------|------|
+| **版本** | 2.0.0 |
+| **Python 檔案** | 10 個 |
+| **總行數** | ~2,183 行 |
+| **類別數** | 14 個 |
+| **嵌入後端** | 本地 (sentence-transformers) / OpenAI API |
+| **向量索引** | FAISS (可選，降級為 NumPy) |
+| **監控** | 線程安全，單例模式 |
+| **高可用性** | try/except 容錯，全部可選依賴 |
+
+---
+
+> 📖 子模組文檔：[Core](core/README.md) | [Internal](internal/README.md) | [Services](services/README.md) | [Monitoring](monitoring/README.md)
+>
+> 📖 相關文檔：[RAG 技術手冊](../../docs/RAG_TECHNICAL_MANUAL.md) | [Schemas — rag.py](../schemas/README.md)
+>
+> 📖 上層目錄：[src/README.md](../README.md)

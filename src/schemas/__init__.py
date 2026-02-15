@@ -81,6 +81,18 @@ from .market import (
     MarketData,
 )
 
+# 外部數據源模型 (2026-02-15 新增)
+from .external_data import (
+    DataSourceType,
+    FearGreedIndex,
+    GlobalMarketData,
+    DeFiMetrics,
+    StablecoinMetrics,
+    EconomicEvent,
+    MarketSentiment,
+    ExternalDataSnapshot,
+)
+
 # 交易信號模型
 from .trading import (
     TradingSignal,
@@ -271,6 +283,16 @@ __all__ = [
     
     # 市場數據
     "MarketData",
+    
+    # 外部數據源 (2026-02-15)
+    "DataSourceType",
+    "FearGreedIndex",
+    "GlobalMarketData",
+    "DeFiMetrics",
+    "StablecoinMetrics",
+    "EconomicEvent",
+    "MarketSentiment",
+    "ExternalDataSnapshot",
     
     # 交易相關
     "TradingSignal",

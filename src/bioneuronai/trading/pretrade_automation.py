@@ -94,8 +94,8 @@ class PreTradeCheckSystem:
     """單筆交易前檢查系統"""
     
     def __init__(self) -> None:
-        self.data_dir = Path("pretrade_check_data")
-        self.data_dir.mkdir(exist_ok=True)
+        self.data_dir = Path("data/bioneuronai/trading/pretrade")
+        self.data_dir.mkdir(exist_ok=True, parents=True)
         
         # 嘗試導入交易模組
         self._import_modules()
@@ -294,6 +294,35 @@ class PreTradeCheckSystem:
         
         return check
     
+    def _get_default_stop_loss(self, entry_price: float, is_buy: bool) -> float:
+        """計算預設止損價格（2%）"""
+        if is_buy:
+            return entry_price * 0.98
+        return entry_price * 1.02
+    
+    def _get_technical_stop_loss(
+        self, technical_check: TechnicalSignalCheck, entry_price: float, is_buy: bool
+    ) -> float:
+        """從技術位獲取止損價格"""
+        if not technical_check.support_resistance:
+            return self._get_default_stop_loss(entry_price, is_buy)
+        
+        key = 'support' if is_buy else 'resistance'
+        stop_price = technical_check.support_resistance.get(key, 0)
+        
+        if stop_price == 0:
+            return self._get_default_stop_loss(entry_price, is_buy)
+        return stop_price
+    
+    def _calculate_take_profit(
+        self, entry_price: float, price_diff: float, is_buy: bool
+    ) -> float:
+        """計算止盈價格（2:1 盈虧比）"""
+        profit_distance = price_diff * 2
+        if is_buy:
+            return entry_price + profit_distance
+        return entry_price - profit_distance
+    
     def _calculate_risk(self, symbol: str, action: str, 
                             technical_check: TechnicalSignalCheck) -> RiskCalculation:
         """風險計算 (SOP 1.2 第三部分 - 1% 規則)"""
@@ -317,22 +346,10 @@ class PreTradeCheckSystem:
             calc.entry_price = current_price or 50000.0  # 預設BTC價格
             
             # 3. 計算止損價格 (基於技術位或固定百分比)
-            if technical_check.support_resistance:
-                # 基於技術位
-                if action == "BUY":
-                    calc.stop_loss_price = technical_check.support_resistance.get('support', 0)
-                    if calc.stop_loss_price == 0:
-                        calc.stop_loss_price = calc.entry_price * 0.98  # 2% 止損
-                else:  # SELL
-                    calc.stop_loss_price = technical_check.support_resistance.get('resistance', 0)
-                    if calc.stop_loss_price == 0:
-                        calc.stop_loss_price = calc.entry_price * 1.02  # 2% 止損
-            else:
-                # 固定百分比止損
-                if action == "BUY":
-                    calc.stop_loss_price = calc.entry_price * 0.98  # 2% 止損
-                else:
-                    calc.stop_loss_price = calc.entry_price * 1.02  # 2% 止損
+            is_buy = action == "BUY"
+            calc.stop_loss_price = self._get_technical_stop_loss(
+                technical_check, calc.entry_price, is_buy
+            )
             
             # 4. 計算倉位大小 (1% 規則)
             price_diff: float = abs(calc.entry_price - calc.stop_loss_price)
@@ -346,13 +363,12 @@ class PreTradeCheckSystem:
             logger.info(f"     ✓ 倉位大小: {calc.position_size:.6f}")
             
             # 5. 計算止盈目標
-            profit_distance: float = price_diff * 2  # 2:1 盈虧比
-            if action == "BUY":
-                calc.take_profit_price = calc.entry_price + profit_distance
-            else:
-                calc.take_profit_price = calc.entry_price - profit_distance
+            calc.take_profit_price = self._calculate_take_profit(
+                calc.entry_price, price_diff, is_buy
+            )
             
             # 6. 計算期望回報
+            profit_distance = price_diff * 2  # 2:1 盈虧比
             calc.win_rate = 0.6  # 60% 勝率 (可從歷史數據獲取)
             calc.profit_target = profit_distance / calc.entry_price
             calc.max_loss = price_diff / calc.entry_price

@@ -1,5 +1,19 @@
 # 英中雙語小型語言模型 (Tiny LLM) - 基礎版本
 
+## 📋 目錄
+
+- [模型描述](#模型描述)
+- [核心功能](#核心功能)
+- [使用方法](#使用方法)
+- [性能特點](#性能特點)
+- [文件列表](#文件列表)
+- [模型信息](#模型信息)
+- [限制](#限制)
+- [技術細節](#技術細節)
+- [相關文檔](#相關文檔)
+
+---
+
 ## 模型描述
 
 這是一個專為英文和中文設計的小型語言模型，基於 GPT 架構。**這是原始未訓練版本**，推薦使用訓練版本 `tiny_llm_en_zh_trained`。
@@ -37,20 +51,10 @@
 
 ## 使用方法
 
-### 方式 1: 使用項目工具（推薦）
-
-```bash
-# 交互模式
-python use_model.py --model models/tiny_llm_en_zh
-
-# 批次處理
-python use_model.py --model models/tiny_llm_en_zh --mode batch --prompts-file prompts.txt
-```
-
-### 方式 2: Python API
+### 方式 1: Python API（推薦）
 
 ```python
-from src.bioneuronai.tiny_llm import TinyLLM, TinyLLMConfig
+from src.nlp.tiny_llm import TinyLLM, TinyLLMConfig
 import torch
 
 # 載入模型
@@ -73,7 +77,7 @@ output = model.generate(
 ### 使用 Tokenizer
 
 ```python
-from src.bioneuronai.bilingual_tokenizer import BilingualTokenizer
+from src.nlp.bilingual_tokenizer import BilingualTokenizer
 
 # 載入 tokenizer
 tokenizer = BilingualTokenizer.load("tokenizer.pkl")
@@ -198,10 +202,9 @@ model_directory/
 
 ## 相關文檔
 
-- 📘 [快速開始](../../docs/QUICK_START.md) - 10分鐘上手
-- 📗 [能力清單](../../docs/CAPABILITIES.md) - 17個核心能力
-- 📙 [訓練指南](../../docs/知識蒸餾訓練指南.md) - 高級訓練技巧
-- 📕 [完整文檔](../../docs/README.md) - 詳細技術文檔
+- 📘 [NLP 模組文檔](../../src/nlp/README.md) - NLP 工具包完整說明
+- 📗 [NLP 訓練指南](../../docs/NLP_TRAINING_GUIDE.md) - 訓練技巧
+- 📙 [訓練版本](../tiny_llm_en_zh_trained/README.md) - 推薦使用的訓練後模型
 
 ## 技術支持
 
@@ -216,5 +219,9 @@ MIT License
 
 **狀態**: 🟡 基礎模型（未訓練）  
 **推薦**: 使用 `tiny_llm_en_zh_trained` 版本  
-**更新**: 2026-01-19  
+**更新**: 2026-02-15  
 **版本**: 1.0.0
+
+---
+
+> 📖 上層目錄：[model/README.md](../README.md)

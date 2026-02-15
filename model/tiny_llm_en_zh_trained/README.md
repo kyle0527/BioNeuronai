@@ -1,5 +1,19 @@
 # 英中雙語小型語言模型 (Tiny LLM) - 訓練版本 ⭐
 
+## 📋 目錄
+
+- [模型描述](#模型描述)
+- [核心能力](#核心能力)
+- [使用方法](#使用方法)
+- [性能表現](#性能表現)
+- [訓練能力](#訓練能力)
+- [文件列表](#文件列表)
+- [高級功能](#高級功能)
+- [相關文檔](#相關文檔)
+- [最佳實踐](#最佳實踐)
+
+---
+
 ## 模型描述
 
 這是一個專為英文和中文設計的小型語言模型，基於 GPT 架構。**這是經過知識蒸餾訓練的版本，推薦使用！**
@@ -52,29 +66,21 @@
 
 ## 使用方法
 
-### 方式 1: 使用項目工具（最簡單）
+### 方式 1: 使用工具腳本（最簡單）
 
 ```bash
 # 交互模式
-python use_model.py
+python tools/ai_trade_nexttick.py
 
-# 批次處理
-python use_model.py --mode batch --prompts-file prompts.txt
-
-# 性能測試
-python use_model.py --mode benchmark
-
-# 質量評估
-python use_model.py --mode eval --prompts-file test_set.txt
+# 策略進化示範
+python tools/demo_strategy_evolution.py
 ```
 
 ### 方式 2: Python API
 
-### 方式 2: Python API
-
 ```python
-from src.bioneuronai.tiny_llm import TinyLLM, TinyLLMConfig
-from src.bioneuronai.bilingual_tokenizer import BilingualTokenizer
+from src.nlp.tiny_llm import TinyLLM, TinyLLMConfig
+from src.nlp.bilingual_tokenizer import BilingualTokenizer
 import torch
 
 # 載入模型
@@ -108,7 +114,7 @@ print(output_text)
 ### 方式 3: 誠實生成（推薦）
 
 ```python
-from src.bioneuronai.honest_generation import HonestGenerator, HonestGenerationConfig
+from src.nlp.honest_generation import HonestGenerator, HonestGenerationConfig
 
 # 創建誠實生成器
 generator = HonestGenerator(model, tokenizer)
@@ -134,10 +140,8 @@ print(f"是否觸發不確定性: {result['triggered_uncertainty']}")
 
 ### 使用 Tokenizer
 
-### 使用 Tokenizer
-
 ```python
-from src.bioneuronai.bilingual_tokenizer import BilingualTokenizer
+from src.nlp.bilingual_tokenizer import BilingualTokenizer
 
 # 載入 tokenizer
 tokenizer = BilingualTokenizer.load("tokenizer.pkl")
@@ -206,7 +210,7 @@ print(f"Decoded: {decoded_text}")
 ### 模型導出
 
 ```python
-from src.bioneuronai.model_export import ModelExporter
+from src.nlp.model_export import ModelExporter
 
 exporter = ModelExporter(model)
 
@@ -223,7 +227,7 @@ exporter.export_to_safetensors("model.safetensors")
 ### LoRA 微調
 
 ```python
-from src.bioneuronai.lora import LoRAConfig, apply_lora_to_model
+from src.nlp.lora import LoRAConfig, apply_lora_to_model
 
 # 配置 LoRA
 lora_config = LoRAConfig(
@@ -242,7 +246,7 @@ model = apply_lora_to_model(model, lora_config)
 ### 模型量化
 
 ```python
-from src.bioneuronai.quantization import quantize_model, QuantizationConfig
+from src.nlp.quantization import quantize_model, QuantizationConfig
 
 # 配置量化
 quant_config = QuantizationConfig(
@@ -258,12 +262,9 @@ quantized_model = quantize_model(model, quant_config)
 
 ## 📖 相關文檔
 
-- 📘 [快速開始](../../docs/QUICK_START.md) - 10分鐘上手
-- 📗 [能力清單](../../docs/CAPABILITIES.md) - 17個核心能力詳解
-- 📙 [誠實生成指南](../../docs/HONESTY.md) - 不確定性量化與幻覺檢測
-- 📕 [訓練指南](../../docs/知識蒸餾訓練指南.md) - 知識蒸餾訓練
-- 📓 [完整文檔](../../docs/README.md) - 詳細技術文檔
-- 📔 [最終報告](../../docs/FINAL_REPORT.md) - 項目總結
+- 📘 [NLP 模組文檔](../../src/nlp/README.md) - NLP 工具包完整說明
+- 📗 [NLP 訓練指南](../../docs/NLP_TRAINING_GUIDE.md) - 知識蒸餾訓練
+- 📙 [基礎版本](../tiny_llm_en_zh/README.md) - 未訓練版本
 
 ## 🎯 使用場景
 
@@ -309,11 +310,11 @@ MIT License
 
 ## 訓練數據
 
-模型使用英文和中文文本數據訓練（當前為隨機初始化，需要實際訓練）。
+模型使用英文和中文文本數據進行知識蒸餾訓練，共 62 個高質量對話樣本。
 
 ## 限制
 
-- 當前模型為隨機初始化，需要在實際數據上訓練才能使用
+- 訓練樣本數量有限，可能需要更多數據提升品質
 - 僅支持英文和中文，其他語言未經優化
 - 最大序列長度為 512 tokens
 
@@ -374,7 +375,12 @@ MIT License
 
 ---
 
-**版本**: 1.0.0  
+**版本**: v2.0  
 **創建日期**: 2026-01-19  
+**更新日期**: 2026-02-15  
 **模型類型**: Causal Language Model  
 **語言**: 英文 (en), 中文 (zh)
+
+---
+
+> 📖 上層目錄：[model/README.md](../README.md)

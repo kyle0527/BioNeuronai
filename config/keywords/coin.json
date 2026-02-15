@@ -1,11 +1,11 @@
 {
   "category": "coin",
   "description": "幣種 - 主流幣、山寨幣、穩定幣等",
-  "last_updated": "2026-01-26 21:43:15",
+  "last_updated": "2026-02-15 15:40:56",
   "count": 17,
   "keywords": [
     {
-      "keyword": "bitcoin",
+      "word": "bitcoin",
       "category": "coin",
       "base_weight": 2.0,
       "dynamic_weight": 2.0,
@@ -16,10 +16,10 @@
       "hit_count": 20,
       "prediction_count": 17,
       "correct_count": 17,
-      "subcategory": "major"
+      "subcategory": "general"
     },
     {
-      "keyword": "btc",
+      "word": "btc",
       "category": "coin",
       "base_weight": 2.0,
       "dynamic_weight": 1.1664,
@@ -30,10 +30,10 @@
       "hit_count": 1,
       "prediction_count": 2,
       "correct_count": 2,
-      "subcategory": "major"
+      "subcategory": "general"
     },
     {
-      "keyword": "ethereum",
+      "word": "ethereum",
       "category": "coin",
       "base_weight": 2.0,
       "dynamic_weight": 1.2597120000000002,
@@ -44,10 +44,10 @@
       "hit_count": 5,
       "prediction_count": 3,
       "correct_count": 3,
-      "subcategory": "major"
+      "subcategory": "general"
     },
     {
-      "keyword": "eth",
+      "word": "eth",
       "category": "coin",
       "base_weight": 2.0,
       "dynamic_weight": 1.0,
@@ -58,10 +58,10 @@
       "hit_count": 1,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "major"
+      "subcategory": "general"
     },
     {
-      "keyword": "solana",
+      "word": "solana",
       "category": "coin",
       "base_weight": 1.8,
       "dynamic_weight": 1.2597120000000002,
@@ -72,10 +72,10 @@
       "hit_count": 2,
       "prediction_count": 3,
       "correct_count": 3,
-      "subcategory": "altcoin"
+      "subcategory": "general"
     },
     {
-      "keyword": "sol",
+      "word": "sol",
       "category": "coin",
       "base_weight": 1.8,
       "dynamic_weight": 1.0,
@@ -86,10 +86,10 @@
       "hit_count": 0,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "altcoin"
+      "subcategory": "general"
     },
     {
-      "keyword": "xrp",
+      "word": "xrp",
       "category": "coin",
       "base_weight": 1.8,
       "dynamic_weight": 1.08,
@@ -100,10 +100,10 @@
       "hit_count": 0,
       "prediction_count": 1,
       "correct_count": 1,
-      "subcategory": "altcoin"
+      "subcategory": "general"
     },
     {
-      "keyword": "dogecoin",
+      "word": "dogecoin",
       "category": "coin",
       "base_weight": 1.8,
       "dynamic_weight": 1.08,
@@ -114,10 +114,10 @@
       "hit_count": 0,
       "prediction_count": 1,
       "correct_count": 1,
-      "subcategory": "altcoin"
+      "subcategory": "general"
     },
     {
-      "keyword": "doge",
+      "word": "doge",
       "category": "coin",
       "base_weight": 1.8,
       "dynamic_weight": 1.08,
@@ -128,10 +128,10 @@
       "hit_count": 0,
       "prediction_count": 1,
       "correct_count": 1,
-      "subcategory": "altcoin"
+      "subcategory": "general"
     },
     {
-      "keyword": "tether",
+      "word": "tether",
       "category": "coin",
       "base_weight": 1.8,
       "dynamic_weight": 1.0,
@@ -142,10 +142,10 @@
       "hit_count": 1,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "stablecoin"
+      "subcategory": "general"
     },
     {
-      "keyword": "usdt",
+      "word": "usdt",
       "category": "coin",
       "base_weight": 1.5,
       "dynamic_weight": 1.0,
@@ -156,10 +156,10 @@
       "hit_count": 0,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "stablecoin"
+      "subcategory": "general"
     },
     {
-      "keyword": "usdc",
+      "word": "usdc",
       "category": "coin",
       "base_weight": 1.5,
       "dynamic_weight": 1.08,
@@ -170,10 +170,10 @@
       "hit_count": 0,
       "prediction_count": 1,
       "correct_count": 1,
-      "subcategory": "stablecoin"
+      "subcategory": "general"
     },
     {
-      "keyword": "wld",
+      "word": "wld",
       "category": "coin",
       "base_weight": 2.2,
       "dynamic_weight": 1.0,
@@ -187,7 +187,7 @@
       "subcategory": "general"
     },
     {
-      "keyword": "tao",
+      "word": "tao",
       "category": "coin",
       "base_weight": 2.0,
       "dynamic_weight": 1.0,
@@ -201,7 +201,7 @@
       "subcategory": "general"
     },
     {
-      "keyword": "pepe",
+      "word": "pepe",
       "category": "coin",
       "base_weight": 2.5,
       "dynamic_weight": 1.0,
@@ -215,7 +215,7 @@
       "subcategory": "general"
     },
     {
-      "keyword": "tia",
+      "word": "tia",
       "category": "coin",
       "base_weight": 2.0,
       "dynamic_weight": 1.0,
@@ -229,7 +229,7 @@
       "subcategory": "general"
     },
     {
-      "keyword": "pyusd",
+      "word": "pyusd",
       "category": "coin",
       "base_weight": 1.5,
       "dynamic_weight": 1.0,

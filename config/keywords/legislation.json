@@ -1,11 +1,11 @@
 {
   "category": "legislation",
   "description": "法規法案 - 美國法案、國際法規、稅務政策等",
-  "last_updated": "2026-01-26 21:43:15",
+  "last_updated": "2026-02-15 15:40:56",
   "count": 10,
   "keywords": [
     {
-      "keyword": "mica",
+      "word": "mica",
       "category": "legislation",
       "base_weight": 2.5,
       "dynamic_weight": 1.0,
@@ -16,10 +16,10 @@
       "hit_count": 1,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "global_law"
+      "subcategory": "general"
     },
     {
-      "keyword": "ban",
+      "word": "ban",
       "category": "legislation",
       "base_weight": 2.8,
       "dynamic_weight": 1.0,
@@ -30,10 +30,10 @@
       "hit_count": 0,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "global_law"
+      "subcategory": "general"
     },
     {
-      "keyword": "regulation",
+      "word": "regulation",
       "category": "legislation",
       "base_weight": 2.0,
       "dynamic_weight": 1.2597120000000002,
@@ -44,10 +44,10 @@
       "hit_count": 0,
       "prediction_count": 3,
       "correct_count": 3,
-      "subcategory": "us_law"
+      "subcategory": "general"
     },
     {
-      "keyword": "sab 121",
+      "word": "sab 121",
       "category": "legislation",
       "base_weight": 2.5,
       "dynamic_weight": 1.0,
@@ -58,10 +58,10 @@
       "hit_count": 0,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "us_law"
+      "subcategory": "general"
     },
     {
-      "keyword": "wells notice",
+      "word": "wells notice",
       "category": "legislation",
       "base_weight": 2.5,
       "dynamic_weight": 1.0,
@@ -72,10 +72,10 @@
       "hit_count": 0,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "us_law"
+      "subcategory": "general"
     },
     {
-      "keyword": "defi regulation",
+      "word": "defi regulation",
       "category": "legislation",
       "base_weight": 2.0,
       "dynamic_weight": 1.0,
@@ -86,10 +86,10 @@
       "hit_count": 0,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "us_law"
+      "subcategory": "general"
     },
     {
-      "keyword": "staking regulation",
+      "word": "staking regulation",
       "category": "legislation",
       "base_weight": 2.0,
       "dynamic_weight": 1.0,
@@ -100,10 +100,10 @@
       "hit_count": 0,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "us_law"
+      "subcategory": "general"
     },
     {
-      "keyword": "cbdc",
+      "word": "cbdc",
       "category": "legislation",
       "base_weight": 2.0,
       "dynamic_weight": 1.0,
@@ -114,10 +114,10 @@
       "hit_count": 0,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "global_law"
+      "subcategory": "general"
     },
     {
-      "keyword": "digital euro",
+      "word": "digital euro",
       "category": "legislation",
       "base_weight": 2.0,
       "dynamic_weight": 1.0,
@@ -128,10 +128,10 @@
       "hit_count": 0,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "global_law"
+      "subcategory": "general"
     },
     {
-      "keyword": "digital yuan",
+      "word": "digital yuan",
       "category": "legislation",
       "base_weight": 2.0,
       "dynamic_weight": 1.0,
@@ -142,7 +142,7 @@
       "hit_count": 0,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "global_law"
+      "subcategory": "general"
     }
   ]
 }

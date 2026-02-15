@@ -1,11 +1,11 @@
 {
   "category": "event",
   "description": "事件 - 市場動態、安全事件、採用事件、法律行動等",
-  "last_updated": "2026-01-26 21:43:15",
+  "last_updated": "2026-02-15 15:40:56",
   "count": 99,
   "keywords": [
     {
-      "keyword": "etf approved",
+      "word": "etf approved",
       "category": "event",
       "base_weight": 3.0,
       "dynamic_weight": 1.0,
@@ -16,10 +16,10 @@
       "hit_count": 0,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "adoption"
+      "subcategory": "general"
     },
     {
-      "keyword": "etf approval",
+      "word": "etf approval",
       "category": "event",
       "base_weight": 3.0,
       "dynamic_weight": 1.0,
@@ -30,10 +30,10 @@
       "hit_count": 0,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "adoption"
+      "subcategory": "general"
     },
     {
-      "keyword": "etf rejected",
+      "word": "etf rejected",
       "category": "event",
       "base_weight": 2.5,
       "dynamic_weight": 1.0,
@@ -44,10 +44,10 @@
       "hit_count": 0,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "adoption"
+      "subcategory": "general"
     },
     {
-      "keyword": "spot etf",
+      "word": "spot etf",
       "category": "event",
       "base_weight": 2.8,
       "dynamic_weight": 1.0,
@@ -61,7 +61,7 @@
       "subcategory": "general"
     },
     {
-      "keyword": "etf filing",
+      "word": "etf filing",
       "category": "event",
       "base_weight": 2.0,
       "dynamic_weight": 1.0,
@@ -72,10 +72,10 @@
       "hit_count": 0,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "adoption"
+      "subcategory": "general"
     },
     {
-      "keyword": "hack",
+      "word": "hack",
       "category": "event",
       "base_weight": 3.0,
       "dynamic_weight": 1.0,
@@ -86,10 +86,10 @@
       "hit_count": 0,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "security"
+      "subcategory": "general"
     },
     {
-      "keyword": "hacked",
+      "word": "hacked",
       "category": "event",
       "base_weight": 3.0,
       "dynamic_weight": 1.0,
@@ -100,10 +100,10 @@
       "hit_count": 0,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "security"
+      "subcategory": "general"
     },
     {
-      "keyword": "exploit",
+      "word": "exploit",
       "category": "event",
       "base_weight": 3.0,
       "dynamic_weight": 1.0,
@@ -114,10 +114,10 @@
       "hit_count": 0,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "security"
+      "subcategory": "general"
     },
     {
-      "keyword": "stolen",
+      "word": "stolen",
       "category": "event",
       "base_weight": 2.8,
       "dynamic_weight": 1.0,
@@ -128,10 +128,10 @@
       "hit_count": 0,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "security"
+      "subcategory": "general"
     },
     {
-      "keyword": "rug pull",
+      "word": "rug pull",
       "category": "event",
       "base_weight": 3.0,
       "dynamic_weight": 1.0,
@@ -142,10 +142,10 @@
       "hit_count": 0,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "security"
+      "subcategory": "general"
     },
     {
-      "keyword": "scam",
+      "word": "scam",
       "category": "event",
       "base_weight": 2.5,
       "dynamic_weight": 1.0,
@@ -156,10 +156,10 @@
       "hit_count": 0,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "security"
+      "subcategory": "general"
     },
     {
-      "keyword": "lawsuit",
+      "word": "lawsuit",
       "category": "event",
       "base_weight": 2.5,
       "dynamic_weight": 1.1664,
@@ -170,10 +170,10 @@
       "hit_count": 1,
       "prediction_count": 2,
       "correct_count": 2,
-      "subcategory": "legal_action"
+      "subcategory": "general"
     },
     {
-      "keyword": "investigation",
+      "word": "investigation",
       "category": "event",
       "base_weight": 2.3,
       "dynamic_weight": 1.0,
@@ -184,10 +184,10 @@
       "hit_count": 0,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "legal_action"
+      "subcategory": "general"
     },
     {
-      "keyword": "banned",
+      "word": "banned",
       "category": "event",
       "base_weight": 2.8,
       "dynamic_weight": 1.0,
@@ -201,7 +201,7 @@
       "subcategory": "general"
     },
     {
-      "keyword": "crackdown",
+      "word": "crackdown",
       "category": "event",
       "base_weight": 2.5,
       "dynamic_weight": 1.0,
@@ -215,7 +215,7 @@
       "subcategory": "general"
     },
     {
-      "keyword": "all-time high",
+      "word": "all-time high",
       "category": "event",
       "base_weight": 2.0,
       "dynamic_weight": 1.0,
@@ -226,10 +226,10 @@
       "hit_count": 0,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "market"
+      "subcategory": "general"
     },
     {
-      "keyword": "ath",
+      "word": "ath",
       "category": "event",
       "base_weight": 2.0,
       "dynamic_weight": 1.0,
@@ -240,10 +240,10 @@
       "hit_count": 0,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "market"
+      "subcategory": "general"
     },
     {
-      "keyword": "crash",
+      "word": "crash",
       "category": "event",
       "base_weight": 2.5,
       "dynamic_weight": 1.0,
@@ -254,10 +254,10 @@
       "hit_count": 0,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "market"
+      "subcategory": "general"
     },
     {
-      "keyword": "plunge",
+      "word": "plunge",
       "category": "event",
       "base_weight": 2.3,
       "dynamic_weight": 1.0,
@@ -271,7 +271,7 @@
       "subcategory": "general"
     },
     {
-      "keyword": "surge",
+      "word": "surge",
       "category": "event",
       "base_weight": 2.0,
       "dynamic_weight": 1.0,
@@ -285,7 +285,7 @@
       "subcategory": "general"
     },
     {
-      "keyword": "rally",
+      "word": "rally",
       "category": "event",
       "base_weight": 1.8,
       "dynamic_weight": 1.08,
@@ -296,10 +296,10 @@
       "hit_count": 1,
       "prediction_count": 1,
       "correct_count": 1,
-      "subcategory": "market"
+      "subcategory": "general"
     },
     {
-      "keyword": "liquidation",
+      "word": "liquidation",
       "category": "event",
       "base_weight": 2.3,
       "dynamic_weight": 1.0,
@@ -310,10 +310,10 @@
       "hit_count": 0,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "market"
+      "subcategory": "general"
     },
     {
-      "keyword": "bankruptcy",
+      "word": "bankruptcy",
       "category": "event",
       "base_weight": 2.8,
       "dynamic_weight": 1.0,
@@ -327,7 +327,7 @@
       "subcategory": "general"
     },
     {
-      "keyword": "hard fork",
+      "word": "hard fork",
       "category": "event",
       "base_weight": 2.0,
       "dynamic_weight": 1.0,
@@ -341,7 +341,7 @@
       "subcategory": "general"
     },
     {
-      "keyword": "mainnet",
+      "word": "mainnet",
       "category": "event",
       "base_weight": 2.0,
       "dynamic_weight": 1.0,
@@ -355,7 +355,7 @@
       "subcategory": "general"
     },
     {
-      "keyword": "listing",
+      "word": "listing",
       "category": "event",
       "base_weight": 2.0,
       "dynamic_weight": 1.08,
@@ -366,10 +366,10 @@
       "hit_count": 1,
       "prediction_count": 1,
       "correct_count": 1,
-      "subcategory": "adoption"
+      "subcategory": "general"
     },
     {
-      "keyword": "delisting",
+      "word": "delisting",
       "category": "event",
       "base_weight": 2.0,
       "dynamic_weight": 1.0,
@@ -380,10 +380,10 @@
       "hit_count": 0,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "adoption"
+      "subcategory": "general"
     },
     {
-      "keyword": "partnership",
+      "word": "partnership",
       "category": "event",
       "base_weight": 1.8,
       "dynamic_weight": 1.0,
@@ -394,10 +394,10 @@
       "hit_count": 0,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "adoption"
+      "subcategory": "general"
     },
     {
-      "keyword": "whale",
+      "word": "whale",
       "category": "event",
       "base_weight": 2.5,
       "dynamic_weight": 1.0,
@@ -411,7 +411,7 @@
       "subcategory": "general"
     },
     {
-      "keyword": "depin",
+      "word": "depin",
       "category": "event",
       "base_weight": 2.3,
       "dynamic_weight": 1.08,
@@ -425,7 +425,7 @@
       "subcategory": "general"
     },
     {
-      "keyword": "rwa",
+      "word": "rwa",
       "category": "event",
       "base_weight": 2.5,
       "dynamic_weight": 1.0,
@@ -439,7 +439,7 @@
       "subcategory": "general"
     },
     {
-      "keyword": "restaking",
+      "word": "restaking",
       "category": "event",
       "base_weight": 2.2,
       "dynamic_weight": 1.0,
@@ -453,7 +453,7 @@
       "subcategory": "general"
     },
     {
-      "keyword": "airdrop",
+      "word": "airdrop",
       "category": "event",
       "base_weight": 2.0,
       "dynamic_weight": 1.0,
@@ -467,7 +467,7 @@
       "subcategory": "general"
     },
     {
-      "keyword": "points",
+      "word": "points",
       "category": "event",
       "base_weight": 1.5,
       "dynamic_weight": 1.0,
@@ -481,7 +481,7 @@
       "subcategory": "general"
     },
     {
-      "keyword": "大鱷",
+      "word": "大鱷",
       "category": "event",
       "base_weight": 2.5,
       "dynamic_weight": 1.0,
@@ -495,7 +495,7 @@
       "subcategory": "general"
     },
     {
-      "keyword": "巨鯨",
+      "word": "巨鯨",
       "category": "event",
       "base_weight": 2.5,
       "dynamic_weight": 1.0,
@@ -509,7 +509,7 @@
       "subcategory": "general"
     },
     {
-      "keyword": "whale alert",
+      "word": "whale alert",
       "category": "event",
       "base_weight": 2.3,
       "dynamic_weight": 1.0,
@@ -523,7 +523,7 @@
       "subcategory": "general"
     },
     {
-      "keyword": "鯨魚",
+      "word": "鯨魚",
       "category": "event",
       "base_weight": 2.5,
       "dynamic_weight": 1.0,
@@ -537,7 +537,7 @@
       "subcategory": "general"
     },
     {
-      "keyword": "韭菜",
+      "word": "韭菜",
       "category": "event",
       "base_weight": 1.8,
       "dynamic_weight": 1.0,
@@ -551,7 +551,7 @@
       "subcategory": "general"
     },
     {
-      "keyword": "retail investor",
+      "word": "retail investor",
       "category": "event",
       "base_weight": 1.5,
       "dynamic_weight": 1.0,
@@ -565,7 +565,7 @@
       "subcategory": "general"
     },
     {
-      "keyword": "fomo",
+      "word": "fomo",
       "category": "event",
       "base_weight": 2.0,
       "dynamic_weight": 1.0,
@@ -579,7 +579,7 @@
       "subcategory": "general"
     },
     {
-      "keyword": "fud",
+      "word": "fud",
       "category": "event",
       "base_weight": 2.2,
       "dynamic_weight": 1.0,
@@ -593,7 +593,7 @@
       "subcategory": "general"
     },
     {
-      "keyword": "梭哈",
+      "word": "梭哈",
       "category": "event",
       "base_weight": 2.0,
       "dynamic_weight": 1.0,
@@ -607,7 +607,7 @@
       "subcategory": "general"
     },
     {
-      "keyword": "all in",
+      "word": "all in",
       "category": "event",
       "base_weight": 2.0,
       "dynamic_weight": 1.0,
@@ -621,7 +621,7 @@
       "subcategory": "general"
     },
     {
-      "keyword": "抄底",
+      "word": "抄底",
       "category": "event",
       "base_weight": 1.8,
       "dynamic_weight": 1.0,
@@ -635,7 +635,7 @@
       "subcategory": "general"
     },
     {
-      "keyword": "buy the dip",
+      "word": "buy the dip",
       "category": "event",
       "base_weight": 1.8,
       "dynamic_weight": 1.0,
@@ -649,7 +649,7 @@
       "subcategory": "general"
     },
     {
-      "keyword": "割肉",
+      "word": "割肉",
       "category": "event",
       "base_weight": 2.0,
       "dynamic_weight": 1.0,
@@ -663,7 +663,7 @@
       "subcategory": "general"
     },
     {
-      "keyword": "panic sell",
+      "word": "panic sell",
       "category": "event",
       "base_weight": 2.0,
       "dynamic_weight": 1.0,
@@ -677,7 +677,7 @@
       "subcategory": "general"
     },
     {
-      "keyword": "止損",
+      "word": "止損",
       "category": "event",
       "base_weight": 1.5,
       "dynamic_weight": 1.0,
@@ -691,7 +691,7 @@
       "subcategory": "general"
     },
     {
-      "keyword": "stop loss",
+      "word": "stop loss",
       "category": "event",
       "base_weight": 1.5,
       "dynamic_weight": 1.0,
@@ -705,7 +705,7 @@
       "subcategory": "general"
     },
     {
-      "keyword": "追高",
+      "word": "追高",
       "category": "event",
       "base_weight": 1.8,
       "dynamic_weight": 1.0,
@@ -719,7 +719,7 @@
       "subcategory": "general"
     },
     {
-      "keyword": "chase",
+      "word": "chase",
       "category": "event",
       "base_weight": 1.8,
       "dynamic_weight": 1.0,
@@ -733,7 +733,7 @@
       "subcategory": "general"
     },
     {
-      "keyword": "牛市",
+      "word": "牛市",
       "category": "event",
       "base_weight": 2.0,
       "dynamic_weight": 1.0,
@@ -747,7 +747,7 @@
       "subcategory": "general"
     },
     {
-      "keyword": "bull market",
+      "word": "bull market",
       "category": "event",
       "base_weight": 2.0,
       "dynamic_weight": 1.0,
@@ -761,7 +761,7 @@
       "subcategory": "general"
     },
     {
-      "keyword": "熊市",
+      "word": "熊市",
       "category": "event",
       "base_weight": 2.0,
       "dynamic_weight": 1.0,
@@ -775,7 +775,7 @@
       "subcategory": "general"
     },
     {
-      "keyword": "bear market",
+      "word": "bear market",
       "category": "event",
       "base_weight": 2.0,
       "dynamic_weight": 1.0,
@@ -786,10 +786,10 @@
       "hit_count": 0,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "market"
+      "subcategory": "general"
     },
     {
-      "keyword": "橫盤",
+      "word": "橫盤",
       "category": "event",
       "base_weight": 1.5,
       "dynamic_weight": 1.0,
@@ -803,7 +803,7 @@
       "subcategory": "general"
     },
     {
-      "keyword": "sideways",
+      "word": "sideways",
       "category": "event",
       "base_weight": 1.5,
       "dynamic_weight": 1.0,
@@ -817,7 +817,7 @@
       "subcategory": "general"
     },
     {
-      "keyword": "consolidation",
+      "word": "consolidation",
       "category": "event",
       "base_weight": 1.5,
       "dynamic_weight": 1.0,
@@ -831,7 +831,7 @@
       "subcategory": "general"
     },
     {
-      "keyword": "爆倉",
+      "word": "爆倉",
       "category": "event",
       "base_weight": 2.8,
       "dynamic_weight": 1.0,
@@ -845,7 +845,7 @@
       "subcategory": "general"
     },
     {
-      "keyword": "liquidated",
+      "word": "liquidated",
       "category": "event",
       "base_weight": 2.8,
       "dynamic_weight": 1.0,
@@ -859,7 +859,7 @@
       "subcategory": "general"
     },
     {
-      "keyword": "rekt",
+      "word": "rekt",
       "category": "event",
       "base_weight": 2.5,
       "dynamic_weight": 1.0,
@@ -873,7 +873,7 @@
       "subcategory": "general"
     },
     {
-      "keyword": "hodl",
+      "word": "hodl",
       "category": "event",
       "base_weight": 1.8,
       "dynamic_weight": 1.0,
@@ -887,7 +887,7 @@
       "subcategory": "general"
     },
     {
-      "keyword": "屯幣",
+      "word": "屯幣",
       "category": "event",
       "base_weight": 1.8,
       "dynamic_weight": 1.0,
@@ -901,7 +901,7 @@
       "subcategory": "general"
     },
     {
-      "keyword": "to the moon",
+      "word": "to the moon",
       "category": "event",
       "base_weight": 2.0,
       "dynamic_weight": 1.0,
@@ -915,7 +915,7 @@
       "subcategory": "general"
     },
     {
-      "keyword": "moon",
+      "word": "moon",
       "category": "event",
       "base_weight": 2.0,
       "dynamic_weight": 1.0,
@@ -929,7 +929,7 @@
       "subcategory": "general"
     },
     {
-      "keyword": "lambo",
+      "word": "lambo",
       "category": "event",
       "base_weight": 1.8,
       "dynamic_weight": 1.0,
@@ -943,7 +943,7 @@
       "subcategory": "general"
     },
     {
-      "keyword": "wen lambo",
+      "word": "wen lambo",
       "category": "event",
       "base_weight": 1.8,
       "dynamic_weight": 1.0,
@@ -957,7 +957,7 @@
       "subcategory": "general"
     },
     {
-      "keyword": "diamond hands",
+      "word": "diamond hands",
       "category": "event",
       "base_weight": 1.8,
       "dynamic_weight": 1.0,
@@ -971,7 +971,7 @@
       "subcategory": "general"
     },
     {
-      "keyword": "paper hands",
+      "word": "paper hands",
       "category": "event",
       "base_weight": 1.8,
       "dynamic_weight": 1.0,
@@ -985,7 +985,7 @@
       "subcategory": "general"
     },
     {
-      "keyword": "鑽石手",
+      "word": "鑽石手",
       "category": "event",
       "base_weight": 1.8,
       "dynamic_weight": 1.0,
@@ -999,7 +999,7 @@
       "subcategory": "general"
     },
     {
-      "keyword": "紙手",
+      "word": "紙手",
       "category": "event",
       "base_weight": 1.8,
       "dynamic_weight": 1.0,
@@ -1013,7 +1013,7 @@
       "subcategory": "general"
     },
     {
-      "keyword": "pump and dump",
+      "word": "pump and dump",
       "category": "event",
       "base_weight": 2.5,
       "dynamic_weight": 1.0,
@@ -1027,7 +1027,7 @@
       "subcategory": "general"
     },
     {
-      "keyword": "拉盤",
+      "word": "拉盤",
       "category": "event",
       "base_weight": 2.0,
       "dynamic_weight": 1.0,
@@ -1041,7 +1041,7 @@
       "subcategory": "general"
     },
     {
-      "keyword": "砸盤",
+      "word": "砸盤",
       "category": "event",
       "base_weight": 2.0,
       "dynamic_weight": 1.0,
@@ -1055,7 +1055,7 @@
       "subcategory": "general"
     },
     {
-      "keyword": "dump",
+      "word": "dump",
       "category": "event",
       "base_weight": 2.0,
       "dynamic_weight": 1.0,
@@ -1066,10 +1066,10 @@
       "hit_count": 0,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "market"
+      "subcategory": "general"
     },
     {
-      "keyword": "shill",
+      "word": "shill",
       "category": "event",
       "base_weight": 2.0,
       "dynamic_weight": 1.0,
@@ -1083,7 +1083,7 @@
       "subcategory": "general"
     },
     {
-      "keyword": "老鼠倉",
+      "word": "老鼠倉",
       "category": "event",
       "base_weight": 2.5,
       "dynamic_weight": 1.0,
@@ -1097,7 +1097,7 @@
       "subcategory": "general"
     },
     {
-      "keyword": "insider trading",
+      "word": "insider trading",
       "category": "event",
       "base_weight": 2.5,
       "dynamic_weight": 1.0,
@@ -1111,7 +1111,7 @@
       "subcategory": "general"
     },
     {
-      "keyword": "支撐位",
+      "word": "支撐位",
       "category": "event",
       "base_weight": 1.5,
       "dynamic_weight": 1.0,
@@ -1125,7 +1125,7 @@
       "subcategory": "general"
     },
     {
-      "keyword": "support",
+      "word": "support",
       "category": "event",
       "base_weight": 1.5,
       "dynamic_weight": 1.08,
@@ -1136,10 +1136,10 @@
       "hit_count": 0,
       "prediction_count": 1,
       "correct_count": 1,
-      "subcategory": "market"
+      "subcategory": "general"
     },
     {
-      "keyword": "壓力位",
+      "word": "壓力位",
       "category": "event",
       "base_weight": 1.5,
       "dynamic_weight": 1.0,
@@ -1153,7 +1153,7 @@
       "subcategory": "general"
     },
     {
-      "keyword": "resistance",
+      "word": "resistance",
       "category": "event",
       "base_weight": 1.5,
       "dynamic_weight": 1.0,
@@ -1164,10 +1164,10 @@
       "hit_count": 0,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "market"
+      "subcategory": "general"
     },
     {
-      "keyword": "突破",
+      "word": "突破",
       "category": "event",
       "base_weight": 2.0,
       "dynamic_weight": 1.0,
@@ -1181,7 +1181,7 @@
       "subcategory": "general"
     },
     {
-      "keyword": "breakout",
+      "word": "breakout",
       "category": "event",
       "base_weight": 2.0,
       "dynamic_weight": 1.0,
@@ -1192,10 +1192,10 @@
       "hit_count": 0,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "market"
+      "subcategory": "general"
     },
     {
-      "keyword": "金叉",
+      "word": "金叉",
       "category": "event",
       "base_weight": 1.8,
       "dynamic_weight": 1.0,
@@ -1209,7 +1209,7 @@
       "subcategory": "general"
     },
     {
-      "keyword": "golden cross",
+      "word": "golden cross",
       "category": "event",
       "base_weight": 1.8,
       "dynamic_weight": 1.0,
@@ -1223,7 +1223,7 @@
       "subcategory": "general"
     },
     {
-      "keyword": "死叉",
+      "word": "死叉",
       "category": "event",
       "base_weight": 1.8,
       "dynamic_weight": 1.0,
@@ -1237,7 +1237,7 @@
       "subcategory": "general"
     },
     {
-      "keyword": "death cross",
+      "word": "death cross",
       "category": "event",
       "base_weight": 1.8,
       "dynamic_weight": 1.0,
@@ -1251,7 +1251,7 @@
       "subcategory": "general"
     },
     {
-      "keyword": "based",
+      "word": "based",
       "category": "event",
       "base_weight": 1.8,
       "dynamic_weight": 1.1664,
@@ -1265,7 +1265,7 @@
       "subcategory": "general"
     },
     {
-      "keyword": "gm",
+      "word": "gm",
       "category": "event",
       "base_weight": 1.2,
       "dynamic_weight": 1.0,
@@ -1279,7 +1279,7 @@
       "subcategory": "general"
     },
     {
-      "keyword": "pvp",
+      "word": "pvp",
       "category": "event",
       "base_weight": 2.0,
       "dynamic_weight": 1.0,
@@ -1293,7 +1293,7 @@
       "subcategory": "general"
     },
     {
-      "keyword": "alpha",
+      "word": "alpha",
       "category": "event",
       "base_weight": 1.8,
       "dynamic_weight": 1.0,
@@ -1307,7 +1307,7 @@
       "subcategory": "general"
     },
     {
-      "keyword": "sybil",
+      "word": "sybil",
       "category": "event",
       "base_weight": 1.5,
       "dynamic_weight": 1.0,
@@ -1321,7 +1321,7 @@
       "subcategory": "general"
     },
     {
-      "keyword": "futures etf",
+      "word": "futures etf",
       "category": "event",
       "base_weight": 2.5,
       "dynamic_weight": 1.0,
@@ -1332,10 +1332,10 @@
       "hit_count": 0,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "adoption"
+      "subcategory": "general"
     },
     {
-      "keyword": "etf inflow",
+      "word": "etf inflow",
       "category": "event",
       "base_weight": 2.5,
       "dynamic_weight": 1.0,
@@ -1346,10 +1346,10 @@
       "hit_count": 0,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "adoption"
+      "subcategory": "general"
     },
     {
-      "keyword": "etf outflow",
+      "word": "etf outflow",
       "category": "event",
       "base_weight": 2.5,
       "dynamic_weight": 1.0,
@@ -1360,10 +1360,10 @@
       "hit_count": 0,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "adoption"
+      "subcategory": "general"
     },
     {
-      "keyword": "accumulation",
+      "word": "accumulation",
       "category": "event",
       "base_weight": 2.0,
       "dynamic_weight": 1.0,
@@ -1374,10 +1374,10 @@
       "hit_count": 0,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "market"
+      "subcategory": "general"
     },
     {
-      "keyword": "capitulation",
+      "word": "capitulation",
       "category": "event",
       "base_weight": 2.5,
       "dynamic_weight": 1.0,
@@ -1388,7 +1388,7 @@
       "hit_count": 0,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "market"
+      "subcategory": "general"
     }
   ]
 }

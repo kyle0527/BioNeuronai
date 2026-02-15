@@ -22,7 +22,7 @@ import hashlib
 import logging
 import threading
 from datetime import datetime, timedelta
-from typing import List, Tuple, Dict, Optional
+from typing import List, Tuple, Dict, Optional, Any
 from collections import Counter
 
 # 2. 第三方套件
@@ -33,6 +33,10 @@ from .models import NewsArticle, NewsAnalysisResult
 
 # 設置日誌
 logger = logging.getLogger(__name__)
+
+# 事件類型常量
+EVENT_SECURITY = '🔒 安全事件'
+EVENT_REGULATION = '⚖️ 監管風險'
 
 # ========================================
 # 關鍵字系統整合
@@ -190,7 +194,7 @@ class CryptoNewsAnalyzer:
         
         # 新聞記錄文件路徑
         self._news_records_dir = os.path.join(
-            os.path.dirname(__file__), '..', '..', '..', '..', 'sop_automation_data'
+            os.path.dirname(__file__), '..', '..', '..', '..', 'data', 'bioneuronai', 'trading', 'sop'
         )
         self._news_records_file = os.path.join(self._news_records_dir, 'news_records.json')
         os.makedirs(self._news_records_dir, exist_ok=True)
@@ -279,7 +283,7 @@ class CryptoNewsAnalyzer:
         result = self.analyze_news(symbol, hours=12)
         
         # 檢查危險事件
-        danger_events = ['🔒 安全事件']
+        danger_events = [EVENT_SECURITY]
         if any(e in result.key_events for e in danger_events):
             return False, "存在安全事件/駭客風險"
         
@@ -741,8 +745,8 @@ class CryptoNewsAnalyzer:
             if re.search(pattern, text_lower, re.IGNORECASE):
                 event_labels = {
                     'etf': '📈 ETF 相關',
-                    'regulation': '⚖️ 監管風險',
-                    'hack': '🔒 安全事件',
+                    'regulation': EVENT_REGULATION,
+                    'hack': EVENT_SECURITY,
                     'partnership': '🤝 合作夥伴',
                     'upgrade': '⬆️ 技術升級',
                     'listing': '📝 上市/下市',
@@ -842,6 +846,26 @@ class CryptoNewsAnalyzer:
         
         return 'general'
     
+    def _calculate_time_score(self, hours_old: float) -> float:
+        """計算時效性分數 (max 2.0)"""
+        thresholds = [(1, 2.0), (4, 1.5), (12, 1.0), (24, 0.5)]
+        for threshold, score in thresholds:
+            if hours_old < threshold:
+                return score
+        return 0.2
+    
+    def _calculate_relevance_score(
+        self, text_lower: str, target_coin: str
+    ) -> float:
+        """計算相關性分數 (max 2.0)"""
+        coin_keywords = self.COIN_KEYWORDS.get(target_coin, [target_coin.lower()])
+        
+        if any(kw in text_lower for kw in coin_keywords):
+            return 2.0
+        if any(kw in text_lower for kw in ['crypto', 'bitcoin', 'cryptocurrency']):
+            return 1.0
+        return 0.3
+    
     def _calculate_importance_score(self, article: NewsArticle, target_coin: str) -> float:
         """計算重要性評分 (0-10)"""
         score = 0.0
@@ -863,29 +887,12 @@ class CryptoNewsAnalyzer:
         
         # 3. 時效性 (max 2.0)
         hours_old = (datetime.now() - article.published_at).total_seconds() / 3600
-        if hours_old < 1:
-            time_score = 2.0
-        elif hours_old < 4:
-            time_score = 1.5
-        elif hours_old < 12:
-            time_score = 1.0
-        elif hours_old < 24:
-            time_score = 0.5
-        else:
-            time_score = 0.2
+        time_score = self._calculate_time_score(hours_old)
         score += time_score
         
         # 4. 相關性 (max 2.0)
         text_lower = (article.title + " " + article.summary).lower()
-        coin_keywords = self.COIN_KEYWORDS.get(target_coin, [target_coin.lower()])
-        
-        direct_mention = any(kw in text_lower for kw in coin_keywords)
-        if direct_mention:
-            relevance_score = 2.0
-        elif any(kw in text_lower for kw in ['crypto', 'bitcoin', 'cryptocurrency']):
-            relevance_score = 1.0
-        else:
-            relevance_score = 0.3
+        relevance_score = self._calculate_relevance_score(text_lower, target_coin)
         score += relevance_score
         article.relevance_score = relevance_score
         
@@ -921,7 +928,7 @@ class CryptoNewsAnalyzer:
         negative: int
     ) -> str:
         """生成交易建議"""
-        danger_events = ['🔒 安全事件', '⚖️ 監管風險']
+        danger_events = [EVENT_SECURITY, EVENT_REGULATION]
         has_danger = any(e in key_events for e in danger_events)
         
         if has_danger:
@@ -1030,6 +1037,32 @@ class CryptoNewsAnalyzer:
             logger.warning(f"評估新聞失敗: {e}")
             return None
     
+    def _calculate_weight_factor(self, direction: str, impact: str) -> float:
+        """計算關鍵字權重調整因子"""
+        is_directional = direction in ['bullish', 'bearish']
+        
+        factor_map = {
+            'strong': (1.15, 0.85),
+            'moderate': (1.08, 0.92),
+        }
+        
+        if impact in factor_map:
+            return factor_map[impact][0] if is_directional else factor_map[impact][1]
+        return 0.95
+    
+    def _update_single_keyword(self, km: Any, kw: str, factor: float, result: Dict) -> None:
+        """更新單個關鍵字權重"""
+        direction = result['direction']
+        
+        if hasattr(km, 'update_keyword_weight'):
+            km.update_keyword_weight(kw, factor)
+        
+        if direction in ['bullish', 'bearish']:
+            if hasattr(km, 'record_and_verify_prediction'):
+                km.record_and_verify_prediction(kw, direction, direction, result['price_change'])
+        elif hasattr(km, 'record_prediction'):
+            km.record_prediction(kw, 'neutral', result['old_price'])
+    
     def _update_keyword_weights(self, keywords: List[str], result: Dict) -> None:
         """更新關鍵字權重"""
         if not KEYWORDS_AVAILABLE or get_keyword_manager is None:
@@ -1038,25 +1071,12 @@ class CryptoNewsAnalyzer:
         try:
             direction = result['direction']
             impact = result['impact']
-            
-            if impact == 'strong':
-                factor = 1.15 if direction in ['bullish', 'bearish'] else 0.85
-            elif impact == 'moderate':
-                factor = 1.08 if direction in ['bullish', 'bearish'] else 0.92
-            else:
-                factor = 0.95
+            factor = self._calculate_weight_factor(direction, impact)
             
             km = get_keyword_manager()
             if km is not None:
                 for kw in keywords:
-                    if hasattr(km, 'update_keyword_weight'):
-                        km.update_keyword_weight(kw, factor)  # type: ignore
-                    if direction in ['bullish', 'bearish']:
-                        if hasattr(km, 'record_and_verify_prediction'):
-                            km.record_and_verify_prediction(kw, direction, direction, result['price_change'])  # type: ignore
-                    else:
-                        if hasattr(km, 'record_prediction'):
-                            km.record_prediction(kw, 'neutral', result['old_price'])  # type: ignore
+                    self._update_single_keyword(km, kw, factor, result)
                 
                 logger.info(f"已更新 {len(keywords)} 個關鍵字權重 (factor={factor})")
         except Exception as e:

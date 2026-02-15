@@ -1,11 +1,11 @@
 {
   "category": "institution",
   "description": "機構 - 央行、監管機構、交易所、基金、銀行等",
-  "last_updated": "2026-01-26 21:43:15",
+  "last_updated": "2026-02-15 15:40:56",
   "count": 26,
   "keywords": [
     {
-      "keyword": "fed",
+      "word": "fed",
       "category": "institution",
       "base_weight": 3.0,
       "dynamic_weight": 1.0,
@@ -16,10 +16,10 @@
       "hit_count": 0,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "central_bank"
+      "subcategory": "general"
     },
     {
-      "keyword": "federal reserve",
+      "word": "federal reserve",
       "category": "institution",
       "base_weight": 3.0,
       "dynamic_weight": 1.0,
@@ -30,10 +30,10 @@
       "hit_count": 0,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "central_bank"
+      "subcategory": "general"
     },
     {
-      "keyword": "fomc",
+      "word": "fomc",
       "category": "institution",
       "base_weight": 3.0,
       "dynamic_weight": 1.0,
@@ -44,10 +44,10 @@
       "hit_count": 0,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "central_bank"
+      "subcategory": "general"
     },
     {
-      "keyword": "sec",
+      "word": "sec",
       "category": "institution",
       "base_weight": 2.8,
       "dynamic_weight": 1.3604889600000003,
@@ -58,10 +58,10 @@
       "hit_count": 2,
       "prediction_count": 4,
       "correct_count": 4,
-      "subcategory": "regulator"
+      "subcategory": "general"
     },
     {
-      "keyword": "cftc",
+      "word": "cftc",
       "category": "institution",
       "base_weight": 2.5,
       "dynamic_weight": 1.1664,
@@ -72,10 +72,10 @@
       "hit_count": 0,
       "prediction_count": 2,
       "correct_count": 2,
-      "subcategory": "regulator"
+      "subcategory": "general"
     },
     {
-      "keyword": "doj",
+      "word": "doj",
       "category": "institution",
       "base_weight": 2.5,
       "dynamic_weight": 1.0,
@@ -86,10 +86,10 @@
       "hit_count": 1,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "regulator"
+      "subcategory": "general"
     },
     {
-      "keyword": "ecb",
+      "word": "ecb",
       "category": "institution",
       "base_weight": 2.5,
       "dynamic_weight": 1.0,
@@ -100,10 +100,10 @@
       "hit_count": 0,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "central_bank"
+      "subcategory": "general"
     },
     {
-      "keyword": "pboc",
+      "word": "pboc",
       "category": "institution",
       "base_weight": 2.5,
       "dynamic_weight": 1.0,
@@ -114,10 +114,10 @@
       "hit_count": 0,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "central_bank"
+      "subcategory": "general"
     },
     {
-      "keyword": "blackrock",
+      "word": "blackrock",
       "category": "institution",
       "base_weight": 2.5,
       "dynamic_weight": 1.0,
@@ -128,10 +128,10 @@
       "hit_count": 0,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "fund"
+      "subcategory": "general"
     },
     {
-      "keyword": "fidelity",
+      "word": "fidelity",
       "category": "institution",
       "base_weight": 2.3,
       "dynamic_weight": 1.0,
@@ -142,10 +142,10 @@
       "hit_count": 0,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "fund"
+      "subcategory": "general"
     },
     {
-      "keyword": "grayscale",
+      "word": "grayscale",
       "category": "institution",
       "base_weight": 2.2,
       "dynamic_weight": 1.0,
@@ -156,10 +156,10 @@
       "hit_count": 0,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "fund"
+      "subcategory": "general"
     },
     {
-      "keyword": "jpmorgan",
+      "word": "jpmorgan",
       "category": "institution",
       "base_weight": 2.0,
       "dynamic_weight": 1.2597120000000002,
@@ -170,10 +170,10 @@
       "hit_count": 0,
       "prediction_count": 3,
       "correct_count": 3,
-      "subcategory": "bank"
+      "subcategory": "general"
     },
     {
-      "keyword": "goldman sachs",
+      "word": "goldman sachs",
       "category": "institution",
       "base_weight": 2.0,
       "dynamic_weight": 1.0,
@@ -184,10 +184,10 @@
       "hit_count": 0,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "bank"
+      "subcategory": "general"
     },
     {
-      "keyword": "microstrategy",
+      "word": "microstrategy",
       "category": "institution",
       "base_weight": 2.0,
       "dynamic_weight": 1.0,
@@ -198,10 +198,10 @@
       "hit_count": 0,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "fund"
+      "subcategory": "general"
     },
     {
-      "keyword": "tesla",
+      "word": "tesla",
       "category": "institution",
       "base_weight": 2.2,
       "dynamic_weight": 1.0,
@@ -215,7 +215,7 @@
       "subcategory": "general"
     },
     {
-      "keyword": "binance",
+      "word": "binance",
       "category": "institution",
       "base_weight": 2.5,
       "dynamic_weight": 1.1664,
@@ -226,10 +226,10 @@
       "hit_count": 3,
       "prediction_count": 2,
       "correct_count": 2,
-      "subcategory": "exchange"
+      "subcategory": "general"
     },
     {
-      "keyword": "coinbase",
+      "word": "coinbase",
       "category": "institution",
       "base_weight": 2.3,
       "dynamic_weight": 1.3604889600000003,
@@ -240,10 +240,10 @@
       "hit_count": 2,
       "prediction_count": 4,
       "correct_count": 4,
-      "subcategory": "exchange"
+      "subcategory": "general"
     },
     {
-      "keyword": "ftx",
+      "word": "ftx",
       "category": "institution",
       "base_weight": 2.0,
       "dynamic_weight": 1.0,
@@ -254,10 +254,10 @@
       "hit_count": 0,
       "prediction_count": 1,
       "correct_count": 0,
-      "subcategory": "exchange"
+      "subcategory": "general"
     },
     {
-      "keyword": "paypal",
+      "word": "paypal",
       "category": "institution",
       "base_weight": 2.0,
       "dynamic_weight": 1.0,
@@ -271,7 +271,7 @@
       "subcategory": "general"
     },
     {
-      "keyword": "fca",
+      "word": "fca",
       "category": "institution",
       "base_weight": 2.3,
       "dynamic_weight": 1.0,
@@ -285,7 +285,7 @@
       "subcategory": "general"
     },
     {
-      "keyword": "sfc",
+      "word": "sfc",
       "category": "institution",
       "base_weight": 2.2,
       "dynamic_weight": 1.0,
@@ -299,7 +299,7 @@
       "subcategory": "general"
     },
     {
-      "keyword": "circle",
+      "word": "circle",
       "category": "institution",
       "base_weight": 2.0,
       "dynamic_weight": 1.1664,
@@ -313,7 +313,7 @@
       "subcategory": "general"
     },
     {
-      "keyword": "eigenlayer",
+      "word": "eigenlayer",
       "category": "institution",
       "base_weight": 2.5,
       "dynamic_weight": 1.0,
@@ -327,7 +327,7 @@
       "subcategory": "general"
     },
     {
-      "keyword": "bank of japan",
+      "word": "bank of japan",
       "category": "institution",
       "base_weight": 2.0,
       "dynamic_weight": 1.0,
@@ -338,10 +338,10 @@
       "hit_count": 0,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "central_bank"
+      "subcategory": "general"
     },
     {
-      "keyword": "bank of england",
+      "word": "bank of england",
       "category": "institution",
       "base_weight": 2.0,
       "dynamic_weight": 1.0,
@@ -352,10 +352,10 @@
       "hit_count": 0,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "central_bank"
+      "subcategory": "general"
     },
     {
-      "keyword": "boe",
+      "word": "boe",
       "category": "institution",
       "base_weight": 2.0,
       "dynamic_weight": 1.0,
@@ -366,7 +366,7 @@
       "hit_count": 0,
       "prediction_count": 0,
       "correct_count": 0,
-      "subcategory": "central_bank"
+      "subcategory": "general"
     }
   ]
 }

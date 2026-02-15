@@ -61,12 +61,11 @@ training_history.json
 datasets/
 
 # Runtime data directories (運行時數據，不納入版本控制)
-/trading_data/
-/src/trading_data/
-pretrade_check_data/
-sop_automation_data/
-news_predictions/
 /data/
+
+# Backtest outputs
+backtest_results/
+testing/
 
 # Backup directories
 **/backups/
@@ -85,16 +84,12 @@ api_keys.txt
 # Trading system generated files
 trading_system.log
 signals_history/
-backtest_results/
 trading_plans/
 simulation_report.log
 
-# Historical data (大型歷史數據)
-training_data/data_downloads/binance_historical/
-
-# Empty/cleanup directories
+# Legacy directories (已移至 /data/)
+training_data/
 tradetrain/
-training_data/data_downloads/scripts/
 
 # OS generated files
 Thumbs.db
