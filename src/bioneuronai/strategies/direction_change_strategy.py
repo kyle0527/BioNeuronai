@@ -383,20 +383,22 @@ class DirectionChangeStrategy(BaseStrategy):
         if direction == 'up':
             trade_direction = 'long'
             stop_loss = dc_analysis.last_dc_extreme * 0.998
-            tp1 = current_price + atr * self.take_profit_r_multiples[0]
-            tp2 = current_price + atr * self.take_profit_r_multiples[1]
-            tp3 = current_price + atr * self.take_profit_r_multiples[2]
+            risk_amount = abs(current_price - stop_loss)
+            if risk_amount == 0.0:
+                return None
+            tp1 = current_price + risk_amount * self.take_profit_r_multiples[0]
+            tp2 = current_price + risk_amount * self.take_profit_r_multiples[1]
+            tp3 = current_price + risk_amount * self.take_profit_r_multiples[2]
         elif direction == 'down':
             trade_direction = 'short'
             stop_loss = dc_analysis.last_dc_extreme * 1.002
-            tp1 = current_price - atr * self.take_profit_r_multiples[0]
-            tp2 = current_price - atr * self.take_profit_r_multiples[1]
-            tp3 = current_price - atr * self.take_profit_r_multiples[2]
+            risk_amount = abs(current_price - stop_loss)
+            if risk_amount == 0.0:
+                return None
+            tp1 = current_price - risk_amount * self.take_profit_r_multiples[0]
+            tp2 = current_price - risk_amount * self.take_profit_r_multiples[1]
+            tp3 = current_price - risk_amount * self.take_profit_r_multiples[2]
         else:
-            return None
-
-        risk_amount = abs(current_price - stop_loss)
-        if risk_amount == 0.0:
             return None
 
         risk_reward = abs(tp1 - current_price) / risk_amount

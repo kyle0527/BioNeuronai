@@ -330,18 +330,17 @@ class PairTradingStrategy(BaseStrategy):
             entry_note = f"Spread 低估 Z={z:.2f}，做多主要資產"
 
         stop_atr_mult = 2.0
+        risk_amount = atr * stop_atr_mult
         if direction == 'long':
-            stop_loss = current_price - atr * stop_atr_mult
-            tp1 = current_price + atr * self.take_profit_r_multiples[0]
-            tp2 = current_price + atr * self.take_profit_r_multiples[1]
-            tp3 = current_price + atr * self.take_profit_r_multiples[2]
+            stop_loss = current_price - risk_amount
+            tp1 = current_price + risk_amount * self.take_profit_r_multiples[0]
+            tp2 = current_price + risk_amount * self.take_profit_r_multiples[1]
+            tp3 = current_price + risk_amount * self.take_profit_r_multiples[2]
         else:
-            stop_loss = current_price + atr * stop_atr_mult
-            tp1 = current_price - atr * self.take_profit_r_multiples[0]
-            tp2 = current_price - atr * self.take_profit_r_multiples[1]
-            tp3 = current_price - atr * self.take_profit_r_multiples[2]
-
-        risk_amount = abs(current_price - stop_loss)
+            stop_loss = current_price + risk_amount
+            tp1 = current_price - risk_amount * self.take_profit_r_multiples[0]
+            tp2 = current_price - risk_amount * self.take_profit_r_multiples[1]
+            tp3 = current_price - risk_amount * self.take_profit_r_multiples[2]
         if risk_amount == 0.0:
             return None
 
