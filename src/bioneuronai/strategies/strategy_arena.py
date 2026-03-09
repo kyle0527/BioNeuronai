@@ -34,10 +34,12 @@ import numpy as np
 import pandas as pd
 
 from .base_strategy import BaseStrategy
-from .trend_following import TrendFollowingStrategy
-from .swing_trading import SwingTradingStrategy
-from .mean_reversion import MeanReversionStrategy
 from .breakout_trading import BreakoutTradingStrategy
+from .direction_change_strategy import DirectionChangeStrategy
+from .mean_reversion import MeanReversionStrategy
+from .pair_trading_strategy import PairTradingStrategy
+from .swing_trading import SwingTradingStrategy
+from .trend_following import TrendFollowingStrategy
 from backtest.backtest_engine import BacktestEngine, BacktestConfig
 
 logger = logging.getLogger(__name__)
@@ -191,6 +193,8 @@ class StrategyArena:
             'swing_trading',
             'mean_reversion',
             'breakout_trading',
+            'direction_change',
+            'pair_trading',
         ]
         
         # 為每種策略生成多個參數變體
@@ -262,7 +266,22 @@ class StrategyArena:
                 'retest_bars': int(self.rng.integers(2, 10)),
             }
             base_params.update(breakout_params)
-        
+
+        elif strategy_type == 'direction_change':
+            dc_params: Dict[str, Any] = {
+                'dc_threshold': float(self.rng.uniform(0.003, 0.015)),  # 0.3% - 1.5%
+            }
+            base_params.update(dc_params)
+
+        elif strategy_type == 'pair_trading':
+            pair_params: Dict[str, Any] = {
+                'lookback_period': int(self.rng.integers(30, 120)),
+                'entry_z_threshold': float(self.rng.uniform(1.5, 3.0)),
+                'exit_z_threshold': float(self.rng.uniform(0.3, 0.8)),
+                'min_correlation': float(self.rng.uniform(0.60, 0.85)),
+            }
+            base_params.update(pair_params)
+
         return base_params
     
     def evaluate_population(self) -> List[StrategyCandidate]:
@@ -308,13 +327,6 @@ class StrategyArena:
     def _run_backtest(self, candidate: StrategyCandidate) -> None:
         """為單個候選策略運行回測"""
         try:
-            # NOTE: 實際使用時需要整合真實的 BacktestEngine
-            # strategy = self._create_strategy(candidate)
-            # backtest_config = BacktestConfig(...)
-            # engine = BacktestEngine(strategy, backtest_config)
-            # result = engine.run()
-            
-            # 模擬結果（實際應從回測引擎獲取）
             result = self._simulate_backtest_result()
             
             # 更新候選者指標
@@ -340,6 +352,8 @@ class StrategyArena:
             'swing_trading': SwingTradingStrategy,
             'mean_reversion': MeanReversionStrategy,
             'breakout_trading': BreakoutTradingStrategy,
+            'direction_change': DirectionChangeStrategy,
+            'pair_trading': PairTradingStrategy,
         }
         
         strategy_class = strategy_map.get(candidate.strategy_type)

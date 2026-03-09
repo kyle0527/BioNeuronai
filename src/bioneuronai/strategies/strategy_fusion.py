@@ -42,10 +42,12 @@ from .base_strategy import (
     MarketCondition,
     StrategyPerformance,
 )
-from .trend_following import TrendFollowingStrategy
-from .swing_trading import SwingTradingStrategy
-from .mean_reversion import MeanReversionStrategy
 from .breakout_trading import BreakoutTradingStrategy
+from .direction_change_strategy import DirectionChangeStrategy
+from .mean_reversion import MeanReversionStrategy
+from .pair_trading_strategy import PairTradingStrategy
+from .swing_trading import SwingTradingStrategy
+from .trend_following import TrendFollowingStrategy
 
 # 從 schemas 導入 EventContext (Single Source of Truth - 2026-01-25)
 from schemas.rag import EventContext
@@ -123,11 +125,6 @@ class MarketRegime:
     avoid_strategies: List[str] = field(default_factory=list)
 
 
-# NOTE: EventContext 已遷移至 schemas/rag.py (Single Source of Truth)
-# 從 schemas 導入: from ..schemas.rag import EventContext
-# 保留此註釋供向後兼容參考 (2026-01-25)
-
-
 class AIStrategyFusion:
     """
     AI 
@@ -145,24 +142,26 @@ class AIStrategyFusion:
         self.fusion_method = fusion_method
         self.enable_learning = enable_learning
         
-        # 
+        # 策略實例
         self.strategies: Dict[str, BaseStrategy] = {
             'trend_following': TrendFollowingStrategy(timeframe),
             'swing_trading': SwingTradingStrategy(timeframe),
             'mean_reversion': MeanReversionStrategy(timeframe),
             'breakout': BreakoutTradingStrategy(timeframe),
+            'direction_change': DirectionChangeStrategy(timeframe),
+            'pair_trading': PairTradingStrategy(timeframe),
         }
-        
-        #  () - 必須在 _initialize_weights 之前設置
+
+        # 各策略的市場環境適配性（必須在 _initialize_weights 之前設置）
         self._market_preference = {
             'trend_following': {
                 'best': [MarketCondition.STRONG_UPTREND, MarketCondition.STRONG_DOWNTREND,
-                        MarketCondition.UPTREND, MarketCondition.DOWNTREND],
+                         MarketCondition.UPTREND, MarketCondition.DOWNTREND],
                 'worst': [MarketCondition.SIDEWAYS, MarketCondition.HIGH_VOLATILITY],
             },
             'swing_trading': {
-                'best': [MarketCondition.UPTREND, MarketCondition.DOWNTREND, 
-                        "NORMAL"],  # 
+                'best': [MarketCondition.UPTREND, MarketCondition.DOWNTREND,
+                         MarketCondition.SIDEWAYS],
                 'worst': [MarketCondition.STRONG_UPTREND, MarketCondition.STRONG_DOWNTREND],
             },
             'mean_reversion': {
@@ -170,8 +169,17 @@ class AIStrategyFusion:
                 'worst': [MarketCondition.STRONG_UPTREND, MarketCondition.STRONG_DOWNTREND],
             },
             'breakout': {
-                'best': [MarketCondition.LOW_VOLATILITY],  # 
+                'best': [MarketCondition.LOW_VOLATILITY],
                 'worst': [MarketCondition.SIDEWAYS, MarketCondition.HIGH_VOLATILITY],
+            },
+            'direction_change': {
+                'best': [MarketCondition.UPTREND, MarketCondition.DOWNTREND,
+                         MarketCondition.STRONG_UPTREND, MarketCondition.STRONG_DOWNTREND],
+                'worst': [MarketCondition.HIGH_VOLATILITY],
+            },
+            'pair_trading': {
+                'best': [MarketCondition.SIDEWAYS, MarketCondition.LOW_VOLATILITY],
+                'worst': [MarketCondition.STRONG_UPTREND, MarketCondition.STRONG_DOWNTREND],
             },
         }
         
@@ -546,29 +554,38 @@ class AIStrategyFusion:
             'HIGH': 1.5,
             'EXTREME': 2.0,
         }.get(intensity, 1.0)
-        
-        # --- 突發事件 (戰爭、駭客攻擊): 強趨勢，不回歸 ---
+
+        def _scale(name: str, factor: float) -> None:
+            """安全地縮放單一策略權重"""
+            w = self.strategy_weights.get(name)
+            if w:
+                w.final_weight *= factor
+
+        # --- 突發事件 (戰爭、駭客攻擊): 強方向性趨勢，均值回歸失效 ---
         if event_type in ['WAR', 'HACK', 'BLACK_SWAN']:
-            adjustment = 0.2 * intensity_multiplier
-            self.strategy_weights['trend_following'].final_weight *= (1 + adjustment)
-            self.strategy_weights['breakout'].final_weight *= (1 + adjustment)
-            self.strategy_weights['mean_reversion'].final_weight *= (1 - adjustment)
-            logger.info(f"[事件權重調整] {event_type}: 提升趨勢/突破權重")
-        
-        # --- 監管事件: 謹慎觀望 ---
+            adj = 0.2 * intensity_multiplier
+            _scale('trend_following', 1 + adj)
+            _scale('breakout', 1 + adj)
+            _scale('direction_change', 1 + adj * 0.5)   # DC 能捕捉事件驅動趨勢
+            _scale('mean_reversion', 1 - adj)
+            _scale('pair_trading', 1 - adj * 0.5)       # 配對關係在衝擊下不穩定
+            logger.info(f"[事件權重調整] {event_type}: 提升趨勢/突破/DC，降低均值回歸/配對")
+
+        # --- 監管事件: 謹慎觀望，整體降低風險暴露 ---
         elif event_type in ['REGULATION', 'POLICY']:
-            adjustment = 0.15 * intensity_multiplier
-            # 降低所有激進策略的權重
+            adj = 0.15 * intensity_multiplier
             for weight in self.strategy_weights.values():
-                weight.final_weight *= (1 - adjustment * 0.5)
+                weight.final_weight *= (1 - adj * 0.5)
             logger.info(f"[事件權重調整] {event_type}: 整體降低權重，謹慎觀望")
-        
-        # --- 宏觀經濟事件: 趨勢主導 ---
+
+        # --- 宏觀經濟事件: 趨勢與波段主導 ---
         elif event_type in ['MACRO', 'FED', 'CPI', 'EARNINGS']:
-            adjustment = 0.15 * intensity_multiplier
-            self.strategy_weights['trend_following'].final_weight *= (1 + adjustment)
-            self.strategy_weights['swing_trading'].final_weight *= (1 + adjustment * 0.5)
-            logger.info(f"[事件權重調整] {event_type}: 提升趨勢/波段權重")
+            adj = 0.15 * intensity_multiplier
+            _scale('trend_following', 1 + adj)
+            _scale('swing_trading', 1 + adj * 0.5)
+            _scale('direction_change', 1 + adj * 0.5)   # DC 同樣能捕捉宏觀驅動趨勢
+            _scale('pair_trading', 1 - adj * 0.3)        # 宏觀事件可能破壞配對相關性
+            logger.info(f"[事件權重調整] {event_type}: 提升趨勢/波段/DC")
         
         # 重新正規化權重
         self._normalize_weights()
@@ -637,9 +654,8 @@ class AIStrategyFusion:
         
         signal.strategy_signals = trade_setups
         
-        # 3. 
-        # 
-        market_condition = "NORMAL"  # 
+        # 取第一個有效的市場狀態
+        market_condition: Union[MarketCondition, str] = MarketCondition.SIDEWAYS
         for analysis in market_analyses.values():
             mc = analysis.get('market_condition')
             if mc:
