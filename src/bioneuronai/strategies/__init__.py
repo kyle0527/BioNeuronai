@@ -1,26 +1,22 @@
 """
-
+策略模組
 ================
 
+BioNeuronAI 交易策略集合：
+1. 基礎策略基類與數據模型
+2. 趨勢跟隨策略
+3. 波段交易策略
+4. 均值回歸策略
+5. 突破交易策略
+6. 方向變化策略（DC 算法）
+7. 配對交易策略（統計套利）
 
-1. 
-2. 
-3. 
-4. 
-5. 
-6. 
-
-
-- /
-- 
-- 15
--  Binance Futures API
-
-
-1. TrendFollowingStrategy - 
-2. SwingTradingStrategy -   
-3. MeanReversionStrategy - 
-4. BreakoutStrategy - 
+架構：
+- 全策略繼承 BaseStrategy 抽象基類
+- 支援遺傳算法競技場（strategy_arena）
+- 支援 AI 多策略融合（strategy_fusion）
+- 支援 9 階段市場路由（phase_router）
+- 整合 Binance Futures API
 """
 
 from .base_strategy import (
@@ -37,6 +33,8 @@ from .trend_following import TrendFollowingStrategy
 from .swing_trading import SwingTradingStrategy
 from .mean_reversion import MeanReversionStrategy
 from .breakout_trading import BreakoutTradingStrategy
+from .direction_change_strategy import DirectionChangeStrategy
+from .pair_trading_strategy import PairTradingStrategy
 from .strategy_fusion import AIStrategyFusion, FusionMethod, FusionSignal, MarketRegime
 
 # 階段路由模組 (2026-02-15 AI 策略編排)
@@ -75,6 +73,8 @@ __all__ = [
     'SwingTradingStrategy',
     'MeanReversionStrategy',
     'BreakoutTradingStrategy',
+    'DirectionChangeStrategy',
+    'PairTradingStrategy',
     
     # AI 融合
     'AIStrategyFusion',
