@@ -14,7 +14,7 @@ BioNeuronai - AI
 - risk_management: 
 """
 
-__version__ = "2.1.0"
+__version__ = "4.1.0"
 __author__ = "BioNeuronai Team"
 
 import logging

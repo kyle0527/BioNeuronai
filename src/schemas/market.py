@@ -21,20 +21,31 @@ class MarketData(BaseModel):
     close: float = Field(..., gt=0, description="收盤價")
     volume: float = Field(..., ge=0, description="成交量")
     
+    # 即時行情欄位（ticker data — 期貨連接器使用）
+    bid: Optional[float] = Field(None, gt=0, description="買一價（最佳買入報價）")
+    ask: Optional[float] = Field(None, gt=0, description="賣一價（最佳賣出報價）")
+    funding_rate: float = Field(default=0.0, description="資金費率（期貨合約，每8小時結算）")
+    open_interest: float = Field(default=0.0, ge=0, description="未平倉合約數量")
+    
     # 技術指標
-    sma_20: Optional[float] = Field(None, description="20 期簡單移動平均線")
-    sma_50: Optional[float] = Field(None, description="50 期簡單移動平均線")
-    ema_12: Optional[float] = Field(None, description="12 期指數移動平均線")
-    ema_26: Optional[float] = Field(None, description="26 期指數移動平均線")
-    rsi: Optional[float] = Field(None, ge=0, le=100, description="相對強弱指標")
-    macd: Optional[float] = Field(None, description="MACD 指標")
-    macd_signal: Optional[float] = Field(None, description="MACD 信號線")
+    sma_20: Optional[float] = Field(default=None, description="20 期簡單移動平均線")
+    sma_50: Optional[float] = Field(default=None, description="50 期簡單移動平均線")
+    ema_12: Optional[float] = Field(default=None, description="12 期指數移動平均線")
+    ema_26: Optional[float] = Field(default=None, description="26 期指數移動平均線")
+    rsi: Optional[float] = Field(default=None, ge=0, le=100, description="相對強弱指標")
+    macd: Optional[float] = Field(default=None, description="MACD 指標")
+    macd_signal: Optional[float] = Field(default=None, description="MACD 信號線")
     
     # 波動率指標
-    atr: Optional[float] = Field(None, ge=0, description="平均真實範圍")
-    bollinger_upper: Optional[float] = Field(None, description="布林帶上軌")
-    bollinger_middle: Optional[float] = Field(None, description="布林帶中軌")
-    bollinger_lower: Optional[float] = Field(None, description="布林帶下軌")
+    atr: Optional[float] = Field(default=None, ge=0, description="平均真實範圍")
+    bollinger_upper: Optional[float] = Field(default=None, description="布林帶上軌")
+    bollinger_middle: Optional[float] = Field(default=None, description="布林帶中軌")
+    bollinger_lower: Optional[float] = Field(default=None, description="布林帶下軌")
+    
+    @property
+    def price(self) -> float:
+        """當前市場價（等同於收盤價，向後兼容 trading_strategies.MarketData）"""
+        return self.close
     
     @field_validator("high")
     @classmethod

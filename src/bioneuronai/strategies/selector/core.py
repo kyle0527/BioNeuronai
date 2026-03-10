@@ -17,6 +17,7 @@ import numpy as np
 from .types import (
     StrategyType,
     MarketRegime,
+    RiskLevel,
     StrategyConfigTemplate,
     StrategySelectionResult,
     StrategyRecommendation,
@@ -37,7 +38,15 @@ try:
     STRATEGIES_AVAILABLE = True
 except ImportError:
     STRATEGIES_AVAILABLE = False
-    BaseStrategy = None
+    BaseStrategy = None              # type: ignore[assignment]
+    MarketCondition = None           # type: ignore[assignment]
+    SignalStrength = None            # type: ignore[assignment]
+    TrendFollowingStrategy = None    # type: ignore[assignment]
+    SwingTradingStrategy = None      # type: ignore[assignment]
+    MeanReversionStrategy = None     # type: ignore[assignment]
+    BreakoutTradingStrategy = None   # type: ignore[assignment]
+    AIStrategyFusion = None          # type: ignore[assignment]
+    FusionMethod = None              # type: ignore[assignment]
 
 # 導入 EventContext (Single Source of Truth)
 try:
@@ -93,6 +102,10 @@ class StrategySelector:
         # 實際策略實例 (來自 v2)
         self._strategies: Dict[str, Any] = {}
         if STRATEGIES_AVAILABLE:
+            assert TrendFollowingStrategy is not None
+            assert SwingTradingStrategy is not None
+            assert MeanReversionStrategy is not None
+            assert BreakoutTradingStrategy is not None
             self._strategies = {
                 'trend_following': TrendFollowingStrategy(timeframe),
                 'swing_trading': SwingTradingStrategy(timeframe),
@@ -103,6 +116,8 @@ class StrategySelector:
         # AI Fusion (來自 v2)
         self._ai_fusion: Optional[Any] = None
         if enable_ai_fusion and STRATEGIES_AVAILABLE:
+            assert AIStrategyFusion is not None
+            assert FusionMethod is not None
             try:
                 self._ai_fusion = AIStrategyFusion(
                     timeframe=timeframe,
@@ -173,7 +188,7 @@ class StrategySelector:
         
         # 6. 風險評估
         volatility, risk_level = self._evaluator.calculate_volatility(ohlcv_data)
-        recommendation.risk_level = risk_level
+        recommendation.risk_level = RiskLevel(risk_level)
         recommendation.suggested_position_size = self._get_position_size(risk_level)
         recommendation.reasoning.append(f"風險等級: {risk_level}")
         
@@ -238,6 +253,8 @@ class StrategySelector:
         event_context: Optional[Any],
     ):
         """應用 AI Fusion 信號"""
+        if self._ai_fusion is None:
+            return
         try:
             fusion_signal = self._ai_fusion.generate_fusion_signal(
                 ohlcv_data,

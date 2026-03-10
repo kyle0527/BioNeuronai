@@ -20,6 +20,7 @@ from bioneuronai.core.inference_engine import TradingSignal as AITradingSignal
 from bioneuronai.core.inference_engine import SignalType
 from bioneuronai.data.binance_futures import OrderResult
 from bioneuronai.analysis.news import NewsAnalysisResult
+from schemas.enums import SignalType as TradeSignalType  # 交易信號的 BUY/SELL/HOLD 枚舉
 
 # 核心模組導入 - 使用原始數據模型
 from ..trading_strategies import MarketData, TradingSignal, StrategyFusion
@@ -554,11 +555,11 @@ class TradingEngine:
         symbol: str
     ) -> Optional[TradingSignal]:
         """創建僅含策略信號的交易信號"""
-        if not hasattr(strategy_signal, 'action'):
+        if not hasattr(strategy_signal, 'signal_type'):
             return None
         
         return TradingSignal(
-            action=strategy_signal.action,
+            signal_type=strategy_signal.signal_type,
             symbol=getattr(strategy_signal, 'symbol', symbol),
             confidence=getattr(strategy_signal, 'confidence', 0.5),
             strategy_name=getattr(strategy_signal, 'strategy_name', 'strategy_fusion'),
@@ -606,7 +607,7 @@ class TradingEngine:
         )
         
         return TradingSignal(
-            action=action,
+            signal_type=TradeSignalType(action.lower()),
             symbol=symbol,
             confidence=enhanced_confidence,
             strategy_name='ai_strategy_fusion',
@@ -639,7 +640,7 @@ class TradingEngine:
         # 策略置信度更高
         if strategy_action != "HOLD":
             return TradingSignal(
-                action=strategy_action,
+                signal_type=strategy_signal.signal_type,
                 symbol=symbol,
                 confidence=strat_conf,
                 strategy_name=getattr(strategy_signal, 'strategy_name', 'strategy_override'),
@@ -679,7 +680,7 @@ class TradingEngine:
         action: str = self._get_ai_action(ai_signal)
         
         return TradingSignal(
-            action=action,
+            signal_type=TradeSignalType(action.lower()),
             symbol=symbol,
             confidence=ai_signal.confidence,
             strategy_name='ai_inference',

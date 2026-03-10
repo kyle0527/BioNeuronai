@@ -76,97 +76,107 @@ src/bioneuronai/
 
 ### 1. 📊 data_models - 數據模型層
 
-**路徑**: `src/bioneuronai/data_models/__init__.py`
+**路徑**: `src/schemas/` (Single Source of Truth)
 
 **職責**: 定義所有核心數據結構，確保類型安全
 
 #### 核心類別
 
 ##### `MarketData`
-市場數據結構，存儲價格、成交量等信息
+市場數據結構，存儲 OHLCV 與即時行情資訊
 
 ```python
-@dataclass
-class MarketData:
+# 來源：src/schemas/market.py
+class MarketData(BaseModel):
     symbol: str              # 交易對符號 (如 BTCUSDT)
-    price: float             # 當前價格
-    timestamp: int           # 時間戳（毫秒）
-    volume: float = 0.0      # 成交量
-    bid_price: float = 0.0   # 買一價
-    ask_price: float = 0.0   # 賣一價
+    timestamp: datetime      # 時間戳
+    open: float              # 開盤價
+    high: float              # 最高價
+    low: float               # 最低價
+    close: float             # 收盤價
+    volume: float            # 成交量
+    # 即時行情欄位（Optional）
+    bid: Optional[float]         # 買一價
+    ask: Optional[float]         # 賣一價
     funding_rate: float = 0.0    # 資金費率
-    open_interest: float = 0.0   # 未平倉量
+    open_interest: float = 0.0   # 未平倉合約數量
+    # 技術指標（Optional）
+    rsi: Optional[float] = None
+    macd: Optional[float] = None
+    atr: Optional[float] = None
+
+    @computed_field
+    @property
+    def price(self) -> float:
+        """= close，便捷屬性"""
+        return self.close
 ```
 
 **使用示例**:
 ```python
-from bioneuronai.data_models import MarketData
+from schemas.market import MarketData
+from datetime import datetime
 
 market_data = MarketData(
     symbol="BTCUSDT",
-    price=45000.0,
-    timestamp=1642012800000,
-    volume=1234.56
+    timestamp=datetime.now(),
+    open=45000.0, high=46000.0, low=44500.0, close=45500.0,
+    volume=1234.56,
+    bid=45490.0, ask=45510.0
 )
+print(market_data.price)  # 45500.0 (= close)
 ```
 
 ##### `TradingSignal`
 交易信號結構，策略分析結果
 
 ```python
-@dataclass
-class TradingSignal:
-    action: str                      # BUY, SELL, HOLD
-    symbol: str                      # 交易對
-    confidence: float                # 信心度 (0-1)
-    reason: str                      # 信號原因
-    target_price: Optional[float] = None    # 目標價
-    stop_loss: Optional[float] = None       # 止損價
-    take_profit: Optional[float] = None     # 止盈價
+# 來源：src/schemas/trading.py
+class TradingSignal(BaseModel):
+    symbol: str                              # 交易對
+    signal_type: SignalType                  # BUY | SELL | HOLD
+    strength: SignalStrength = MODERATE      # 信號強度
+    confidence: float                        # 信心度 (0-1)
+    entry_price: Optional[float] = None      # 建議進場價
+    target_price: Optional[float] = None     # 目標價
+    stop_loss: Optional[float] = None        # 止損價
+    take_profit: Optional[float] = None      # 止盈價
+    strategy_name: Optional[str] = None
+    reason: Optional[str] = None
+
+    @computed_field
+    @property
+    def action(self) -> str:
+        """= signal_type.value.upper()，方便日誌與比較"""
+        return self.signal_type.value.upper()
 ```
 
 **使用示例**:
 ```python
-from bioneuronai.data_models import TradingSignal
+from schemas.trading import TradingSignal
+from schemas.enums import SignalType
 
 signal = TradingSignal(
-    action="BUY",
+    signal_type=SignalType.BUY,
     symbol="BTCUSDT",
     confidence=0.85,
     reason="短期均線上穿長期均線，趨勢向上",
     target_price=46000.0,
     stop_loss=44500.0
 )
+print(signal.action)  # 'BUY'
 ```
 
-##### `Position`
-持倉信息
+##### `SQLiteConfig`
+系統實際使用的 SQLite 資料庫配置
 
 ```python
-@dataclass
-class Position:
-    symbol: str              # 交易對
-    side: str                # LONG or SHORT
-    quantity: float          # 持倉數量
-    entry_price: float       # 入場價格
-    current_price: float     # 當前價格
-    unrealized_pnl: float    # 未實現盈虧
-    leverage: int = 1        # 槓桿倍數
-```
-
-##### `OrderResult`
-訂單執行結果
-
-```python
-@dataclass
-class OrderResult:
-    order_id: str            # 訂單ID
-    symbol: str              # 交易對
-    side: str                # BUY or SELL
-    quantity: float          # 數量
-    price: float             # 成交價格
-    status: str              # 訂單狀態
-    timestamp: int           # 時間戳
+# 來源：src/schemas/database.py
+class SQLiteConfig(BaseModel):
+    db_path: str = "data/bioneuronai/trading/runtime/trading.db"
+    timeout: float = 30.0
+    check_same_thread: bool = False
+    backup_enabled: bool = True
 ```
 
 ---

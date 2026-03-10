@@ -67,7 +67,7 @@ class MarketEvaluator:
         # 波動率
         returns = np.diff(close[-21:]) / close[-21:-1]
         volatility = np.std(returns)
-        avg_vol = np.std(np.diff(close[-50:-20]) / close[-50:-20])
+        avg_vol = np.std(np.diff(close[-50:-20]) / close[-50:-21])
         vol_ratio = volatility / avg_vol if avg_vol > 0 else 1
         
         # 價格範圍

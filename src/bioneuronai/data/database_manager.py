@@ -273,9 +273,6 @@ class DatabaseManager:
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_rl_model ON rl_training_history(model_name)")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_rl_timestep ON rl_training_history(timestep)")
             
-            conn.commit()
-            logger.info("✅ 數據表創建完成（包含新增的演化和預測表）")
-            
             # 4. 交易前檢查表
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS pretrade_checks (
@@ -356,8 +353,8 @@ class DatabaseManager:
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_event_type ON event_memory(event_type)")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_event_created ON event_memory(created_at)")
             
-            conn.commit()
-            logger.info("✅ 數據表創建完成")
+            # conn.commit() 由 _get_connection 的 contextmanager 統一處理
+            logger.info("✅ 數據表創建完成（共 11 張表：trades/signals/risk_stats/pretrade_checks/news_analysis/performance_metrics/news_predictions/strategy_genes/evolution_history/rl_training_history/event_memory）")
     
     # ==================== 交易記錄 ====================
     

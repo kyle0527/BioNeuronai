@@ -3,42 +3,16 @@
 
 """
 
-from dataclasses import dataclass
+
 from typing import List, Dict, Tuple, Optional
 from datetime import datetime
 import numpy as np
 from collections import deque
 
-
-@dataclass
-class MarketData:
-    """"""
-    symbol: str
-    price: float
-    volume: float
-    timestamp: datetime
-    high: float
-    low: float
-    open: float
-    close: float
-    bid: float
-    ask: float
-    funding_rate: float = 0.0
-    open_interest: float = 0.0
-
-
-@dataclass
-class TradingSignal:
-    """"""
-    action: str  # BUY, SELL, HOLD
-    symbol: str
-    confidence: float  # 0.0-1.0
-    reason: str
-    strategy_name: str
-    target_price: Optional[float] = None
-    stop_loss: Optional[float] = None
-    take_profit: Optional[float] = None
-    timestamp: Optional[datetime] = None
+# 遵循 CODE_FIX_GUIDE：schemas 為單一數據來源，此處僅 re-export 以維持向後兼容
+from schemas.market import MarketData   # noqa: F401
+from schemas.trading import TradingSignal  # noqa: F401
+from schemas.enums import SignalType
 
 
 class AITradingStrategy:
@@ -51,7 +25,7 @@ class AITradingStrategy:
         """"""
         # 
         return TradingSignal(
-            action="HOLD",
+            signal_type=SignalType.HOLD,
             symbol=market_data.symbol,
             confidence=0.5,
             reason="AI",
@@ -263,7 +237,7 @@ class Strategy1_RSI_Divergence:
             take_profit = None
         
         return TradingSignal(
-            action=signal_type,
+            signal_type=SignalType(signal_type.lower()),
             symbol=market_data.symbol,
             confidence=confidence,
             reason=f"[RSI] {reason}",
@@ -352,7 +326,7 @@ class Strategy2_Bollinger_Bands_Breakout:
         )
         
         return TradingSignal(
-            action=signal_type,
+            signal_type=SignalType(signal_type.lower()),
             symbol=market_data.symbol,
             confidence=float(confidence),
             reason=f"[布林通道] {reason}",
@@ -366,7 +340,7 @@ class Strategy2_Bollinger_Bands_Breakout:
     def _create_hold_signal(self, market_data: MarketData, reason: str) -> TradingSignal:
         """創建持有信號"""
         return TradingSignal(
-            action="HOLD",
+            signal_type=SignalType.HOLD,
             symbol=market_data.symbol,
             confidence=0.0,
             reason=reason,
@@ -574,7 +548,7 @@ class Strategy3_MACD_Trend_Following:
         )
         
         return TradingSignal(
-            action=signal_type,
+            signal_type=SignalType(signal_type.lower()),
             symbol=market_data.symbol,
             confidence=confidence,
             reason=f"[MACD趨勢] {reason}",
@@ -588,7 +562,7 @@ class Strategy3_MACD_Trend_Following:
     def _create_hold_signal_macd(self, market_data: MarketData, reason: str) -> TradingSignal:
         """創建MACD持有信號"""
         return TradingSignal(
-            action="HOLD",
+            signal_type=SignalType.HOLD,
             symbol=market_data.symbol,
             confidence=0.0,
             reason=f"[MACD趨勢] {reason}",
@@ -929,7 +903,7 @@ class StrategyFusion:
         
         # 創建融合信號
         fused_signal = TradingSignal(
-            action=final_action,
+            signal_type=SignalType(final_action.lower()),
             symbol=market_data.symbol,
             confidence=final_confidence,
             reason=fusion_reason,

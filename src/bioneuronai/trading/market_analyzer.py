@@ -82,9 +82,6 @@ class MarketAnalyzer:
         self.external_data_cache: Optional[ExternalDataSnapshot] = None
         self.cache_timestamp: Optional[datetime] = None
         self.cache_ttl_minutes = 15  # 快取 15 分鐘
-        
-        # NumPy 隨機數生成器（使用新版 Generator API，帶種子確保可重現性）
-        self._rng = np.random.default_rng(seed=42)
     
     async def analyze_current_market_condition(self, klines: Optional[List[Dict]] = None) -> MarketCondition:
         """ - 基於 K線數據 """
@@ -566,22 +563,12 @@ class MarketAnalyzer:
     # ==========  ==========
     
     def _multi_timeframe_analysis(self) -> Dict:
-        """多時間週期分析（模擬數據）"""
+        """多時間週期分析（保守中性預設值）"""
         timeframes = ['15m', '1h', '4h', '1d']
-        analysis = {}
-        
-        for tf in timeframes:
-            analysis[tf] = {
-                'trend': self._rng.choice(['UP', 'DOWN', 'SIDEWAYS']),
-                'strength': self._rng.uniform(0.3, 0.9)
-            }
-        
-        # 
-        dominant = max(timeframes, key=lambda tf: analysis[tf]['strength'])
-        
+        analysis = {tf: {'trend': 'SIDEWAYS', 'strength': 0.5} for tf in timeframes}
         return {
             'analysis': analysis,
-            'dominant': dominant
+            'dominant': '1h'
         }
     
     def _analyze_key_levels(self) -> Dict:
@@ -607,38 +594,33 @@ class MarketAnalyzer:
         }
     
     def _comprehensive_indicator_analysis(self) -> Dict:
-        """綜合指標分析（模擬數據）"""
+        """綜合指標分析（保守中性預設值）"""
         indicators = {
-            'rsi_14': self._rng.uniform(20, 80),
-            'rsi_21': self._rng.uniform(25, 75),
-            'macd_signal': self._rng.choice(['BULL', 'BEAR', 'NEUTRAL']),
-            'bb_position': self._rng.uniform(0.2, 0.8),  # 
-            'stoch_k': self._rng.uniform(10, 90),
-            'stoch_d': self._rng.uniform(15, 85),
-            'cci': self._rng.uniform(-200, 200),
-            'williams_r': self._rng.uniform(-100, 0)
+            'rsi_14': 50.0,
+            'rsi_21': 50.0,
+            'macd_signal': 'NEUTRAL',
+            'bb_position': 0.5,
+            'stoch_k': 50.0,
+            'stoch_d': 50.0,
+            'cci': 0.0,
+            'williams_r': -50.0
         }
-        
         return {'values': indicators}
     
     def _detect_chart_patterns(self) -> Dict:
-        """圖表型態偵測（模擬數據）"""
-        patterns = ['趨勢線', '整理區間', '三角形', '頭肩', '雙頂', '雙底', '旗形', '墂形']
-        num_patterns = self._rng.integers(0, 3)
-        detected = self._rng.choice(patterns, size=num_patterns, replace=False).tolist() if num_patterns > 0 else []
-        
+        """圖表型態偵測（真實數據不足時回傳空結果）"""
         return {
-            'patterns': detected,
-            'breakout_prob': self._rng.uniform(0.3, 0.8),
-            'reversal_signals': ['RSI', '背離'] if self._rng.random() > 0.7 else []
+            'patterns': [],
+            'breakout_prob': 0.5,
+            'reversal_signals': []
         }
     
     def _analyze_market_momentum(self) -> Dict:
-        """市場動能分析（模擬數據）"""
+        """市場動能分析（保守中性預設值）"""
         return {
-            'strength': self._rng.uniform(0.3, 0.9),
-            'direction': self._rng.choice(['BULLISH', 'BEARISH', 'NEUTRAL']),
-            'acceleration': self._rng.uniform(-0.5, 0.5)
+            'strength': 0.5,
+            'direction': 'NEUTRAL',
+            'acceleration': 0.0
         }
     
     # ==========  ==========
@@ -654,38 +636,34 @@ class MarketAnalyzer:
         return {'events': events}
     
     def _analyze_regulatory_climate(self) -> Dict:
-        """監管環境分析（模擬數據）"""
-        climates = ['POSITIVE', 'NEUTRAL', 'NEGATIVE']
-        return {'climate': self._rng.choice(climates)}
+        """監管環境分析（保守中性預設值）"""
+        return {'climate': 'NEUTRAL'}
     
     def _analyze_adoption_trends(self) -> Dict:
-        """採用趨勢分析（模擬數據）"""
-        trends = ['INCREASING', 'STABLE', 'DECLINING']
-        return {'trend': self._rng.choice(trends, p=[0.5, 0.4, 0.1])}
+        """採用趨勢分析（保守中性預設值）"""
+        return {'trend': 'STABLE'}
     
     def _analyze_institutional_flows(self) -> Dict:
-        """機構資金流分析（模擬數據）"""
-        flows = ['INFLOW', 'NEUTRAL', 'OUTFLOW']
-        return {'flow': self._rng.choice(flows, p=[0.4, 0.4, 0.2])}
+        """機構資金流分析（保守中性預設值）"""
+        return {'flow': 'NEUTRAL'}
     
     def _analyze_onchain_metrics(self) -> Dict:
-        """鏈上指標分析（模擬數據）"""
+        """鏈上指標分析（保守中性預設值）"""
         metrics = {
-            'active_addresses': int(self._rng.integers(800000, 1200000)),
-            'transaction_volume': self._rng.uniform(10, 50),  # 
-            'exchange_inflow': self._rng.uniform(-20, 20),    # %
-            'whale_activity': self._rng.choice(['HIGH', 'MEDIUM', 'LOW'])
+            'active_addresses': 0,
+            'transaction_volume': 0.0,
+            'exchange_inflow': 0.0,
+            'whale_activity': 'MEDIUM'
         }
-        
         return {'metrics': metrics}
     
     def _analyze_news_sentiment(self) -> Dict:
-        """新聞情緒分析（模擬數據）"""
-        return {'score': self._rng.uniform(-0.3, 0.3)}
+        """新聞情緒分析（保守中性預設值）"""
+        return {'score': 0.0}
     
     def _analyze_social_sentiment(self) -> Dict:
-        """社交情緒分析（模擬數據）"""
-        return {'score': self._rng.uniform(-0.5, 0.5)}
+        """社交情緒分析（保守中性預設值）"""
+        return {'score': 0.0}
     
     # ==========  ==========
     

@@ -1,5 +1,46 @@
 # 更新日誌
 
+## [v4.2] - 2026-03-10
+
+### 🛠️ L0 基礎架構修復 (CODE_FIX_GUIDE 合規)
+
+#### 關鍵變更：統一數據來源（Single Source of Truth）
+
+**修復 CRITICAL-1：MarketData 雙重定義**
+- `schemas/market.py` 添加即時行情欄位：`bid`、`ask`、`funding_rate`、`open_interest`
+- `schemas/market.py` 新增 `@computed_field price` （回傳 `self.close`）
+- `trading_strategies.py` 移除 `@dataclass MarketData`，改為 `from schemas.market import MarketData`
+- `data/binance_futures.py` import 路徑改為 `from schemas.market import MarketData`
+- `data/binance_futures.py` 移除 `get_ticker_price()` 中的 `price=price`（現為 computed_field）
+
+**修復 CRITICAL-2：TradingSignal 多重定義**
+- `schemas/trading.py` 添加 `take_profit` 欄位及 `@computed_field action`
+- `schemas/trading.py` `strength` 添加預設值 `MODERATE`
+- `trading_strategies.py` 移除 `@dataclass TradingSignal`，改為 `from schemas.trading import TradingSignal`
+- `trading_strategies.py` 7 個建立呼叫點全部改為 `signal_type=SignalType.X` 新格式
+- `core/trading_engine.py` 4 個建立呼叫點全部更新，新增 `from schemas.enums import SignalType as TradeSignalType`
+
+**修復 HIGH：SQLiteConfig 缺失**
+- `schemas/database.py` 新增 `SQLiteConfig` 模型（`db_path`, `timeout`, `check_same_thread`, `backup_enabled`）
+- `schemas/__init__.py` 新增 `SQLiteConfig` 匯出
+
+**小型 bug 修復**
+- `database_manager.py` 移除第 4、5、6、11 表之前过早的 `conn.commit()`
+- `database.py` 預設路徑改為 `trading_pairs.db`（避免與 trading.db 衝突）
+- `config/trading_config.py` 新增 Testnet API key 安全警告註解
+- `src/__init__.py` 版本更新：2.1.0 → 4.1.0
+
+### ✅ 驗證狀態
+| 項目 | 狀態 |
+|------|------|
+| `MarketData` 統一 | ✅ |
+| `TradingSignal` 統一 | ✅ |
+| `SQLiteConfig` 建立 | ✅ |
+| import 連鎖全部通進 | ✅ |
+| 舊式向後兼容層移除 | ✅ |
+
+---
+
 ## [v4.1] - 2026-02-15
 
 ### 📚 README 全面審計與修復

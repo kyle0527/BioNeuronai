@@ -54,6 +54,38 @@ class DatabaseConfig(BaseModel):
     }
 
 
+class SQLiteConfig(BaseModel):
+    """SQLite 資料庫配置 — 系統實際使用的資料庫類型
+    
+    BioNeuronAI 目前完全使用 SQLite：
+    - DatabaseManager: trading.db（主要交易運行資料）
+    - TradingDatabase: trading_pairs.db（交易對 / 帳號快照）
+    """
+
+    db_path: str = Field(
+        default="data/bioneuronai/trading/runtime/trading.db",
+        description="SQLite 資料庫檔案路徑（相對於專案根目錄）"
+    )
+    timeout: float = Field(default=30.0, gt=0, description="連接超時（秒）")
+    check_same_thread: bool = Field(
+        default=False, description="是否限制同一執行緒存取（多執行緒環境設 False）"
+    )
+    backup_enabled: bool = Field(default=True, description="是否啟用 JSONL 備份")
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "db_path": "data/bioneuronai/trading/runtime/trading.db",
+                    "timeout": 30.0,
+                    "check_same_thread": False,
+                    "backup_enabled": True,
+                }
+            ]
+        }
+    }
+
+
 class DatabaseQuery(BaseModel):
     """資料庫查詢模型"""
     

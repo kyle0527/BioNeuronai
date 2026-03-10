@@ -132,6 +132,8 @@ class StrategySelector:
         # AI Fusion 整合 (2026-01-25 新增)
         self._ai_fusion = None
         if enable_ai_fusion and AI_FUSION_AVAILABLE:
+            assert AIStrategyFusion is not None
+            assert FusionMethod is not None
             try:
                 self._ai_fusion = AIStrategyFusion(
                     timeframe=timeframe,
@@ -417,23 +419,27 @@ class StrategySelector:
         logger.info(f" : {strategy_name} ({time_period})")
         
         try:
-            # 
-            performance = StrategyPerformanceMetrics(
-                strategy_name=strategy_name,
-                total_trades=np.random.randint(50, 200),
-                win_rate=np.random.uniform(0.45, 0.75),
-                profit_factor=np.random.uniform(1.1, 2.0),
-                sharpe_ratio=np.random.uniform(0.8, 2.5),
-                max_drawdown=np.random.uniform(0.05, 0.20),
-                total_return=np.random.uniform(0.08, 0.35),
-                avg_trade_duration=np.random.uniform(0.5, 48.0),  # 
-                market_conditions_performance={
-                    "trending_bull": np.random.uniform(0.10, 0.30),
-                    "trending_bear": np.random.uniform(-0.05, 0.15),
-                    "sideways": np.random.uniform(0.05, 0.20),
-                    "volatile": np.random.uniform(-0.10, 0.25)
-                }
-            )
+            # 優先使用策略配置中已定義的靜態績效指標
+            strategy_config = self.available_strategies.get(strategy_name)
+            if strategy_config:
+                performance = StrategyPerformanceMetrics(
+                    strategy_name=strategy_name,
+                    total_trades=0,  # 需從 DB 取得真實交易筆數
+                    win_rate=strategy_config.win_rate,
+                    profit_factor=strategy_config.profit_factor,
+                    sharpe_ratio=strategy_config.sharpe_ratio,
+                    max_drawdown=strategy_config.max_drawdown,
+                    total_return=strategy_config.expected_return,
+                    avg_trade_duration=24.0,  # 預設 24h，待 DB 整合後替換
+                    market_conditions_performance={
+                        "trending_bull": strategy_config.expected_return * 1.2,
+                        "trending_bear": strategy_config.expected_return * 0.6,
+                        "sideways": strategy_config.expected_return * 0.8,
+                        "volatile": strategy_config.expected_return * 0.5
+                    }
+                )
+            else:
+                performance = self._get_default_performance_metrics(strategy_name)
             
             # 
             if strategy_name not in self.strategy_performance_history:
@@ -460,37 +466,35 @@ class StrategySelector:
         try:
             strategy = self.available_strategies[strategy_name]
             
-            # 
-            optimized_params = {}
-            
+            # 從策略配置直接取出既有最佳參數；真正的參數優化需要連接回測引擎
+            optimized_params = dict(strategy.entry_conditions)
+
             if strategy.strategy_type == StrategyType.TREND_FOLLOWING:
-                optimized_params = {
-                    "fast_ma_period": np.random.randint(10, 25),
-                    "slow_ma_period": np.random.randint(40, 60),
-                    "stop_loss": np.random.uniform(0.015, 0.025),
-                    "take_profit": np.random.uniform(0.04, 0.08)
-                }
+                # 使用配置中已定義好的 MA 週期
+                optimized_params.update({
+                    "stop_loss": strategy.exit_conditions.get("stop_loss", 0.02),
+                    "take_profit": strategy.exit_conditions.get("take_profit", 0.06)
+                })
             elif strategy.strategy_type == StrategyType.MEAN_REVERSION:
-                optimized_params = {
-                    "rsi_period": np.random.randint(12, 18),
-                    "oversold_threshold": np.random.randint(25, 35),
-                    "overbought_threshold": np.random.randint(65, 75),
-                    "profit_target": np.random.uniform(0.02, 0.04)
-                }
-            
-            # 
+                optimized_params.update({
+                    "profit_target": strategy.exit_conditions.get("profit_target", 0.03),
+                    "stop_loss": strategy.exit_conditions.get("stop_loss", 0.015)
+                })
+
+            # 改善指標：目前無回測數據，回傳預設配置值與基準比較後的估算
+            base_sharpe = strategy.sharpe_ratio
             improvement_metrics = {
-                "sharpe_improvement": np.random.uniform(0.1, 0.4),
-                "return_improvement": np.random.uniform(0.05, 0.15),
-                "drawdown_reduction": np.random.uniform(0.01, 0.05),
-                "win_rate_improvement": np.random.uniform(0.02, 0.08)
+                "sharpe_improvement": 0.0,      # 需回測後才能計算真實改善值
+                "return_improvement": 0.0,
+                "drawdown_reduction": 0.0,
+                "win_rate_improvement": 0.0
             }
-            
+
             return {
                 "original_params": strategy.entry_conditions,
                 "optimized_params": optimized_params,
                 "improvement_metrics": improvement_metrics,
-                "optimization_confidence": np.random.uniform(0.7, 0.95)
+                "optimization_confidence": base_sharpe / 4.0  # 以 Sharpe 比例作為信心度參考
             }
             
         except Exception as e:
@@ -615,10 +619,10 @@ class StrategySelector:
         return {
             "overall_risk": self._calculate_overall_risk(primary, backup),
             "max_portfolio_drawdown": primary.max_drawdown * 1.2,
-            "correlation_risk": np.random.uniform(0.3, 0.7),
+            "correlation_risk": self._calculate_cross_strategy_correlation_risk(primary, backup),
             "liquidity_risk": "LOW" if market_condition.liquidity_condition in ["EXCELLENT", "GOOD"] else "MEDIUM",
             "complexity_risk": primary.complexity,
-            "market_regime_risk": np.random.uniform(0.2, 0.5)
+            "market_regime_risk": primary.max_drawdown / 0.2  # 以最大回撤比例衡量市場制度風險
         }
     
     async def _estimate_performance(self, strategy: StrategyConfig, 
@@ -768,10 +772,99 @@ class StrategySelector:
         """"""
         complexity_risk = {"SIMPLE": 0.2, "MEDIUM": 0.5, "COMPLEX": 0.8}[strategy.complexity]
         drawdown_risk = min(1.0, strategy.max_drawdown / 0.2)
-        
         return (complexity_risk + drawdown_risk) / 2
     
+    def _calculate_cross_strategy_correlation_risk(
+        self, primary: StrategyConfig, backup: List[StrategyConfig]
+    ) -> float:
+        """計算策略之間的相關性風險。
+        
+        相同類型策略 → 高度相關 (0.8)；完全不同類型 → 低相關 (0.2)。
+        回傳加權平均相關性風險值 (0.0–1.0)。
+        """
+        if not backup:
+            return 0.2  # 單一策略，無組合相關性風險
+
+        same_type_correlation = 0.8
+        different_type_correlation = 0.2
+
+        correlations = []
+        for b in backup:
+            if b.strategy_type == primary.strategy_type:
+                correlations.append(same_type_correlation)
+            else:
+                correlations.append(different_type_correlation)
+
+        return sum(correlations) / len(correlations)
+    
     # ==========  ==========
+    
+    def select_strategy(
+        self,
+        ohlcv_data: np.ndarray,
+        capital: float = 10000.0,
+        risk_tolerance: str = "medium",
+    ) -> StrategySelection:
+        """
+        同步策略選擇 (同步版本)
+        
+        根據 OHLCV 數據、資金規模和風險偏好，從預設策略庫中選出最適合的策略。
+        此為 recommend_with_ai_fusion() 的基礎，也可獨立使用。
+        
+        Args:
+            ohlcv_data: OHLCV 數據 (timestamp, open, high, low, close, volume)
+            capital: 可用資金
+            risk_tolerance: 風險容忍度 ("low" / "medium" / "high")
+            
+        Returns:
+            StrategySelection 物件
+        """
+        if len(ohlcv_data) == 0:
+            return self._get_default_strategy_selection()
+        
+        # 根據資金過濾可用策略
+        viable = [
+            s for s in self.available_strategies.values()
+            if s.min_capital <= capital
+        ]
+        
+        if not viable:
+            return self._get_default_strategy_selection()
+        
+        # 依風險容忍度排序：low → 偏好低回撤，high → 偏好高報酬
+        if risk_tolerance == "low":
+            primary = min(viable, key=lambda s: s.max_drawdown)
+        elif risk_tolerance == "high":
+            primary = max(viable, key=lambda s: s.expected_return)
+        else:
+            primary = max(viable, key=lambda s: s.sharpe_ratio * s.win_rate)
+        
+        backups = [s for s in viable if s.name != primary.name][:2]
+        
+        mix: Dict[str, float] = {primary.name: 0.7}
+        if backups:
+            per = 0.3 / len(backups)
+            for b in backups:
+                mix[b.name] = per
+        
+        return StrategySelection(
+            timestamp=datetime.now(),
+            primary_strategy=primary,
+            backup_strategies=backups,
+            strategy_mix=mix,
+            confidence_score=primary.sharpe_ratio / 4.0,
+            market_match_score=primary.win_rate,
+            reasoning=f"資金:{capital:.0f} | 風險:{risk_tolerance} | 選擇:{primary.name}",
+            risk_assessment={
+                "overall_risk": risk_tolerance.upper(),
+                "max_drawdown": primary.max_drawdown,
+            },
+            expected_performance={
+                "expected_return": primary.expected_return,
+                "win_rate": primary.win_rate,
+                "sharpe_ratio": primary.sharpe_ratio,
+            },
+        )
     
     def _get_default_strategy_selection(self) -> StrategySelection:
         """"""
@@ -862,18 +955,17 @@ class StrategySelector:
         
         try:
             # 調用 AIStrategyFusion
-            signal = self._ai_fusion.generate_signal(
+            signal = self._ai_fusion.generate_fusion_signal(
                 ohlcv_data=ohlcv_data,
-                symbol=symbol,
                 event_score=event_score,
                 event_context=ctx,
             )
             
             return {
-                "signal_type": signal.signal_type if signal else None,
-                "confidence": signal.confidence if signal else 0,
+                "signal_type": signal.consensus_direction if signal else None,
+                "confidence": signal.confidence_score if signal else 0,
                 "fusion_method": signal.fusion_method_used.value if signal and signal.fusion_method_used else None,
-                "reasoning": signal.reasoning if signal else "",
+                "reasoning": signal.conflict_resolution if signal else "",
                 "has_event_adjustment": event_score != 0,
             }
         except Exception as e:

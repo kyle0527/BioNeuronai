@@ -472,9 +472,10 @@ class RiskManager:
                                   stop_loss_price: float, additional_factors: Optional[Dict] = None) -> float:
         """"""
         try:
-            # 
-            win_rate = np.random.uniform(0.45, 0.65)  # 45%-65%
-            avg_win = np.random.uniform(0.02, 0.08)   # 2%-8%
+            # 使用傳入的 additional_factors 或帳戶資料；無歷史資料時採用保守預設值
+            factors = additional_factors or {}
+            win_rate = factors.get("win_rate", 0.5)    # 保守預設 50%
+            avg_win = factors.get("avg_win", 0.03)     # 保守預設 3%
             avg_loss = abs(entry_price - stop_loss_price) / entry_price  # 
             
             if avg_loss == 0:
@@ -498,8 +499,9 @@ class RiskManager:
                                                 additional_factors: Optional[Dict] = None) -> float:
         """"""
         try:
-            # 
-            volatility = np.random.uniform(0.15, 0.60)  # 15%-60%
+            # 從 additional_factors 或 market_data 取得真實波動率；無資料時用保守預設
+            factors = additional_factors or {}
+            volatility = factors.get("volatility", factors.get("atr_pct", 0.30))  # 預設 30%
             
             # 25%
             base_volatility = 0.25
@@ -518,9 +520,10 @@ class RiskManager:
                                          additional_factors: Optional[Dict] = None) -> float:
         """"""
         try:
-            # 
-            market_depth = np.random.uniform(0.5, 2.0)  # 
-            daily_volume = np.random.uniform(10000, 100000)  # 
+            # 從 additional_factors 取得真實市場深度與成交量；無資料時採保守預設
+            factors = additional_factors or {}
+            market_depth = factors.get("market_depth", 1.0)      # 預設正常深度
+            daily_volume = factors.get("daily_volume", 50000.0)  # 預設 50k USDT
             
             # 2%
             max_size_by_volume = daily_volume * 0.02
@@ -544,11 +547,8 @@ class RiskManager:
             if not existing_symbols:
                 return base_size
             
-            # 
-            correlations = {
-                existing_symbol: np.random.uniform(-0.3, 0.9)
-                for existing_symbol in existing_symbols
-            }
+            # 無即時相關性資料時，加密貨幣對之間採用保守正相關預設 (0.6)
+            correlations = dict.fromkeys(existing_symbols, 0.6)
             
             # 
             max_correlation = max(correlations.values()) if correlations else 0
@@ -596,8 +596,18 @@ class RiskManager:
     async def _calculate_var(self, positions: Dict, market_data: Dict) -> Dict:
         """(VaR)"""
         try:
-            # 
-            portfolio_returns = np.random.normal(0.001, 0.025, 1000)  # 0.1%2.5%
+            # 從實際持倉盈虧建立歷史報酬序列，無資料時用保守固定值
+            history_returns = []
+            for pos in positions.values():
+                pnl_pct = pos.get("unrealized_pnl_pct", 0.0)
+                if abs(pnl_pct) > 1e-9:
+                    history_returns.append(pnl_pct)
+
+            if len(history_returns) >= 30:
+                portfolio_returns = np.array(history_returns)
+            else:
+                # 持倉數量不足，兩儀回傳保守固定值
+                return {"var_95": 0.025, "var_99": 0.035}
             
             # VaR
             var_95 = np.percentile(portfolio_returns, 5) * -1  # 95% VaR
@@ -624,8 +634,8 @@ class RiskManager:
                     if i == j:
                         correlation_matrix[symbol1][symbol2] = 1.0
                     else:
-                        # 
-                        correlation = np.random.uniform(0.3, 0.8)
+                        # 加密貨幣之間長期相關性較高，無即時資料時用保守預設 0.65
+                        correlation = 0.65 if i != j else 1.0
                         correlation_matrix[symbol1][symbol2] = correlation
             
             return correlation_matrix
@@ -671,10 +681,11 @@ class RiskManager:
             liquidity_scores = []
             
             for symbol, position in positions.items():
-                # 
-                bid_ask_spread = np.random.uniform(0.001, 0.01)  # 0.1%-1%
-                market_depth = np.random.uniform(0.5, 2.0)       # 
-                trading_volume = np.random.uniform(0.1, 10.0)    # 
+                # 從 market_data 取得該幣對的實際市場資料
+                symbol_data = market_data.get(symbol, {})
+                bid_ask_spread = symbol_data.get("bid_ask_spread", 0.002)   # 實際買賣價差
+                market_depth = symbol_data.get("market_depth", 1.0)         # 市場深度倍數
+                trading_volume = symbol_data.get("volume_ratio", 1.0)       # 本期成交量 / 均值
                 
                 #  (0-1)
                 spread_score = max(0, 1 - bid_ask_spread * 100)
@@ -714,15 +725,18 @@ class RiskManager:
     def _analyze_maximum_drawdown(self, positions: Dict) -> float:
         """"""
         try:
-            # 
-            portfolio_values: List[float] = [100000.0]  # 100,000
-            
-            for i in range(100):  # 100
-                daily_return = np.random.normal(0.001, 0.02)  # 
-                new_value = float(portfolio_values[-1] * (1 + daily_return))
-                portfolio_values.append(new_value)
-            
-            # 
+            # 從實際持倉盈虧建立歷史轉機序列
+            portfolio_values: List[float] = []
+            cumulative = account_info.get('balance', 100000.0) if positions else 100000.0
+            portfolio_values.append(cumulative)
+
+            for pos in positions.values():
+                daily_pnl = pos.get('unrealized_pnl', 0.0)
+                cumulative = float(cumulative + daily_pnl)
+                portfolio_values.append(cumulative)
+
+            if len(portfolio_values) < 2:
+                return 0.0
             peak = portfolio_values[0]
             max_drawdown = 0
             
@@ -741,8 +755,17 @@ class RiskManager:
     async def _calculate_expected_shortfall(self, positions: Dict, market_data: Dict) -> float:
         """(ES)"""
         try:
-            # 
-            returns = np.random.normal(0.001, 0.025, 10000)
+            # 從實際持倉數據建立分布
+            history_returns = []
+            for pos in positions.values():
+                pnl_pct = pos.get("unrealized_pnl_pct", 0.0)
+                if abs(pnl_pct) > 1e-9:
+                    history_returns.append(pnl_pct)
+
+            if len(history_returns) < 30:
+                return 0.035  # 持倉資料不足時回傳保守估算值
+
+            returns = np.array(history_returns)
             
             # 95% VaR
             var_95 = np.percentile(returns, 5)
@@ -760,9 +783,14 @@ class RiskManager:
     def _calculate_risk_adjusted_return(self, positions: Dict, account_info: Dict) -> float:
         """"""
         try:
-            # 
-            annual_return = np.random.uniform(0.08, 0.25)  # 8%-25%
-            volatility = np.random.uniform(0.15, 0.35)     # 15%-35%
+            # 從實際持倉數據計算年化報酬與波動率
+            pnl_list = [pos.get('unrealized_pnl_pct', 0.0) for pos in positions.values()]
+            if len(pnl_list) >= 2:
+                annual_return = float(np.mean(pnl_list) * 252)         # 年化
+                volatility = float(np.std(pnl_list) * (252 ** 0.5))    # 年化波動率
+            else:
+                # 持倉為空或單一持倉，無法計算 Sharpe，回傳預設中立值
+                return 1.0
             
             #  (3%)
             risk_free_rate = 0.03

@@ -4,6 +4,14 @@
 # Binance API 配置
 # =======================================
 
+# ⚠️  安全警告：API 金鑰不應寫死在原始碼中！
+# 正式環境請改用環境變數：
+#   export BINANCE_API_KEY="your_key"
+#   export BINANCE_API_SECRET="your_secret"
+# 或使用 .env 檔（需加入 .gitignore）
+# 以下僅為 Demo Trading (Testnet) 金鑰，無真實資金風險
+# ⚠️ 切勿將正式主網金鑰提交至版本控制
+
 # API 金鑰 (從 Binance Demo Trading 獲取)
 # 申請地址: https://testnet.binancefuture.com/
 BINANCE_API_KEY = "9KZTxxFzolHHnmCwu6yzE7YCfeZGJTSQPKWbuMgXw7ImVXWX5geYIvcZEhO7vDhE"

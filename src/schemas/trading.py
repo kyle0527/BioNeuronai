@@ -10,7 +10,7 @@ BioNeuronai 交易信號模型
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, computed_field, field_validator, model_validator
 
 from .enums import SignalType, SignalStrength, RiskLevel
 
@@ -26,7 +26,7 @@ class TradingSignal(BaseModel):
     
     symbol: str = Field(..., description="交易對符號")
     signal_type: SignalType = Field(..., description="信號類型 (BUY/SELL/HOLD)")
-    strength: SignalStrength = Field(..., description="信號強度")
+    strength: SignalStrength = Field(default=SignalStrength.MODERATE, description="信號強度")
     confidence: float = Field(..., ge=0, le=1, description="信號置信度 (0-1)")
     timestamp: datetime = Field(default_factory=datetime.now, description="信號生成時間")
     
@@ -34,6 +34,7 @@ class TradingSignal(BaseModel):
     entry_price: Optional[float] = Field(None, gt=0, description="建議進場價格")
     target_price: Optional[float] = Field(None, gt=0, description="目標價格")
     stop_loss: Optional[float] = Field(None, gt=0, description="止損價格")
+    take_profit: Optional[float] = Field(None, gt=0, description="止盈價格")
     
     # 風險管理
     risk_level: RiskLevel = Field(default=RiskLevel.MEDIUM, description="風險等級")
@@ -49,6 +50,12 @@ class TradingSignal(BaseModel):
     # 元數據
     metadata: Optional[dict] = Field(None, description="額外元數據")
     
+    @computed_field
+    @property
+    def action(self) -> str:
+        """便捷屬性：返回大寫 action 字串 (BUY/SELL/HOLD)，供日誌與比較使用"""
+        return self.signal_type.value.upper()
+
     @field_validator("symbol")
     @classmethod
     def validate_symbol(cls, v: str) -> str:

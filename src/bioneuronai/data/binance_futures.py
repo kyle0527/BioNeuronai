@@ -17,8 +17,8 @@ from pathlib import Path
 from dataclasses import dataclass
 from datetime import datetime
 
-# 使用統一數據模型
-from ..trading_strategies import MarketData
+# 遵循 CODE_FIX_GUIDE：直接從 schemas 套件導入，避免循環依賴
+from schemas.market import MarketData
 
 @dataclass
 class OrderResult:
@@ -153,7 +153,6 @@ class BinanceFuturesConnector:
             price = float(data['price'])
             return MarketData(
                 symbol=data['symbol'],
-                price=price,
                 volume=0.0,
                 timestamp=datetime.now(),
                 high=price,

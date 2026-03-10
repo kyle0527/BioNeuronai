@@ -142,6 +142,7 @@ from .commands import (
 # 資料庫模型
 from .database import (
     DatabaseConfig,
+    SQLiteConfig,
     DatabaseQuery,
     DatabaseResult,
     DatabaseConnection,

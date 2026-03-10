@@ -1,35 +1,35 @@
 {
-  "version": "3.0",
-  "last_updated": "2026-02-15 15:40:56",
-  "total_keywords": 217,
+  "version": "3.1",
+  "last_updated": "2026-03-10 00:00:00",
+  "total_keywords": 505,
   "categories": {
+    "coin": {
+      "file": "coin.json",
+      "count": 102
+    },
     "person": {
       "file": "person.json",
-      "count": 32
+      "count": 59
     },
     "institution": {
       "file": "institution.json",
-      "count": 26
+      "count": 56
     },
     "macro": {
       "file": "macro.json",
-      "count": 25
+      "count": 50
     },
     "legislation": {
       "file": "legislation.json",
-      "count": 10
+      "count": 30
     },
     "event": {
       "file": "event.json",
-      "count": 99
+      "count": 148
     },
     "tech": {
       "file": "tech.json",
-      "count": 8
-    },
-    "coin": {
-      "file": "coin.json",
-      "count": 17
+      "count": 60
     }
   }
 }

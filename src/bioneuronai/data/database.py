@@ -85,10 +85,25 @@ class SignalRecord:
 
 
 class TradingDatabase:
-    """交易資料庫管理器"""
+    """交易資料庫管理器
     
-    def __init__(self, db_path: str = "data/bioneuronai/trading/runtime/trading.db"):
-        """初始化資料庫"""
+    .. deprecated::
+        此類別在 v4.0 後已被 DatabaseManager (database_manager.py) 取代。
+        請改用 DatabaseManager / get_database_manager() 來存取交易記錄。
+        
+        TradingDatabase 保留同所管理的獨特表：
+            - trading_pairs  (交易對清單，含傳詳協議參數)
+            - strategy_weights  (策略權重歷史)
+            - account_snapshots (帳戶快照)
+        上述表尚未合併進 DatabaseManager，未來將一併移入。
+    """
+    
+    def __init__(self, db_path: str = "data/bioneuronai/trading/runtime/trading_pairs.db"):
+        """初始化資料庫
+        
+        警告：預設路徑已更改為 trading_pairs.db 以避免與 DatabaseManager
+        使用的 trading.db 產生表結構衝突。若要讀寫重要交易記錄請改用 DatabaseManager。
+        """
         self.db_path = Path(db_path)
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         

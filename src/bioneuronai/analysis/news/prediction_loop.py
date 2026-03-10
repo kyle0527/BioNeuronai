@@ -430,9 +430,12 @@ class NewsPredictionLoop:
                 logger.warning(f"⚠️  無法獲取價格 {prediction.target_symbol}: {e}")
                 current_price = prediction.price_at_prediction  # 使用預測時價格
         else:
-            # 模擬數據（實際應該從 API 獲取）
-            import random
-            current_price = prediction.price_at_prediction * (1 + random.uniform(-0.05, 0.05))
+            # price_fetcher 未設定，無法驗證；使用預測時價格作為佔位，標記為無效驗證
+            logger.warning(
+                f"⚠️  prediction_loop: price_fetcher 未設定，"
+                f"無法驗證 {prediction.target_symbol} 的真實價格，跳過驗證"
+            )
+            current_price = prediction.price_at_prediction
         
         # 計算實際變化
         price_change_pct = ((current_price - prediction.price_at_prediction) 

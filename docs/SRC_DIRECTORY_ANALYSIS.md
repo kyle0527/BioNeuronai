@@ -516,7 +516,7 @@ from schemas.external_data import ExternalDataSnapshot
 
 **依賴**:
 - ✅ `bioneuronai.data.binance_futures` (模擬其接口)
-- ✅ `bioneuronai.trading_strategies.MarketData`
+- ✅ `schemas.market.MarketData` (直接從 schemas 導入)
 
 **被引用**:
 - ✅ `bioneuronai.core.self_improvement` (第 616, 823 行)
@@ -660,7 +660,7 @@ from schemas.strategy import StrategyConfig
 from bioneuronai.analysis.news import CryptoNewsAnalyzer
 from bioneuronai.data.binance_futures import OrderResult
 from bioneuronai.backtest import MockBinanceConnector  # ← Mock 相關
-from bioneuronai.trading_strategies import MarketData
+from schemas.market import MarketData  # ← 統一從 schemas 導入
 ```
 
 ### Mock 相關導入追蹤
@@ -790,7 +790,7 @@ bioneuronai/
 │   └── trading_plan_system.py
 │
 ├── __init__.py
-├── trading_strategies.py          ← 舊版接口 (含 MarketData)
+├── trading_strategies.py          ← 策略實作 (MarketData/TradingSignal re-export 自 schemas)
 └── historical_data_loader.py
 ```
 
