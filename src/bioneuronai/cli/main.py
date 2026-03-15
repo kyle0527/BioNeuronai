@@ -311,7 +311,8 @@ def cmd_trade(args: argparse.Namespace) -> None:
             print(f"  即時價格 [{args.symbol}]: ${price_data.price:.2f}")
 
         print("\n  按 Ctrl+C 停止交易\n")
-        engine.run()
+        # TradingEngine 正確入口：start_monitoring(symbol) 內建 WebSocket 監控迴圈
+        engine.start_monitoring(args.symbol)
 
     except KeyboardInterrupt:
         print("\n  交易已停止。")
