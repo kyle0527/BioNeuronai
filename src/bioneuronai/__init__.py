@@ -110,7 +110,10 @@ except ImportError:
     RLMetaAgent = None
     StrategyFusionEnv = None
 
-# 
+# CLI 統一入口
+from .cli import cli_main
+
+#
 CryptoFuturesTrader = TradingEngine
 
 __all__ = [
@@ -169,11 +172,14 @@ __all__ = [
     "NewsPredictionLoop",
     "NEWS_PREDICTION_AVAILABLE",
     
-    # 
+    #
     "TradingPlanController",
     "MarketAnalyzer",
     "StrategySelector",
     "PairSelector",
+
+    # CLI 統一入口
+    "cli_main",
 ]
 
 print(f"[BioNeuronai v{__version__}] ")
