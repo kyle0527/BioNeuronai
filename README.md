@@ -2,8 +2,8 @@
 
 **AI 神經網路 + 策略進化 + 智能融合 | 111.2M 參數推論引擎**
 
-**最後更新**: 2026年2月15日  
-**版本**: v4.0.1 (架構重整版)  
+**最後更新**: 2026年3月15日
+**版本**: v4.3.0 (CLI 全面審計修復版)
 **代碼質量**: ✅ 0 錯誤 | 0 警告 | 認知複雜度 ≤15
 
 ---
@@ -128,13 +128,29 @@ BINANCE_API_SECRET = "your_secret_key"
 USE_TESTNET = True  # 建議先使用測試網
 ```
 
-### 3. 運行交易系統
-```bash
-# AI 模擬交易
-python tools/ai_trade_nexttick.py
+### 3. 運行交易系統（CLI 入口）
 
-# 策略進化示範
-python tools/demo_strategy_evolution.py
+```bash
+# 系統健康檢查（無需 torch）
+python -m bioneuronai.cli.main status
+
+# 交易前 6 點 RAG 檢查（無需 torch）
+python -m bioneuronai.cli.main pretrade --symbol BTCUSDT --capital 10000
+
+# 每日計劃（無 torch 時自動 fallback 至 SOPAutomation）
+python -m bioneuronai.cli.main plan --symbol BTCUSDT
+
+# 新聞情緒分析（無需 torch）
+python -m bioneuronai.cli.main news --symbol BTCUSDT
+
+# 歷史回測（需 torch 以啟用 AI 策略）
+python -m bioneuronai.cli.main backtest --symbol BTCUSDT --start 2024-01-01
+
+# 紙交易模擬（需歷史數據）
+python -m bioneuronai.cli.main simulate --symbol BTCUSDT
+
+# 測試網 AI 實盤交易（需 torch + API 金鑰）
+python -m bioneuronai.cli.main trade --symbol BTCUSDT --testnet
 ```
 
 ---
