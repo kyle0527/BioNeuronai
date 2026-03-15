@@ -11,18 +11,20 @@ BioNeuronai - 統一入口點
 
 可用命令:
     backtest   歷史數據回測
-    simulate   紙交易模擬 (不產生真實訂單)
+    simulate   紙交易模擬 (next_tick 推進，不產生真實訂單)
     trade      實盤 / 測試網交易
-    plan       生成每日 SOP 交易計劃
+    plan       生成每日 SOP 交易計劃 (10 步驟)
     news       新聞情緒分析
+    pretrade   進場前技術面 / 基本面 / 風險驗核
     status     系統健康狀態檢查
 
 命令範例:
-    python main.py backtest --symbol ETHUSDT --interval 1h
-    python main.py simulate --symbol BTCUSDT --balance 50000
-    python main.py trade --testnet
-    python main.py plan --output daily_plan.json
-    python main.py news --symbol BTCUSDT --max-items 5
+    python main.py backtest  --symbol ETHUSDT --interval 1h
+    python main.py simulate  --symbol BTCUSDT --interval 15m --balance 50000
+    python main.py trade     --testnet
+    python main.py plan      --output daily_plan.json
+    python main.py news      --symbol BTCUSDT --max-items 5
+    python main.py pretrade  --symbol BTCUSDT --action long
     python main.py status
 """
 

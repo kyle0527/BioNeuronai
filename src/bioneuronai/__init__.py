@@ -29,25 +29,42 @@ logging.basicConfig(
     ]
 )
 
-# 
-from .core import TradingEngine, SelfImprovementSystem
+# 核心模組（依賴 torch，若未安裝則優雅降級）
+try:
+    from .core import TradingEngine, SelfImprovementSystem
+    from .core import (
+        InferenceEngine,
+        ModelLoader,
+        FeaturePipeline,
+        Predictor,
+        SignalInterpreter,
+        SignalType,
+        RiskLevel,
+        create_inference_engine,
+    )
+    from .core.inference_engine import TradingSignal as AITradingSignal
+    TORCH_AVAILABLE = True
+except (ImportError, AttributeError) as _torch_err:
+    TORCH_AVAILABLE = False
+    TradingEngine = None          # type: ignore[assignment,misc]
+    SelfImprovementSystem = None  # type: ignore[assignment,misc]
+    InferenceEngine = None        # type: ignore[assignment,misc]
+    ModelLoader = None            # type: ignore[assignment,misc]
+    FeaturePipeline = None        # type: ignore[assignment,misc]
+    Predictor = None              # type: ignore[assignment,misc]
+    SignalInterpreter = None      # type: ignore[assignment,misc]
+    SignalType = None             # type: ignore[assignment,misc]
+    RiskLevel = None              # type: ignore[assignment,misc]
+    AITradingSignal = None        # type: ignore[assignment,misc]
+    create_inference_engine = None  # type: ignore[assignment,misc]
+    logging.getLogger(__name__).warning(
+        "torch 未安裝，TradingEngine / InferenceEngine 不可用。"
+        " 執行 pip install torch 以啟用 AI 功能。"
+    )
+
 from .trading_strategies import MarketData, TradingSignal, StrategyFusion
 from .data import BinanceFuturesConnector, ExchangeRateService
 from .risk_management import RiskManager, RiskParameters
-
-#  ()
-from .core import (
-    InferenceEngine,
-    ModelLoader,
-    FeaturePipeline,
-    Predictor,
-    SignalInterpreter,
-    SignalType,
-    RiskLevel,
-    create_inference_engine,
-)
-#  AI 
-from .core.inference_engine import TradingSignal as AITradingSignal
 
 #  ()
 try:

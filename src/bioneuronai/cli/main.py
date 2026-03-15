@@ -185,17 +185,18 @@ def cmd_simulate(args: argparse.Namespace) -> None:
     """
     紙交易模擬命令
 
-    使用 MockBinanceConnector 進行模擬，不會產生真實訂單。
+    使用 MockBinanceConnector.next_tick() 逐 K 線推進，不產生真實訂單。
+    需要 binance_historical/ 目錄中的歷史 K 線數據。
 
     Example:
-        python main.py simulate --symbol BTCUSDT --bars 300
+        python main.py simulate --symbol BTCUSDT --interval 15m --bars 300
     """
     print(f"\n{'='*60}")
-    print(f"  BioNeuronai Simulate  {args.symbol}")
+    print(f"  BioNeuronai Simulate  {args.symbol} / {args.interval}")
     print(f"{'='*60}")
 
     try:
-        from backtest import MockBinanceConnector, KlineBar
+        from backtest import MockBinanceConnector
         from bioneuronai.core.trading_engine import TradingEngine
     except ImportError as e:
         logger.error("模擬模組載入失敗: %s", e)
@@ -203,28 +204,41 @@ def cmd_simulate(args: argparse.Namespace) -> None:
 
     print(f"\n  初始資金   : ${args.balance:,.2f}")
     print(f"  模擬 K 線數: {args.bars}")
-    print(f"  交易對     : {args.symbol}\n")
+    print(f"  交易對     : {args.symbol}  週期: {args.interval}\n")
 
     try:
         te = TradingEngine(testnet=True)
+        print("  TradingEngine 已初始化")
     except Exception as exc:
-        logger.warning("TradingEngine 初始化失敗: %s", exc)
+        logger.warning("TradingEngine 初始化失敗（無 AI 模式）: %s", exc)
         te = None
 
-    mock = MockBinanceConnector(
-        symbol=args.symbol,
-        initial_balance=args.balance,
-    )
+    try:
+        mock = MockBinanceConnector(
+            symbol=args.symbol,
+            interval=args.interval,
+            initial_balance=args.balance,
+            start_date=getattr(args, "start_date", None),
+            end_date=getattr(args, "end_date", None),
+        )
+    except Exception as exc:
+        logger.error("MockBinanceConnector 初始化失敗: %s", exc)
+        sys.exit(1)
 
     bar_count = 0
+    print(f"  模擬執行中 ... (限制 {args.bars} 根 K 線)\n")
 
-    def on_tick(bar: "KlineBar") -> None:
-        nonlocal bar_count
+    # 使用 next_tick() 逐根推進（MockBinanceConnector 的正確接口）
+    while mock.next_tick() and bar_count < args.bars:
+        bar = mock._current_bar
+        if bar is None:
+            continue
+
         bar_count += 1
 
         if te and te.inference_engine and te.ai_model_loaded:
             try:
-                klines = mock.data_stream.get_klines_until_now(50) if hasattr(mock, "data_stream") else []
+                klines = mock.data_stream.get_klines_until_now(50)
                 signal = te.inference_engine.predict(
                     symbol=bar.symbol,
                     current_price=bar.close,
@@ -232,29 +246,28 @@ def cmd_simulate(args: argparse.Namespace) -> None:
                 )
                 if bar_count % 20 == 0:
                     print(
-                        f"  [{bar_count:4d}] ${bar.close:>9.2f}  signal={signal.signal_type.value}"
+                        f"  [{bar_count:4d}] ${bar.close:>9.2f}"
+                        f"  {signal.signal_type.value:<15}"
                         f"  conf={signal.confidence:.1%}"
                     )
             except Exception:
-                pass
+                if bar_count % 20 == 0:
+                    print(f"  [{bar_count:4d}] ${bar.close:>9.2f}  (AI 推論失敗)")
         elif bar_count % 20 == 0:
-            print(f"  [{bar_count:4d}] ${bar.close:>9.2f}  (no AI model)")
-
-        if bar_count >= args.bars:
-            raise StopIteration
-
-    print(f"  模擬執行中 ... (限制 {args.bars} 根 K 線)")
-    try:
-        mock.start_stream(args.symbol, on_tick)
-    except StopIteration:
-        pass
-    except AttributeError:
-        logger.warning("MockBinanceConnector 不支援 start_stream，請使用 backtest 命令")
+            print(f"  [{bar_count:4d}] ${bar.close:>9.2f}  (無 AI 模型)")
 
     acct = mock.get_account_info()
     final_balance = float(acct.get("totalWalletBalance", args.balance))
     pnl = final_balance - args.balance
-    print(f"\n  最終餘額: ${final_balance:,.2f}  PnL: {pnl:+,.2f}\n")
+    stats = mock.virtual_account.get_stats() if hasattr(mock, "virtual_account") else {}
+    print(f"\n  {'─'*50}")
+    print(f"  最終餘額  : ${final_balance:,.2f}")
+    print(f"  PnL       : {pnl:+,.2f} USDT")
+    if stats:
+        print(f"  總報酬率  : {stats.get('total_return', 0):.2f}%")
+        print(f"  總交易次數: {stats.get('total_trades', 0)}")
+        print(f"  勝率      : {stats.get('win_rate', 0):.1f}%")
+    print(f"  {'─'*50}\n")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -314,38 +327,62 @@ def cmd_plan(args: argparse.Namespace) -> None:
     """
     每日 SOP 交易計劃命令
 
-    執行開盤前 10 步驟市場分析，輸出交易計劃報告。
+    優先使用 TradingPlanController（10 步驟完整計劃），
+    若不可用則 fallback 至 SOPAutomationSystem（基礎版）。
 
     Example:
         python main.py plan
         python main.py plan --output daily_plan.json
     """
+    import asyncio
+
     print(f"\n{'='*60}")
-    print("  BioNeuronai Daily Trading Plan")
+    print("  BioNeuronai Daily Trading Plan  (10-Step SOP)")
     print(f"{'='*60}\n")
 
+    report: Optional[dict] = None
+
+    # ── 優先：TradingPlanController（完整 10 步驟，async）────────────────────
     try:
-        from bioneuronai.trading.sop_automation import SOPAutomationSystem
+        from bioneuronai.trading.plan_controller import TradingPlanController
+
+        controller = TradingPlanController()
+        print("  [模式] TradingPlanController (10-Step)\n")
+
+        async def _run_plan() -> dict:
+            return await controller.create_comprehensive_plan()
+
+        report = asyncio.run(_run_plan())
+        print("  [OK] 10 步驟計劃生成完畢")
+
     except ImportError as e:
-        logger.error("SOPAutomationSystem 載入失敗: %s", e)
-        sys.exit(1)
-
-    sop = SOPAutomationSystem()
-    print("  [START] 執行每日開盤前分析 ...\n")
-
-    try:
-        report = sop.execute_daily_premarket_check()
-        _print_plan_report(report)
-
-        output_path: Optional[str] = getattr(args, "output", None)
-        if output_path:
-            with open(output_path, "w", encoding="utf-8") as f:
-                json.dump(report, f, ensure_ascii=False, indent=2, default=str)
-            print(f"\n  報告已儲存至: {output_path}")
-
+        logger.warning("TradingPlanController 不可用，切換至 SOPAutomation: %s", e)
     except Exception as exc:
-        logger.error("計劃生成失敗: %s", exc)
-        sys.exit(1)
+        logger.warning("TradingPlanController 執行失敗，切換至 SOPAutomation: %s", exc)
+
+    # ── Fallback：SOPAutomationSystem（同步版）───────────────────────────────
+    if report is None:
+        try:
+            from bioneuronai.trading.sop_automation import SOPAutomationSystem
+
+            sop = SOPAutomationSystem()
+            print("  [模式] SOPAutomationSystem (基礎版)\n")
+            report = sop.execute_daily_premarket_check()
+            print("  [OK] 市場分析完畢")
+        except ImportError as e:
+            logger.error("SOPAutomationSystem 也不可用: %s", e)
+            sys.exit(1)
+        except Exception as exc:
+            logger.error("計劃生成失敗: %s", exc)
+            sys.exit(1)
+
+    _print_plan_report(report)
+
+    output_path: Optional[str] = getattr(args, "output", None)
+    if output_path:
+        with open(output_path, "w", encoding="utf-8") as f:
+            json.dump(report, f, ensure_ascii=False, indent=2, default=str)
+        print(f"  報告已儲存至: {output_path}")
 
 
 def _print_plan_report(report: dict) -> None:
@@ -399,6 +436,72 @@ def cmd_news(args: argparse.Namespace) -> None:
 # ─────────────────────────────────────────────────────────────────────────────
 
 
+def cmd_pretrade(args: argparse.Namespace) -> None:
+    """
+    進場前檢查命令
+
+    執行 PreTradeCheckSystem 對指定交易對與方向進行技術面、
+    基本面、風險參數的完整驗核，確認是否適合進場。
+
+    Example:
+        python main.py pretrade --symbol BTCUSDT --action long
+        python main.py pretrade --symbol ETHUSDT --action short
+    """
+    print(f"\n{'='*60}")
+    print(f"  BioNeuronai Pre-Trade Check  {args.symbol} / {args.action.upper()}")
+    print(f"{'='*60}\n")
+
+    try:
+        from bioneuronai.trading.pretrade_automation import PreTradeCheckSystem
+    except ImportError as e:
+        logger.error("PreTradeCheckSystem 載入失敗: %s", e)
+        sys.exit(1)
+
+    checker = PreTradeCheckSystem()
+    print(f"  [START] 執行進場前檢查: {args.symbol} {args.action} ...\n")
+
+    try:
+        result = checker.execute_pretrade_check(
+            symbol=args.symbol,
+            action=args.action,
+        )
+        _print_pretrade_result(result)
+
+        output_path: Optional[str] = getattr(args, "output", None)
+        if output_path:
+            with open(output_path, "w", encoding="utf-8") as f:
+                json.dump(result, f, ensure_ascii=False, indent=2, default=str)
+            print(f"  結果已儲存至: {output_path}")
+
+    except Exception as exc:
+        logger.error("進場前檢查失敗: %s", exc)
+        sys.exit(1)
+
+
+def _print_pretrade_result(result: object) -> None:
+    """顯示進場前檢查結果"""
+    print(f"  {'─'*50}")
+    if isinstance(result, dict):
+        for key, value in result.items():
+            if isinstance(value, dict):
+                print(f"  [{key}]")
+                for k, v in value.items():
+                    print(f"    {k}: {v}")
+            else:
+                print(f"  {key}: {value}")
+    else:
+        # Pydantic model / dataclass
+        for attr in ("overall_status", "can_trade", "technical_status",
+                     "fundamental_status", "risk_level", "recommended_action"):
+            val = getattr(result, attr, None)
+            if val is not None:
+                print(f"  {attr}: {val}")
+    print(f"  {'─'*50}\n")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+
+
 def cmd_status(args: argparse.Namespace) -> None:  # noqa: ARG001
     """
     系統健康狀態命令
@@ -418,6 +521,7 @@ def cmd_status(args: argparse.Namespace) -> None:  # noqa: ARG001
         ("bioneuronai.analysis", "CryptoNewsAnalyzer", "NewsAnalyzer"),
         ("bioneuronai.trading.sop_automation", "SOPAutomationSystem", "SOPSystem"),
         ("bioneuronai.trading.plan_controller", "TradingPlanController", "PlanController"),
+        ("bioneuronai.trading.pretrade_automation", "PreTradeCheckSystem", "PreTradeCheck"),
         ("backtest", "BacktestEngine", "BacktestEngine"),
     ]
 
@@ -457,11 +561,12 @@ def _build_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 命令範例:
-  python main.py backtest --symbol ETHUSDT --interval 1h --start-date 2025-01-01
-  python main.py simulate --symbol BTCUSDT --balance 50000 --bars 300
-  python main.py trade --testnet
-  python main.py plan --output daily_plan.json
-  python main.py news --symbol BTCUSDT --max-items 5
+  python main.py backtest  --symbol ETHUSDT --interval 1h --start-date 2025-01-01
+  python main.py simulate  --symbol BTCUSDT --interval 15m --balance 50000 --bars 300
+  python main.py trade     --testnet
+  python main.py plan      --output daily_plan.json
+  python main.py news      --symbol BTCUSDT --max-items 5
+  python main.py pretrade  --symbol BTCUSDT --action long
   python main.py status
         """,
     )
@@ -484,13 +589,19 @@ def _build_parser() -> argparse.ArgumentParser:
     bp.set_defaults(func=cmd_backtest)
 
     # ── simulate ──────────────────────────────────────────────────────────────
-    sp = subparsers.add_parser("simulate", help="紙交易模擬 (不產生真實訂單)")
+    sp = subparsers.add_parser("simulate", help="紙交易模擬 (next_tick 推進，不產生真實訂單)")
     sp.add_argument("--symbol", default="BTCUSDT", metavar="SYMBOL",
                     help="交易對  (預設: BTCUSDT)")
+    sp.add_argument("--interval", default="15m", metavar="INTERVAL",
+                    help="K線週期  (預設: 15m)")
     sp.add_argument("--balance", type=float, default=100000.0, metavar="AMOUNT",
                     help="模擬資金  (預設: 100000)")
     sp.add_argument("--bars", type=int, default=200, metavar="N",
                     help="模擬 K 線數量  (預設: 200)")
+    sp.add_argument("--start-date", default=None, dest="start_date", metavar="YYYY-MM-DD",
+                    help="起始日期  (可選)")
+    sp.add_argument("--end-date", default=None, dest="end_date", metavar="YYYY-MM-DD",
+                    help="結束日期  (可選)")
     sp.set_defaults(func=cmd_simulate)
 
     # ── trade ─────────────────────────────────────────────────────────────────
@@ -516,6 +627,16 @@ def _build_parser() -> argparse.ArgumentParser:
     np_.add_argument("--max-items", type=int, default=10, dest="max_items", metavar="N",
                      help="顯示新聞數量上限  (預設: 10)")
     np_.set_defaults(func=cmd_news)
+
+    # ── pretrade ──────────────────────────────────────────────────────────────
+    prtp = subparsers.add_parser("pretrade", help="進場前技術面 / 基本面 / 風險驗核")
+    prtp.add_argument("--symbol", default="BTCUSDT", metavar="SYMBOL",
+                      help="交易對  (預設: BTCUSDT)")
+    prtp.add_argument("--action", default="long", choices=["long", "short"],
+                      help="交易方向: long / short  (預設: long)")
+    prtp.add_argument("--output", default=None, metavar="FILE",
+                      help="輸出 JSON 檔案路徑  (可選)")
+    prtp.set_defaults(func=cmd_pretrade)
 
     # ── status ────────────────────────────────────────────────────────────────
     statp = subparsers.add_parser("status", help="系統健康狀態檢查")
