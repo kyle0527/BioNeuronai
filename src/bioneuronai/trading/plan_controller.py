@@ -34,6 +34,16 @@ except ImportError:
     EVENT_SYSTEM_AVAILABLE = False
     get_rule_evaluator = None
 
+# 導入策略選擇器與交易對選擇器 (Step 5/6/9)
+try:
+    from .strategy_selector import StrategySelector
+    from .pair_selector import PairSelector
+    SELECTORS_AVAILABLE = True
+except ImportError:
+    SELECTORS_AVAILABLE = False
+    StrategySelector = None  # type: ignore[assignment,misc]
+    PairSelector = None  # type: ignore[assignment,misc]
+
 logger = logging.getLogger(__name__)
 
 class TradingPlanController:
@@ -59,6 +69,17 @@ class TradingPlanController:
                 logger.info("🧠 事件評估器已連接 (RuleBasedEvaluator)")
             except Exception as e:
                 logger.warning(f"⚠️ 事件評估器初始化失敗: {e}")
+
+        # 初始化策略選擇器與交易對選擇器 (Step 5/6/9)
+        self._strategy_selector: Optional['StrategySelector'] = None
+        self._pair_selector: Optional['PairSelector'] = None
+        if SELECTORS_AVAILABLE and StrategySelector is not None and PairSelector is not None:
+            try:
+                self._strategy_selector = StrategySelector()
+                self._pair_selector = PairSelector()
+                logger.info("📊 策略選擇器與交易對選擇器已初始化")
+            except Exception as e:
+                logger.warning(f"⚠️ 選擇器初始化失敗: {e}")
         
         # 10步驟配置
         self.steps = {
@@ -152,12 +173,19 @@ class TradingPlanController:
                 logger.warning(f"⚠️ 重大負面事件！Event Score: {event_score:+.3f}")
                 logger.warning("   建議暫停交易或大幅降低倉位")
             
-            # 步驟 5-6: 策略相關（簡化）
-            for step_num in [5, 6]:
-                logger.info(f"\n{'='*70}")
-                logger.info(f"步驟 {step_num}/10: {self.steps[step_num]['name']} (簡化)")
-                logger.info(f"{'='*70}")
-                plan["steps_results"][step_num] = {"status": "SIMPLIFIED"}
+            # 步驟 5: 策略性能評估
+            logger.info(f"\n{'='*70}")
+            logger.info("步驟 5/10: 策略性能評估")
+            logger.info(f"{'='*70}")
+            step5_result = await self._step5_strategy_evaluation()
+            plan["steps_results"][5] = step5_result
+
+            # 步驟 6: 策略選擇權重
+            logger.info(f"\n{'='*70}")
+            logger.info("步驟 6/10: 策略選擇權重")
+            logger.info(f"{'='*70}")
+            step6_result = await self._step6_strategy_selection(klines, account_balance)
+            plan["steps_results"][6] = step6_result
             
             # 步驟 7: 風險參數計算（使用真實計算）
             logger.info(f"\n{'='*70}")
@@ -175,12 +203,19 @@ class TradingPlanController:
             step8_result = await self._step8_fund_management(step7_result, account_balance, entry_price, stop_loss_price)
             plan["steps_results"][8] = step8_result
             
-            # 步驟 9-10: 交易對和監控（簡化）
-            for step_num in [9, 10]:
-                logger.info(f"\n{'='*70}")
-                logger.info(f"步驟 {step_num}/10: {self.steps[step_num]['name']} (簡化)")
-                logger.info(f"{'='*70}")
-                plan["steps_results"][step_num] = {"status": "SIMPLIFIED"}
+            # 步驟 9: 交易對篩選
+            logger.info(f"\n{'='*70}")
+            logger.info("步驟 9/10: 交易對篩選")
+            logger.info(f"{'='*70}")
+            step9_result = await self._step9_pair_selection()
+            plan["steps_results"][9] = step9_result
+
+            # 步驟 10: 執行計劃監控設定
+            logger.info(f"\n{'='*70}")
+            logger.info("步驟 10/10: 執行計劃監控設定")
+            logger.info(f"{'='*70}")
+            step10_result = await self._step10_execution_monitor()
+            plan["steps_results"][10] = step10_result
             
             logger.info("\n" + "="*70)
             logger.info("✅ 完成 10步驟交易計劃")
@@ -427,38 +462,117 @@ class TradingPlanController:
         return result
     
     async def _step5_strategy_evaluation(self) -> Dict:
-        """5: 策略性能評估 - 評估各策略歷史表現"""
+        """5: 策略性能評估 - 使用 StrategySelector 評估各策略配置績效"""
         await asyncio.sleep(0)  # Async yield point for task scheduling
-        logger.info(" ...")
-        logger.info(" ...")
-        logger.info(" ...")
-        
-        # 目前返回模擬數據，未來整合回測系統後將提供真實績效
-        return {
-            "status": "SUCCESS",
-            "strategies": {
-                "trend_following": {"win_rate": 0.65, "sharpe": 1.8},
-                "mean_reversion": {"win_rate": 0.58, "sharpe": 1.2},
-                "breakout": {"win_rate": 0.62, "sharpe": 1.5}
-            },
-            "best_strategy": "trend_following"
-        }
+
+        if self._strategy_selector is None:
+            logger.warning("⚠️ StrategySelector 不可用，使用預設值")
+            return {
+                "status": "DEGRADED",
+                "strategies": {
+                    "MA_Crossover_Trend": {"win_rate": 0.55, "sharpe": 1.2},
+                    "RSI_Mean_Reversion": {"win_rate": 0.65, "sharpe": 1.1},
+                    "Momentum_Breakout": {"win_rate": 0.50, "sharpe": 1.3},
+                },
+                "best_strategy": "RSI_Mean_Reversion",
+                "source": "config_defaults",
+            }
+
+        try:
+            strategies_perf: Dict = {}
+            best_strategy = None
+            best_sharpe = -1.0
+
+            for name in list(self._strategy_selector.available_strategies.keys())[:5]:
+                perf = await self._strategy_selector.analyze_strategy_performance(name)
+                strategies_perf[name] = {
+                    "win_rate": perf.win_rate,
+                    "sharpe": perf.sharpe_ratio,
+                    "profit_factor": perf.profit_factor,
+                    "max_drawdown": perf.max_drawdown,
+                    "expected_return": perf.total_return,
+                }
+                logger.info(f"  ✓ {name}: 勝率={perf.win_rate:.1%}, Sharpe={perf.sharpe_ratio:.2f}")
+                if perf.sharpe_ratio > best_sharpe:
+                    best_sharpe = perf.sharpe_ratio
+                    best_strategy = name
+
+            return {
+                "status": "SUCCESS",
+                "strategies": strategies_perf,
+                "best_strategy": best_strategy,
+                "source": "strategy_selector_config",
+            }
+
+        except Exception as e:
+            logger.error(f"❌ 策略性能評估失敗: {e}")
+            return {"status": "ERROR", "error": str(e)}
     
-    async def _step6_strategy_selection(self) -> Dict:
-        """6: 策略選擇權重 - 根據市場狀態選擇最佳策略"""
+    async def _step6_strategy_selection(self, klines: Optional[List[Dict]] = None, account_balance: float = 10000) -> Dict:
+        """6: 策略選擇權重 - 使用 StrategySelector 根據資金與市場選擇策略"""
         await asyncio.sleep(0)  # Async yield point for task scheduling
-        logger.info(" ...")
-        logger.info(" ...")
-        logger.info(" ...")
-        
-        # 目前返回模擬數據，未來整合策略融合模組後將動態選擇
-        return {
-            "status": "SUCCESS",
-            "selected_strategy": "trend_following",
-            "strategy_weight": 0.7,
-            "confidence_score": 0.82,
-            "fallback_strategy": "breakout"
-        }
+
+        if self._strategy_selector is None:
+            logger.warning("⚠️ StrategySelector 不可用，使用預設值")
+            return {
+                "status": "DEGRADED",
+                "selected_strategy": "MA_Crossover_Trend",
+                "strategy_weight": 0.7,
+                "confidence_score": 0.5,
+                "fallback_strategy": "RSI_Mean_Reversion",
+                "source": "default_fallback",
+            }
+
+        try:
+            import numpy as np
+
+            # 將 klines 轉為 OHLCV numpy array（失敗則使用空陣列）
+            ohlcv: np.ndarray = np.empty((0, 6))
+            if klines and len(klines) >= 10:
+                try:
+                    ohlcv = np.array([
+                        [
+                            float(k.get("open_time", 0)),
+                            float(k.get("open", k.get("o", 0))),
+                            float(k.get("high", k.get("h", 0))),
+                            float(k.get("low", k.get("l", 0))),
+                            float(k.get("close", k.get("c", 0))),
+                            float(k.get("volume", k.get("v", 0))),
+                        ]
+                        for k in klines
+                    ])
+                except Exception:
+                    ohlcv = np.empty((0, 6))
+
+            selection = self._strategy_selector.select_strategy(
+                ohlcv_data=ohlcv,
+                capital=account_balance,
+                risk_tolerance="medium",
+            )
+
+            primary = selection.primary_strategy
+            fallback = selection.backup_strategies[0].name if selection.backup_strategies else "None"
+
+            logger.info(f"  ✓ 主要策略: {primary.name} (勝率={primary.win_rate:.1%})")
+            logger.info(f"  ✓ 備用策略: {fallback}")
+            logger.info(f"  ✓ 信心分數: {selection.confidence_score:.2f}")
+
+            return {
+                "status": "SUCCESS",
+                "selected_strategy": primary.name,
+                "strategy_type": primary.strategy_type.value,
+                "strategy_weight": selection.strategy_mix.get(primary.name, 0.7),
+                "confidence_score": round(selection.confidence_score, 3),
+                "fallback_strategy": fallback,
+                "strategy_mix": selection.strategy_mix,
+                "reasoning": selection.reasoning,
+                "expected_performance": selection.expected_performance,
+                "source": "strategy_selector",
+            }
+
+        except Exception as e:
+            logger.error(f"❌ 策略選擇失敗: {e}")
+            return {"status": "ERROR", "error": str(e)}
     
     async def _step7_risk_calculation(self, market_condition: Optional[Dict] = None, account_balance: float = 10000) -> Dict:
         """7: 風險參數計算 - 使用真實風險管理"""
@@ -559,37 +673,70 @@ class TradingPlanController:
             }
     
     async def _step9_pair_selection(self) -> Dict:
-        """9: 交易對篩選 - 根據流動性和波動性篩選最佳交易對"""
+        """9: 交易對篩選 - 使用 PairSelector 根據成交量與波動率篩選"""
         await asyncio.sleep(0)  # Async yield point for task scheduling
-        logger.info(" ...")
-        logger.info(" ...")
-        logger.info(" ...")
-        
-        # 目前返回模擬數據，未來整合市場數據後將動態篩選
-        return {
-            "status": "SUCCESS",
-            "pairs": [
-                {"symbol": "BTCUSDT", "score": 92, "liquidity": 95, "volatility": 88},
-                {"symbol": "ETHUSDT", "score": 88, "liquidity": 90, "volatility": 85},
-                {"symbol": "SOLUSDT", "score": 85, "liquidity": 85, "volatility": 90}
-            ],
-            "recommended_pair": "BTCUSDT"
-        }
+
+        if self._pair_selector is None:
+            logger.warning("⚠️ PairSelector 不可用，使用預設主流幣對")
+            return {
+                "status": "DEGRADED",
+                "pairs": [
+                    {"symbol": "BTCUSDT", "liquidity": "HIGH", "source": "default"},
+                    {"symbol": "ETHUSDT", "liquidity": "HIGH", "source": "default"},
+                    {"symbol": "BNBUSDT", "liquidity": "HIGH", "source": "default"},
+                ],
+                "recommended_pair": "BTCUSDT",
+                "source": "default_fallback",
+            }
+
+        try:
+            result = await self._pair_selector.select_optimal_pairs()
+            primary_pairs = result.get("primary_pairs", ["BTCUSDT"])
+            pair_details = result.get("pair_details", {})
+            source = "api" if pair_details else "default_fallback"
+
+            pairs_list = []
+            for sym in primary_pairs:
+                detail = pair_details.get(sym, {})
+                pairs_list.append({
+                    "symbol": sym,
+                    "volume_usdt_24h": detail.get("volume_usdt", 0),
+                    "price_change_pct": detail.get("price_change_pct", 0),
+                    "last_price": detail.get("last_price", 0),
+                    "liquidity": "HIGH" if detail.get("volume_usdt", 0) > 1e8 else "MEDIUM",
+                })
+                logger.info(f"  ✓ {sym}: 24h成交量={detail.get('volume_usdt', 0):,.0f} USDT")
+
+            return {
+                "status": "SUCCESS",
+                "pairs": pairs_list,
+                "backup_pairs": result.get("backup_pairs", []),
+                "recommended_pair": primary_pairs[0] if primary_pairs else "BTCUSDT",
+                "selection_criteria": result.get("selection_criteria", {}),
+                "source": source,
+            }
+
+        except Exception as e:
+            logger.error(f"❌ 交易對篩選失敗: {e}")
+            return {"status": "ERROR", "error": str(e)}
     
     async def _step10_execution_monitor(self) -> Dict:
-        """10: 執行計劃監控 - 建立即時監控連線"""
+        """10: 執行計劃監控 - 輸出監控設定（WebSocket 由 TradingEngine 負責建立）"""
         await asyncio.sleep(0)  # Async yield point for task scheduling
-        logger.info(" ...")
-        logger.info(" ...")
-        logger.info("  WebSocket...")
-        
-        # 目前返回模擬狀態，未來整合 WebSocket 後將實現即時監控
+        logger.info("  ✓ 監控規則已設定（WebSocket 由 TradingEngine 實際啟動）")
+        logger.info("  ✓ 警報規則: 價格警報 / 倉位警報 / 新聞警報")
+        logger.info("  ℹ️  WebSocket 連線需在 TradingEngine.start() 後才會就緒")
         return {
             "status": "SUCCESS",
-            "monitor_active": True,
-            "websocket_ready": True,
+            "monitor_active": False,
+            "websocket_ready": False,
+            "websocket_note": (
+                "WebSocket 由 BinanceFuturesConnector.subscribe_ticker_stream() 建立，"
+                "需在 TradingEngine 啟動後才會連線"
+            ),
             "alert_rules": ["price_alert", "position_alert", "news_alert"],
-            "update_interval_ms": 1000
+            "update_interval_ms": 1000,
+            "setup_required": True,
         }
     
     async def execute_plan(self, plan: Dict) -> Dict:
