@@ -1,8 +1,8 @@
 # 策略模組 (Strategies)
 
 **路徑**: `src/bioneuronai/strategies/`  
-**版本**: v4.2  
-**更新日期**: 2026-03-10  
+**版本**: v4.3.1
+**更新日期**: 2026-03-16
 **架構層級**: Layer 2 — 策略層
 
 ---
@@ -42,7 +42,7 @@
 ```
 src/bioneuronai/strategies/
 ├── __init__.py                    # 模組入口 (102 行)
-├── base_strategy.py               # 策略抽象基類 (779 行)
+├── base_strategy.py               # 策略抽象基類 (778 行)
 │
 ├── trend_following.py             # 趨勢跟隨策略 (1,192 行)
 ├── swing_trading.py               # 波段交易策略 (1,338 行)
@@ -51,19 +51,19 @@ src/bioneuronai/strategies/
 ├── direction_change_strategy.py   # 方向變化策略 DC (2026-03-09)
 ├── pair_trading_strategy.py       # 配對交易策略 (2026-03-09)
 │
-├── strategy_fusion.py             # AI 策略融合 (1,144 行)
-├── strategy_arena.py              # 策略競技場 GA (629 行)
-├── phase_router.py                # 階段路由器 (948 行)
-├── portfolio_optimizer.py         # 組合優化器 (591 行)
-├── rl_fusion_agent.py             # RL 融合代理 (670 行)
+├── strategy_fusion.py             # AI 策略融合 (1,159 行)
+├── strategy_arena.py              # 策略競技場 GA (642 行)
+├── phase_router.py                # 階段路由器 (947 行)
+├── portfolio_optimizer.py         # 組合優化器 (590 行)
+├── rl_fusion_agent.py             # RL 融合代理 (669 行)
 │
 └── selector/                      # 策略選擇子模組
     ├── __init__.py                # 子模組入口 (80 行)
-    ├── core.py                    # 選擇器核心 (629 行)
-    ├── evaluator.py               # 市場評估器 v1 (355 行)
-    ├── evaluator_new.py           # 市場評估器 v2 (392 行)
-    ├── configs.py                 # 策略配置模板 (391 行)
-    └── types.py                   # 型別定義 (119 行)
+    ├── core.py                    # 選擇器核心 (645 行)
+    ├── evaluator.py               # 市場評估器 v1 (354 行)
+    ├── evaluator_new.py           # 市場評估器 v2 (393 行)
+    ├── configs.py                 # 策略配置模板 (390 行)
+    └── types.py                   # 型別定義 (118 行)
 ```
 
 ---
@@ -166,15 +166,33 @@ src/bioneuronai/strategies/
 
 整合**全部 6 種基礎策略**的信號，動態加權融合輸出最終交易決策。依市場體制（MarketRegime）自動調整各策略權重。
 
-**主要類**: `AIStrategyFusion`  
-**Enum / dataclass**: `FusionMethod` · `StrategyWeight` · `FusionSignal` · `MarketRegime`
+**主要類**: `AIStrategyFusion`
+**dataclass**: `StrategyWeight` · `FusionSignal` · `MarketRegime`
+**Enum**: `FusionMethod`
 
 **整合策略**: `TrendFollowingStrategy` · `SwingTradingStrategy` · `MeanReversionStrategy` · `BreakoutTradingStrategy` · `DirectionChangeStrategy` · `PairTradingStrategy`
 
-**融合方法** (`FusionMethod`):
-- `WEIGHTED_AVERAGE` — 加權平均融合
-- `VOTING` — 多數決投票融合
-- `CONFIDENCE_WEIGHTED` — 動態信心加權融合
+**融合方法** (`FusionMethod`，5 種)：
+
+| 值 | 說明 |
+|----|------|
+| `WEIGHTED_VOTE` | 加權投票融合（預設） |
+| `BEST_PERFORMER` | 歷史最佳策略優先 |
+| `MARKET_ADAPTIVE` | 依市場體制動態調整權重 |
+| `CONFIDENCE_BASED` | 依信心分數動態加權 |
+| `ENSEMBLE` | 集成融合（綜合以上方法） |
+
+**`MarketRegime`（dataclass，非 Enum）**：
+
+```python
+@dataclass
+class MarketRegime:
+    regime_type: str   # 'trending' | 'ranging' | 'volatile' | 'quiet' | 'transitioning'
+    confidence: float  # 0.0 ~ 1.0
+    duration_bars: int
+    recommended_strategies: List[str]
+    avoid_strategies: List[str]
+```
 
 **外部依賴**: `from schemas.rag import EventContext`（新聞事件調整權重）
 
@@ -186,25 +204,33 @@ src/bioneuronai/strategies/
 
 | 檔案 | 行數 | 職責 |
 |------|------|------|
-| `core.py` | 629 | 選擇器主邏輯：整合 v1 配置 + v2 策略實例化 + AI Fusion + EventContext |
-| `evaluator.py` | 355 | 市場評估器 v1（ADX 體制識別、策略評分） |
-| `evaluator_new.py` | 392 | 市場評估器 v2（擴充 ADX 邏輯、體制完整計算） |
-| `configs.py` | 391 | 10 種預定義策略配置模板（`get_default_strategy_configs()`） |
-| `types.py` | 119 | `StrategyConfigTemplate` · `StrategySelectionResult` · `InternalPerformanceMetrics` |
+| `core.py` | 645 | 選擇器主邏輯：整合 v1 配置 + v2 策略實例化 + AI Fusion + EventContext |
+| `evaluator.py` | 354 | 市場評估器 v1（ADX 體制識別、策略評分） |
+| `evaluator_new.py` | 393 | 市場評估器 v2（擴充 ADX 邏輯、體制完整計算） |
+| `configs.py` | 390 | 10 種預定義策略配置模板（`get_default_strategy_configs()`） |
+| `types.py` | 118 | `StrategyConfigTemplate` · `StrategySelectionResult` · `InternalPerformanceMetrics` |
 
 **`configs.py` 10 種預定義模板**: MA 交叉趨勢、RSI 均值回歸、布林突破、ADX 強趨勢、Stochastic 波段、方向變化、配對交易，以及多種組合配置。
 
 **統一接口**:
 ```python
 selector = StrategySelector(timeframe="1h")
-result = selector.recommend_strategy(ohlcv_data)       # 同步
-result = await selector.select_optimal_strategy(data)  # 非同步
+result = selector.recommend_strategy(ohlcv_data)       # 同步，回傳 StrategyRecommendation
+result = await selector.select_optimal_strategy(data)  # 非同步，回傳 StrategySelectionResult
 ```
 
-**型別定義** (`types.py`):
+**型別定義** (`types.py`)（從 `schemas` 重新導出 + 模組專屬型別）：
 - `StrategyConfigTemplate` — 靜態設定模板（入場/出場條件、風險參數、預期績效）
 - `StrategySelectionResult` — async API 返回值（含主策略 + 備援策略清單）
 - `InternalPerformanceMetrics` — 內部性能指標追蹤
+- `MarketRegime` · `StrategyType` · `Complexity` · `RiskLevel` — 從 `schemas.enums` 重新導出
+- `StrategyRecommendation` · `STRATEGY_MARKET_FIT` — 從 `schemas.strategy` 重新導出
+
+**額外工具函數與常量**（`configs.py` / `__init__.py`）：
+- `get_default_strategy_configs()` — 取得所有預設策略配置模板
+- `get_strategy_by_type(strategy_type)` — 依類型取得特定策略配置
+- `STRATEGY_ALIASES` — 策略名稱別名映射字典
+- `STRATEGY_MARKET_FIT` — 策略 × 市場體制適配矩陣
 
 ---
 
@@ -216,10 +242,21 @@ result = await selector.select_optimal_strategy(data)  # 非同步
 
 **主要類**: `StrategyArena` · `ArenaConfig` · `StrategyCandidate` · `RankMetric(Enum)`
 
-**排名指標** (`RankMetric`):  
-`SHARPE_RATIO` · `SORTINO_RATIO` · `CALMAR_RATIO` · `MAX_DRAWDOWN` · `WIN_RATE` · `PROFIT_FACTOR`
+**排名指標** (`RankMetric`，9 種)：
 
-**特色**: 多進程並行回測（`ProcessPoolExecutor`）、參數網格搜索、貝葉斯優化加速
+| 值 | 說明 |
+|----|------|
+| `SHARPE_RATIO` | 夏普比率 |
+| `SORTINO_RATIO` | 索提諾比率 |
+| `CALMAR_RATIO` | 卡爾瑪比率 |
+| `MAX_DRAWDOWN` | 最大回撤 |
+| `WIN_RATE` | 勝率 |
+| `PROFIT_FACTOR` | 盈虧比 |
+| `TOTAL_RETURN` | 總回報 |
+| `AVG_TRADE_RETURN` | 平均交易回報 |
+| `CONSISTENCY` | 一致性（月度正回報比例） |
+
+**特色**: 多進程並行回測（`ProcessPoolExecutor`）、參數網格搜索
 
 **整合所有 6 種基礎策略**: 可對 TrendFollowing、SwingTrading、MeanReversion、BreakoutTrading、DirectionChange、PairTrading 分別進行 GA 優化。
 
@@ -347,9 +384,9 @@ print(f"配對信號: {signal.direction}, Z-Score: {signal.z_score:.2f}")
 ```python
 from bioneuronai.strategies import AIStrategyFusion, FusionMethod
 
-fusion = AIStrategyFusion(fusion_method=FusionMethod.CONFIDENCE_WEIGHTED)
-signal = fusion.generate_fused_signal(market_data)
-print(f"融合信號: {signal.direction}, 信心: {signal.confidence:.2%}")
+fusion = AIStrategyFusion(fusion_method=FusionMethod.CONFIDENCE_BASED)
+signal = fusion.generate_fusion_signal(ohlcv_data, event_score=0.0)
+print(f"融合信號: {signal.consensus_direction}, 信心: {signal.confidence_score:.2%}")
 ```
 
 ### 智能策略選擇器
@@ -357,18 +394,17 @@ print(f"融合信號: {signal.direction}, 信心: {signal.confidence:.2%}")
 from bioneuronai.strategies import StrategySelector
 
 selector = StrategySelector(timeframe="1h")
-result = selector.recommend_strategy(ohlcv_data)
-print(f"推薦策略: {result.primary_strategy.name}, 市場體制: {result.market_regime}")
+result = selector.recommend_strategy(ohlcv_data)       # 同步，回傳 StrategyRecommendation
+print(f"推薦策略: {result.strategy_name}, 市場體制: {result.market_regime}")
 ```
 
 ### 策略進化競技場
 ```python
-from bioneuronai.strategies import StrategyArena
-from bioneuronai.strategies.strategy_arena import ArenaConfig
+from bioneuronai.strategies.strategy_arena import StrategyArena, ArenaConfig
 
 arena = StrategyArena(config=ArenaConfig(population_size=50))
-best = arena.run_evolution(generations=100, market_data=historical)
-print(f"最優策略: {best.name}, Sharpe: {best.sharpe_ratio:.2f}")
+best = arena.run()  # 執行完整進化流程，回傳 StrategyCandidate
+print(f"最優候選: {best.strategy_name}, Sharpe: {best.metrics.get('sharpe_ratio', 0):.2f}")
 ```
 
 ---
@@ -381,6 +417,6 @@ print(f"最優策略: {best.name}, Sharpe: {best.sharpe_ratio:.2f}")
 
 ---
 
-**最後更新**: 2026 年 3 月 10 日
+**最後更新**: 2026 年 3 月 16 日
 
 > 📖 上層目錄：[src/bioneuronai/README.md](../README.md)
