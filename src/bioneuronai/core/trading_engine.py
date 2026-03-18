@@ -42,15 +42,8 @@ class Position:
 
 logger: logging.Logger = logging.getLogger(__name__)
 
-# 
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler('trading_system.log', encoding='utf-8'),
-        logging.StreamHandler()
-    ]
-)
+# trading_engine 不直接配置 root logger 或建立 FileHandler
+# 日誌配置由 CLI 入口 (cli/main.py) 統一管理
 
 # 
 try:
@@ -130,9 +123,9 @@ class TradingEngine:
             self.strategy = StrategyFusion()
             logger.info("[AI] Using AI Strategy Fusion System")
         else:
-            # 
+            # 目前僅支援 StrategyFusion；其他策略類型預留擴展
             self.strategy = StrategyFusion()
-            logger.warning("")
+            logger.warning("[AI] Strategy type '%s' not yet supported, falling back to StrategyFusion", strategy_type)
         
         # 
         self.auto_trade = False
@@ -143,8 +136,10 @@ class TradingEngine:
         # 持倉數據與歷史
         self.max_position_size = 0.01  # 最大持倉大小
         
-        # 數據存儲目錄與數據庫
-        self.data_dir = Path("src") / "trading_data"
+        # 數據存儲目錄與數據庫 — 以本檔案位置為錨點，確保 Docker 路徑正確
+        # trading_engine.py 位於 src/bioneuronai/core/，4 層 parent = 專案根目錄
+        _project_root = Path(__file__).parent.parent.parent.parent
+        self.data_dir = _project_root / "data" / "bioneuronai" / "trading" / "engine"
         self.data_dir.mkdir(parents=True, exist_ok=True)
         
         # 初始化數據庫管理器

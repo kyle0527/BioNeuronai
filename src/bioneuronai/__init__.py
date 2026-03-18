@@ -19,15 +19,10 @@ __author__ = "BioNeuronai Team"
 
 import logging
 
-# 
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler('trading_system.log', encoding='utf-8'),
-        logging.StreamHandler()
-    ]
-)
+# 套件層級 logger — 不在 import 時強制設定 root logger 或建立 FileHandler
+# FileHandler 由 CLI 入口 (cli/main.py) 或應用程式自行配置
+logger = logging.getLogger(__name__)
+logger.addHandler(logging.NullHandler())
 
 # 核心模組（依賴 torch，若未安裝則優雅降級）
 try:
@@ -199,22 +194,20 @@ __all__ = [
     "cli_main",
 ]
 
-print(f"[BioNeuronai v{__version__}] ")
-print(f": {len(__all__)} ")
-print(": core | analysis | strategies | trading | data | risk_management")
+logger.debug("[BioNeuronai v%s] 已載入 %d 個公開符號", __version__, len(__all__))
+logger.debug("模組: core | analysis | strategies | trading | data | risk_management")
 
-# 
 if GENETIC_ALGO_AVAILABLE:
-    print("✅ ")
+    logger.debug("遺傳演算法模組已啟用")
 else:
-    print("⚠️  (numpy)")
+    logger.debug("遺傳演算法模組不可用 (需要 numpy)")
 
 if RL_FUSION_AVAILABLE:
-    print("✅ RL Meta-Agent ")
+    logger.debug("RL Meta-Agent 已啟用")
 else:
-    print("⚠️  RL Meta-Agent (stable-baselines3 + gymnasium)")
+    logger.debug("RL Meta-Agent 不可用 (需要 stable-baselines3 + gymnasium)")
 
 if NEWS_PREDICTION_AVAILABLE:
-    print("✅ ")
+    logger.debug("新聞預測模組已啟用")
 else:
-    print("⚠️  ")
+    logger.debug("新聞預測模組不可用")

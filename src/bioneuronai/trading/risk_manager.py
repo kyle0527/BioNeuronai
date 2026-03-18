@@ -71,8 +71,10 @@ class RiskManager:
             except Exception as e:
                 logger.warning(f"⚠️ RiskManager 無法連接數據庫: {e}")
         
-        # 統計數據文件路徑
-        self.stats_dir = Path("data/bioneuronai/trading/runtime")
+        # 統計數據文件路徑 — 以本檔案位置為錨點，確保 Docker 路徑正確
+        # risk_manager.py 位於 src/bioneuronai/trading/，4 層 parent = 專案根目錄
+        _project_root = Path(__file__).parent.parent.parent.parent
+        self.stats_dir = _project_root / "data" / "bioneuronai" / "trading" / "runtime"
         self.stats_dir.mkdir(exist_ok=True, parents=True)
         
     def _initialize_risk_parameters(self) -> Dict[str, RiskParameters]:
