@@ -94,7 +94,7 @@ EXPOSE 8000
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONPATH=/app
+    PYTHONPATH=/app:/app/src
 
 # Default: CLI mode. Override CMD for API mode:
 #   docker run <image> uvicorn bioneuronai.api.app:app --host 0.0.0.0
