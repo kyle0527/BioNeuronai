@@ -6,11 +6,12 @@
 整合內部知識庫和外部搜索的統一檢索接口
 """
 
+import hashlib
 import logging
 import time
 from typing import List, Dict, Optional, Any, Union
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta
 from enum import Enum
 import numpy as np
 
@@ -86,14 +87,41 @@ class UnifiedRetriever:
         embedding_service=None,
         internal_kb=None,
         web_search=None,
-        news_api=None
+        news_api=None,
+        cache_ttl_seconds: int = 300
     ):
         self.embedding_service = embedding_service
         self.internal_kb = internal_kb
         self.web_search = web_search
         self.news_api = news_api
-        
+        self._cache: Dict[str, tuple] = {}  # key -> (results, expiry_time)
+        self._cache_ttl = timedelta(seconds=cache_ttl_seconds)
+
         logger.info("統一檢索器已初始化")
+
+    def _cache_key(self, query: "RetrievalQuery") -> str:
+        """生成查詢的快取鍵"""
+        key_parts = [
+            query.query,
+            ",".join(sorted(s.value for s in query.sources)),
+            str(query.top_k),
+            str(query.min_relevance),
+            str(query.time_range_hours),
+        ]
+        return hashlib.md5("|".join(key_parts).encode()).hexdigest()
+
+    def _get_cached(self, cache_key: str) -> Optional[List["RetrievalResult"]]:
+        """從快取取得結果，若已過期則返回 None"""
+        if cache_key in self._cache:
+            results, expiry = self._cache[cache_key]
+            if datetime.now() < expiry:
+                return results
+            del self._cache[cache_key]
+        return None
+
+    def _set_cache(self, cache_key: str, results: List["RetrievalResult"]) -> None:
+        """將結果存入快取"""
+        self._cache[cache_key] = (results, datetime.now() + self._cache_ttl)
     
     def retrieve(self, query: Union[str, RetrievalQuery]) -> List[RetrievalResult]:
         """
@@ -109,13 +137,22 @@ class UnifiedRetriever:
         error = None
         result_count = 0
         sources_used = []
-        
+        cache_hit = False
+
         try:
             if isinstance(query, str):
                 query = RetrievalQuery(query=query)
-            
+
+            # 快取檢測
+            cache_key = self._cache_key(query)
+            cached_results = self._get_cached(cache_key)
+            if cached_results is not None:
+                cache_hit = True
+                result_count = len(cached_results)
+                return cached_results
+
             results = []
-            
+
             # 根據指定來源檢索
             sources = query.sources
             if RetrievalSource.ALL in sources:
@@ -124,33 +161,36 @@ class UnifiedRetriever:
                     RetrievalSource.WEB_SEARCH,
                     RetrievalSource.NEWS_API
                 ]
-            
+
             sources_used = [s.value for s in sources]
-            
+
             for source in sources:
                 try:
                     source_results = self._retrieve_from_source(query, source)
                     results.extend(source_results)
                 except Exception as e:
                     logger.warning(f"從 {source.value} 檢索失敗: {e}")
-            
+
             # 按相關性排序
             results.sort(key=lambda x: x.relevance_score, reverse=True)
-            
+
             # 過濾低相關性結果
             results = [r for r in results if r.relevance_score >= query.min_relevance]
-            
+
             # 限制返回數量
             results = results[:query.top_k]
             result_count = len(results)
-            
+
+            # 存入快取
+            self._set_cache(cache_key, results)
+
             return results
-        
+
         except Exception as e:
             error = str(e)
             logger.error(f"檢索失敗: {e}")
             return []
-        
+
         finally:
             # 記錄監控指標
             latency_ms = (time.time() - start_time) * 1000
@@ -160,7 +200,7 @@ class UnifiedRetriever:
                     source_label = "hybrid" if len(sources_used) > 1 else (sources_used[0] if sources_used else "unknown")
                     monitor.log_retrieval(
                         latency_ms=latency_ms,
-                        cache_hit=False,  # TODO: 實現快取檢測
+                        cache_hit=cache_hit,
                         result_count=result_count,
                         source=source_label,
                         error=error
