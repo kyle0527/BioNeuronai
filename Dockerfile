@@ -40,6 +40,8 @@ RUN pip install --upgrade pip --no-cache-dir \
         "aiohttp>=3.9.0" \
         "faiss-cpu>=1.7.0" \
         "scikit-learn>=1.3.0" \
+        "fastapi>=0.111.0" \
+        "uvicorn[standard]>=0.30.0" \
         ta-lib \
     && pip install --prefix=/install/pkg --no-cache-dir -e ".[visualization,notifications]" 2>/dev/null || true
 
@@ -87,12 +89,14 @@ RUN useradd --no-create-home --shell /bin/false bioneuron \
 
 USER bioneuron
 
-# Expose nothing by default (CLI app); override in docker-compose if adding API
-# EXPOSE 8000
+# API server port
+EXPOSE 8000
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONPATH=/app
 
-ENTRYPOINT ["python", "main.py"]
-CMD ["status"]
+# Default: CLI mode. Override CMD for API mode:
+#   docker run <image> uvicorn bioneuronai.api.app:app --host 0.0.0.0
+ENTRYPOINT ["python"]
+CMD ["main.py", "status"]
