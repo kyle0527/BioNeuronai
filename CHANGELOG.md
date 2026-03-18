@@ -1,5 +1,68 @@
 # 更新日誌
 
+## [v4.4] - 2026-03-18
+
+### 🐳 Docker 部署 + FastAPI REST API + RAG 快取修復
+
+#### RAG 快取偵測（efdd454）
+- **修復**：`src/rag/core/retriever.py` 中 `cache_hit=False` TODO 問題
+- **實作**：`UnifiedRetriever` 加入記憶體 TTL 快取（預設 5 分鐘）
+- **效果**：相同查詢命中快取時跳過向量搜尋，大幅降低 RAG 查詢延遲
+- **詳情**：55 行新增，15 行修改；`cache_hit` flag 現在正確回傳
+
+#### Docker 部署基礎建設（29ded9d）
+- **新增 `Dockerfile`**：多階段建構（builder 編譯 ta-lib C 函式庫 + 安裝 Python 依賴；runtime 為精簡 python:3.11-slim 映像，使用非 root 用戶）
+- **新增 `docker-compose.yml`**：含 service profiles 支援 `status`、`news`、`pretrade`、`plan`、`backtest`、`simulate`、`trade`（trade profile 需明確 opt-in）
+- **新增 `.dockerignore`**：排除 `.git`、快取、機密、文檔、測試數據、本地 logs/DB（改用 named volumes）
+
+#### FastAPI REST API 伺服器（de8aafe）
+- **新增 `src/bioneuronai/api/` 模組**，包含：
+  - `app.py`（448 行）：完整 FastAPI 應用
+  - `models.py`（78 行）：Request/Response Pydantic v2 模型
+- **API 端點**：
+  - `GET /api/v1/status` — 系統健康狀態
+  - `POST /api/v1/plan`、`/news`、`/pretrade` — 對應 CLI 命令
+  - `POST /api/v1/backtest`、`/simulate` — 非同步背景工作（job ID 回傳）
+  - `GET /api/v1/jobs/{id}` — 查詢背景工作進度
+  - `POST /api/v1/trade/start`、`/trade/stop` — 交易控制
+- **依賴更新**：`pyproject.toml` 加入 `fastapi` + `uvicorn`
+- **Docker 整合**：`docker-compose.yml` 新增 `api` service with healthcheck，EXPOSE 8000
+
+#### Docker 啟動與路徑修復（cfe21ef）
+- **`Dockerfile`**：`PYTHONPATH` 加入 `/app/src`，修正容器內 `from schemas.X import` 路徑
+- **`__init__.py`**：移除 import-time `FileHandler` 與 `print()`，改用 `logger.debug()` 保持安靜載入
+- **`trading_engine.py`**：移除模組級 `basicConfig FileHandler`；`data_dir` 改用 `Path(__file__)` 錨點路徑
+- **`risk_manager.py`**、**`sop_automation.py`**、**`pretrade_automation.py`**：`data_dir`/`stats_dir` 均改用 `Path(__file__)` 錨點，修正 Docker 環境路徑錯誤
+
+#### 🚀 Docker 快速啟動
+
+```bash
+# 系統狀態檢查
+docker compose run --rm status
+
+# 交易前檢查
+docker compose run --rm pretrade
+
+# 啟動 FastAPI REST API 伺服器
+docker compose up api
+# → http://localhost:8000/docs（Swagger UI）
+# → http://localhost:8000/api/v1/status
+
+# 實盤交易（需 API 金鑰）
+BINANCE_API_KEY=xxx BINANCE_API_SECRET=yyy docker compose --profile trade up trade
+```
+
+#### ✅ 修復後功能狀態更新
+
+| 項目 | 修復前 | 修復後 |
+|------|--------|--------|
+| RAG 快取偵測 | ❌ `cache_hit=False` 硬編碼 | ✅ TTL 記憶體快取 |
+| Docker 部署 | ❌ 不存在 | ✅ 多階段建構 + compose |
+| FastAPI REST API | ❌ 不存在 | ✅ 完整 REST API |
+| Docker 路徑問題 | ❌ 啟動時路徑錯誤崩潰 | ✅ `Path(__file__)` 錨點修正 |
+
+---
+
 ## [v4.3] - 2026-03-15
 
 ### 🛠️ CLI 全面審計修復（6 項問題，含 2 項 P0 致命錯誤）
@@ -220,20 +283,27 @@
 ## 下一步計劃
 
 ### 短期 (1-2週)
-- [ ] 創建 WebDataFetcher 類
-- [ ] 整合 NewsAPI 情緒分析
-- [ ] 下載歷史數據 (BTCUSDT 2年)
+- [ ] 下載歷史數據 (BTCUSDT 2年) — 填入 `data_downloads/binance_historical/`
+- [ ] 補充 `schedule>=1.2.0` 至 `pyproject.toml` 依賴
+- [ ] 連接 `CryptoNewsAnalyzer` 至 `market_analyzer.py:906`（移除 `news_sentiment=0.0` 硬編碼）
 
-### 中期 (3-4週)  
+### 中期 (3-4週)
 - [ ] 實現 DC 算法
 - [ ] 開發 DRL 策略 (PPO)
-- [ ] 設置 DRL 訓練環境
+- [ ] SOP 回測驗證（啟用 `_perform_plan_backtest()`）
+- [ ] StrategyArena / TradingPhaseRouter / RLFusionAgent 整合至 CLI
 
 ### 長期 (2-3月)
-- [ ] 真實回測引擎
+- [ ] 真實回測引擎（BacktestEngine + 歷史數據完整整合）
 - [ ] Walk-Forward 測試框架
-- [ ] 生產環境部署
 - [ ] 實盤測試 (小資金)
+
+### ✅ 已完成
+- ✅ RAG 快取偵測（v4.4，efdd454）
+- ✅ Docker 部署基礎建設（v4.4，29ded9d）
+- ✅ FastAPI REST API 伺服器（v4.4，de8aafe）
+- ✅ WebDataFetcher 類 + 市場情緒分析器（v4.0）
+- ✅ 生產環境部署容器化（v4.4）
 
 ---
 
@@ -268,7 +338,7 @@
 
 ---
 
-**最後更新**: 2026年2月14日  
-**版本**: v4.0 - 生產就緒版本
+**最後更新**: 2026年3月18日
+**版本**: v4.4 - Docker + FastAPI 部署版本
 
-🎉 **所有錯誤修復完成！系統準備進入優化階段！** 🎉
+🎉 **Docker 容器化完成！系統可透過 REST API 或 CLI 雙模式運行！** 🎉
