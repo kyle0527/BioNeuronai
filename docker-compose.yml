@@ -1,0 +1,102 @@
+# ============================================================
+# BioNeuronAI — docker-compose.yml
+#
+# Service profiles:
+#   status     — 快速健康檢查 (預設)
+#   backtest   — 回測歷史數據
+#   simulate   — 模擬紙交易
+#   trade      — 正式/測試網交易 (謹慎使用)
+#
+# 用法範例:
+#   docker compose run --rm status
+#   docker compose run --rm backtest
+#   docker compose --profile trade up trade
+# ============================================================
+
+x-common: &common
+  build:
+    context: .
+    dockerfile: Dockerfile
+    target: runtime
+  env_file:
+    - .env
+  volumes:
+    - bioneuron-data:/app/data
+    - bioneuron-logs:/app/logs
+  restart: "no"
+
+services:
+  # ---- 健康檢查 / 系統狀態 ----
+  status:
+    <<: *common
+    container_name: bioneuron-status
+    command: ["status"]
+
+  # ---- 新聞情緒分析 ----
+  news:
+    <<: *common
+    container_name: bioneuron-news
+    command: ["news", "--symbol", "${TRADE_SYMBOL:-BTCUSDT}", "--max-items", "10"]
+
+  # ---- 交易前置檢查 ----
+  pretrade:
+    <<: *common
+    container_name: bioneuron-pretrade
+    command: ["pretrade", "--symbol", "${TRADE_SYMBOL:-BTCUSDT}", "--action", "${TRADE_ACTION:-long}"]
+
+  # ---- 每日交易計畫 ----
+  plan:
+    <<: *common
+    container_name: bioneuron-plan
+    command: ["plan", "--output", "/app/data/daily_plan.json"]
+
+  # ---- 回測 ----
+  backtest:
+    <<: *common
+    container_name: bioneuron-backtest
+    command: [
+      "backtest",
+      "--symbol",   "${BACKTEST_SYMBOL:-ETHUSDT}",
+      "--interval", "${BACKTEST_INTERVAL:-1h}",
+      "--start",    "${BACKTEST_START:-2024-01-01}",
+      "--end",      "${BACKTEST_END:-2024-12-31}"
+    ]
+    volumes:
+      - bioneuron-data:/app/data
+      - bioneuron-logs:/app/logs
+      - ./backtesting:/app/backtesting  # 掛載本地回測結果方便查看
+
+  # ---- 模擬紙交易 ----
+  simulate:
+    <<: *common
+    container_name: bioneuron-simulate
+    command: [
+      "simulate",
+      "--symbol",  "${TRADE_SYMBOL:-BTCUSDT}",
+      "--balance", "${SIM_BALANCE:-100000}",
+      "--bars",    "${SIM_BARS:-500}"
+    ]
+
+  # ---- 正式交易 (需要明確啟用) ----
+  trade:
+    <<: *common
+    container_name: bioneuron-trade
+    profiles:
+      - trade
+    command: ["trade", "--testnet"]   # 預設指向測試網; 移除 --testnet 改為正式網
+    restart: unless-stopped           # 自動重啟，適合長時間運行
+    stop_grace_period: 30s
+
+volumes:
+  bioneuron-data:
+    driver: local
+    driver_opts:
+      type: none
+      device: ${DATA_DIR:-./data}
+      o: bind
+  bioneuron-logs:
+    driver: local
+    driver_opts:
+      type: none
+      device: ${LOGS_DIR:-./logs}
+      o: bind
