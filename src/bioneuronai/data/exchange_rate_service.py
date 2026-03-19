@@ -11,14 +11,14 @@
 
 import logging
 from typing import Optional, Dict
-from datetime import datetime, timedelta
+from datetime import datetime
 from dataclasses import dataclass
 import threading
 
 try:
     import requests
 except ImportError:
-    requests = None
+    requests = None  # type: ignore[assignment]
 
 logger = logging.getLogger(__name__)
 

@@ -21,7 +21,7 @@
 import sqlite3
 import json
 import logging
-from typing import Dict, List, Optional, Any, Tuple
+from typing import Dict, List, Optional, Any, Tuple, cast
 from datetime import datetime, timedelta
 from pathlib import Path
 import threading
@@ -388,7 +388,7 @@ class DatabaseManager:
                 trade_info.get('fee')
             ))
             
-            trade_id = cursor.lastrowid
+            trade_id = cast(Optional[int], cursor.lastrowid)
             
             # 備份到 JSONL
             if self.backup_enabled:
@@ -420,7 +420,7 @@ class DatabaseManager:
             cursor = conn.cursor()
             
             query = "SELECT * FROM trades WHERE 1=1"
-            params = []
+            params: List[Any] = []
             
             if start_date:
                 query += " AND timestamp >= ?"
@@ -502,7 +502,7 @@ class DatabaseManager:
                 signal_info.get('executed', False)
             ))
             
-            signal_id = cursor.lastrowid
+            signal_id = cast(Optional[int], cursor.lastrowid)
             
             if self.backup_enabled:
                 self._backup_to_jsonl('signals', signal_info)
@@ -521,7 +521,7 @@ class DatabaseManager:
             cursor = conn.cursor()
             
             query = "SELECT * FROM signals WHERE 1=1"
-            params = []
+            params: List[Any] = []
             
             if start_date:
                 query += " AND timestamp >= ?"
@@ -577,7 +577,7 @@ class DatabaseManager:
                 datetime.now().isoformat()
             ))
             
-            return cursor.lastrowid
+            return cast(Optional[int], cursor.lastrowid)
     
     def get_latest_risk_stats(self) -> Optional[Dict]:
         """獲取最新風險統計"""
@@ -625,7 +625,7 @@ class DatabaseManager:
                 datetime.now().isoformat()
             ))
             
-            return cursor.lastrowid
+            return cast(Optional[int], cursor.lastrowid)
     
     def get_pretrade_checks(self, symbol: Optional[str] = None, days: int = 7) -> List[Dict]:
         """查詢交易前檢查記錄"""
@@ -690,7 +690,7 @@ class DatabaseManager:
                 related_count or 0
             ))
             
-            return cursor.lastrowid
+            return cast(Optional[int], cursor.lastrowid)
     
     def get_recent_news(self, hours: int = 24, sentiment: Optional[str] = None) -> List[Dict]:
         """獲取近期新聞"""
@@ -819,7 +819,7 @@ class DatabaseManager:
                 prediction.get('needs_human_review', 0),
                 prediction.get('status', 'pending')
             ))
-            return cursor.lastrowid
+            return cast(Optional[int], cursor.lastrowid)
     
     def update_prediction_validation(self, prediction_id: str, validation_data: Dict):
         """更新預測驗證結果"""
@@ -942,7 +942,7 @@ class DatabaseManager:
                 gene.get('is_mutant', 0),
                 gene.get('is_active', 1)
             ))
-            return cursor.lastrowid
+            return cast(Optional[int], cursor.lastrowid)
     
     def update_gene_fitness(self, gene_id: str, fitness_data: Dict):
         """更新基因適應度"""
@@ -1027,7 +1027,7 @@ class DatabaseManager:
                 evolution_data.get('offspring'),
                 evolution_data.get('timestamp')
             ))
-            return cursor.lastrowid
+            return cast(Optional[int], cursor.lastrowid)
     
     def get_evolution_history(self, last_n: int = 100) -> List[Dict]:
         """獲取演化歷史"""
@@ -1065,7 +1065,7 @@ class DatabaseManager:
                 training_data.get('policy_loss'),
                 training_data.get('timestamp')
             ))
-            return cursor.lastrowid
+            return cast(Optional[int], cursor.lastrowid)
     
     def get_rl_training_progress(self, model_name: str, last_n: int = 1000) -> List[Dict]:
         """獲取 RL 訓練進度"""
@@ -1187,7 +1187,7 @@ class DatabaseManager:
                 ))
                 
                 logger.info(f"✅ 事件已保存: {event_info['event_type']} - {event_info['headline'][:30]}...")
-                return event_info['event_id']
+                return cast(Optional[str], event_info['event_id'])
                 
             except Exception as e:
                 logger.error(f"❌ 保存事件失敗: {e}")

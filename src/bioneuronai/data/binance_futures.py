@@ -11,9 +11,8 @@ import requests
 import websocket
 import threading
 import logging
-from typing import Dict, List, Optional, Callable
+from typing import Any, cast, Dict, List, Optional, Callable
 from collections import deque
-from pathlib import Path
 from dataclasses import dataclass
 from datetime import datetime
 
@@ -64,12 +63,12 @@ class BinanceFuturesConnector:
             self.ws_base = "wss://fstream.binance.com"
         
         # WebSocket 管理
-        self.ws_connections = {}
+        self.ws_connections: Dict[str, Any] = {}
         self.ws_reconnect_delay = 5
         self.ws_max_reconnect_attempts = 10
         
         # API 限流控制
-        self.request_timestamps = deque(maxlen=1200)
+        self.request_timestamps: deque[float] = deque(maxlen=1200)
         self.weight_used = 0
         self.last_weight_reset = time.time()
         
@@ -130,7 +129,7 @@ class BinanceFuturesConnector:
                 raise ValueError(f"不支持的請求方法: {method}")
             
             response.raise_for_status()
-            return response.json()
+            return cast(Optional[Dict[str, Any]], response.json())
             
         except requests.exceptions.Timeout:
             logger.error(f"請求超時: {endpoint}")
@@ -278,7 +277,7 @@ class BinanceFuturesConnector:
         data = self._make_request("GET", "/fapi/v1/exchangeInfo", {"symbol": symbol})
         
         if data and 'symbols' in data and len(data['symbols']) > 0:
-            return data['symbols'][0]
+            return cast(Optional[Dict[str, Any]], data['symbols'][0])
         return None
     
     def format_quantity(self, symbol: str, quantity: float) -> str:
@@ -351,6 +350,8 @@ class BinanceFuturesConnector:
                 status="ERROR",
                 error=str(e)
             )
+        
+        return None
     
     def _place_stop_loss_order(self, symbol: str, original_side: str, quantity: float, stop_price: float):
         """下止損單"""
@@ -411,7 +412,7 @@ class BinanceFuturesConnector:
             
             def on_close(ws, close_status_code, close_msg):
                 nonlocal reconnect_attempts
-                logger.warning(f"WebSocket 連接關閉")
+                logger.warning("WebSocket 連接關閉")
                 
                 if auto_reconnect and reconnect_attempts < self.ws_max_reconnect_attempts:
                     reconnect_attempts += 1
@@ -451,6 +452,6 @@ class BinanceFuturesConnector:
             try:
                 ws.close()
                 logger.info(f"關閉 {symbol} 連接")
-            except:
+            except Exception:
                 pass
         self.ws_connections.clear()

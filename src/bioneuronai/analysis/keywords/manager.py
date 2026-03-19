@@ -222,12 +222,12 @@ class KeywordManager:
             
             if is_chinese:
                 # 中文不需要 word boundary
-                if kw.keyword in text_lower:
+                if kw.word in text_lower:
                     kw.hit_count += 1
                     matches.append(self._create_match(kw))
             else:
                 # 英文使用 word boundary
-                pattern = r'\b' + re.escape(kw.keyword) + r'\b'
+                pattern = r'\b' + re.escape(kw.word) + r'\b'
                 if re.search(pattern, text_lower, re.IGNORECASE):
                     kw.hit_count += 1
                     matches.append(self._create_match(kw))

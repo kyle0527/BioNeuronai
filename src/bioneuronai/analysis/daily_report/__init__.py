@@ -15,9 +15,11 @@
 """
 
 # 1. 標準庫
+import io
 import logging
+import sys
 from datetime import datetime
-from typing import Dict, Any, Optional
+from typing import Dict, Any, List, Optional
 
 # 2. 本地模組 - 資料模型
 from .models import (
@@ -392,9 +394,224 @@ class SOPAutomationSystem:
             return {"score": 5.0, "status": "UNCERTAIN", "risk_level": "HIGH"}
     
     # ========================================
+    # 技術分析（需要 K 棒資料）
+    # ========================================
+
+    def generate_technical_analysis(
+        self,
+        klines: list,
+        symbol: str,
+        current_price: float
+    ) -> Dict[str, Any]:
+        """
+        執行技術分析：市場狀態偵測 + 成交量分布 + 市場微觀結構
+
+        Args:
+            klines: K 棒列表（物件需具備 close/high/low/volume/taker_buy_volume 屬性）
+            symbol: 交易對符號（如 "BTCUSDT"）
+            current_price: 當前價格
+
+        Returns:
+            包含各分析文字報告與特徵向量的字典
+        """
+        result: Dict[str, Any] = {}
+
+        # ── 市場狀態偵測 ──
+        try:
+            from ..market_regime import MarketRegimeDetector, RegimeBasedStrategySelector
+
+            detector = MarketRegimeDetector()
+            for k in klines:
+                if hasattr(k, 'close'):
+                    c, h, l, v = k.close, k.high, k.low, k.volume
+                else:
+                    c = k.get('close', current_price)
+                    h = k.get('high', current_price)
+                    l = k.get('low', current_price)
+                    v = k.get('volume', 0)
+                detector.update_data(symbol, c, h, l, v)
+
+            regime = detector.detect_regime(symbol)
+            selector = RegimeBasedStrategySelector()
+            rec = selector.get_strategy_recommendation(regime)
+
+            result['regime_report'] = regime.to_prompt()
+            result['regime_recommendation'] = rec
+            result['regime_feature_vector'] = regime.to_feature_vector()
+
+            logger.info(
+                f"市場狀態: {regime.current_regime.value}, "
+                f"信心: {regime.regime_confidence:.0%}"
+            )
+        except Exception as e:
+            logger.error(f"市場狀態分析失敗: {e}")
+            result['regime_report'] = f"市場狀態分析失敗: {e}"
+
+        # ── 成交量分布 & 微觀結構 ──
+        try:
+            from ..feature_engineering import VolumeProfileCalculator, MarketDataProcessor
+
+            vp_calc = VolumeProfileCalculator()
+            vp = vp_calc.calculate_from_klines(klines)
+            result['volume_profile_report'] = vp.to_prompt()
+            logger.info(
+                f"POC: {vp.poc_price:.2f}, "
+                f"價值區: {vp.value_area_low:.2f}-{vp.value_area_high:.2f}"
+            )
+
+            processor = MarketDataProcessor()
+            micro = processor.build_market_microstructure(symbol, current_price)
+            result['microstructure_report'] = micro.to_prompt()
+            result['microstructure_feature_vector'] = micro.to_feature_vector()
+
+        except Exception as e:
+            logger.error(f"特徵工程分析失敗: {e}")
+
+        return result
+
+    # ========================================
+    # 完整報告輸出（整合所有分析模組）
+    # ========================================
+
+    def run_full_report(
+        self,
+        klines: Optional[List] = None,
+        symbol: str = "BTCUSDT",
+        current_price: float = 0.0
+    ) -> str:
+        """
+        執行並印出完整分析報告
+
+        整合所有分析子模組：
+        1. 關鍵字系統統計（分類 / 權重 / 新聞分析示範）
+        2. 技術分析（市場狀態 / 成交量分布 / 微觀結構）——需提供 klines
+        3. 全球市場數據（Yahoo Finance / 恐慌貪婪指數）
+        4. 每日開盤前完整報告（SOP 流程）
+
+        Args:
+            klines: K 棒列表（若提供則執行技術分析，屬性需含
+                    close/high/low/volume/taker_buy_volume）
+            symbol: 交易對符號，預設 "BTCUSDT"
+            current_price: 當前價格；若未指定則自動從 klines 最後一根取得
+
+        Returns:
+            完整報告文字（同時在標準輸出列印）
+        """
+        SECTION = "=" * 64
+        parts: List[str] = []
+
+        def section(title: str) -> None:
+            parts.append(f"\n{SECTION}")
+            parts.append(f"  {title}")
+            parts.append(SECTION)
+
+        # ── 1. 關鍵字系統 ──
+        section("【1/4】關鍵字系統報告")
+        try:
+            from ..keywords.manager import KeywordManager
+            km = KeywordManager()
+
+            buf = io.StringIO()
+            old_stdout = sys.stdout
+            try:
+                sys.stdout = buf
+                km.print_report()
+            finally:
+                sys.stdout = old_stdout
+            parts.append(buf.getvalue())
+
+        except Exception as e:
+            logger.error(f"關鍵字系統報告失敗: {e}")
+            parts.append(f"  [ERROR] 關鍵字系統: {e}")
+
+        # ── 2. 技術分析 ──
+        if klines:
+            if not current_price:
+                last = klines[-1]
+                current_price = (
+                    last.close if hasattr(last, 'close')
+                    else last.get('close', 95_500.0)
+                )
+            section(f"【2/4】技術分析 ({symbol} | 當前價格: {current_price:,.0f})")
+            tech = self.generate_technical_analysis(klines, symbol, current_price)
+
+            labels = {
+                'regime_report': '  ── 市場狀態 ──',
+                'volume_profile_report': '  ── 成交量分布 ──',
+                'microstructure_report': '  ── 市場微觀結構 ──',
+            }
+            for key, label in labels.items():
+                if key in tech:
+                    parts.append(f"\n{label}")
+                    parts.append(tech[key])
+
+            rec = tech.get('regime_recommendation', {})
+            if rec:
+                parts.append(
+                    f"\n  建議策略: {rec.get('recommended_strategies', [])}\n"
+                    f"  方向偏好: {rec.get('position_bias', 'N/A')}\n"
+                    f"  倉位乘數: {rec.get('position_size_multiplier', 'N/A')}"
+                )
+        else:
+            section("【2/4】技術分析（需提供 klines 參數）")
+            parts.append(
+                "  提示：呼叫 run_full_report(klines=[...]) 以啟用技術分析\n"
+                "  K 棒物件需具備屬性：close / high / low / volume / taker_buy_volume"
+            )
+
+        # ── 3. 全球市場數據 ──
+        section("【3/4】全球市場數據")
+        try:
+            data = self.market_data_collector.get_global_market_data()
+            if data:
+                stock = data.get('global_stock_indices', {})
+                if stock:
+                    parts.append("  全球股市:")
+                    for name, info in stock.items():
+                        chg = info.get('change_percent', 0)
+                        arr = "🔺" if chg >= 0 else "🔻"
+                        parts.append(
+                            f"    {arr} {name:<12}: "
+                            f"{info.get('price', 0):>10,.1f}  ({chg:+.2f}%)"
+                        )
+
+                fng = data.get('fear_greed_index', {})
+                if fng:
+                    parts.append(
+                        f"\n  恐慌貪婪指數: "
+                        f"{fng.get('value', 'N/A')} ({fng.get('label', 'N/A')})"
+                    )
+
+                crypto_an = data.get('crypto_analysis', {})
+                if crypto_an:
+                    parts.append(
+                        f"  加密情緒  : {crypto_an.get('overall_crypto_sentiment', 'N/A')}\n"
+                        f"  交易建議  : {crypto_an.get('recommendation', 'N/A')}"
+                    )
+            else:
+                parts.append("  ❌ 無法獲取市場數據（可能無網路連線或 API 限速）")
+        except Exception as e:
+            logger.error(f"全球市場數據取得失敗: {e}")
+            parts.append(f"  [ERROR] 全球市場數據: {e}")
+
+        # ── 4. 每日開盤前報告 ──
+        section("【4/4】每日開盤前市場分析報告（SOP 完整流程）")
+        try:
+            self.execute_daily_premarket_check()
+            report_text = self.report_generator.generate_daily_report()
+            parts.append(report_text)
+        except Exception as e:
+            logger.error(f"每日開盤前報告失敗: {e}")
+            parts.append(f"  [ERROR] 每日報告: {e}")
+
+        full_report = "\n".join(parts)
+        print(full_report)
+        return full_report
+
+    # ========================================
     # 報告生成
     # ========================================
-    
+
     def generate_daily_report(self) -> str:
         """生成每日報告文本"""
         return self.report_generator.generate_daily_report()
@@ -431,6 +648,8 @@ class SOPAutomationSystem:
 __all__ = [
     # 主控制器
     'SOPAutomationSystem',
+    # 主控制器新增方法（對外可呼叫）
+    # generate_technical_analysis / run_full_report 為 SOPAutomationSystem 的實例方法
     # 資料模型
     'MarketEnvironmentCheck',
     'TradingPlanCheck',

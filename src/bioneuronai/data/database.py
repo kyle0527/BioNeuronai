@@ -11,11 +11,10 @@
 """
 
 import sqlite3
-import json
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Optional, List, Dict, Any
-from dataclasses import dataclass, asdict
+from typing import Optional, List, Dict
+from dataclasses import dataclass
 import logging
 
 logger = logging.getLogger(__name__)
@@ -355,7 +354,7 @@ class TradingDatabase:
     def get_pairs_by_category(self) -> Dict[str, List[TradingPair]]:
         """按分類獲取交易對"""
         all_pairs = self.get_all_trading_pairs()
-        categories = {}
+        categories: Dict[str, List[TradingPair]] = {}
         for pair in all_pairs:
             if pair.category not in categories:
                 categories[pair.category] = []

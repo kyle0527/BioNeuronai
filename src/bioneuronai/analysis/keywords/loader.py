@@ -73,7 +73,7 @@ class KeywordLoader:
                 
                 for kw_data in cat_data.get('keywords', []):
                     kw = Keyword(**kw_data)
-                    keywords[kw.keyword] = kw
+                    keywords[kw.word] = kw
                     loaded_count += 1
             
             logger.info(f"從 {len(json_files)} 個分類檔案載入 {loaded_count} 個關鍵字")
@@ -101,7 +101,7 @@ class KeywordLoader:
             
             for kw_data in data.get('keywords', []):
                 kw = Keyword(**kw_data)
-                keywords[kw.keyword] = kw
+                keywords[kw.word] = kw
             
             logger.info(f"從 {self.config_path} 載入 {len(keywords)} 個關鍵字")
             

@@ -129,29 +129,29 @@ class RegimeAnalysis:
     transition_probabilities: Dict[str, float] = field(default_factory=dict)
     
     def get_trading_recommendation(self) -> str:
-        """"""
+        """根據當前市場狀態給出交易建議"""
         regime = self.current_regime
         
         if regime in [MarketRegime.STRONG_UPTREND, MarketRegime.UPTREND]:
-            return ""
+            return "做多，跟隨上升趨勢"
         
         elif regime in [MarketRegime.STRONG_DOWNTREND, MarketRegime.DOWNTREND]:
-            return ""
+            return "做空，跟隨下跌趨勢"
         
         elif regime == MarketRegime.SIDEWAYS_RANGE:
-            return "/"
+            return "震盪區間操作，高賣低買/等待突破"
         
         elif regime == MarketRegime.HIGH_VOLATILITY:
-            return ""
+            return "高波動期，降低倉位或觀望"
         
         elif regime == MarketRegime.BREAKOUT:
-            return ""
+            return "突破行情，順勢追漲/追跌"
         
         elif regime == MarketRegime.REVERSAL:
-            return ""
+            return "趨勢反轉訊號，謹慎操作"
         
         else:
-            return ""
+            return "市場狀態不明，觀望為主"
     
     def to_prompt(self) -> str:
         """ LLM """
@@ -240,7 +240,7 @@ class RegimeAnalysis:
             vol_score,
             self.current_volatility / 5,  # 
             self.volatility_percentile / 100,
-            self.trend_direction,
+            float(self.trend_direction),
             self.trend_strength.value / 4,
             self.trend_score / 100,
             self.adx / 100,

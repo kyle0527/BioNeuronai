@@ -25,7 +25,6 @@ from schemas.external_data import (
     GlobalMarketData,
     DeFiMetrics,
     StablecoinMetrics,
-    EconomicEvent,
     ExternalDataSnapshot,
     DataSourceType,
 )
@@ -111,7 +110,7 @@ class WebDataFetcher:
                 async with self.session.get(url, params=params, headers=headers) as response:
                     response.raise_for_status()
                     data = await response.json()
-                    return data
+                    return cast(Optional[Dict[str, Any]], data)
             
             except aiohttp.ClientError as e:
                 logger.warning(f"請求失敗 (嘗試 {attempt + 1}/{self.config.max_retries}): {url} - {e}")
@@ -124,6 +123,8 @@ class WebDataFetcher:
             except Exception as e:
                 logger.error(f"❌ 未預期的錯誤: {url} - {e}", exc_info=True)
                 return None
+        
+        return None
     
     async def fetch_fear_greed_index(self) -> Optional[FearGreedIndex]:
         """

@@ -54,7 +54,7 @@ logging.basicConfig(
 
 # 
 try:
-    from ..analysis import get_news_analyzer
+    from ..analysis import get_news_analyzer  # noqa: F401
     NEWS_ANALYZER_AVAILABLE = True
 except ImportError:
     NEWS_ANALYZER_AVAILABLE = False
@@ -67,8 +67,8 @@ try:
     PreTradeNewsChecker = PreTradeCheckSystem  # 別名兼容
 except ImportError:
     RAG_NEWS_CHECKER_AVAILABLE = False
-    PreTradeNewsChecker = None
-    PreTradeCheckSystem = None  # 確保未定義時為 None
+    PreTradeNewsChecker = None  # type: ignore
+    PreTradeCheckSystem = None  # type: ignore
     logger.warning("RAG 新聞檢查模組不可用")
 
 #  AI 
@@ -76,7 +76,7 @@ try:
     from .inference_engine import (
         InferenceEngine, 
         TradingSignal as AITradingSignal,
-        SignalType
+        SignalType  # noqa: F401
     )
     INFERENCE_ENGINE_AVAILABLE = True
 except ImportError:
@@ -86,10 +86,10 @@ except ImportError:
 # 
 try:
     from ..analysis import (
-        MarketDataProcessor,
-        MarketRegimeDetector,
-        VolumeProfileCalculator,
-        LiquidationHeatmapCalculator
+        MarketDataProcessor,  # noqa: F401
+        MarketRegimeDetector,  # noqa: F401
+        VolumeProfileCalculator,  # noqa: F401
+        LiquidationHeatmapCalculator  # noqa: F401
     )
     FEATURE_MODULES_AVAILABLE = True
 except ImportError:
@@ -275,8 +275,8 @@ class TradingEngine:
             current_price = float(klines[-1].get('close', klines[-1].get('c', 0)))
             
             # 收集輔助數據 (Extract Method)
-            microstructure: None | MarketMicrostructure = self._collect_market_microstructure(symbol, current_price)
-            regime_analysis: None | RegimeAnalysis = self._collect_regime_analysis(symbol, klines)
+            microstructure: Optional[MarketMicrostructure] = self._collect_market_microstructure(symbol, current_price)
+            regime_analysis: Optional[RegimeAnalysis] = self._collect_regime_analysis(symbol, klines)
             
             # 調用 AI 引擎預測
             ai_signal: AITradingSignal = self.inference_engine.predict(
@@ -299,7 +299,7 @@ class TradingEngine:
         self, 
         symbol: str, 
         current_price: float
-    ) -> None | MarketMicrostructure:
+    ) -> Optional[MarketMicrostructure]:
         """收集市場微觀結構數據"""
         if not self.market_data_processor:
             return None
@@ -320,7 +320,7 @@ class TradingEngine:
             logger.debug(f": {e}")
             return None
     
-    def _collect_regime_analysis(self, symbol: str, klines: List) -> None | RegimeAnalysis:
+    def _collect_regime_analysis(self, symbol: str, klines: List) -> Optional[RegimeAnalysis]:
         """收集市場環境分析"""
         if not self.regime_detector:
             return None
@@ -393,7 +393,7 @@ class TradingEngine:
     
     def toggle_ai_model(self) -> None:
         """ AI """
-        self.enable_ai_model: bool = not self.enable_ai_model
+        self.enable_ai_model = not self.enable_ai_model
         status: str = "[GREEN] " if self.enable_ai_model else " "
         logger.info(f"[AI] AI : {status}")
     
@@ -455,7 +455,7 @@ class TradingEngine:
                 if not self.is_monitoring:
                     return
                 
-                signal: TradingSignal | None = self._process_market_data(data, symbol)
+                signal: Optional[TradingSignal] = self._process_market_data(data, symbol)
                 
                 if signal:
                     self._handle_trading_signal(signal)
@@ -492,9 +492,9 @@ class TradingEngine:
             )
             
             # ========== AI  ==========
-            ai_signal = None
+            ai_signal: Optional[AITradingSignal] = None
             if self.enable_ai_model and self.ai_model_loaded:
-                ai_signal: AITradingSignal | None = self.get_ai_prediction(symbol)
+                ai_signal = self.get_ai_prediction(symbol)
                 if ai_signal:
                     self._display_ai_signal(ai_signal, current_price)
             
@@ -506,7 +506,7 @@ class TradingEngine:
                 signal = self.strategy.analyze_market(market_data)
             
             # ==========  ==========
-            final_signal: TradingSignal | None = self._fuse_signals(signal, ai_signal, symbol, current_price)
+            final_signal: Optional[TradingSignal] = self._fuse_signals(signal, ai_signal, symbol, current_price)
             
             if final_signal:
                 self.signals_history.append(final_signal)
@@ -631,7 +631,7 @@ class TradingEngine:
     ) -> Optional[TradingSignal]:
         """解決衝突信號 (選擇置信度較高者)"""
         ai_conf: float = ai_signal.confidence
-        strat_conf: Any | float = getattr(strategy_signal, 'confidence', 0.5)
+        strat_conf: Any = getattr(strategy_signal, 'confidence', 0.5)
         
         # AI 置信度更高
         if ai_conf > strat_conf and ai_action != "HOLD":
@@ -757,17 +757,17 @@ class TradingEngine:
                 return
             
             # 2. 獲取賬戶信息
-            account_balance: float | None = self._get_account_balance()
+            account_balance: Optional[float] = self._get_account_balance()
             if account_balance is None:
                 return
             
             # 3. 獲取當前價格
-            current_price: float | None = self._get_current_price(signal)
+            current_price: Optional[float] = self._get_current_price(signal)
             if current_price is None or current_price <= 0:
                 return
             
             # 4. 計算倉位大小
-            position_size: float | None = self._calculate_position_size(
+            position_size: Optional[float] = self._calculate_position_size(
                 account_balance, current_price, signal.stop_loss
             )
             if position_size is None:
@@ -777,7 +777,7 @@ class TradingEngine:
             self._display_trade_info(signal, position_size, current_price)
             
             # 
-            order_result: OrderResult | None = self.connector.place_order(
+            order_result: Optional[OrderResult] = self.connector.place_order(
                 symbol=signal.symbol,
                 side="BUY" if signal.action == "BUY" else "SELL",
                 order_type="MARKET",
@@ -861,7 +861,7 @@ class TradingEngine:
         if signal.target_price:
             return signal.target_price
         
-        price_data: MarketData | None = self.get_real_time_price(signal.symbol)
+        price_data: Optional[MarketData] = self.get_real_time_price(signal.symbol)
         if not price_data:
             logger.error(" ")
             return None
@@ -898,12 +898,12 @@ class TradingEngine:
         
         # 計算倉位大小
         if stop_distance > 0:
-            position_size: float = risk_amount / (current_price * stop_distance)
+            position_size = risk_amount / (current_price * stop_distance)
         else:
-            position_size: float = risk_amount / current_price * 0.1  # 默認 10% 倉位
+            position_size = risk_amount / current_price * 0.1  # 默認 10% 倉位
         
         # 限制最大倉位
-        position_size: float = min(position_size, self.max_position_size)
+        position_size = min(position_size, self.max_position_size)
         
         # 確保最小倉位
         if position_size < 0.001:
@@ -925,7 +925,7 @@ class TradingEngine:
         """保存交易記錄到數據庫（並備份到 JSONL）"""
         try:
             # 保存到數據庫
-            trade_id: int | None = self.db_manager.save_trade(trade_info)
+            trade_id: Optional[int] = self.db_manager.save_trade(trade_info)
             logger.info(f"💾 交易記錄已保存到數據庫: ID={trade_id}")
             
             # 兼容性：同時保存到 JSONL（可選）
@@ -994,7 +994,7 @@ class TradingEngine:
     
     def set_news_analysis(self, enabled: bool) -> None:
         """"""
-        self.enable_news_analysis: bool = enabled
+        self.enable_news_analysis = enabled
         logger.info(f"新聞分析 {'已啟用' if enabled else '已停用'}")
     
     def save_signals_history(self, _filepath: str = "signals_history.json") -> None:
@@ -1057,7 +1057,7 @@ class TradingEngine:
             logger.warning("RAG ")
             return
         
-        self.enable_rag_news_check: bool = not self.enable_rag_news_check
+        self.enable_rag_news_check = not self.enable_rag_news_check
         status: str = "[GREEN] " if self.enable_rag_news_check else " "
         logger.info(f"RAG : {status}")
     
@@ -1078,9 +1078,9 @@ class TradingEngine:
             
             if hasattr(result, 'articles') and result.articles:
                 for i, article in enumerate(result.articles[:max_articles], 1):
-                    title: Any | str = getattr(article, 'title', 'Unknown')
-                    source: Any | str = getattr(article, 'source', 'Unknown')
-                    url: Any | str = getattr(article, 'url', '')
+                    title: Any = getattr(article, 'title', 'Unknown')
+                    source: Any = getattr(article, 'source', 'Unknown')
+                    url: Any = getattr(article, 'url', '')
                     logger.info(f"[{i}] {title}")
                     logger.info(f"    來源: {source}")
                     if url:
