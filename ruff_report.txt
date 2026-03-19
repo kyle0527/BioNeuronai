@@ -1,0 +1,73 @@
+F401 `..analysis.get_news_analyzer` imported but unused; consider using `importlib.util.find_spec` to test for availability
+  --> src\bioneuronai\core\trading_engine.py:57:28
+   |
+55 | # 
+56 | try:
+57 |     from ..analysis import get_news_analyzer
+   |                            ^^^^^^^^^^^^^^^^^
+58 |     NEWS_ANALYZER_AVAILABLE = True
+59 | except ImportError:
+   |
+help: Remove unused import: `..analysis.get_news_analyzer`
+
+F401 `.inference_engine.SignalType` imported but unused; consider using `importlib.util.find_spec` to test for availability
+  --> src\bioneuronai\core\trading_engine.py:79:9
+   |
+77 |         InferenceEngine, 
+78 |         TradingSignal as AITradingSignal,
+79 |         SignalType
+   |         ^^^^^^^^^^
+80 |     )
+81 |     INFERENCE_ENGINE_AVAILABLE = True
+   |
+help: Remove unused import: `.inference_engine.SignalType`
+
+F401 `..analysis.MarketDataProcessor` imported but unused; consider using `importlib.util.find_spec` to test for availability
+  --> src\bioneuronai\core\trading_engine.py:89:9
+   |
+87 | try:
+88 |     from ..analysis import (
+89 |         MarketDataProcessor,
+   |         ^^^^^^^^^^^^^^^^^^^
+90 |         MarketRegimeDetector,
+91 |         VolumeProfileCalculator,
+   |
+help: Remove unused import
+
+F401 `..analysis.MarketRegimeDetector` imported but unused; consider using `importlib.util.find_spec` to test for availability
+  --> src\bioneuronai\core\trading_engine.py:90:9
+   |
+88 |     from ..analysis import (
+89 |         MarketDataProcessor,
+90 |         MarketRegimeDetector,
+   |         ^^^^^^^^^^^^^^^^^^^^
+91 |         VolumeProfileCalculator,
+92 |         LiquidationHeatmapCalculator
+   |
+help: Remove unused import
+
+F401 `..analysis.VolumeProfileCalculator` imported but unused; consider using `importlib.util.find_spec` to test for availability
+  --> src\bioneuronai\core\trading_engine.py:91:9
+   |
+89 |         MarketDataProcessor,
+90 |         MarketRegimeDetector,
+91 |         VolumeProfileCalculator,
+   |         ^^^^^^^^^^^^^^^^^^^^^^^
+92 |         LiquidationHeatmapCalculator
+93 |     )
+   |
+help: Remove unused import
+
+F401 `..analysis.LiquidationHeatmapCalculator` imported but unused; consider using `importlib.util.find_spec` to test for availability
+  --> src\bioneuronai\core\trading_engine.py:92:9
+   |
+90 |         MarketRegimeDetector,
+91 |         VolumeProfileCalculator,
+92 |         LiquidationHeatmapCalculator
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+93 |     )
+94 |     FEATURE_MODULES_AVAILABLE = True
+   |
+help: Remove unused import
+
+Found 6 errors.

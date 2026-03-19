@@ -1,0 +1,131 @@
+# BioNeuronai 專案架構圖
+
+## 1. 專案架構概覽
+
+```mermaid
+graph TB
+    subgraph "🐍 Python Layer"
+        PY_CORE[BioNeuron 核心]
+        PY_TRADING[交易引擎]
+        PY_DATA[數據處理]
+        PY_BACKTEST[回測系統]
+    end
+
+    subgraph "🧠 Model Layer"
+        ML_NEURAL[神經網路模型]
+        ML_PREDICT[預測系統]
+    end
+
+    subgraph "📊 Data Layer"
+        DATA_BINANCE[Binance 數據]
+        DATA_HISTORICAL[歷史數據]
+    end
+
+    subgraph "⚙️ Config Layer"
+        CONFIG_TRADING[交易配置]
+        CONFIG_STRATEGY[策略配置]
+    end
+
+    PY_CORE --> ML_NEURAL
+    PY_CORE --> PY_TRADING
+    PY_TRADING --> PY_DATA
+    PY_DATA --> DATA_BINANCE
+    PY_DATA --> DATA_HISTORICAL
+    PY_BACKTEST --> PY_DATA
+    ML_NEURAL --> ML_PREDICT
+    ML_PREDICT --> PY_TRADING
+    CONFIG_TRADING --> PY_TRADING
+    CONFIG_STRATEGY --> PY_TRADING
+
+    style PY_CORE fill:#3776ab
+    style ML_NEURAL fill:#FF6B6B
+    style DATA_BINANCE fill:#F0B90B
+```
+
+## 2. 程式碼分布統計
+
+```mermaid
+pie title 程式碼行數分布
+    "Python (50.5%)" : 66526
+    "Go (0%)" : 0
+    "Rust (0%)" : 0
+    "TypeScript/JS (0%)" : 0
+    "其他" : 65240
+```
+
+## 3. 模組關係圖
+
+```mermaid
+graph LR
+    subgraph "services"
+        aiva_common[aiva_common<br/>共用模組]
+        core[core<br/>核心引擎]
+        function[function<br/>功能模組]
+        integration[integration<br/>整合層]
+        scan[scan<br/>掃描引擎]
+    end
+
+    subgraph "function 子模組"
+        func_py[Python 模組]
+        func_go[Go 模組]
+        func_rs[Rust 模組]
+    end
+
+    subgraph "scan 子模組"
+        scan_py[Python 掃描]
+        scan_ts[Node.js 掃描]
+    end
+
+    core --> aiva_common
+    scan --> aiva_common
+    function --> aiva_common
+    integration --> aiva_common
+
+    integration --> function
+    integration --> scan
+
+    function --> func_py
+    function --> func_go
+    function --> func_rs
+
+    scan --> scan_py
+    scan --> scan_ts
+
+    style aiva_common fill:#90EE90
+    style core fill:#FFD700
+    style function fill:#87CEEB
+    style integration fill:#FFA07A
+    style scan fill:#DDA0DD
+```
+
+## 4. 技術棧選擇流程圖
+
+```mermaid
+flowchart TD
+    Start([新功能需求]) --> Perf{需要高效能?}
+    Perf -->|是| Memory{需要記憶體安全?}
+    Perf -->|否| Web{是 Web API?}
+
+    Memory -->|是| Rust[使用 Rust<br/>靜態分析/資訊收集]
+    Memory -->|否| Go[使用 Go<br/>認證/雲端安全/SCA]
+
+    Web -->|是| Python[使用 Python<br/>FastAPI/核心邏輯]
+    Web -->|否| Browser{需要瀏覽器?}
+
+    Browser -->|是| TS[使用 TypeScript<br/>Playwright 掃描]
+    Browser -->|否| Python
+
+    Rust --> MQ[Message Queue]
+    Go --> MQ
+    Python --> MQ
+    TS --> MQ
+
+    MQ --> Deploy([部署模組])
+
+    style Rust fill:#CE422B
+    style Go fill:#00ADD8
+    style Python fill:#3776ab
+    style TS fill:#3178C6
+```
+
+生成時間: 2026-03-19 22:48:29
