@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 # BioNeuronai 專案程式碼樹狀圖生成腳本（終極整合版）
 # 功能：
 # 1. 生成僅程式碼的樹狀架構圖
@@ -15,6 +15,8 @@ param(
     [switch]$AddChineseComments
 )
 
+# 強制切換終端機 code page 為 UTF-8（必須在任何輸出之前）
+chcp 65001 | Out-Null
 # 設定輸出編碼為 UTF-8
 [Console]::OutputEncoding = [Text.Encoding]::UTF8
 $OutputEncoding = [Text.Encoding]::UTF8

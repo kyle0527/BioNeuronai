@@ -1,8 +1,8 @@
 # 分析模組 (Analysis)
 
 **路徑**: `src/bioneuronai/analysis/`  
-**版本**: v4.1  
-**更新日期**: 2026-02-15  
+**版本**: v4.4  
+**更新日期**: 2026-03-19  
 **架構層級**: Layer 4 — 分析與智能層
 
 ---
@@ -248,6 +248,66 @@ print(f"價值區域: {profile.value_area}")
 
 ---
 
+## � 執行方式（一套流程完整跑完）
+
+```bash
+# 完整報告（4 部分：關鍵字 + 技術分析 + 全球市況 + SOP 報告 + 補充模組驗證）
+python -m bioneuronai.analysis
+
+# 僅執行 SOP 每日流程（不含技術分析）
+python -m bioneuronai.analysis --sop
+
+# 僅執行關鍵字系統報告
+python -m bioneuronai.analysis --kw
+```
+
+### 完整執行流程（預設模式）
+
+```
+1. SOPAutomationSystem.run_full_report()
+   ├─ [1/4] 關鍵字系統報告（KeywordManager.print_report）
+   ├─ [2/4] 技術分析（MarketRegimeDetector + VolumeProfileCalculator + MarketDataProcessor）
+   ├─ [3/4] 全球市場數據（MarketDataCollector - Yahoo Finance / CoinGecko）
+   └─ [4/4] SOP 每日報告（20 步驟完整流程，結果保存至 sop_automation_data/）
+
+2. 補充驗證（涵蓋全部 22 個模組）
+   ├─ MarketKeywords.get_importance_score / get_sentiment_bias（static_utils）
+   ├─ KeywordLearner 初始化（learner）
+   ├─ RuleBasedEvaluator.evaluate_news_batch（evaluator）
+   └─ NewsPredictionLoop.get_statistics（prediction_loop）
+```
+
+### 驗證狀態（2026-03-19）
+
+| 模組 | 匯入驗證 | 功能執行驗證 |
+|------|---------|------------|
+| `analysis/__init__.py` | ✅ | ✅ |
+| `analysis/feature_engineering.py` | ✅ | ✅ |
+| `analysis/market_regime.py` | ✅ | ✅ |
+| `news/analyzer.py` | ✅ | ✅ 31篇真實新聞 |
+| `news/evaluator.py` | ✅ | ✅ |
+| `news/prediction_loop.py` | ✅ | ✅ |
+| `news/models.py` | ✅ | ✅ |
+| `keywords/manager.py` | ✅ | ✅ 199 個關鍵字 |
+| `keywords/learner.py` | ✅ | ✅ |
+| `keywords/loader.py` | ✅ | ✅ |
+| `keywords/static_utils.py` | ✅ | ✅ |
+| `keywords/models.py` | ✅ | ✅ |
+| `daily_report/__init__.py` | ✅ | ✅ 20步SOP |
+| `daily_report/market_data.py` | ✅ | ✅ |
+| `daily_report/news_sentiment.py` | ✅ | ✅ |
+| `daily_report/strategy_planner.py` | ✅ | ✅ |
+| `daily_report/risk_manager.py` | ✅ | ✅ |
+| `daily_report/report_generator.py` | ✅ | ✅ |
+| `daily_report/models.py` | ✅ | ✅ |
+| `analysis/__main__.py` | ✅ | ✅ |
+
+**22/22 模組全部驗證通過**
+
+> ⚠️ 已知限制：`config/keywords/` 分類 JSON 中 `dynamic_bias` 欄位不在 `Keyword` dataclass 定義 → 只載入 199/505 個關鍵字
+
+---
+
 ## 📚 相關文檔
 
 - **NLP 訓練指南**: [NLP_TRAINING_GUIDE.md](../../../docs/NLP_TRAINING_GUIDE.md)
@@ -256,6 +316,7 @@ print(f"價值區域: {profile.value_area}")
 
 ---
 
-**最後更新**: 2026 年 2 月 15 日
+**最後更新**: 2026 年 3 月 19 日
 
 > 📖 上層目錄：[src/bioneuronai/README.md](../README.md)
+

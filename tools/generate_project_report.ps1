@@ -1,10 +1,15 @@
-# BioNeuronai 專案完整報告生成器
+﻿# BioNeuronai 專案完整報告生成器
 # 整合樹狀圖、統計數據、程式碼分析
 
 param(
     [string]$ProjectRoot = "C:\D\E\BioNeuronai",
     [string]$OutputDir = "C:\D\E\BioNeuronai\tools"
 )
+
+# 強制切換終端機 code page 為 UTF-8（必須在任何輸出之前）
+chcp 65001 | Out-Null
+[Console]::OutputEncoding = [Text.Encoding]::UTF8
+$OutputEncoding = [Text.Encoding]::UTF8
 
 Write-Host "🚀 開始生成專案完整報告..." -ForegroundColor Cyan
 
