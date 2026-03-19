@@ -94,7 +94,9 @@ class PreTradeCheckSystem:
     """單筆交易前檢查系統"""
     
     def __init__(self) -> None:
-        self.data_dir = Path("data/bioneuronai/trading/pretrade")
+        # pretrade_automation.py 位於 src/bioneuronai/trading/，4 層 parent = 專案根目錄
+        _project_root = Path(__file__).parent.parent.parent.parent
+        self.data_dir = _project_root / "data" / "bioneuronai" / "trading" / "pretrade"
         self.data_dir.mkdir(exist_ok=True, parents=True)
         
         # 嘗試導入交易模組

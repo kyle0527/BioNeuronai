@@ -45,7 +45,9 @@ class SOPAutomationSystem:
     """SOP 自動化系統"""
     
     def __init__(self):
-        self.data_dir = Path("data/bioneuronai/trading/sop")
+        # sop_automation.py 位於 src/bioneuronai/trading/，4 層 parent = 專案根目錄
+        _project_root = Path(__file__).parent.parent.parent.parent
+        self.data_dir = _project_root / "data" / "bioneuronai" / "trading" / "sop"
         self.data_dir.mkdir(exist_ok=True, parents=True)
         self.check_results = []
         
