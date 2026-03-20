@@ -11,10 +11,10 @@ from typing import Dict, Any, Optional
 import sys
 
 # 添加路徑
-sys.path.insert(0, str(Path(__file__).parent / "src" / "bioneuronai"))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from src.bioneuronai.tiny_llm import TinyLLM, TinyLLMConfig
-from src.bioneuronai.bilingual_tokenizer import BilingualTokenizer, create_bilingual_tokenizer
+from nlp.tiny_llm import TinyLLM, TinyLLMConfig
+from nlp.bilingual_tokenizer import BilingualTokenizer, create_bilingual_tokenizer
 
 
 def create_config_json(config: TinyLLMConfig, save_dir: Path) -> None:

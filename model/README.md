@@ -1,8 +1,9 @@
-# 🧠 交易模型權重
+# 交易模型權重
 
-## � 目錄
+## 目錄
 
 - [當前模型](#當前模型)
+- [Git LFS 說明](#git-lfs-說明)
 - [為什麼選擇這個模型？](#為什麼選擇這個模型)
 - [輸入特徵設計](#輸入特徵設計)
 - [整合到交易系統](#整合到交易系統)
@@ -12,13 +13,14 @@
 
 ---
 
-## �📦 當前模型
+## 當前模型
 
-### my_100m_model.pth (424.24 MB)
+### my_100m_model.pth (445 MB)
 
-**架構**: MLP (Multi-Layer Perceptron)  
-**參數量**: ~111M  
+**架構**: MLP (Multi-Layer Perceptron)
+**參數量**: ~111M
 **用途**: 加密貨幣日內短線交易決策
+**儲存方式**: Git LFS（Large File Storage）
 
 #### 模型結構
 ```
@@ -36,6 +38,57 @@
 #### 推理速度
 - CPU: ~2-5ms
 - GPU: ~0.5-1ms
+
+---
+
+## Git LFS 說明
+
+模型權重 `my_100m_model.pth`（445 MB）透過 **Git LFS** 管理，不直接存放在 Git 物件中。
+
+### 本地取得權重步驟
+
+```bash
+# 1. 安裝 Git LFS（若尚未安裝）
+# macOS
+brew install git-lfs
+
+# Ubuntu / Debian
+sudo apt install git-lfs
+
+# Windows
+# 下載安裝：https://git-lfs.com
+
+# 2. 初始化 Git LFS
+git lfs install
+
+# 3. 拉取權重檔案
+git lfs pull
+```
+
+### 驗證權重是否已下載
+
+```bash
+# 檢查檔案大小（應約 445 MB）
+ls -lh model/my_100m_model.pth
+
+# 若顯示 134 bytes 且內容開頭為 "version https://git-lfs.github.com/spec/v1"
+# 表示只有 LFS pointer，需要執行 git lfs pull
+```
+
+### LFS 追蹤設定
+
+`.gitattributes` 中已設定：
+```
+model/my_100m_model.pth filter=lfs diff=lfs merge=lfs -text
+```
+
+### 注意事項
+
+- 雲端 CI/CD 環境可能不支援 LFS，需確認環境已安裝 `git-lfs` 並執行 `git lfs pull`
+- Docker 建構時，需在 `COPY` 前確保 LFS 檔案已下載
+- 推論引擎使用 `weights_only=True` 載入，LFS pointer 檔案（134 bytes 文字檔）無法被 `torch.load()` 解析，必須取得完整權重
+
+---
 
 #### 使用方式
 
@@ -177,7 +230,7 @@ prediction = model.predict(features_1024d)
 
 ---
 
-**最後更新**: 2026-02-15  
-**模型狀態**: ✅ 可用於推論
+**最後更新**: 2026-03-20
+**模型狀態**: Git LFS 管理，本地 `git lfs pull` 後可用於推論
 
 > 📖 上層目錄：[根目錄 README](../README.md)

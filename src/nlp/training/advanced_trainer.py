@@ -18,7 +18,7 @@ import math
 
 sys.path.append(str(Path(__file__).parent.parent))
 
-from src.bioneuronai.tiny_llm import TinyLLM, TinyLLMConfig
+from nlp.tiny_llm import TinyLLM, TinyLLMConfig
 
 
 @dataclass
@@ -413,8 +413,8 @@ def main():
     
     # 添加路徑
     sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
-    from src.bioneuronai.tiny_llm import TinyLLM, TinyLLMConfig
-    from src.bioneuronai.bilingual_tokenizer import BilingualTokenizer
+    from nlp.tiny_llm import TinyLLM, TinyLLMConfig
+    from nlp.bilingual_tokenizer import BilingualTokenizer
     
     print("=" * 60)
     print("BioNeuronAI - 真實訓練示例")

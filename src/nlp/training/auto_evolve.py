@@ -12,10 +12,10 @@ import json
 from pathlib import Path
 import sys
 
-sys.path.insert(0, str(Path(__file__).parent / "src"))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from src.bioneuronai.tiny_llm import TinyLLM, TinyLLMConfig
-from src.bioneuronai.bilingual_tokenizer import BilingualTokenizer
+from nlp.tiny_llm import TinyLLM, TinyLLMConfig
+from nlp.bilingual_tokenizer import BilingualTokenizer
 from torch.utils.data import Dataset, DataLoader
 import torch.optim as optim
 from tqdm import tqdm

@@ -5,12 +5,13 @@ NLP (Natural Language Processing) Module
 
 主要模組：
 - tiny_llm: 100M 參數小型語言模型
-- rag_system: RAG (檢索增強生成) 系統
+- rag_system: RAG 系統（已廢棄，請使用 src/rag/ 模組）
 - tokenizers: BPE 和雙語分詞器
 - quantization: 模型量化工具
 - lora: LoRA 微調支持
 - generation_utils: 文本生成工具
 - inference_utils: 推理優化工具
+- training: 訓練腳本（advanced_trainer, auto_evolve, data_manager 等）
 """
 
 __version__ = "1.0.0"
@@ -33,3 +34,8 @@ def get_bpe_tokenizer():
 def get_bilingual_tokenizer():
     from .bilingual_tokenizer import BilingualTokenizer
     return BilingualTokenizer
+
+def get_rag_system():
+    """取得 RAGSystem 類別（已廢棄，請使用 src/rag/ 模組）"""
+    from .rag_system import RAGSystem
+    return RAGSystem
