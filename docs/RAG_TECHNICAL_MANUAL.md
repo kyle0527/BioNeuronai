@@ -1,8 +1,8 @@
 # BioNeuronai RAG 系統技術手冊
 
-> **檢索增強生成 (Retrieval-Augmented Generation) 完整技術文檔**  
-> **版本**: v1.0.0  
-> **最後更新**: 2026年2月15日
+> **檢索增強生成 (Retrieval-Augmented Generation) 完整技術文檔**
+> **版本**: v1.1.0
+> **最後更新**: 2026年3月20日
 
 ---
 
@@ -34,12 +34,13 @@
 
 ### BioNeuronai RAG 系統特性
 
-✅ **多模型支持** - 本地模型 (sentence-transformers) 和 API 模型 (OpenAI)  
-✅ **高速檢索** - FAISS 向量索引，毫秒級搜索  
-✅ **內建緩存** - 自動緩存嵌入結果，減少重複計算  
-✅ **多源整合** - 內部知識庫、網路搜索、新聞API、歷史數據  
-✅ **持久化存儲** - JSON 和 FAISS 雙重存儲機制  
-✅ **生產就緒** - 完整錯誤處理、日誌和監控
+- **多模型支持** - 本地模型 (sentence-transformers) 和 API 模型 (OpenAI)
+- **高速檢索** - FAISS 向量索引（faiss-cpu 已列入依賴），毫秒級搜索
+- **內建緩存** - Embedding LRU 快取（10,000 筆）+ UnifiedRetriever TTL 快取（300 秒）
+- **多源整合** - 內部知識庫、網路搜索、新聞 API、歷史數據
+- **持久化存儲** - JSON 和 FAISS 雙重存儲機制
+- **效能監控** - RAGMonitor 追蹤延遲 p50/p95/p99、快取命中率、QPS
+- **生產就緒** - 完整錯誤處理、日誌和監控
 
 ### 使用場景
 
@@ -1228,6 +1229,14 @@ class ExtendedDocumentType(Enum):
 
 ## 更新日誌
 
+### v1.1.0 (2026-03-20)
+- ✅ UnifiedRetriever TTL 記憶體快取（預設 300 秒），重複查詢跳過向量搜尋
+- ✅ RAGMonitor 效能監控（延遲追蹤、快取命中率、QPS 統計）
+- ✅ NewsAdapter 整合 CryptoNewsAnalyzer + RuleBasedEvaluator 事件偵測
+- ✅ `cache_hit` flag 正確傳遞至 monitor.log_retrieval()
+- ✅ faiss-cpu 已列入 pyproject.toml 依賴
+- ✅ sentence-transformers 已列入 pyproject.toml 依賴
+
 ### v1.0.0 (2026-02-15)
 - ✅ 初始版本發布
 - ✅ 支持本地和 OpenAI 嵌入模型
@@ -1238,8 +1247,8 @@ class ExtendedDocumentType(Enum):
 
 ---
 
-**維護者**: BioNeuronai 開發團隊  
-**授權**: MIT License  
-**最後更新**: 2026年2月15日
+**維護者**: BioNeuronai 開發團隊
+**授權**: MIT License
+**最後更新**: 2026年3月20日
 
 如有問題或建議，請提交 GitHub Issue 或聯繫開發團隊。

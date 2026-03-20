@@ -2,8 +2,8 @@
 
 **AI 神經網路 + 策略進化 + 智能融合 | 111.2M 參數推論引擎**
 
-**最後更新**: 2026年3月18日
-**版本**: v4.4.0 (Docker + FastAPI 部署版)
+**最後更新**: 2026年3月20日
+**版本**: v4.4.1 (Docker + FastAPI 部署版)
 **代碼質量**: ✅ 0 錯誤 | 0 警告 | 認知複雜度 ≤15
 
 ---
@@ -127,7 +127,20 @@ AI 推論:      ~22ms/次
 pip install -e .
 ```
 
-#### 2. 配置 API 金鑰
+#### 2. 取得模型權重（Git LFS）
+```bash
+# 安裝 Git LFS（若尚未安裝）
+# macOS: brew install git-lfs
+# Ubuntu: sudo apt install git-lfs
+
+git lfs install
+git lfs pull
+
+# 驗證：my_100m_model.pth 應約 445 MB
+ls -lh model/my_100m_model.pth
+```
+
+#### 3. 配置 API 金鑰
 編輯 `config/trading_config.py`:
 ```python
 BINANCE_API_KEY = "your_api_key"
@@ -135,7 +148,7 @@ BINANCE_API_SECRET = "your_secret_key"
 USE_TESTNET = True  # 建議先使用測試網
 ```
 
-#### 3. 運行交易系統（CLI 入口）
+#### 4. 運行交易系統（CLI 入口）
 
 ```bash
 # 系統健康檢查（無需 torch）
@@ -290,9 +303,9 @@ BioNeuronai/
 │   └── schemas/                  # Pydantic v2 數據模型（75+ 個）
 │
 ├── 📁 model/                     # AI 模型權重
-│   ├── my_100m_model.pth         # 111.2M MLP 模型 (424MB)
-│   ├── tiny_llm_en_zh/           # 雙語 LLM 基礎版
-│   └── tiny_llm_en_zh_trained/   # 雙語 LLM 訓練版 ⭐
+│   ├── my_100m_model.pth         # 111.2M MLP 模型 (445MB, Git LFS)
+│   ├── tiny_llm_en_zh/           # 雙語 LLM 基礎版（tokenizer + config）
+│   └── tiny_llm_en_zh_trained/   # 雙語 LLM 訓練版（tokenizer + config）
 │
 ├── 📁 config/                    # 配置文件
 │   ├── trading_config.py         # 交易參數配置
@@ -557,7 +570,7 @@ python tools/demo_strategy_evolution.py
 
 | 模組 | 狀態 | 完成度 | 說明 |
 |------|------|--------|------|
-| **AI 模型權重** | ✅ 正常 | 100% | 111.2M 參數已載入 |
+| **AI 模型權重** | ✅ 正常 | 100% | 111.2M 參數（445MB, Git LFS 管理，本地需 `git lfs pull`） |
 | **推論引擎** | ✅ 正常 | 100% | ~22ms 平均延遲 |
 | **風險管理器** | ✅ 正常 | 100% | ⭐ v2.1 新增 4 方法 |
 | **外部數據整合** | ✅ 正常 | 100% | ⭐ v4.0 新增 3 API |
