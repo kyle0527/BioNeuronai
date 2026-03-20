@@ -449,9 +449,8 @@ for prompt in test_prompts:
 ## 🔗 相關資源
 
 ### 模型文件位置
-- **基礎模型**: `src/nlp/models/tiny_llm_en_zh/`
-- **訓練後模型**: `src/nlp/models/tiny_llm_en_zh_trained/`
-- **權重文件**: `src/nlp/weights/`
+- **基礎模型**: `model/tiny_llm_en_zh/`
+- **訓練後模型**: `model/tiny_llm_en_zh_trained/`
 
 ### 工具腳本
 - **模型導出**: `src/nlp/model_export.py`
@@ -488,17 +487,26 @@ for prompt in test_prompts:
 
 ### Q: 如何在交易系統中使用訓練的模型？
 **A:**
-參考 `src/bioneuronai/rag/` 模組，整合 NLP 模型到 RAG 系統中：
+參考 `src/rag/` 模組，整合 NLP 模型到 RAG 系統中：
 ```python
-from src.bioneuronai.rag.rag_system import RAGSystem
+from rag import create_unified_retriever
+from rag.core.embeddings import EmbeddingService
+from rag.internal.knowledge_base import InternalKnowledgeBase
 
-rag = RAGSystem(
-    llm_model_path="src/nlp/models/tiny_llm_en_zh_trained"
+# 初始化 RAG 組件
+embedding_service = EmbeddingService()
+kb = InternalKnowledgeBase(embedding_service)
+
+# 創建檢索器
+retriever = create_unified_retriever(
+    embedding_service=embedding_service,
+    knowledge_base=kb
 )
 
-# 使用模型分析交易策略
-response = rag.query("當前市場適合用什麼策略？")
-print(response)
+# 使用 RAG 檢索交易策略
+results = retriever.retrieve("當前市場適合用什麼策略？")
+for result in results:
+    print(result.content)
 ```
 
 ## 📞 技術支援
@@ -511,6 +519,6 @@ print(response)
 
 ---
 
-**最後更新**: 2026-01-23  
-**版本**: v2.1.0  
+**最後更新**: 2026-03-20
+**版本**: v2.2.0
 **維護者**: BioNeuronAI Team

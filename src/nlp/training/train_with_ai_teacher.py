@@ -16,10 +16,10 @@ import time
 import hashlib
 from datetime import datetime
 
-sys.path.insert(0, str(Path(__file__).parent / "src" / "bioneuronai"))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from src.bioneuronai.tiny_llm import TinyLLM, TinyLLMConfig
-from src.bioneuronai.bilingual_tokenizer import BilingualTokenizer
+from nlp.tiny_llm import TinyLLM, TinyLLMConfig
+from nlp.bilingual_tokenizer import BilingualTokenizer
 
 
 # ============================================================================
