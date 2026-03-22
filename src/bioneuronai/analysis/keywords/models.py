@@ -35,6 +35,9 @@ class Keyword:
     prediction_count: int = 0    # 預測次數
     correct_count: int = 0       # 正確次數
     
+    # 動態偏差 (修復 dynamic_bias 欄位缺失問題)
+    dynamic_bias: float = 0.0
+
     # 子分類 (v3.0 新增)
     subcategory: str = "general"
     
