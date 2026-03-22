@@ -1,0 +1,34 @@
+INFO:bioneuronai.data.binance_futures:初始化 Binance Futures Connector (Testnet=True)
+INFO:bioneuronai.data.database_manager:\u2705 數據表創建完成（共 11 張表：trades/signals/risk_stats/pretrade_checks/news_analysis/performance_metrics/news_predictions/strategy_genes/evolution_history/rl_training_history/event_memory）
+INFO:bioneuronai.data.database_manager:\u2705 DatabaseManager 初始化完成: data\bioneuronai\trading\runtime\trading.db
+INFO:bioneuronai.trading.risk_manager:\u2705 RiskManager 已連接數據庫
+INFO:bioneuronai.core.trading_engine:[AI] Using AI Strategy Fusion System
+INFO:bioneuronai.data.database_manager:\u2705 數據表創建完成（共 11 張表：trades/signals/risk_stats/pretrade_checks/news_analysis/performance_metrics/news_predictions/strategy_genes/evolution_history/rl_training_history/event_memory）
+INFO:bioneuronai.data.database_manager:\u2705 DatabaseManager 初始化完成: C:\D\E\BioNeuronai\data\bioneuronai\trading\engine\trading.db
+INFO:bioneuronai.core.trading_engine:\u2705 數據庫管理器已初始化
+INFO:bioneuronai.core.inference_engine: CPU 
+INFO:bioneuronai.core.inference_engine:ModelLoader  | : cpu | : C:\D\E\BioNeuronai\model
+INFO:bioneuronai.core.inference_engine:FeaturePipeline  | : 1024
+INFO:bioneuronai.core.inference_engine:SignalInterpreter  | : 0.5
+INFO:bioneuronai.core.inference_engine:InferenceEngine 
+INFO:bioneuronai.core.trading_engine:[AI] AI Inference Engine initialized (model pending load)
+INFO:bioneuronai.core.trading_engine: 
+INFO:bioneuronai.analysis.news.analyzer:\u2705 CryptoNewsAnalyzer 初始化完成
+INFO:bioneuronai.core.trading_engine: 
+INFO:bioneuronai.trading.pretrade_automation:[OK] 交易模組導入成功
+INFO:bioneuronai.trading.pretrade_automation:\u2705 風險參數已從配置載入: 2.0%
+INFO:bioneuronai.core.trading_engine:\u2705 交易前檢查系統已初始化
+INFO:bioneuronai.core.trading_engine: 
+INFO:backtest.data_stream:初始化歷史數據串流: ETHUSDT 15m
+INFO:backtest.data_stream:日期範圍: 2026-01-10 ~ 2026-01-15
+INFO:backtest.data_stream:播放速度: 0.0x (無延遲)
+INFO:backtest.data_stream:開始載入歷史數據...
+ERROR:bioneuronai.cli.main:找不到 ETHUSDT / 15m 的歷史數據，請先執行 tools/data_download/ 下載
+
+============================================================
+  BioNeuronai Backtest  ETHUSDT / 15m
+============================================================
+
+[1/2] 初始化 TradingEngine ...
+      TradingEngine OK
+[2/2] 啟動回測  ETHUSDT 15m ...
