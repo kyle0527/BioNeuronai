@@ -304,7 +304,7 @@ python -m bioneuronai.analysis --kw
 
 **22/22 模組全部驗證通過**
 
-> ⚠️ 已知限制：`config/keywords/` 分類 JSON 中 `dynamic_bias` 欄位不在 `Keyword` dataclass 定義 → 只載入 199/505 個關鍵字
+> ✅ 已修復：`Keyword` dataclass 已新增 `dynamic_bias` 欄位，所有分類 JSON 關鍵字可正常載入
 
 ---
 
