@@ -78,6 +78,7 @@
 | 子目錄 / 文檔 | 說明 |
 |---------------|------|
 | [tech/](tech/README.md) | 技術文檔索引（架構手冊等） |
+| [ARCHITECTURE_OVERVIEW.md](ARCHITECTURE_OVERVIEW.md) | 依實際入口與模組依賴整理的系統總體架構 |
 | [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md) | 專案結構說明 |
 | [SRC_DIRECTORY_ANALYSIS.md](SRC_DIRECTORY_ANALYSIS.md) | src/ 目錄分析 |
 | [KNOWHOW_ANALYSIS.md](KNOWHOW_ANALYSIS.md) | 核心 Know-How 概念分析 |
