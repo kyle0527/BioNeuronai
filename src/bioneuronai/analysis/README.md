@@ -11,27 +11,23 @@
 
 1. [模組概述](#模組概述)
 2. [架構總覽](#架構總覽)
-3. [核心組件](#核心組件)
-4. [子模組：新聞分析](#子模組新聞分析-news)
-5. [子模組：關鍵字系統](#子模組關鍵字系統-keywords)
-6. [子模組：每日報告](#子模組每日報告-daily_report)
-7. [導出 API](#導出-api)
-8. [使用示例](#使用示例)
-9. [相關文檔](#相關文檔)
+3. [核心組件 (Top-Level)](#核心組件-top-level)
+4. [子模組導航](#子模組導航)
+5. [導出 API](#導出-api)
+6. [執行方式](#執行方式)
 
 ---
 
 ## 🎯 模組概述
 
-分析模組是 BioNeuronai 的「感知層」，負責從多種數據源（新聞、市場微結構、成交量、鏈上數據）提取特徵與情緒信號，為策略層和交易層提供決策依據。包含 3 個專門子模組和 2 個核心分析引擎。
+分析模組是 BioNeuronai 的「感知層」，負責從多種數據源（新聞、市場微結構、成交量、總體經濟數據）提取特徵與情緒信號，為策略層和交易層提供決策依據。本模組設計高度解耦，包含 3 個專門的子模組以及位於頂層的核心特徵與狀態引擎。
 
 ### 模組職責
-- ✅ 新聞情緒分析與事件檢測
-- ✅ 市場關鍵字學習與權重優化 (RLHF)
-- ✅ 特徵工程（成交量分布 / 清算熱力圖 / 流動性地圖）
-- ✅ 市場狀態識別（HMM / GARCH / 多時間框架）
-- ✅ 每日市場報告自動生成
-- ✅ 新聞預測驗證循環 (RLHF)
+- ✅ **新聞與事件感知**: 多來源新聞抓取、情緒分析、事件檢測。
+- ✅ **關鍵字學習 (RLHF)**: 基於預測準確率自動調整關鍵字權重的動態系統。
+- ✅ **自動化每日報告**: 整合全球市況與技術指標的 SOP 報告生成。
+- ✅ **進階特徵工程**: 成交量分布 (Volume Profile) 與流動性地圖。
+- ✅ **市場狀態識別**: 判斷牛熊震盪的高級統計模型。
 
 ---
 
@@ -39,284 +35,100 @@
 
 ```
 src/bioneuronai/analysis/
-├── __init__.py              # 模組入口 (158 行)
-├── feature_engineering.py   # 進階特徵工程 (844 行)
-├── market_regime.py         # 市場狀態識別 (827 行)
+├── __init__.py              # 統一導出接口
+├── feature_engineering.py   # 進階特徵工程 (Volume, Liquidity)
+├── market_regime.py         # 市場狀態識別 (HMM, GARCH)
 │
-├── news/                    # 新聞分析子模組
-│   ├── __init__.py
-│   ├── analyzer.py          # 新聞分析器 (1,141 行)
-│   ├── evaluator.py         # 事件評估器 (395 行)
-│   ├── models.py            # 新聞數據模型 (103 行)
-│   └── prediction_loop.py   # RLHF 預測循環 (901 行)
+├── news/                    # 📰 新聞分析與預測子模組
+│   ├── analyzer.py          # (核心分析器)
+│   ├── prediction_loop.py   # (RLHF 循環)
+│   └── ...
 │
-├── keywords/                # 關鍵字系統
-│   ├── __init__.py
-│   ├── manager.py           # 關鍵字管理器 (907 行)
-│   ├── learner.py           # 關鍵字學習器 (444 行)
-│   ├── loader.py            # JSON 載入器 (132 行)
-│   ├── models.py            # 關鍵字數據模型 (97 行)
-│   └── static_utils.py      # 靜態接口 (186 行)
+├── keywords/                # 🔑 關鍵字與權重管理子模組
+│   ├── manager.py           # (核心管理器, SQLite+JSON)
+│   ├── learner.py           # (學習器)
+│   └── ...
 │
-└── daily_report/            # 每日報告系統
-    ├── __init__.py
-    ├── report_generator.py  # 報告生成器 (291 行)
-    ├── market_data.py       # 全球市場數據 (387 行)
-    ├── news_sentiment.py    # 新聞情緒整合 (132 行)
-    ├── risk_manager.py      # 報告風險管理 (460 行)
-    ├── strategy_planner.py  # 策略規劃 (325 行)
-    └── models.py            # 報告數據模型 (134 行)
-                               ─────────
-                               合計 ~6,881 行
+└── daily_report/            # 📊 每日報告與市況整合子模組
+    ├── report_generator.py  # (文字與 JSON 生成)
+    ├── market_data.py       # (總經數據)
+    └── ...
 ```
 
 ---
 
-## 🎯 核心組件
+## 🎯 核心組件 (Top-Level)
 
-### `feature_engineering.py` — 進階特徵工程 (844 行)
+### `feature_engineering.py` — 進階特徵工程
+為策略層或 AI 模型提供高品質的特徵輸入矩陣。
+- **`VolumeProfile`**: 計算 POC (Point of Control) 與價值區域 (Value Area)。
+- **`LiquidationHeatmap` / `LiquidityMap`**: 分析訂單簿與清算數據。
+- **`MarketDataProcessor`**: 將原始 K 線轉換為特徵矩陣。
 
-為 AI 模型提供高質量特徵輸入。
-
-**主要類**:
-- `VolumeProfile` — 成交量分布分析（POC / 價值區域）
-- `LiquidationHeatmap` — 清算熱力圖
-- `MarketDataProcessor` — K 線→特徵矩陣轉換
-- `LiquidityMap` — 訂單簿深度流動性地圖
-
----
-
-### `market_regime.py` — 市場狀態識別 (827 行)
-
-基於統計模型與機器學習的市場體制自動識別。
-
-**主要類**:
-- `MarketRegimeDetector` — 體制檢測器
-- `RegimeAnalysis` — 體制分析結果
-- `RegimeBasedStrategySelector` — 基於體制的策略建議
-
-**體制類型**: 牛市 / 熊市 / 震盪市 / 高波動  
-**技術方法**: HMM · GARCH 波動率 · 移動平均系統 · 多時間框架分析
+### `market_regime.py` — 市場狀態識別
+基於統計模型自動分類當前的市場體制。
+- **`MarketRegimeDetector`**: 整合 HMM、GARCH 波動率與多時間框架，識別出「牛市 / 熊市 / 震盪市 / 高波動」。
+- **`RegimeBasedStrategySelector`**: 根據當前體制，提供最適合的策略建議。
 
 ---
 
-## 📰 子模組：新聞分析 (`news/`)
+## 📁 子模組導航
 
-### `analyzer.py` — 核心新聞分析器 (1,141 行)
+為了保持代碼的整潔與可維護性，複雜邏輯已拆分至獨立子模組。請點擊查看詳細的技術文檔：
 
-從多來源獲取新聞並執行情緒分析。
+### 1. 📰 [新聞分析系統 (`news/`)](news/README.md)
+負責 CryptoPanic 與 RSS 的資料獲取、自然語言情緒分析、事件檢測（如駭客、監管、ETF），以及新聞預測的 RLHF 循環與衰減模型。
 
-**主要類**: `CryptoNewsAnalyzer`  
-**數據源**: CryptoPanic · RSS 聚合  
-**功能**: 多來源抓取 → 情緒評分 → 關鍵字提取 → 事件檢測 → 重要性評分
+### 2. 🔑 [關鍵字系統 (`keywords/`)](keywords/README.md)
+核心的動態關鍵字管理器。取代硬編碼，從 JSON 載入關鍵字，並使用 SQLite 持久化預測記錄，透過強化學習 (RLHF) 動態調整每個關鍵字對市場預測的權重與情緒偏向。
 
-### `evaluator.py` — 規則式事件評估器 (395 行)
-
-「新聞大腦」— 使用關鍵字規則檢測重大事件。
-
-**主要類**: `RuleBasedEvaluator`  
-**流程**: 事件檢測 → `event_memory` 存入 → Hard Stop 判定 → `event_score` 輸出
-
-### `prediction_loop.py` — RLHF 新聞預測循環 (901 行)
-
-AI 預測→驗證→學習→優化的完整 RLHF 循環。
-
-**主要類**: `NewsPredictionLoop`  
-**衰減模型**:
-
-| 事件類型 | 初始影響 | 衰減後 | 衰減期 |
-|---------|---------|--------|-------|
-| 駭客事件 | 9.0 | 3.0 | 10 天 |
-| 升降息 | 8.5 | 4.0 | 15 天 |
-| 戰爭 | 9.5 | 4.5 | 30 天 |
-| ETF 審批 | 8.0 | 2.0 | 7 天 |
-
-### `models.py` — 新聞數據模型 (103 行)
-
-`NewsArticle` (標題/來源/情緒/關鍵字/重要性) · `NewsAnalysisResult` (統計摘要)
-
----
-
-## 🔑 子模組：關鍵字系統 (`keywords/`)
-
-### `manager.py` — 關鍵字管理器 v3.0 (907 行)
-
-核心關鍵字匹配、預測記錄與準確率追蹤。
-
-**主要類**: `KeywordManager`  
-**數據來源**: `config/keywords/*.json`  
-**持久化**: SQLite + JSON
-
-### `learner.py` — 關鍵字學習器 (444 行)
-
-RLHF 關鍵字權重更新與學習。
-
-**主要類**: `KeywordLearner`  
-**職責分離**: `KeywordManager`（唯讀查詢） ↔ `KeywordLearner`（寫入學習）
-
-### `static_utils.py` — 靜態接口 (186 行)
-
-`MarketKeywords` 類方法接口（委託 `KeywordManager` 單例）。
-
-```python
-score, keywords = MarketKeywords.get_importance_score(text)
-bias, confidence = MarketKeywords.get_sentiment_bias(text)
-```
-
-### 其他
-
-| 檔案 | 行數 | 說明 |
-|------|------|------|
-| `loader.py` | 132 | JSON 關鍵字檔案載入器 |
-| `models.py` | 97 | `Keyword` · `KeywordMatch` · `PredictionRecord` |
-
----
-
-## 📋 子模組：每日報告 (`daily_report/`)
-
-自動生成每日市場分析報告，涵蓋宏觀、技術、情緒、策略與風險五大面向。
-
-| 檔案 | 行數 | 職責 |
-|------|------|------|
-| `report_generator.py` | 291 | 報告生成→JSON 保存 |
-| `market_data.py` | 387 | 全球市場數據收集（Yahoo Finance / CoinGecko） |
-| `news_sentiment.py` | 132 | 新聞情緒整合（委託 `CryptoNewsAnalyzer`） |
-| `risk_manager.py` | 460 | 帳戶分析 · 風險參數 · 持倉管理 |
-| `strategy_planner.py` | 325 | 市場分析→策略建議 |
-| `models.py` | 134 | 報告數據模型（`DailyReport` · `MarketCondition` 等） |
+### 3. 📊 [每日報告系統 (`daily_report/`)](daily_report/README.md)
+SOP 自動化流程的核心，負責收集全球市場數據（美股、加密貨幣、經濟事件）、整合新聞情緒與風險管理參數，並自動生成格式化的每日市場文字與 JSON 報告。
 
 ---
 
 ## 📦 導出 API
 
+您可以直接從 `bioneuronai.analysis` 匯入最常用的類別，無需深入子資料夾：
+
 ```python
 from bioneuronai.analysis import (
-    # 新聞分析
-    CryptoNewsAnalyzer,         # 新聞分析器
-    RuleBasedEvaluator,         # 事件評估器
-    NewsPredictionLoop,         # RLHF 預測循環
+    # 新聞與事件
+    CryptoNewsAnalyzer,
+    RuleBasedEvaluator,
+    NewsPredictionLoop,
 
     # 關鍵字系統
-    MarketKeywords,             # 關鍵字靜態接口
+    MarketKeywords,
 
-    # 特徵工程
-    VolumeProfile,              # 成交量分布
-    LiquidationHeatmap,         # 清算熱力圖
-    MarketDataProcessor,        # 數據處理器
+    # 特徵與狀態
+    VolumeProfile,
+    MarketRegimeDetector,
 
-    # 市場狀態
-    MarketRegimeDetector,       # 體制檢測器
-    RegimeAnalysis,             # 分析結果
-
-    # 每日報告
-    DailyReport,                # 報告模型 (from daily_report)
+    # 報告模型
+    DailyReport,
 )
 ```
 
 ---
 
-## 💡 使用示例
+## 🚀 執行方式
 
-### 新聞分析
-```python
-from bioneuronai.analysis import CryptoNewsAnalyzer
-
-analyzer = CryptoNewsAnalyzer()
-result = await analyzer.analyze("BTCUSDT", hours=24)
-print(f"情緒: {result.overall_sentiment}")
-print(f"重大事件: {result.major_events}")
-```
-
-### 市場狀態識別
-```python
-from bioneuronai.analysis import MarketRegimeDetector
-
-detector = MarketRegimeDetector()
-regime = detector.detect(market_data)
-print(f"當前體制: {regime.regime_type}")  # 牛市/熊市/震盪/高波動
-```
-
-### 特徵工程
-```python
-from bioneuronai.analysis import VolumeProfile
-
-vp = VolumeProfile()
-profile = vp.calculate(klines)
-print(f"POC 價格: {profile.poc_price}")
-print(f"價值區域: {profile.value_area}")
-```
-
----
-
-## � 執行方式（一套流程完整跑完）
+分析模組可以作為獨立腳本執行，用於生成完整或部分的市場報告。
 
 ```bash
-# 完整報告（4 部分：關鍵字 + 技術分析 + 全球市況 + SOP 報告 + 補充模組驗證）
+# 1. 執行完整報告 (關鍵字 + 總經數據 + SOP報告 + 補充驗證)
 python -m bioneuronai.analysis
 
-# 僅執行 SOP 每日流程（不含技術分析）
+# 2. 僅執行 SOP 每日流程
 python -m bioneuronai.analysis --sop
 
-# 僅執行關鍵字系統報告
+# 3. 僅檢視關鍵字系統的表現報告
 python -m bioneuronai.analysis --kw
 ```
 
-### 完整執行流程（預設模式）
-
-```
-1. SOPAutomationSystem.run_full_report()
-   ├─ [1/4] 關鍵字系統報告（KeywordManager.print_report）
-   ├─ [2/4] 技術分析（MarketRegimeDetector + VolumeProfileCalculator + MarketDataProcessor）
-   ├─ [3/4] 全球市場數據（MarketDataCollector - Yahoo Finance / CoinGecko）
-   └─ [4/4] SOP 每日報告（20 步驟完整流程，結果保存至 sop_automation_data/）
-
-2. 補充驗證（涵蓋全部 22 個模組）
-   ├─ MarketKeywords.get_importance_score / get_sentiment_bias（static_utils）
-   ├─ KeywordLearner 初始化（learner）
-   ├─ RuleBasedEvaluator.evaluate_news_batch（evaluator）
-   └─ NewsPredictionLoop.get_statistics（prediction_loop）
-```
-
-### 驗證狀態（2026-03-19）
-
-| 模組 | 匯入驗證 | 功能執行驗證 |
-|------|---------|------------|
-| `analysis/__init__.py` | ✅ | ✅ |
-| `analysis/feature_engineering.py` | ✅ | ✅ |
-| `analysis/market_regime.py` | ✅ | ✅ |
-| `news/analyzer.py` | ✅ | ✅ 31篇真實新聞 |
-| `news/evaluator.py` | ✅ | ✅ |
-| `news/prediction_loop.py` | ✅ | ✅ |
-| `news/models.py` | ✅ | ✅ |
-| `keywords/manager.py` | ✅ | ✅ 199 個關鍵字 |
-| `keywords/learner.py` | ✅ | ✅ |
-| `keywords/loader.py` | ✅ | ✅ |
-| `keywords/static_utils.py` | ✅ | ✅ |
-| `keywords/models.py` | ✅ | ✅ |
-| `daily_report/__init__.py` | ✅ | ✅ 20步SOP |
-| `daily_report/market_data.py` | ✅ | ✅ |
-| `daily_report/news_sentiment.py` | ✅ | ✅ |
-| `daily_report/strategy_planner.py` | ✅ | ✅ |
-| `daily_report/risk_manager.py` | ✅ | ✅ |
-| `daily_report/report_generator.py` | ✅ | ✅ |
-| `daily_report/models.py` | ✅ | ✅ |
-| `analysis/__main__.py` | ✅ | ✅ |
-
-**22/22 模組全部驗證通過**
-
-> ✅ 已修復：`Keyword` dataclass 已新增 `dynamic_bias` 欄位，所有分類 JSON 關鍵字可正常載入
+> **注意**: 執行完整流程時，請確保環境變數（如 API Keys）已正確配置，且 `PYTHONPATH` 包含項目根目錄。
 
 ---
 
-## 📚 相關文檔
-
-- **NLP 訓練指南**: [NLP_TRAINING_GUIDE.md](../../../docs/NLP_TRAINING_GUIDE.md)
-- **每日報告清單**: [DAILY_REPORT_CHECKLIST.md](../../../docs/DAILY_REPORT_CHECKLIST.md)
-- **父模組**: [BioNeuronai 主模組](../README.md)
-
----
-
-**最後更新**: 2026 年 3 月 19 日
-
-> 📖 上層目錄：[src/bioneuronai/README.md](../README.md)
-
+> 📖 父模組：[BioNeuronai 主模組](../README.md)
