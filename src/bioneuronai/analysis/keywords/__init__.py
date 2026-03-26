@@ -14,13 +14,13 @@ Keywords 子模組
 
 使用方式:
     # 使用靜態包裝類（推薦）
-    from analysis.keywords import MarketKeywords
+    from bioneuronai.analysis.keywords import MarketKeywords
     
     score, keywords = MarketKeywords.get_importance_score("BTC ETF 通過")
     sentiment, confidence = MarketKeywords.get_sentiment_bias("Fed升息")
     
     # 或使用單例管理器
-    from analysis.keywords import get_keyword_manager
+    from bioneuronai.analysis.keywords import get_keyword_manager
     
     manager = get_keyword_manager()
     matches = manager.find_matches("比特幣創新高")
