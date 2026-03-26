@@ -23,6 +23,9 @@ class QuantizationConfig:
 
 class QuantizedLinear(nn.Module):
     """量化線性層"""
+    weight_int: torch.Tensor
+    weight_scale: torch.Tensor
+    weight_zero_point: torch.Tensor
     
     def __init__(
         self,
@@ -137,6 +140,9 @@ class QuantizedLinear(nn.Module):
 
 class QuantizedEmbedding(nn.Module):
     """量化嵌入層"""
+    weight_int: torch.Tensor
+    weight_scale: torch.Tensor
+    weight_zero_point: torch.Tensor
     
     def __init__(
         self,
@@ -222,7 +228,7 @@ def quantize_model(
     Returns:
         量化後的模型
     """
-    print(f"開始量化模型...")
+    print("開始量化模型...")
     print(f"  位數: {config.bits}-bit")
     print(f"  對稱: {config.symmetric}")
     print(f"  每通道: {config.per_channel}")
@@ -259,7 +265,7 @@ def quantize_model(
         if 'weight_int' in n or 'weight_scale' in n
     )
     
-    print(f"✓ 量化完成!")
+    print("✓ 量化完成!")
     print(f"  總參數: {total_params:,}")
     print(f"  量化參數: {quantized_params:,}")
     
@@ -277,7 +283,7 @@ def calculate_model_size(model: nn.Module, bits: int = 32) -> Dict[str, Any]:
         {'total_params': ..., 'size_mb': ...}
     """
     total_params = 0
-    quantized_params = 0
+    quantized_params = 0.0
     
     for name, param in model.named_parameters():
         if 'weight_int' in name:

@@ -35,14 +35,14 @@ import json
 import uuid
 from pathlib import Path
 from datetime import datetime
-from typing import Dict, List, Optional, Any, Tuple
-from dataclasses import dataclass, field, asdict
+from typing import Dict, List, Optional, Any, cast
+from dataclasses import dataclass, field
 from enum import Enum
 import numpy as np
 import copy
 
-from .phase_router import TradingPhase, TradingPhaseRouter, PhaseConfig
-from .strategy_arena import StrategyArena, ArenaConfig, StrategyCandidate
+from .phase_router import TradingPhase
+from .strategy_arena import ArenaConfig
 
 logger = logging.getLogger(__name__)
 
@@ -434,7 +434,7 @@ class StrategyPortfolioOptimizer:
         """錦標賽選擇"""
         tournament_indices = self.rng.choice(len(population), size=tournament_size, replace=False)
         tournament = [population[i] for i in tournament_indices]
-        return max(tournament, key=lambda x: x.fitness)
+        return cast(StrategyPortfolioChromosome, max(tournament, key=lambda x: x.fitness))
     
     def run(self) -> StrategyPortfolioChromosome:
         """運行完整優化過程"""

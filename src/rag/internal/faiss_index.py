@@ -18,7 +18,7 @@ FAISS 向量索引包裝器 (可選優化組件)
 
 import logging
 import numpy as np
-from typing import List, Tuple, Optional, Any
+from typing import List, Tuple, Optional, Any, cast
 
 logger = logging.getLogger(__name__)
 
@@ -132,7 +132,7 @@ class VectorIndex:
             query = query.reshape(1, -1)
         
         # 歸一化查詢向量
-        query_normalized = self._normalize(query).astype(np.float32)
+        query_normalized: np.ndarray = cast(np.ndarray, self._normalize(query).astype(np.float32))
         
         if self._using_faiss and self.index is not None:
             # FAISS 搜索
@@ -173,7 +173,7 @@ class VectorIndex:
         norms = np.linalg.norm(vectors, axis=1, keepdims=True)
         # 避免除以零
         norms = np.where(norms == 0, 1, norms)
-        return vectors / norms
+        return cast(np.ndarray, vectors / norms)
     
     def reset(self):
         """重置索引"""
@@ -184,8 +184,8 @@ class VectorIndex:
     def ntotal(self) -> int:
         """返回索引中的向量總數"""
         if self._using_faiss and self.index is not None:
-            return self.index.ntotal
-        return sum(emb.shape[0] for emb in self.embeddings_store)
+            return int(self.index.ntotal)
+        return int(sum(emb.shape[0] for emb in self.embeddings_store))
     
     @property
     def is_using_faiss(self) -> bool:

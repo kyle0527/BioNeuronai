@@ -11,7 +11,7 @@
 import json
 import logging
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict
 
 # 2. 本地模組
 from .models import Keyword

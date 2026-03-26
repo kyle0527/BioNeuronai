@@ -12,13 +12,12 @@ Historical Data Stream - 歷史數據串流生成器
 """
 
 import pandas as pd
-import numpy as np
 import zipfile
 import logging
 from pathlib import Path
-from typing import Generator, Dict, Any, Optional, List, Tuple, Union
+from typing import Generator, Dict, Any, Optional, List, Tuple, Union, cast
 from datetime import datetime, timedelta
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 import time
 
 logger = logging.getLogger(__name__)
@@ -214,7 +213,7 @@ class HistoricalDataStream:
                 return path
         
         raise FileNotFoundError(
-            f"找不到數據目錄。已嘗試:\n" + 
+            "找不到數據目錄。已嘗試:\n" + 
             "\n".join(f"  - {p}" for p in possible_paths)
         )
     
@@ -267,21 +266,21 @@ class HistoricalDataStream:
                 logger.warning(f"讀取 {zip_file.name} 失敗: {e}")
         
         if not all_dfs:
-            raise ValueError(f"在指定日期範圍內找不到任何數據")
+            raise ValueError("在指定日期範圍內找不到任何數據")
         
         # 合併並排序
-        self._data = pd.concat(all_dfs, ignore_index=True)
-        self._data = self._data.sort_values('open_time').reset_index(drop=True)
-        
+        combined = cast(pd.DataFrame, pd.concat(all_dfs, ignore_index=True))
+        combined = cast(pd.DataFrame, combined.sort_values('open_time').reset_index(drop=True))
+
         # 日期範圍精確過濾
         if start:
             start_ts = int(start.timestamp() * 1000)
-            self._data = self._data[self._data['open_time'] >= start_ts]
+            combined = cast(pd.DataFrame, combined[combined['open_time'] >= start_ts])
         if end:
             end_ts = int((end + timedelta(days=1)).timestamp() * 1000)
-            self._data = self._data[self._data['open_time'] < end_ts]
-        
-        self._data = self._data.reset_index(drop=True)
+            combined = cast(pd.DataFrame, combined[combined['open_time'] < end_ts])
+
+        self._data = cast(pd.DataFrame, combined.reset_index(drop=True))
         self._data_loaded = True
         
         # 更新狀態
@@ -314,8 +313,8 @@ class HistoricalDataStream:
         df['close_time'] = df['close_time'].astype(int)
         
         # 刪除 ignore 欄位
-        df = df.drop('ignore', axis=1, errors='ignore')
-        
+        df = cast(pd.DataFrame, df.drop('ignore', axis=1, errors='ignore'))
+
         return df
     
     def stream_bars(self, start_from: int = 0) -> Generator[KlineBar, None, None]:
@@ -562,8 +561,8 @@ class HistoricalDataStream:
 def create_stream(
     symbol: str = "BTCUSDT",
     interval: str = "1m",
-    start_date: str = None,
-    end_date: str = None,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
     data_dir: str = "data_downloads/binance_historical"
 ) -> HistoricalDataStream:
     """

@@ -29,7 +29,7 @@ import logging
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple, cast
 
 import numpy as np
 
@@ -120,7 +120,7 @@ class PairTradingStrategy(BaseStrategy):
         secondary = secondary_close[-min_len:]
         primary = np.where(primary <= 0, 1e-8, primary)
         secondary = np.where(secondary <= 0, 1e-8, secondary)
-        return np.log(primary) - np.log(secondary)
+        return cast(np.ndarray, np.log(primary) - np.log(secondary))
 
     def _calculate_z_score(
         self,

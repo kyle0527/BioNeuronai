@@ -60,7 +60,7 @@ def cmd_backtest(args: argparse.Namespace) -> None:
     print(f"{'='*60}")
 
     try:
-        from backtest import BacktestEngine, BacktestConfig, KlineBar, MockBinanceConnector
+        from backtest import BacktestEngine, KlineBar, MockBinanceConnector
         from bioneuronai.core.trading_engine import TradingEngine
     except ImportError as e:
         logger.error("回測模組載入失敗: %s", e)
@@ -100,7 +100,7 @@ def cmd_backtest(args: argparse.Namespace) -> None:
                 end="",
             )
 
-            account = connector.get_account_info()
+            account = connector.get_account_info() or {}
             pos = next(
                 (
                     p
@@ -256,7 +256,7 @@ def cmd_simulate(args: argparse.Namespace) -> None:
         elif bar_count % 20 == 0:
             print(f"  [{bar_count:4d}] ${bar.close:>9.2f}  (無 AI 模型)")
 
-    acct = mock.get_account_info()
+    acct = mock.get_account_info() or {}
     final_balance = float(acct.get("totalWalletBalance", args.balance))
     pnl = final_balance - args.balance
     stats = mock.virtual_account.get_stats() if hasattr(mock, "virtual_account") else {}
@@ -464,7 +464,7 @@ def cmd_pretrade(args: argparse.Namespace) -> None:
     try:
         result = checker.execute_pretrade_check(
             symbol=args.symbol,
-            action=args.action,
+            intended_action=args.action.upper(),
         )
         _print_pretrade_result(result)
 
@@ -653,6 +653,18 @@ def cli_main(argv: Optional[list] = None) -> None:
     Args:
         argv: 命令列參數列表，預設使用 sys.argv[1:]
     """
+    # 修正 Windows cp950 終端亂碼：強制 stdout/stderr 使用 UTF-8
+    if hasattr(sys.stdout, "reconfigure"):
+        try:
+            sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
+    if hasattr(sys.stderr, "reconfigure"):
+        try:
+            sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
+
     logging.basicConfig(
         level=logging.WARNING,
         format="%(levelname)s: %(message)s",

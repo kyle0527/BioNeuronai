@@ -16,10 +16,12 @@
 
 # 1. 標準庫
 import io
+import os
+from dataclasses import is_dataclass
 import logging
 import sys
 from datetime import datetime
-from typing import Dict, Any, List, Optional
+from typing import Any, Dict, List, Optional, cast
 
 # 2. 本地模組 - 資料模型
 from .models import (
@@ -49,35 +51,77 @@ class SOPAutomationSystem:
     整合所有子模組，提供完整的每日市場分析報告功能
     """
     
-    def __init__(self):
+    def __init__(self) -> None:
         """初始化系統及所有子模組"""
-        # 初始化子模組
+        # 1. 建立 Binance connector（成功取得帳戶資料的必要條件）
+        self.connector: Optional[Any] = self._create_connector()
+
+        # 2. 初始化子模組，將 connector 注入需要的模組
         self.market_data_collector = MarketDataCollector()
-        self.news_sentiment_analyzer = None  # 稍後初始化
-        self.strategy_planner = StrategyPlanner()
-        self.risk_manager = RiskManager()
+        self.news_sentiment_analyzer: Optional[Any] = None   # 稍後初始化
+        self.strategy_planner = StrategyPlanner(connector=self.connector)
+        self.risk_manager = RiskManager(connector=self.connector)
         self.report_generator = ReportGenerator()
-        
+
         # 系統狀態
         self.modules_available = False
-        
-        # 嘗試導入相關模組
+
+        # 3. 嘗試導入可選模組（新聞分析器）
         self._import_modules()
-    
-    def _import_modules(self):
-        """導入所需模組"""
+
+    def _create_connector(self) -> Optional[Any]:
+        """
+        嘗試從環境變數建立 BinanceFuturesConnector。
+
+        環境變數：
+          BINANCE_API_KEY     — Binance API Key
+          BINANCE_API_SECRET  — Binance API Secret
+          BINANCE_TESTNET     — "false" 表示主網，其餘均視為 testnet（預設 testnet）
+
+        Returns:
+            BinanceFuturesConnector 實例，若建立失敗則回傳 None
+        """
+        try:
+            from ...data.binance_futures import BinanceFuturesConnector
+
+            api_key = os.getenv("BINANCE_API_KEY", "")
+            api_secret = os.getenv("BINANCE_API_SECRET", "")
+            testnet = os.getenv("BINANCE_TESTNET", "true").lower() != "false"
+
+            connector = BinanceFuturesConnector(
+                api_key=api_key,
+                api_secret=api_secret,
+                testnet=testnet,
+            )
+
+            if api_key:
+                logger.info(
+                    f"[OK] Binance Connector 已初始化 (testnet={testnet})，"
+                    "帳戶資料查詢可用"
+                )
+            else:
+                logger.info(
+                    "[INFO] Binance Connector 已初始化（無 API Key），"
+                    "公開端點可用，帳戶資料不可用"
+                )
+            return connector
+
+        except Exception as e:
+            logger.warning(f"[WARN] 無法初始化 Binance Connector: {e}")
+            return None
+
+    def _import_modules(self) -> None:
+        """導入可選模組（新聞分析器）"""
         try:
             from ..news import CryptoNewsAnalyzer
-            
-            # 初始化共享的新聞分析器實例
+
             news_analyzer = CryptoNewsAnalyzer()
             self.news_sentiment_analyzer = NewsSentimentAnalyzer(news_analyzer)
-            
+
             self.modules_available = True
             logger.info("[OK] 所有分析模組導入成功（含共享新聞分析器）")
         except ImportError as e:
             logger.warning(f"[WARN] 部分模組不可用: {e}")
-            # 使用 Mock 數據作為後備
             self.news_sentiment_analyzer = NewsSentimentAnalyzer(None)
             self.modules_available = False
     
@@ -423,26 +467,29 @@ class SOPAutomationSystem:
             detector = MarketRegimeDetector()
             for k in klines:
                 if hasattr(k, 'close'):
-                    c, h, l, v = k.close, k.high, k.low, k.volume
+                    c, h, lo, v = k.close, k.high, k.low, k.volume
                 else:
                     c = k.get('close', current_price)
                     h = k.get('high', current_price)
-                    l = k.get('low', current_price)
+                    lo = k.get('low', current_price)
                     v = k.get('volume', 0)
-                detector.update_data(symbol, c, h, l, v)
+                detector.update_data(symbol, c, h, lo, v)
 
             regime = detector.detect_regime(symbol)
-            selector = RegimeBasedStrategySelector()
-            rec = selector.get_strategy_recommendation(regime)
+            if regime is None:
+                result['regime_report'] = "市場狀態資料不足，無法判定 regime"
+            else:
+                selector = RegimeBasedStrategySelector()
+                rec = selector.get_strategy_recommendation(regime)
 
-            result['regime_report'] = regime.to_prompt()
-            result['regime_recommendation'] = rec
-            result['regime_feature_vector'] = regime.to_feature_vector()
+                result['regime_report'] = regime.to_prompt()
+                result['regime_recommendation'] = rec
+                result['regime_feature_vector'] = regime.to_feature_vector()
 
-            logger.info(
-                f"市場狀態: {regime.current_regime.value}, "
-                f"信心: {regime.regime_confidence:.0%}"
-            )
+                logger.info(
+                    f"市場狀態: {regime.current_regime.value}, "
+                    f"信心: {regime.regime_confidence:.0%}"
+                )
         except Exception as e:
             logger.error(f"市場狀態分析失敗: {e}")
             result['regime_report'] = f"市場狀態分析失敗: {e}"
@@ -614,31 +661,34 @@ class SOPAutomationSystem:
 
     def generate_daily_report(self) -> str:
         """生成每日報告文本"""
-        return self.report_generator.generate_daily_report()
+        return str(self.report_generator.generate_daily_report())
     
     # ========================================
     # 工具方法
     # ========================================
     
-    def _dataclass_to_dict(self, obj) -> Dict:
+    def _dataclass_to_dict(self, obj: Any) -> Dict[str, Any]:
         """將 dataclass 轉換為字典"""
-        if hasattr(obj, '__dataclass_fields__'):
-            result = {}
-            for field_name in obj.__dataclass_fields__:
+        if is_dataclass(obj):
+            result: Dict[str, Any] = {}
+            dataclass_fields = cast(Dict[str, Any], getattr(obj, "__dataclass_fields__", {}))
+            for field_name in dataclass_fields:
                 value = getattr(obj, field_name)
                 if isinstance(value, datetime):
                     result[field_name] = value.isoformat()
-                elif hasattr(value, '__dataclass_fields__'):
+                elif is_dataclass(value):
                     result[field_name] = self._dataclass_to_dict(value)
                 elif isinstance(value, list):
                     result[field_name] = [
-                        self._dataclass_to_dict(item) if hasattr(item, '__dataclass_fields__') else item
+                        self._dataclass_to_dict(item) if is_dataclass(item) else item
                         for item in value
                     ]
                 else:
                     result[field_name] = value
             return result
-        return obj
+        if isinstance(obj, dict):
+            return cast(Dict[str, Any], obj)
+        return {"value": obj}
 
 
 # ========================================

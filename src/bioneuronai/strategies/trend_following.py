@@ -25,9 +25,9 @@
 
 import numpy as np
 import logging
-from typing import Optional, Dict, Any, Tuple, List
+from typing import Optional, Dict, Any, Tuple, List, cast
 from datetime import datetime, timedelta
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 import uuid
 
 from .base_strategy import (
@@ -138,7 +138,7 @@ class TrendFollowingStrategy(BaseStrategy):
     def _calculate_ema(self, data: np.ndarray, period: int) -> np.ndarray:
         """ EMA"""
         if len(data) < period:
-            return np.full(len(data), np.nan)
+            return cast(np.ndarray, np.full(len(data), np.nan))
         
         ema = np.zeros(len(data))
         multiplier = 2 / (period + 1)
@@ -150,7 +150,7 @@ class TrendFollowingStrategy(BaseStrategy):
             ema[i] = (data[i] * multiplier) + (ema[i-1] * (1 - multiplier))
         
         ema[:period-1] = np.nan
-        return ema
+        return cast(np.ndarray, ema)
     
     def _calculate_macd(
         self, 
@@ -229,13 +229,13 @@ class TrendFollowingStrategy(BaseStrategy):
         """ Smoothed Moving Average (Wilder's)"""
         result = np.zeros(len(data))
         if len(data) < period:
-            return result
+            return cast(np.ndarray, result)
         
         result[period-1] = np.sum(data[:period])
         for i in range(period, len(data)):
             result[i] = result[i-1] - (result[i-1] / period) + data[i]
         
-        return result / period
+        return cast(np.ndarray, result / period)
     
     def _calculate_atr(
         self, 
@@ -260,7 +260,7 @@ class TrendFollowingStrategy(BaseStrategy):
             for i in range(self.atr_period, n):
                 atr[i] = (tr[i] * multiplier) + (atr[i-1] * (1 - multiplier))
         
-        return atr
+        return cast(np.ndarray, atr)
     
     def _calculate_volume_profile(
         self, 
@@ -453,8 +453,8 @@ class TrendFollowingStrategy(BaseStrategy):
     
     def _calculate_key_levels(self, price_data: Dict, indicators: Dict) -> Dict[str, Any]:
         """計算關鍵技術水準"""
-        recent_high = np.max(price_data['high'][-20:])
-        recent_low = np.min(price_data['low'][-20:])
+        recent_high: float = float(np.max(price_data['high'][-20:]))
+        recent_low: float = float(np.min(price_data['low'][-20:]))
         
         return {
             'resistance': float(recent_high),

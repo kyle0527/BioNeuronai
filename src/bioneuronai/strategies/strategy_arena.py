@@ -25,13 +25,12 @@ import logging
 import json
 import uuid
 from pathlib import Path
-from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Any, Tuple, Callable
+from datetime import datetime
+from typing import Dict, List, Optional, Any, cast
 from dataclasses import dataclass, field, asdict
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from enum import Enum
 import numpy as np
-import pandas as pd
 
 from .base_strategy import BaseStrategy
 from .breakout_trading import BreakoutTradingStrategy
@@ -40,7 +39,6 @@ from .mean_reversion import MeanReversionStrategy
 from .pair_trading_strategy import PairTradingStrategy
 from .swing_trading import SwingTradingStrategy
 from .trend_following import TrendFollowingStrategy
-from backtest.backtest_engine import BacktestEngine, BacktestConfig
 
 logger = logging.getLogger(__name__)
 
@@ -361,7 +359,7 @@ class StrategyArena:
             raise ValueError(f"未知策略類型: {candidate.strategy_type}")
         
         # 創建實例（傳入參數）
-        return strategy_class(**candidate.parameters)
+        return cast(BaseStrategy, strategy_class(**candidate.parameters))
     
     def _simulate_backtest_result(self) -> Dict[str, Any]:
         """模擬回測結果（臨時，實際應從真實回測獲取）"""

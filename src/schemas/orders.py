@@ -6,7 +6,7 @@ BioNeuronai 訂單模型
 
 from datetime import datetime
 from decimal import Decimal
-from typing import Optional, Dict, Any
+from typing import Optional
 
 from pydantic import BaseModel, Field, field_validator, computed_field
 
@@ -14,8 +14,7 @@ from .enums import (
     OrderType,
     OrderSide,
     OrderStatus,
-    TimeInForce,
-    PositionType
+    TimeInForce
 )
 
 

@@ -5,14 +5,12 @@
 
 import torch
 import torch.nn.functional as F
-from typing import List, Dict, Tuple, Optional, Callable, Any
+from typing import List, Dict, Tuple, Optional, Any
 from dataclasses import dataclass
-import warnings
 
 from .uncertainty_quantification import (
     UncertaintyQuantifier, 
-    UncertaintyConfig,
-    MonteCarloDropout
+    UncertaintyConfig
 )
 from .hallucination_detection import (
     HallucinationDetector,
@@ -181,13 +179,10 @@ class HonestGenerator:
         """
         self.model.eval()
         
-        batch_size = input_ids.size(0)
-        device = input_ids.device
-        
         # 初始化
         generated_ids = input_ids.clone()
-        confidence_scores = []
-        hallucination_scores = []
+        confidence_scores: List[float] = []
+        hallucination_scores: List[float] = []
         stopped_early = False
         stop_reason = ""
         
@@ -208,7 +203,7 @@ class HonestGenerator:
             confidence_scores.append(confidence.item())
             
             # 檢測不確定性
-            is_uncertain, metrics = self.uncertainty_quantifier.is_uncertain(
+            token_is_uncertain, metrics = self.uncertainty_quantifier.is_uncertain(
                 next_token_logits,
                 method="ensemble"
             )

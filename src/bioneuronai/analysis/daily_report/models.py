@@ -8,7 +8,7 @@
 """
 
 from datetime import datetime
-from typing import List, Optional, Dict
+from typing import Any, Dict, List, Optional, cast
 from dataclasses import dataclass
 
 
@@ -105,7 +105,7 @@ class DailyReport:
     trading_plan: TradingPlanCheck
     overall_assessment: Dict
     
-    def to_dict(self) -> Dict:
+    def to_dict(self) -> Dict[str, Any]:
         """轉換為字典格式"""
         return {
             "report_time": self.report_time.isoformat() if isinstance(self.report_time, datetime) else str(self.report_time),
@@ -117,10 +117,10 @@ class DailyReport:
         }
     
     @staticmethod
-    def _dataclass_to_dict(obj) -> Dict:
+    def _dataclass_to_dict(obj: Any) -> Dict[str, Any]:
         """將 dataclass 轉換為字典"""
         if hasattr(obj, '__dataclass_fields__'):
-            result = {}
+            result: Dict[str, Any] = {}
             for field_name in obj.__dataclass_fields__:
                 value = getattr(obj, field_name)
                 if isinstance(value, datetime):
@@ -130,4 +130,4 @@ class DailyReport:
                 else:
                     result[field_name] = value
             return result
-        return obj
+        return cast(Dict[str, Any], obj)

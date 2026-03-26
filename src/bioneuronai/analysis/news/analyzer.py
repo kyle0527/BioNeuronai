@@ -22,7 +22,7 @@ import hashlib
 import logging
 import threading
 from datetime import datetime, timedelta
-from typing import List, Tuple, Dict, Optional, Any
+from typing import Any, Callable, Dict, List, Optional, Tuple, cast
 from collections import Counter
 
 # 2. 第三方套件
@@ -42,14 +42,16 @@ EVENT_REGULATION = '⚖️ 監管風險'
 # 關鍵字系統整合
 # ========================================
 KEYWORDS_AVAILABLE = False
-get_keyword_manager = None
+_imported_get_keyword_manager: Optional[Callable[[], Any]] = None
 
 try:
-    from ...analysis.keywords import KeywordManager, get_keyword_manager
+    from ...analysis.keywords import get_keyword_manager as _imported_get_keyword_manager
     KEYWORDS_AVAILABLE = True
     logger.info("✅ 已載入 217 個關鍵字系統 (keywords)")
 except ImportError:
     logger.warning("⚠️ keywords 不可用，使用內建關鍵字")
+
+get_keyword_manager = cast(Optional[Callable[[], Any]], _imported_get_keyword_manager)
 
 
 class CryptoNewsAnalyzer:
@@ -447,8 +449,6 @@ class CryptoNewsAnalyzer:
         ]
         
         try:
-            import xml.etree.ElementTree as ET
-            
             for feed_url in rss_feeds:
                 feed_articles = self._process_single_rss_feed(feed_url, coin)
                 articles.extend(feed_articles)
@@ -462,7 +462,7 @@ class CryptoNewsAnalyzer:
     
     def _process_single_rss_feed(self, feed_url: str, coin: str) -> List[NewsArticle]:
         """處理單個 RSS 源"""
-        articles = []
+        articles: List[NewsArticle] = []
         
         try:
             response = requests.get(feed_url, timeout=5)

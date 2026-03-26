@@ -11,8 +11,8 @@ BioNeuronai - 歷史數據載入器
 import pandas as pd
 import zipfile
 from pathlib import Path
-from typing import List, Optional, Union
-from datetime import datetime, timedelta
+from typing import List, Optional, cast
+from datetime import datetime
 import logging
 
 logger = logging.getLogger(__name__)
@@ -109,7 +109,7 @@ class BinanceHistoricalDataLoader:
         start = pd.to_datetime(start_date)
         end = pd.to_datetime(end_date)
         
-        dfs = []
+        dfs: List[pd.DataFrame] = []
         
         if data_type == "monthly":
             # 按月載入
@@ -117,10 +117,12 @@ class BinanceHistoricalDataLoader:
             while current <= end:
                 year_month = current.strftime("%Y-%m")
                 try:
-                    df = self._load_single_kline_file(kline_path, symbol, interval, year_month)
+                    monthly_df = self._load_single_kline_file(kline_path, symbol, interval, year_month)
                     # 過濾日期範圍
-                    df = df[(df['open_time'] >= start) & (df['open_time'] <= end)]
-                    dfs.append(df)
+                    filtered_df = cast(pd.DataFrame, monthly_df[
+                        (monthly_df['open_time'] >= start) & (monthly_df['open_time'] <= end)
+                    ])
+                    dfs.append(filtered_df)
                 except FileNotFoundError:
                     logger.warning(f"找不到 {year_month} 的數據")
                 
@@ -151,7 +153,7 @@ class BinanceHistoricalDataLoader:
         result = pd.concat(dfs, ignore_index=True)
         result = result.sort_values('open_time').reset_index(drop=True)
         
-        return result
+        return cast(pd.DataFrame, result)
     
     def _load_all_klines(
         self, 
@@ -166,7 +168,7 @@ class BinanceHistoricalDataLoader:
         if not zip_files:
             raise FileNotFoundError(f"在 {kline_path} 找不到任何數據文件")
         
-        dfs = []
+        dfs: List[pd.DataFrame] = []
         for zip_file in zip_files:
             # 從文件名提取日期
             parts = zip_file.stem.split('-')
@@ -182,12 +184,12 @@ class BinanceHistoricalDataLoader:
                 logger.warning(f"讀取 {zip_file.name} 失敗: {e}")
         
         if not dfs:
-            raise ValueError(f"無法載入任何數據文件")
+            raise ValueError("無法載入任何數據文件")
         
         result = pd.concat(dfs, ignore_index=True)
         result = result.sort_values('open_time').reset_index(drop=True)
         
-        return result
+        return cast(pd.DataFrame, result)
     
     def _read_kline_zip(
         self, 
@@ -224,7 +226,7 @@ class BinanceHistoricalDataLoader:
         # 刪除 ignore 欄位
         df = df.drop('ignore', axis=1)
         
-        return df
+        return cast(pd.DataFrame, df)
     
     def _get_market_path(self, market_type: str) -> str:
         """根據市場類型獲取路徑"""

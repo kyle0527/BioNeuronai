@@ -473,7 +473,6 @@ class TradingEngine:
             # 
             market_data: MarketData = StrategyMarketData(
                 symbol=data['s'],
-                price=current_price,
                 volume=float(data['v']),
                 timestamp=datetime.now(),
                 high=float(data['h']),
@@ -557,11 +556,15 @@ class TradingEngine:
             signal_type=strategy_signal.signal_type,
             symbol=getattr(strategy_signal, 'symbol', symbol),
             confidence=getattr(strategy_signal, 'confidence', 0.5),
+            entry_price=getattr(strategy_signal, 'entry_price', getattr(strategy_signal, 'target_price', None)),
             strategy_name=getattr(strategy_signal, 'strategy_name', 'strategy_fusion'),
             reason=getattr(strategy_signal, 'reason', ""),
             target_price=getattr(strategy_signal, 'target_price', None),
             stop_loss=getattr(strategy_signal, 'stop_loss', None),
             take_profit=getattr(strategy_signal, 'take_profit', None),
+            position_size=getattr(strategy_signal, 'position_size', None),
+            indicators=getattr(strategy_signal, 'indicators', None),
+            metadata=getattr(strategy_signal, 'metadata', None),
             timestamp=datetime.now()
         )
     
@@ -605,6 +608,7 @@ class TradingEngine:
             signal_type=TradeSignalType(action.lower()),
             symbol=symbol,
             confidence=enhanced_confidence,
+            entry_price=current_price,
             strategy_name='ai_strategy_fusion',
             reason=f"AI+ | AI: {ai_signal.reasoning}",
             target_price=current_price,
@@ -612,6 +616,9 @@ class TradingEngine:
                       else getattr(strategy_signal, 'stop_loss', None),
             take_profit=ai_signal.suggested_take_profit if ai_signal.suggested_take_profit > 0 
                         else getattr(strategy_signal, 'take_profit', None),
+            position_size=ai_signal.suggested_position_size or getattr(strategy_signal, 'position_size', None),
+            indicators=getattr(strategy_signal, 'indicators', None),
+            metadata={"source": "ai_strategy_fusion"},
             timestamp=datetime.now()
         )
     
@@ -638,11 +645,15 @@ class TradingEngine:
                 signal_type=strategy_signal.signal_type,
                 symbol=symbol,
                 confidence=strat_conf,
+                entry_price=getattr(strategy_signal, 'entry_price', getattr(strategy_signal, 'target_price', current_price)),
                 strategy_name=getattr(strategy_signal, 'strategy_name', 'strategy_override'),
                 reason=f"策略信號 (AI: {ai_action} {ai_conf:.1%})",
                 target_price=getattr(strategy_signal, 'target_price', None),
                 stop_loss=getattr(strategy_signal, 'stop_loss', None),
                 take_profit=getattr(strategy_signal, 'take_profit', None),
+                position_size=getattr(strategy_signal, 'position_size', None),
+                indicators=getattr(strategy_signal, 'indicators', None),
+                metadata={"source": "strategy_override"},
                 timestamp=datetime.now()
             )
         
@@ -678,11 +689,15 @@ class TradingEngine:
             signal_type=TradeSignalType(action.lower()),
             symbol=symbol,
             confidence=ai_signal.confidence,
+            entry_price=current_price,
             strategy_name='ai_inference',
             reason=f"AI推理: {ai_signal.reasoning}",
             target_price=current_price,
             stop_loss=ai_signal.suggested_stop_loss if ai_signal.suggested_stop_loss > 0 else None,
             take_profit=ai_signal.suggested_take_profit if ai_signal.suggested_take_profit > 0 else None,
+            position_size=ai_signal.suggested_position_size or None,
+            indicators=None,
+            metadata={"source": "ai_inference"},
             timestamp=datetime.now()
         )
     
@@ -712,7 +727,8 @@ class TradingEngine:
                                      for k, v in getattr(self.strategy, 'weights', {}).items()])
             logger.info(f"     : {weights_str}")
         
-        logger.info(f"    {signal.reason[:100]}...")
+        reason = signal.reason or ""
+        logger.info(f"    {reason[:100]}...")
     
     def _handle_trading_signal(self, signal: TradingSignal) -> None:
         """"""
@@ -854,7 +870,7 @@ class TradingEngine:
             當前價格，獲取失敗返回 None
         """
         if signal.target_price:
-            return signal.target_price
+            return float(signal.target_price)
         
         price_data: Optional[MarketData] = self.get_real_time_price(signal.symbol)
         if not price_data:
@@ -983,7 +999,7 @@ class TradingEngine:
             return " "
         
         try:
-            return self.news_analyzer.get_quick_summary(symbol)
+            return str(self.news_analyzer.get_quick_summary(symbol))
         except (AttributeError, ValueError) as e:
             return f" : {e}"
     

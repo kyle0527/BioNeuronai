@@ -11,7 +11,7 @@
 
 import logging
 import hashlib
-from typing import List, Dict, Optional, Any
+from typing import List, Dict, Optional, Any, cast
 from dataclasses import dataclass, field
 from enum import Enum
 from datetime import datetime
@@ -152,7 +152,7 @@ class EmbeddingService:
     
     def embed_batch(self, texts: List[str]) -> List[EmbeddingResult]:
         """批量嵌入"""
-        results = []
+        results: List[Optional[EmbeddingResult]] = []
         
         # 分離已緩存和需要計算的
         to_embed = []
@@ -187,14 +187,14 @@ class EmbeddingService:
                     dimensions=self._dimensions
                 )
         
-        return results
+        return [result for result in results if result is not None]
     
     def _generate_embedding(self, text: str) -> np.ndarray:
         """生成單個嵌入"""
         if self.model_type.value.startswith("text-embedding"):
             return self._openai_embed(text)
         elif self._model is not None:
-            return self._model.encode(text, convert_to_numpy=True)
+            return cast(np.ndarray, self._model.encode(text, convert_to_numpy=True))
         else:
             return self._simple_embed(text)
     
@@ -221,7 +221,7 @@ class EmbeddingService:
                 input=text,
                 model=self.model_type.value
             )
-            return np.array(response.data[0].embedding)
+            return cast(np.ndarray, np.array(response.data[0].embedding))
         except Exception as e:
             logger.error(f"OpenAI 嵌入失敗: {e}")
             return self._simple_embed(text)
@@ -230,7 +230,7 @@ class EmbeddingService:
         """簡單的基於詞頻的嵌入 (備用方案)"""
         # 使用簡單的 TF 向量作為備用
         rng = np.random.default_rng(hash(text) % (2**32))
-        return rng.standard_normal(self._dimensions).astype(np.float32)
+        return cast(np.ndarray, rng.standard_normal(self._dimensions).astype(np.float32))
     
     @staticmethod
     def cosine_similarity(vec1: np.ndarray, vec2: np.ndarray) -> float:

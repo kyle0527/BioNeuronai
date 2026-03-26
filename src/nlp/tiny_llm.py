@@ -9,15 +9,14 @@
 - KV Cache 加速推理
 """
 
+import time
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Dict, List, Optional, Tuple, Union, cast
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from pathlib import Path
-from typing import Optional, Dict, Any, List, Tuple, Union
-import math
-import json
-import time
-from dataclasses import dataclass
 
 
 @dataclass
@@ -290,15 +289,18 @@ class TinyLLM(nn.Module):
             causal_mask = self._create_causal_mask(seq_len, device)
         
         # 通過 Transformer 層
-        present_key_values = []
+        present_key_values: List[Tuple[torch.Tensor, torch.Tensor]] = []
         for i, block in enumerate(self.blocks):
             past_kv = past_key_values[i] if past_key_values is not None else None
             
             if use_cache:
-                x, present_kv = block(x, causal_mask, past_key_value=past_kv, use_cache=True)
+                cached_output = block(x, causal_mask, past_key_value=past_kv, use_cache=True)
+                x, present_kv = cast(Tuple[torch.Tensor, Optional[Tuple[torch.Tensor, torch.Tensor]]], cached_output)
+                if present_kv is None:
+                    raise RuntimeError("use_cache=True 時必須返回 KV cache")
                 present_key_values.append(present_kv)
             else:
-                x = block(x, causal_mask, past_key_value=past_kv, use_cache=False)
+                x = cast(torch.Tensor, block(x, causal_mask, past_key_value=past_kv, use_cache=False))
         
         # 最終 Layer Norm
         x = self.ln_f(x)
@@ -308,7 +310,7 @@ class TinyLLM(nn.Module):
         
         if use_cache:
             return logits, present_key_values
-        return logits
+        return cast(torch.Tensor, logits)
     
     def generate(
         self,
@@ -342,10 +344,6 @@ class TinyLLM(nn.Module):
         """
         self.eval()
         batch_size = input_ids.shape[0]
-        device = input_ids.device
-        
-        # 記錄原始長度
-        original_length = input_ids.shape[1]
         
         # 初始化 past_key_values
         past_key_values = None

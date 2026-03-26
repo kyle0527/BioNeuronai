@@ -17,7 +17,6 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 import uuid
-from collections import defaultdict
 
 logger = logging.getLogger(__name__)
 

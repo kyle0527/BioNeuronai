@@ -20,9 +20,8 @@ RAG 系統基本監控
 """
 
 import logging
-import time
-from typing import Dict, List, Optional
-from dataclasses import dataclass, field
+from typing import DefaultDict, Dict, List, Optional
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from collections import defaultdict
 import threading
@@ -66,8 +65,8 @@ class RAGMonitor:
         self.latencies: List[float] = []
         
         # 按來源統計
-        self.requests_by_source = defaultdict(int)
-        self.errors_by_type = defaultdict(int)
+        self.requests_by_source: DefaultDict[str, int] = defaultdict(int)
+        self.errors_by_type: DefaultDict[str, int] = defaultdict(int)
         
         # 詳細歷史（可選存儲）
         self.history: List[RetrievalMetrics] = []

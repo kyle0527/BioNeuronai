@@ -12,9 +12,8 @@ from pathlib import Path
 import sys
 import json
 import time
-from typing import Dict, Optional, List
+from typing import Dict, cast
 from dataclasses import dataclass, asdict
-import math
 
 sys.path.append(str(Path(__file__).parent.parent))
 
@@ -96,7 +95,7 @@ class Trainer:
         self.best_loss = float('inf')
         
         # 訓練歷史
-        self.train_history = {
+        self.train_history: Dict[str, list[float]] = {
             'train_loss': [],
             'eval_loss': [],
             'learning_rate': [],
@@ -180,7 +179,7 @@ class Trainer:
     def _train_epoch(self):
         """訓練一個 epoch"""
         self.model.train()
-        total_loss = 0
+        total_loss = 0.0
         num_batches = 0
         
         self.optimizer.zero_grad()
@@ -254,7 +253,7 @@ class Trainer:
                     self.train_history['step'].append(self.global_step)
                     self.train_history['epoch'].append(self.current_epoch)
                     
-                    total_loss = 0
+                    total_loss = 0.0
                     num_batches = 0
                 
                 # 保存檢查點
@@ -267,7 +266,7 @@ class Trainer:
             return float('inf')
         
         self.model.eval()
-        total_loss = 0
+        total_loss = 0.0
         num_batches = 0
         
         with torch.no_grad():
@@ -304,7 +303,7 @@ class Trainer:
             shift_labels.view(-1)
         )
         
-        return loss
+        return cast(torch.Tensor, loss.contiguous())
     
     def _save_checkpoint(self, name: str):
         """保存檢查點"""
@@ -413,7 +412,7 @@ def main():
     
     # 添加路徑
     sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
-    from nlp.tiny_llm import TinyLLM, TinyLLMConfig
+    from nlp.tiny_llm import TinyLLM
     from nlp.bilingual_tokenizer import BilingualTokenizer
     
     print("=" * 60)

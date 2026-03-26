@@ -25,7 +25,6 @@ from schemas.enums import (
 )
 from schemas.strategy import (
     StrategyRecommendation,
-    StrategyPerformanceMetrics as SchemaPerformanceMetrics,
     STRATEGY_MARKET_FIT,
 )
 

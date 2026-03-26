@@ -15,7 +15,6 @@ from .enums import (
     MarketRegime,
     MarketCondition,
     SignalStrength,
-    Complexity,
     RiskLevel,
 )
 

@@ -7,7 +7,6 @@
 import torch
 import torch.nn.functional as F
 from typing import Optional, Tuple
-import math
 
 
 def apply_repetition_penalty(
@@ -233,9 +232,6 @@ def beam_search(
         best_sequence: 最佳序列
         best_score: 最佳分數
     """
-    device = input_ids.device
-    batch_size = input_ids.shape[0]
-    
     # 初始化 beams: [(sequence, score)]
     beams = [(input_ids[0], 0.0)]
     completed_beams = []

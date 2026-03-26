@@ -37,9 +37,9 @@ Version: 1.0
 
 import numpy as np
 import logging
-from typing import Dict, List, Optional, Tuple, Any
+from typing import DefaultDict, Dict, List, Optional, Tuple, Any
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime
 from collections import defaultdict
 from enum import Enum
 
@@ -149,16 +149,16 @@ class LiquidationHeatmap:
         lines = [f" {self.symbol}", f": {self.current_price:.2f}"]
         
         if self.long_clusters:
-            lines.append(f"\n  ():")
+            lines.append("\n  ():")
             for cluster in self.long_clusters[:3]:
                 lines.append(f"  - {cluster.to_prompt()}")
         
         if self.short_clusters:
-            lines.append(f"\n  ():")
+            lines.append("\n  ():")
             for cluster in self.short_clusters[:3]:
                 lines.append(f"  - {cluster.to_prompt()}")
         
-        lines.append(f"\n:")
+        lines.append("\n:")
         lines.append(f"  : ${self.total_long_liquidation_risk/1e6:.1f}M")
         lines.append(f"  : ${self.total_short_liquidation_risk/1e6:.1f}M")
         
@@ -311,7 +311,9 @@ class VolumeProfileCalculator:
         end_time = datetime.fromtimestamp(klines[-1].close_time / 1000)
         
         # 
-        volume_by_price = defaultdict(lambda: {"volume": 0, "buy": 0, "sell": 0, "count": 0})
+        volume_by_price: DefaultDict[float, Dict[str, float]] = defaultdict(
+            lambda: {"volume": 0.0, "buy": 0.0, "sell": 0.0, "count": 0.0}
+        )
         
         for kline in klines:
             # K
@@ -346,7 +348,7 @@ class VolumeProfileCalculator:
                 volume=data["volume"],
                 buy_volume=data["buy"],
                 sell_volume=data["sell"],
-                trade_count=data["count"]
+                trade_count=int(data["count"])
             ))
         
         # 
@@ -577,8 +579,6 @@ class LiquidationHeatmapCalculator:
         side: str
     ) -> float:
         """"""
-        price_diff_pct = abs(target_price - current_price) / current_price
-        
         # 
         liquidation_value = 0
         for leverage in self.leverage_levels:

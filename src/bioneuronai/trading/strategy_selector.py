@@ -12,10 +12,9 @@
 更新日期: 2026-01-25
 """
 
-import json
 import logging
-from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Tuple, Set, Any
+from datetime import datetime
+from typing import Any, Callable, Dict, List, Optional, cast
 from dataclasses import dataclass
 from enum import Enum
 import numpy as np
@@ -23,21 +22,27 @@ import numpy as np
 logger = logging.getLogger(__name__)
 
 # 從 schemas 導入 EventContext (Single Source of Truth - 2026-01-25)
+_imported_event_context: Any = None
 try:
-    from schemas.rag import EventContext
+    from schemas.rag import EventContext as _imported_event_context
     EVENTCONTEXT_AVAILABLE = True
 except ImportError:
     EVENTCONTEXT_AVAILABLE = False
-    EventContext = None
+EventContext = cast(Any, _imported_event_context)
 
 # 嘗試導入 AIStrategyFusion (可選)
+_imported_ai_strategy_fusion: Any = None
+_imported_fusion_method: Any = None
 try:
-    from ..strategies.strategy_fusion import AIStrategyFusion, FusionMethod
+    from ..strategies.strategy_fusion import (
+        AIStrategyFusion as _imported_ai_strategy_fusion,
+        FusionMethod as _imported_fusion_method,
+    )
     AI_FUSION_AVAILABLE = True
 except ImportError:
     AI_FUSION_AVAILABLE = False
-    AIStrategyFusion = None
-    FusionMethod = None
+AIStrategyFusion = cast(Any, _imported_ai_strategy_fusion)
+FusionMethod = cast(Any, _imported_fusion_method)
 
 
 class StrategyType(Enum):
@@ -125,8 +130,8 @@ class StrategySelector:
             timeframe: 時間框架
         """
         self.available_strategies = self._initialize_strategies()
-        self.strategy_performance_history = {}
-        self.market_regime_history = []
+        self.strategy_performance_history: Dict[str, List[Dict[str, Any]]] = {}
+        self.market_regime_history: List[MarketRegime] = []
         self.timeframe = timeframe
         
         # AI Fusion 整合 (2026-01-25 新增)
@@ -587,7 +592,7 @@ class StrategySelector:
     def _select_backup_strategies(self, viable_strategies: List[StrategyConfig], 
                                 primary: StrategyConfig) -> List[StrategyConfig]:
         """"""
-        backup = []
+        backup: List[StrategyConfig] = []
         
         for strategy in viable_strategies:
             if (strategy.name != primary.name and 
@@ -672,13 +677,13 @@ class StrategySelector:
     
     def _calculate_confidence_score(self, strategy_scores: Dict, market_condition) -> float:
         """"""
-        max_score = max(strategy_scores.values())
-        score_variance = np.var(list(strategy_scores.values()))
+        max_score = float(max(strategy_scores.values()))
+        score_variance = float(np.var(list(strategy_scores.values())))
         
         #  = 
-        confidence = max_score * (1 - score_variance) * market_condition.confidence_score
+        confidence = max_score * (1 - score_variance) * float(market_condition.confidence_score)
         
-        return min(1.0, max(0.0, confidence))
+        return float(min(1.0, max(0.0, confidence)))
     
     # ==========  ==========
     
@@ -724,7 +729,7 @@ class StrategySelector:
         """"""
         if strategy_name in self.strategy_performance_history:
             recent_performance = self.strategy_performance_history[strategy_name][-1]
-            performance = recent_performance['performance']
+            performance = cast(StrategyPerformanceMetrics, recent_performance['performance'])
             
             # 
             sharpe_score = min(1.0, performance.sharpe_ratio / 2.0)

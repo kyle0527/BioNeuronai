@@ -16,7 +16,7 @@ import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
-from typing import Dict
+from typing import Any, Dict
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -165,11 +165,11 @@ async def analyze_news(req: NewsRequest):
         result = await asyncio.to_thread(analyzer.analyze_news, req.symbol)
 
         if isinstance(result, dict):
-            data = result
+            data: Dict[str, Any] = result
         elif hasattr(result, "model_dump"):
-            data = result.model_dump()
+            data = _safe_serialize(result)
         elif hasattr(result, "__dict__"):
-            data = result.__dict__
+            data = _safe_serialize(result)
         else:
             data = {"raw": str(result)}
 
@@ -191,15 +191,15 @@ async def pretrade_check(req: PreTradeRequest):
         result = await asyncio.to_thread(
             checker.execute_pretrade_check,
             symbol=req.symbol,
-            action=req.action,
+            intended_action=req.action.upper(),
         )
 
         if isinstance(result, dict):
             data = result
         elif hasattr(result, "model_dump"):
-            data = result.model_dump()
+            data = _safe_serialize(result)
         elif hasattr(result, "__dict__"):
-            data = result.__dict__
+            data = _safe_serialize(result)
         else:
             data = {"raw": str(result)}
 
@@ -422,12 +422,12 @@ async def stop_trade():
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 
-def _safe_serialize(obj) -> dict:
+def _safe_serialize(obj: Any) -> dict[str, Any]:
     """將任意對象安全轉為 dict"""
     if isinstance(obj, dict):
         return {k: _safe_value(v) for k, v in obj.items()}
     if hasattr(obj, "model_dump"):
-        return obj.model_dump()
+        return dict(obj.model_dump())
     if hasattr(obj, "__dict__"):
         return {k: _safe_value(v) for k, v in obj.__dict__.items() if not k.startswith("_")}
     return {"raw": str(obj)}

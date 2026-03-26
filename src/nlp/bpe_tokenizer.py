@@ -6,10 +6,9 @@ BPE Tokenizer (Byte Pair Encoding)
 
 import json
 import regex as re
-from typing import List, Dict, Optional, Tuple, Set
+from typing import DefaultDict, Dict, List, Optional, Tuple, cast
 from pathlib import Path
 from collections import defaultdict, Counter
-import pickle
 
 
 class BPETokenizer:
@@ -67,7 +66,7 @@ class BPETokenizer:
         )
         
         # 緩存
-        self.cache = {}
+        self.cache: Dict[str, List[str]] = {}
     
     def _initialize_vocab(self):
         """初始化基礎詞彙表"""
@@ -112,7 +111,7 @@ class BPETokenizer:
         if vocab_size is not None:
             self.vocab_size = vocab_size
         
-        print(f"開始訓練 BPE Tokenizer...")
+        print("開始訓練 BPE Tokenizer...")
         print(f"訓練文本數: {len(texts)}")
         print(f"目標詞彙表大小: {self.vocab_size}")
         
@@ -121,7 +120,7 @@ class BPETokenizer:
         current_vocab_size = len(self.vocab)
         
         # 收集所有詞
-        word_freqs = Counter()
+        word_freqs: Counter[str] = Counter()
         for text in texts:
             words = self.pattern.findall(text)
             for word in words:
@@ -130,7 +129,7 @@ class BPETokenizer:
         print(f"不同詞數: {len(word_freqs)}")
         
         # 將詞拆分為字符
-        splits = {}
+        splits: Dict[str, List[str]] = {}
         for word in word_freqs:
             splits[word] = list(word)
         
@@ -143,7 +142,7 @@ class BPETokenizer:
                 print(f"  進度: {i + 1}/{num_merges}")
             
             # 計算所有配對的頻率
-            pair_freqs = defaultdict(int)
+            pair_freqs: DefaultDict[Tuple[str, str], int] = defaultdict(int)
             for word, freq in word_freqs.items():
                 split = splits[word]
                 if len(split) == 1:
@@ -233,7 +232,7 @@ class BPETokenizer:
             token IDs 列表
         """
         # 分詞
-        words = self.pattern.findall(text)
+        words = cast(List[str], self.pattern.findall(text))
         
         # BPE 編碼
         tokens = []
@@ -408,7 +407,7 @@ class BPETokenizer:
         
         tokenizer = cls(
             vocab=vocab,
-            merges=merges,
+            merges=merges,  # type: ignore[arg-type]
             vocab_size=config['vocab_size'],
             special_tokens=config['special_tokens']
         )

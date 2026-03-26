@@ -8,11 +8,12 @@ MarketKeywords - 靜態包裝類，提供方便的類方法接口
 """
 
 # 1. 標準庫
-from typing import List, Tuple, Dict, Optional, Any
+from typing import Any, Dict, List, Tuple
 
 # 2. 本地模組
 from .manager import get_keyword_manager
-from .models import Keyword, KeywordMatch, PredictionRecord
+from .manager import KeywordManager
+from .models import Keyword, KeywordMatch
 
 
 class MarketKeywords:
@@ -27,7 +28,7 @@ class MarketKeywords:
     """
     
     @classmethod
-    def get_instance(cls):
+    def get_instance(cls) -> KeywordManager:
         """取得 KeywordManager 單例"""
         return get_keyword_manager()
     

@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+from __future__ import annotations
 """
 內部知識庫 (Internal Knowledge Base)
 ====================================
@@ -12,8 +13,7 @@
 
 import logging
 import json
-import hashlib
-from typing import List, Dict, Optional, Any, Union
+from typing import List, Dict, Optional, Any, TYPE_CHECKING, Callable
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -21,12 +21,16 @@ from enum import Enum
 import numpy as np
 
 # 導入可選的 FAISS 索引
+if TYPE_CHECKING:
+    from .faiss_index import VectorIndex
+
+create_index: Optional[Callable[[int, bool], VectorIndex]]
 try:
-    from .faiss_index import VectorIndex, create_index
+    from .faiss_index import VectorIndex, create_index as imported_create_index
     FAISS_INDEX_AVAILABLE = True
+    create_index = imported_create_index
 except ImportError:
     FAISS_INDEX_AVAILABLE = False
-    VectorIndex = None
     create_index = None
 
 logger = logging.getLogger(__name__)
@@ -173,9 +177,9 @@ class InternalKnowledgeBase:
         # FAISS 向量索引（可選加速）
         self._vector_index: Optional[VectorIndex] = None
         self._use_faiss = use_faiss and FAISS_INDEX_AVAILABLE
-        if self._use_faiss and create_index:
+        if self._use_faiss and create_index is not None:
             # 預設使用 384 維（all-MiniLM-L6-v2）
-            self._vector_index = create_index(dimension=384)
+            self._vector_index = create_index(384, False)
             logger.info("✅ FAISS 向量索引已啟用")
         
         if auto_load:
@@ -447,7 +451,7 @@ class InternalKnowledgeBase:
     
     def get_stats(self) -> Dict[str, Any]:
         """獲取統計信息"""
-        type_counts = {}
+        type_counts: Dict[str, int] = {}
         for doc in self.documents.values():
             type_name = doc.doc_type.value
             type_counts[type_name] = type_counts.get(type_name, 0) + 1

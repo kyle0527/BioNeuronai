@@ -16,24 +16,20 @@ import logging
 import time
 import threading
 from pathlib import Path
-from typing import Dict, List, Optional, Callable, Any, Union
+from typing import Dict, List, Optional, Callable, Any, Union, Generator
 from datetime import datetime
 from dataclasses import dataclass
 
 from .data_stream import HistoricalDataStream, KlineBar
-from .virtual_account import VirtualAccount, VirtualOrder, OrderStatus
-
-# 導入真實連接器的數據模型
-import sys
-sys.path.insert(0, str(Path(__file__).parent.parent))
+from .virtual_account import VirtualAccount, OrderStatus
 
 try:
-    from ..trading_strategies import MarketData
-    from ..data.binance_futures import OrderResult
+    from bioneuronai.trading_strategies import MarketData
+    from bioneuronai.data.binance_futures import OrderResult
 except ImportError:
     # 備用定義
     @dataclass
-    class MarketData:
+    class MarketData:  # type: ignore[no-redef]
         symbol: str
         price: float
         volume: float
@@ -48,7 +44,7 @@ except ImportError:
         open_interest: float = 0.0
     
     @dataclass
-    class OrderResult:
+    class OrderResult:  # type: ignore[no-redef]
         symbol: str
         side: str
         order_type: str = "MARKET"
@@ -161,7 +157,7 @@ class MockBinanceConnector:
         self._is_playing = False
         self._playback_thread: Optional[threading.Thread] = None
         self._current_bar: Optional[KlineBar] = None
-        self._bar_generator = None  # 用於 next_tick()
+        self._bar_generator: Optional[Generator[KlineBar, None, None]] = None  # 用於 next_tick()
         
         # 公開 account 為 virtual_account（兼容性）
         self.virtual_account = self.account
@@ -174,12 +170,12 @@ class MockBinanceConnector:
         self._ws_connections: Dict[str, Any] = {}
         
         # 限流控制（偽裝用，實際不需要）
-        self.request_timestamps = []
+        self.request_timestamps: List[float] = []
         self.weight_used = 0
         self.last_weight_reset = time.time()
         
-        # WebSocket 相關（偽裝用）
-        self.ws_connections = {}
+        # WebSocket 相關（僞装用）
+        self.ws_connections: Dict[str, Any] = {}
         self.ws_reconnect_delay = 5
         self.ws_max_reconnect_attempts = 10
         
@@ -209,7 +205,6 @@ class MockBinanceConnector:
         
         return MarketData(
             symbol=symbol,
-            price=bar.close,
             volume=bar.volume,
             timestamp=datetime.fromtimestamp(bar.close_time / 1000),
             high=bar.high,

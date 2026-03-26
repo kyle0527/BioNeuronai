@@ -25,7 +25,7 @@
 
 import numpy as np
 import logging
-from typing import Optional, Dict, Any, Tuple, Union, List
+from typing import Optional, Dict, Any, Tuple, Union, List, cast
 from datetime import datetime, timedelta
 from dataclasses import dataclass, field
 import uuid
@@ -71,7 +71,6 @@ class RangeAnalysis:
     support_2: float = 0.0
 
 
-@dataclass
 @dataclass
 class BreakoutAnalysis:
     """突破分析數據結構"""
@@ -200,7 +199,7 @@ class BreakoutTradingStrategy(BaseStrategy):
             for i in range(period, n):
                 atr[i] = (atr[i - 1] * (period - 1) + tr[i]) / period
         
-        return atr
+        return cast(np.ndarray, atr)
     
     def _identify_range(
         self,
@@ -219,8 +218,8 @@ class BreakoutTradingStrategy(BaseStrategy):
         recent_high = high[-lookback:]
         recent_low = low[-lookback:]
         
-        range_high = np.max(recent_high)
-        range_low = np.min(recent_low)
+        range_high: float = float(np.max(recent_high))
+        range_low: float = float(np.min(recent_low))
         range_size = range_high - range_low
         mid_price = (range_high + range_low) / 2
         
@@ -411,7 +410,7 @@ class BreakoutTradingStrategy(BaseStrategy):
         if len(close) < period:
             return 0.0
         
-        return close[-1] - close[-period]
+        return float(close[-1] - close[-period])
     
     def _check_false_breakout_filter(
         self,
@@ -456,7 +455,7 @@ class BreakoutTradingStrategy(BaseStrategy):
         close = ohlcv_data[:, 4]
         volume = ohlcv_data[:, 5]
         
-        current_price = close[-1]
+        current_price = float(close[-1])
         
         # 
         analysis = BreakoutAnalysis()
@@ -469,10 +468,10 @@ class BreakoutTradingStrategy(BaseStrategy):
         
         # 2.  ATR
         atr = self._calculate_atr(high, low, close, 14)
-        analysis.atr = atr[-1]
+        analysis.atr = float(atr[-1])
         if len(atr) >= 20:
             analysis.atr_ma = float(np.mean(atr[-20:]))
-            analysis.volatility_expanding = atr[-1] > analysis.atr_ma * 1.2
+            analysis.volatility_expanding = bool(atr[-1] > analysis.atr_ma * 1.2)
         
         # 3. 
         breakout_detected, direction, strength = self._detect_breakout(
@@ -507,7 +506,7 @@ class BreakoutTradingStrategy(BaseStrategy):
         # 7. 
         avg_range = np.mean([high[i] - low[i] for i in range(-20, 0)])
         strong_close, wide_range = self._check_candle_strength(
-            open_prices[-1], high[-1], low[-1], close[-1],
+            float(open_prices[-1]), float(high[-1]), float(low[-1]), float(close[-1]),
             direction if breakout_detected else 'none',
             float(avg_range)
         )
@@ -525,7 +524,7 @@ class BreakoutTradingStrategy(BaseStrategy):
         elif range_analysis.range_percent < 5:
             market_condition = MarketCondition.SIDEWAYS
         else:
-            market_condition = "NORMAL"  # 
+            market_condition = MarketCondition.SIDEWAYS  # 
         
         self.state = StrategyState.IDLE
         self._last_analysis_time = datetime.now()
@@ -552,7 +551,7 @@ class BreakoutTradingStrategy(BaseStrategy):
                 'momentum': analysis.momentum,
             },
             'current_price': current_price,
-            'analysis_summary': self._generate_breakout_summary(analysis, str(market_condition) if not isinstance(market_condition, str) else market_condition),
+            'analysis_summary': self._generate_breakout_summary(analysis, market_condition),
         }
     
     def _generate_breakout_summary(
@@ -788,7 +787,7 @@ class BreakoutTradingStrategy(BaseStrategy):
         self._update_price_tracking(trade, current_price, setup)
         
         # 建立管理字典以替代PositionManagement
-        mgmt_dict = {}
+        mgmt_dict: Dict[str, Any] = {}
         
         # 1. 保本停損
         self._handle_breakeven_stop(mgmt_dict, r_multiple)
@@ -1030,16 +1029,16 @@ class BreakoutTradingStrategy(BaseStrategy):
             return False
         
         # 檢查最近20根K線是否有突破後回撤的情況
-        recent_high = np.max(close[-20:])
-        recent_low = np.min(close[-20:])
-        current_price = close[-1]
+        recent_high: float = float(np.max(close[-20:]))
+        recent_low: float = float(np.min(close[-20:]))
+        current_price = float(close[-1])
         
         if direction == 'long':
             # 檢查是否曾經突破後回落
-            return recent_high > ra.resistance_level and current_price < ra.resistance_level * 0.99
+            return bool(recent_high > ra.resistance_level and current_price < ra.resistance_level * 0.99)
         else:
             # 檢查是否曾經跌破後反彈
-            return recent_low < ra.support_level and current_price > ra.support_level * 1.01
+            return bool(recent_low < ra.support_level and current_price > ra.support_level * 1.01)
     
     def _collect_entry_confirmations(
         self, 

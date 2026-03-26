@@ -136,7 +136,7 @@ def main():
         from bioneuronai.analysis.keywords.learner import KeywordLearner
         from bioneuronai.analysis.keywords.manager import KeywordManager
         km = KeywordManager()
-        learner = KeywordLearner(km)
+        _learner = KeywordLearner(km)
         print(f"\n[KeywordLearner] 學習器初始化成功，管理關鍵字數: {len(km.keywords)}")
 
         # 3. news/evaluator.RuleBasedEvaluator — 規則式事件評估

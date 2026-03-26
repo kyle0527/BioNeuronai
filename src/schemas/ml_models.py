@@ -8,11 +8,10 @@ BioNeuronai 機器學習模型 Schema
 """
 
 from datetime import datetime, timedelta
-from decimal import Decimal
 from typing import Any, Optional, Literal
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, Field, field_validator, computed_field
+from pydantic import BaseModel, Field, computed_field
 
 from .enums import (
     PredictionType,

@@ -27,14 +27,15 @@ Date: 2026-01-25
 """
 
 import logging
-from typing import List, Optional, Dict, Any
-from datetime import datetime, timedelta
+from typing import Any, Callable, Dict, List, Optional, cast
+from datetime import datetime
+from typing_extensions import TypeAlias
 
 logger = logging.getLogger(__name__)
 
 # 從 schemas 導入 (Single Source of Truth)
 try:
-    from schemas.rag import (
+    from schemas.rag import (  # noqa: F401
         RAGNewsItem,
         NewsSentiment,
         NewsCategory,
@@ -48,56 +49,25 @@ except ImportError:
     SCHEMAS_AVAILABLE = False
 
 # 導入 CryptoNewsAnalyzer (從 bioneuronai 導入)
+_imported_crypto_news_analyzer: Optional[type[Any]]
+_imported_get_rule_evaluator: Optional[Callable[[], Any]]
 try:
     from bioneuronai.analysis.news import (
-        CryptoNewsAnalyzer,
-        NewsAnalysisResult,
-        NewsArticle,
-        get_rule_evaluator,
+        CryptoNewsAnalyzer as _imported_crypto_news_analyzer,
+        NewsAnalysisResult,  # noqa: F401
+        NewsArticle,  # noqa: F401
+        get_rule_evaluator as _imported_get_rule_evaluator,
     )
     NEWS_ANALYZER_AVAILABLE = True
 except ImportError as e:
     logger.warning(f"無法導入 CryptoNewsAnalyzer: {e}")
     NEWS_ANALYZER_AVAILABLE = False
-    CryptoNewsAnalyzer = None
+    _imported_crypto_news_analyzer = None
+    _imported_get_rule_evaluator = None
 
-
-class NewsSearchResult:
-    """新聞搜索結果 - 與 RAG RetrievalResult 兼容的格式"""
-    
-    def __init__(
-        self,
-        title: str,
-        snippet: str,
-        url: str,
-        source: str,
-        published_at: Optional[datetime] = None,
-        relevance_score: float = 0.5,
-        sentiment: Optional[str] = None,
-        sentiment_score: float = 0.0,
-        domain: Optional[str] = None,
-    ):
-        self.title = title
-        self.snippet = snippet
-        self.url = url
-        self.source = source
-        self.published_at = published_at or datetime.now()
-        self.relevance_score = relevance_score
-        self.sentiment = sentiment
-        self.sentiment_score = sentiment_score
-        self.domain = domain or source
-    
-    def to_dict(self) -> Dict[str, Any]:
-        return {
-            "title": self.title,
-            "snippet": self.snippet,
-            "url": self.url,
-            "source": self.source,
-            "published_at": self.published_at.isoformat() if self.published_at else None,
-            "relevance_score": self.relevance_score,
-            "sentiment": self.sentiment,
-            "sentiment_score": self.sentiment_score,
-        }
+CryptoNewsAnalyzer = cast(Optional[type[Any]], _imported_crypto_news_analyzer)
+get_rule_evaluator = cast(Optional[Callable[[], Any]], _imported_get_rule_evaluator)
+NewsSearchResult: TypeAlias = RAGNewsItem
 
 
 class NewsAdapter:
@@ -124,7 +94,7 @@ class NewsAdapter:
             enable_event_detection: 是否啟用事件檢測 (RuleBasedEvaluator)
             default_hours: 預設搜索時間範圍 (小時)
         """
-        self._analyzer: Optional[CryptoNewsAnalyzer] = None
+        self._analyzer: Optional[Any] = None
         self._rule_evaluator = None
         self.enable_event_detection = enable_event_detection
         self.default_hours = default_hours
@@ -196,14 +166,14 @@ class NewsAdapter:
             for article in analysis.articles[:max_results]:
                 result = NewsSearchResult(
                     title=article.title,
-                    snippet=article.summary or article.title,
+                    summary=article.summary or article.title,
                     url=article.url,
                     source=article.source,
                     published_at=article.published_at,
                     relevance_score=self._calculate_relevance(article, query),
-                    sentiment=analysis.overall_sentiment,
+                    sentiment=cast(NewsSentiment, analysis.overall_sentiment),
                     sentiment_score=analysis.sentiment_score,
-                    domain=article.source,
+                    category=NewsCategory.GENERAL,
                 )
                 results.append(result)
                 

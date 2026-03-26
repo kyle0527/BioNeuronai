@@ -10,7 +10,7 @@ Created: 2026-01-25
 
 import logging
 from datetime import datetime
-from typing import Dict, List, Optional, Any
+from typing import Any, Dict, List, Mapping, Optional, cast
 
 import numpy as np
 
@@ -21,40 +21,56 @@ from .types import (
     StrategyConfigTemplate,
     StrategySelectionResult,
     StrategyRecommendation,
-    InternalPerformanceMetrics,
     STRATEGY_MARKET_FIT,
 )
-from .configs import get_default_strategy_configs, get_strategy_by_type
+from .configs import get_default_strategy_configs
 from .evaluator import MarketEvaluator
 
 # 導入實際策略 (來自 v2)
+_imported_base_strategy: Any = None
+_imported_market_condition: Any = None
+_imported_signal_strength: Any = None
+_imported_trend_following_strategy: Any = None
+_imported_swing_trading_strategy: Any = None
+_imported_mean_reversion_strategy: Any = None
+_imported_breakout_trading_strategy: Any = None
+_imported_ai_strategy_fusion: Any = None
+_imported_fusion_method: Any = None
 try:
-    from ..base_strategy import BaseStrategy, MarketCondition, SignalStrength
-    from ..trend_following import TrendFollowingStrategy
-    from ..swing_trading import SwingTradingStrategy
-    from ..mean_reversion import MeanReversionStrategy
-    from ..breakout_trading import BreakoutTradingStrategy
-    from ..strategy_fusion import AIStrategyFusion, FusionMethod
+    from ..base_strategy import (
+        BaseStrategy as _imported_base_strategy,
+        MarketCondition as _imported_market_condition,
+        SignalStrength as _imported_signal_strength,
+    )
+    from ..trend_following import TrendFollowingStrategy as _imported_trend_following_strategy
+    from ..swing_trading import SwingTradingStrategy as _imported_swing_trading_strategy
+    from ..mean_reversion import MeanReversionStrategy as _imported_mean_reversion_strategy
+    from ..breakout_trading import BreakoutTradingStrategy as _imported_breakout_trading_strategy
+    from ..strategy_fusion import (
+        AIStrategyFusion as _imported_ai_strategy_fusion,
+        FusionMethod as _imported_fusion_method,
+    )
     STRATEGIES_AVAILABLE = True
 except ImportError:
     STRATEGIES_AVAILABLE = False
-    BaseStrategy = None              # type: ignore[assignment]
-    MarketCondition = None           # type: ignore[assignment]
-    SignalStrength = None            # type: ignore[assignment]
-    TrendFollowingStrategy = None    # type: ignore[assignment]
-    SwingTradingStrategy = None      # type: ignore[assignment]
-    MeanReversionStrategy = None     # type: ignore[assignment]
-    BreakoutTradingStrategy = None   # type: ignore[assignment]
-    AIStrategyFusion = None          # type: ignore[assignment]
-    FusionMethod = None              # type: ignore[assignment]
+BaseStrategy = cast(Any, _imported_base_strategy)
+MarketCondition = cast(Any, _imported_market_condition)
+SignalStrength = cast(Any, _imported_signal_strength)
+TrendFollowingStrategy = cast(Any, _imported_trend_following_strategy)
+SwingTradingStrategy = cast(Any, _imported_swing_trading_strategy)
+MeanReversionStrategy = cast(Any, _imported_mean_reversion_strategy)
+BreakoutTradingStrategy = cast(Any, _imported_breakout_trading_strategy)
+AIStrategyFusion = cast(Any, _imported_ai_strategy_fusion)
+FusionMethod = cast(Any, _imported_fusion_method)
 
 # 導入 EventContext (Single Source of Truth)
+_imported_event_context: Any = None
 try:
-    from schemas.rag import EventContext
+    from schemas.rag import EventContext as _imported_event_context
     EVENTCONTEXT_AVAILABLE = True
 except ImportError:
     EVENTCONTEXT_AVAILABLE = False
-    EventContext = None
+EventContext = cast(Any, _imported_event_context)
 
 logger = logging.getLogger(__name__)
 
@@ -315,7 +331,7 @@ class StrategySelector:
             },
         }
         
-        strategy_reasons = reasons.get(strategy, {})
+        strategy_reasons = cast(Mapping[Any, str], reasons.get(strategy, {}))
         reason = strategy_reasons.get(market_regime, strategy_reasons.get("default", ""))
         if reason:
             recommendation.reasoning.append(reason)
@@ -563,7 +579,7 @@ class StrategySelector:
         """設置事件上下文"""
         self._current_event_context = event_context
         if event_context:
-            logger.debug(f"事件上下文已設置")
+            logger.debug("事件上下文已設置")
     
     # ========== 績效追蹤 API ==========
     
@@ -579,7 +595,7 @@ class StrategySelector:
     
     def get_performance_summary(self) -> Dict[str, Any]:
         """獲取績效摘要"""
-        summary = {
+        summary: Dict[str, Any] = {
             'available_strategies': list(self._strategies.keys()),
             'strategy_configs': list(self.strategy_configs.keys()),
             'timeframe': self.timeframe,

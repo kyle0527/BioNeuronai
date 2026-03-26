@@ -17,8 +17,7 @@ RuleBasedEvaluator - 新聞大腦
 import hashlib
 import logging
 from datetime import datetime, timedelta
-from typing import List, Dict, Optional, Tuple
-from dataclasses import dataclass
+from typing import Any, Dict, List, Optional, Protocol, Tuple, cast
 
 # 2. 本地模組
 from .models import NewsArticle
@@ -26,12 +25,23 @@ from .models import NewsArticle
 # 設置日誌
 logger = logging.getLogger(__name__)
 
+
+class EventDatabase(Protocol):
+    def save_event(self, event_info: Dict[str, Any]) -> Optional[str]: ...
+    def get_active_events(
+        self, event_type: Optional[str] = None, symbol: Optional[str] = None
+    ) -> List[Dict[str, Any]]: ...
+    def resolve_event(self, event_id: str, resolution_note: Optional[str] = None) -> bool: ...
+    def calculate_total_event_score(
+        self, symbol: Optional[str] = None
+    ) -> Tuple[float, List[Dict[str, Any]]]: ...
+
 # ========================================
 # EventRule 定義
 # ========================================
 
 # 直接從 schemas 導入 (Single Source of Truth)
-from schemas.rag import EventRule
+from schemas.rag import EventRule  # noqa: E402
 logger.debug("已從 schemas.rag 導入 EventRule")
 
 
@@ -179,7 +189,7 @@ class RuleBasedEvaluator:
             self.rules.extend(custom_rules)
         
         # 嘗試連接資料庫
-        self._db = None
+        self._db: Optional[EventDatabase] = None
         self._connect_db()
         
         logger.info(f"✅ RuleBasedEvaluator 初始化完成，載入 {len(self.rules)} 條規則")
@@ -188,7 +198,7 @@ class RuleBasedEvaluator:
         """連接資料庫管理器"""
         try:
             from ...data.database_manager import get_database_manager
-            self._db = get_database_manager()
+            self._db = cast(EventDatabase, get_database_manager())
             logger.debug("RuleBasedEvaluator 已連接 DatabaseManager")
         except Exception as e:
             logger.warning(f"無法連接資料庫: {e}，將以無狀態模式運行")
@@ -200,7 +210,7 @@ class RuleBasedEvaluator:
         source: str = "unknown",
         source_confidence: float = 0.5,
         affected_symbols: Optional[str] = None
-    ) -> Optional[Dict]:
+    ) -> Optional[Dict[str, Any]]:
         """
         評估單則新聞標題
         
@@ -242,7 +252,7 @@ class RuleBasedEvaluator:
         source: str,
         source_confidence: float,
         affected_symbols: Optional[str]
-    ) -> Dict:
+    ) -> Dict[str, Any]:
         """創建事件並存入資料庫"""
         # 生成事件 ID
         event_id = hashlib.md5(
@@ -293,7 +303,7 @@ class RuleBasedEvaluator:
                         )
                         logger.info(f"🛑 Hard Stop: {rule.event_type} 事件已解析 (keyword: {term_keyword})")
     
-    def get_current_event_score(self, symbol: Optional[str] = None) -> Tuple[float, List[Dict]]:
+    def get_current_event_score(self, symbol: Optional[str] = None) -> Tuple[float, List[Dict[str, Any]]]:
         """
         獲取當前的事件總分
         
@@ -309,7 +319,7 @@ class RuleBasedEvaluator:
         
         return self._db.calculate_total_event_score(symbol)
     
-    def evaluate_news_batch(self, articles: List[NewsArticle]) -> List[Dict]:
+    def evaluate_news_batch(self, articles: List[NewsArticle]) -> List[Dict[str, Any]]:
         """
         批量評估新聞文章
         

@@ -6,10 +6,9 @@ BioNeuronai - Market Analyzer
 """
 
 import asyncio
-import json
 import logging
-from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Tuple, Any
+from datetime import datetime
+from typing import Any, Dict, List, Optional, cast
 from dataclasses import dataclass
 import numpy as np
 
@@ -69,7 +68,7 @@ class MarketAnalyzer:
     """
     
     def __init__(self):
-        self.analysis_history = []
+        self.analysis_history: List[MarketCondition] = []
         self.indicator_weights = {
             "trend_strength": 0.25,
             "volatility": 0.20,
@@ -751,7 +750,7 @@ class MarketAnalyzer:
     def _calculate_ema(self, prices: np.ndarray, period: int) -> float:
         """計算 EMA"""
         if len(prices) < period:
-            return prices[-1] if len(prices) > 0 else 0.0
+            return float(prices[-1]) if len(prices) > 0 else 0.0
         
         multiplier = 2 / (period + 1)
         ema = prices[-period]
@@ -759,7 +758,7 @@ class MarketAnalyzer:
         for price in prices[-period+1:]:
             ema = (price * multiplier) + (ema * (1 - multiplier))
         
-        return ema
+        return float(ema)
     
     def _calculate_atr(
         self, 
@@ -806,7 +805,7 @@ class MarketAnalyzer:
             from bioneuronai.data.web_data_fetcher import WebDataFetcher
             
             async with WebDataFetcher() as fetcher:
-                snapshot = await fetcher.fetch_all()
+                snapshot = cast(ExternalDataSnapshot, await fetcher.fetch_all())
                 
                 # 更新緩存
                 self.external_data_cache = snapshot
@@ -844,9 +843,9 @@ class MarketAnalyzer:
         # 異步讓步點（允許其他協程執行）
         await asyncio.sleep(0)
         
-        components = {}
-        sentiment_scores = []
-        weights = []
+        components: Dict[str, float] = {}
+        sentiment_scores: List[float] = []
+        weights: List[float] = []
         
         # 1. 恐慌貪婪指數 (如果有外部數據)
         if external_data and external_data.fear_greed:
@@ -855,7 +854,7 @@ class MarketAnalyzer:
             fg_score = (fg_value - 50) / 50  # 標準化到 -1 到 1
             sentiment_scores.append(fg_score)
             weights.append(0.30)
-            components["fear_greed_index"] = fg_value
+            components["fear_greed_index"] = float(fg_value)
             logger.info(f"  ✓ 恐慌貪婪: {fg_value} → {fg_score:+.3f}")
         
         # 2. 技術指標情緒
@@ -877,7 +876,7 @@ class MarketAnalyzer:
             
             sentiment_scores.append(mc_score)
             weights.append(0.25)
-            components["market_cap_change_24h"] = gm.market_cap_change_24h
+            components["market_cap_change_24h"] = float(gm.market_cap_change_24h)
             logger.info(f"  ✓ 市場動量: {gm.market_cap_change_24h:+.2f}% → {mc_score:+.3f}")
         
         # 4. 新聞情緒（預留介面，待 RAG 系統整合）
@@ -946,7 +945,7 @@ class MarketAnalyzer:
                 "error": "無法連接到外部數據源"
             }
         
-        result = {
+        result: Dict[str, Any] = {
             "status": "SUCCESS",
             "check_mode": check_mode,
             "timestamp": external_data.timestamp.isoformat(),

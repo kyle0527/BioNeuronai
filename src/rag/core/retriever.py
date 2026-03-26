@@ -9,21 +9,23 @@
 import hashlib
 import logging
 import time
-from typing import List, Dict, Optional, Any, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union, cast
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
-import numpy as np
 
 logger = logging.getLogger(__name__)
 
 # 導入監控（可選）
+_imported_get_monitor: Optional[Callable[[], Any]]
 try:
-    from ..monitoring import get_monitor
+    from ..monitoring import get_monitor as _imported_get_monitor
     MONITORING_AVAILABLE = True
 except ImportError:
     MONITORING_AVAILABLE = False
-    get_monitor = None
+    _imported_get_monitor = None
+
+_get_monitor = cast(Optional[Callable[[], Any]], _imported_get_monitor)
 
 
 class RetrievalSource(Enum):
@@ -94,7 +96,7 @@ class UnifiedRetriever:
         self.internal_kb = internal_kb
         self.web_search = web_search
         self.news_api = news_api
-        self._cache: Dict[str, tuple] = {}  # key -> (results, expiry_time)
+        self._cache: Dict[str, Tuple[List["RetrievalResult"], datetime]] = {}
         self._cache_ttl = timedelta(seconds=cache_ttl_seconds)
 
         logger.info("統一檢索器已初始化")
@@ -151,7 +153,7 @@ class UnifiedRetriever:
                 result_count = len(cached_results)
                 return cached_results
 
-            results = []
+            results: List[RetrievalResult] = []
 
             # 根據指定來源檢索
             sources = query.sources
@@ -194,9 +196,9 @@ class UnifiedRetriever:
         finally:
             # 記錄監控指標
             latency_ms = (time.time() - start_time) * 1000
-            if MONITORING_AVAILABLE and get_monitor is not None:
+            if MONITORING_AVAILABLE and _get_monitor is not None:
                 try:
-                    monitor = get_monitor()
+                    monitor = _get_monitor()
                     source_label = "hybrid" if len(sources_used) > 1 else (sources_used[0] if sources_used else "unknown")
                     monitor.log_retrieval(
                         latency_ms=latency_ms,

@@ -17,14 +17,12 @@
     max_risk = params.max_risk_per_trade  # 0.02 (2%)
 """
 
-import json
 import logging
-from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Tuple
+from datetime import datetime
+from typing import Any, Dict, List, Optional, cast
 from dataclasses import dataclass
 from enum import Enum
 import numpy as np
-import math
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +41,10 @@ def get_risk_params(level: str = "MODERATE") -> 'RiskParameters':
         >>> print(params.max_risk_per_trade)  # 0.02
     """
     manager = RiskManager()
-    return manager.risk_parameters.get(level.upper(), manager.risk_parameters["MODERATE"])
+    return cast(
+        RiskParameters,
+        manager.risk_parameters.get(level.upper(), manager.risk_parameters["MODERATE"]),
+    )
 
 class RiskLevel(Enum):
     """"""
@@ -403,7 +404,7 @@ class RiskManager:
             optimized_positions = {}
             
             # 1. 
-            total_risk = 0
+            total_risk = 0.0
             for symbol, position in target_positions.items():
                 risk = self._calculate_position_risk(position, account_info['balance'])
                 total_risk += risk
@@ -489,7 +490,7 @@ class RiskManager:
             # 25%
             kelly_fraction = max(0, min(0.25, kelly_fraction))
             
-            return kelly_fraction
+            return float(kelly_fraction)
             
         except Exception as e:
             logger.error(f": {e}")
@@ -501,7 +502,7 @@ class RiskManager:
         try:
             # 從 additional_factors 或 market_data 取得真實波動率；無資料時用保守預設
             factors = additional_factors or {}
-            volatility = factors.get("volatility", factors.get("atr_pct", 0.30))  # 預設 30%
+            volatility = float(factors.get("volatility", factors.get("atr_pct", 0.30)))  # 預設 30%
             
             # 25%
             base_volatility = 0.25
@@ -522,8 +523,8 @@ class RiskManager:
         try:
             # 從 additional_factors 取得真實市場深度與成交量；無資料時採保守預設
             factors = additional_factors or {}
-            market_depth = factors.get("market_depth", 1.0)      # 預設正常深度
-            daily_volume = factors.get("daily_volume", 50000.0)  # 預設 50k USDT
+            market_depth = float(factors.get("market_depth", 1.0))      # 預設正常深度
+            daily_volume = float(factors.get("daily_volume", 50000.0))  # 預設 50k USDT
             
             # 2%
             max_size_by_volume = daily_volume * 0.02
@@ -626,7 +627,7 @@ class RiskManager:
         """"""
         try:
             symbols = list(positions.keys())
-            correlation_matrix = {}
+            correlation_matrix: Dict[str, Dict[str, float]] = {}
             
             for i, symbol1 in enumerate(symbols):
                 correlation_matrix[symbol1] = {}
@@ -727,7 +728,7 @@ class RiskManager:
         try:
             # 從實際持倉盈虧建立歷史轉機序列
             portfolio_values: List[float] = []
-            cumulative = account_info.get('balance', 100000.0) if positions else 100000.0
+            cumulative = 100000.0
             portfolio_values.append(cumulative)
 
             for pos in positions.values():
@@ -738,7 +739,7 @@ class RiskManager:
             if len(portfolio_values) < 2:
                 return 0.0
             peak = portfolio_values[0]
-            max_drawdown = 0
+            max_drawdown = 0.0
             
             for value in portfolio_values:
                 if value > peak:

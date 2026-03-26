@@ -11,7 +11,7 @@ Daily Market Analysis Report
 import json
 import logging
 from datetime import datetime
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, cast
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -58,9 +58,9 @@ class SOPAutomationSystem:
         """導入所需模組"""
         self.market_data_collector = None
         try:
-            from .. import CryptoFuturesTrader
-            from ..analysis import CryptoNewsAnalyzer
-            from ..trading_strategies import StrategyFusion
+            from .. import CryptoFuturesTrader  # noqa: F401
+            from ..analysis import CryptoNewsAnalyzer  # noqa: F401
+            from ..trading_strategies import StrategyFusion  # noqa: F401
             from ..analysis.daily_report.market_data import MarketDataCollector
             self.market_data_collector = MarketDataCollector()
             self.modules_available = True
@@ -337,7 +337,11 @@ class SOPAutomationSystem:
         """檢查經濟日曆 - 使用 MarketDataCollector"""
         try:
             if self.market_data_collector:
-                return self.market_data_collector.check_economic_calendar()
+                events = self.market_data_collector.check_economic_calendar()
+                if isinstance(events, list):
+                    return [str(event) for event in events]
+                logger.warning("經濟日曆資料格式異常: %s", type(events).__name__)
+                return []
             
             logger.warning("MarketDataCollector 不可用，返回空列表")
             return []
@@ -787,7 +791,7 @@ class SOPAutomationSystem:
             logger.error(f"生成報告失敗: {e}")
             return f"❌ 報告生成失敗: {e}"
     
-    def _get_latest_check_result(self) -> Optional[Dict]:
+    def _get_latest_check_result(self) -> Optional[Dict[str, Any]]:
         """獲取最新檢查結果"""
         try:
             check_files = list(self.data_dir.glob("sop_check_*.json"))
@@ -797,7 +801,11 @@ class SOPAutomationSystem:
             latest_file = max(check_files, key=lambda x: x.stat().st_mtime)
             
             with open(latest_file, 'r', encoding='utf-8') as f:
-                return json.load(f)
+                loaded = json.load(f)
+                if isinstance(loaded, dict):
+                    return cast(Dict[str, Any], loaded)
+                logger.warning("最新檢查結果格式異常: %s", type(loaded).__name__)
+                return None
                 
         except Exception as e:
             logger.error(f"讀取檢查結果失敗: {e}")

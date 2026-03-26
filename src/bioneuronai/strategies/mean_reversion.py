@@ -23,9 +23,11 @@
 - RSI 輔助確認
 """
 
+from __future__ import annotations
+
 import numpy as np
 import logging
-from typing import Optional, Dict, Any, Tuple, List, Callable
+from typing import Optional, Dict, Any, Tuple, List, Callable, cast
 from datetime import datetime, timedelta
 from dataclasses import dataclass
 import uuid
@@ -229,7 +231,7 @@ class MeanReversionStrategy(BaseStrategy):
         """ RSI"""
         n: int = len(close)
         if n < period + 1:
-            return np.full(n, 50.0)
+            return cast(np.ndarray, np.full(n, 50.0))
         
         deltas: np.ndarray = np.diff(close)
         gains: np.ndarray = np.where(deltas > 0, deltas, 0)
@@ -249,7 +251,7 @@ class MeanReversionStrategy(BaseStrategy):
         rsi: np.ndarray = 100 - (100 / (1 + rs))
         rsi[:period] = 50
         
-        return rsi
+        return cast(np.ndarray, rsi)
     
     def _detect_reversal_candle(
         self,
@@ -289,15 +291,15 @@ class MeanReversionStrategy(BaseStrategy):
     def _prepare_candle_data(self, open_prices: np.ndarray, high: np.ndarray, 
                             low: np.ndarray, close: np.ndarray) -> Optional[Dict]:
         """準備K線分析數據"""
-        o, h, l, c = open_prices[-1], high[-1], low[-1], close[-1]
-        candle_range = h - l
+        o, h, lo, c = open_prices[-1], high[-1], low[-1], close[-1]
+        candle_range = h - lo
         
         if candle_range == 0:
             return None
         
         body = abs(c - o)
         upper_shadow = h - max(o, c)
-        lower_shadow = min(o, c) - l
+        lower_shadow = min(o, c) - lo
         body_pct = body / candle_range
         
         # 前一根K線數據
@@ -305,7 +307,7 @@ class MeanReversionStrategy(BaseStrategy):
         prev_body = abs(prev_c - prev_o)
         
         return {
-            'o': o, 'h': h, 'l': l, 'c': c,
+            'o': o, 'h': h, 'l': lo, 'c': c,
             'body': body, 'upper_shadow': upper_shadow, 
             'lower_shadow': lower_shadow, 'body_pct': body_pct,
             'prev_o': prev_o, 'prev_c': prev_c, 'prev_body': prev_body,
@@ -424,7 +426,7 @@ class MeanReversionStrategy(BaseStrategy):
         market_condition = self._determine_market_condition(analysis)
         volatility_level = self._determine_volatility_level(analysis)
         
-        self.state: StrategyState = StrategyState.IDLE
+        self.state = StrategyState.IDLE
         self._last_analysis_time = datetime.now()
         
         return {
@@ -454,13 +456,13 @@ class MeanReversionStrategy(BaseStrategy):
         bb_upper, bb_middle, bb_lower = self._calculate_bollinger_bands(
             close, self.bb_period, self.bb_std_dev
         )
-        analysis.bb_upper = bb_upper[-1]
-        analysis.bb_middle = bb_middle[-1]
-        analysis.bb_lower = bb_lower[-1]
+        analysis.bb_upper = float(bb_upper[-1])
+        analysis.bb_middle = float(bb_middle[-1])
+        analysis.bb_lower = float(bb_lower[-1])
         
         if bb_upper[-1] != 0:
-            analysis.bb_width = (bb_upper[-1] - bb_lower[-1]) / bb_middle[-1] * 100
-            analysis.bb_percent_b = (current_price - bb_lower[-1]) / (bb_upper[-1] - bb_lower[-1])
+            analysis.bb_width = float((bb_upper[-1] - bb_lower[-1]) / bb_middle[-1] * 100)
+            analysis.bb_percent_b = float((current_price - bb_lower[-1]) / (bb_upper[-1] - bb_lower[-1]))
     
     def _calculate_keltner_analysis(
         self, 
@@ -473,9 +475,9 @@ class MeanReversionStrategy(BaseStrategy):
         kc_upper, kc_middle, kc_lower = self._calculate_keltner_channel(
             high, low, close, self.kc_period, self.kc_atr_multiplier
         )
-        analysis.kc_upper = kc_upper[-1]
-        analysis.kc_middle = kc_middle[-1]
-        analysis.kc_lower = kc_lower[-1]
+        analysis.kc_upper = float(kc_upper[-1])
+        analysis.kc_middle = float(kc_middle[-1])
+        analysis.kc_lower = float(kc_lower[-1])
     
     def _calculate_squeeze_analysis(self, analysis: MeanReversionAnalysis) -> None:
         """計算壓縮指標"""
@@ -487,8 +489,8 @@ class MeanReversionStrategy(BaseStrategy):
         squeeze_on, squeeze_off = self._calculate_squeeze(
             bb_upper, bb_lower, kc_upper, kc_lower
         )
-        analysis.squeeze_on = squeeze_on[-1]
-        analysis.squeeze_off = squeeze_off[-1]
+        analysis.squeeze_on = bool(squeeze_on[-1])
+        analysis.squeeze_off = bool(squeeze_off[-1])
     
     def _calculate_momentum_analysis(
         self, 
@@ -498,7 +500,7 @@ class MeanReversionStrategy(BaseStrategy):
         """計算動量分析"""
         if len(close) >= 20:
             momentum = close[-1] - np.mean(close[-20:])
-            analysis.squeeze_momentum = momentum
+            analysis.squeeze_momentum = float(momentum)
     
     def _calculate_zscore_analysis(
         self, 
@@ -507,9 +509,9 @@ class MeanReversionStrategy(BaseStrategy):
     ) -> None:
         """計算Z-Score分析"""
         z_score: np.ndarray[Tuple[Any], np.dtype[Any]] = self._calculate_z_score(close, self.z_lookback)
-        analysis.z_score = z_score[-1]
-        analysis.z_score_extreme = abs(z_score[-1]) > self.z_extreme_threshold
-        analysis.z_score_very_extreme = abs(z_score[-1]) > self.z_very_extreme_threshold
+        analysis.z_score = float(z_score[-1])
+        analysis.z_score_extreme = bool(abs(z_score[-1]) > self.z_extreme_threshold)
+        analysis.z_score_very_extreme = bool(abs(z_score[-1]) > self.z_very_extreme_threshold)
     
     def _calculate_moving_average_analysis(
         self, 
@@ -535,8 +537,8 @@ class MeanReversionStrategy(BaseStrategy):
     ) -> None:
         """計算RSI分析"""
         rsi: np.ndarray[Tuple[Any], np.dtype[Any]] = self._calculate_rsi(close, self.rsi_period)
-        analysis.rsi_value = rsi[-1]
-        analysis.rsi_extreme = (
+        analysis.rsi_value = float(rsi[-1])
+        analysis.rsi_extreme = bool(
             rsi[-1] > self.rsi_extreme_overbought or 
             rsi[-1] < self.rsi_extreme_oversold
         )
@@ -939,7 +941,7 @@ class MeanReversionStrategy(BaseStrategy):
                 if setup.direction == 'long':
                     limit_price: float = setup.entry_price * 1.001  # 
                 else:
-                    limit_price: float = setup.entry_price * 0.999
+                    limit_price = setup.entry_price * 0.999
                 
                 order_result = connector.place_order(
                     symbol=setup.symbol,
@@ -966,7 +968,7 @@ class MeanReversionStrategy(BaseStrategy):
             execution.highest_price_since_entry = execution.actual_entry_price
             execution.lowest_price_since_entry = execution.actual_entry_price
             
-            self.state: StrategyState = StrategyState.POSITION_OPEN
+            self.state = StrategyState.POSITION_OPEN
             return execution
             
         except Exception as e:
@@ -1224,7 +1226,7 @@ class MeanReversionStrategy(BaseStrategy):
                 if trade.setup.direction == 'long':
                     pnl: float = (trade.average_exit_price - trade.average_entry_price) * exit_size
                 else:
-                    pnl: float = (trade.average_entry_price - trade.average_exit_price) * exit_size
+                    pnl = (trade.average_entry_price - trade.average_exit_price) * exit_size
                 
                 trade.realized_pnl += pnl
                 trade.current_position_size -= exit_size
@@ -1248,9 +1250,9 @@ class MeanReversionStrategy(BaseStrategy):
                     trade.average_exit_price = fill_price
                     
                     if trade.setup.direction == 'long':
-                        pnl: float = (fill_price - trade.average_entry_price) * exit_size
+                        pnl = (fill_price - trade.average_entry_price) * exit_size
                     else:
-                        pnl: float = (trade.average_entry_price - fill_price) * exit_size
+                        pnl = (trade.average_entry_price - fill_price) * exit_size
                     
                     trade.realized_pnl += pnl
                     trade.current_position_size -= exit_size
@@ -1275,7 +1277,7 @@ class MeanReversionStrategy(BaseStrategy):
                         hours=self.risk_params.cooldown_after_loss
                     )
                 
-                self.state: StrategyState = StrategyState.IDLE
+                self.state = StrategyState.IDLE
                 
                 logger.info(
                     f": {trade.trade_id}, "

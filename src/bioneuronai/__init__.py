@@ -17,7 +17,8 @@ BioNeuronai - AI
 __version__ = "4.1.0"
 __author__ = "BioNeuronai Team"
 
-import logging
+import logging  # noqa: E402 (imports after sys.path setup are intentional)
+from typing import Any
 
 # 套件層級 logger — 不在 import 時強制設定 root logger 或建立 FileHandler
 # FileHandler 由 CLI 入口 (cli/main.py) 或應用程式自行配置
@@ -57,26 +58,30 @@ except (ImportError, AttributeError) as _torch_err:
         " 執行 pip install torch 以啟用 AI 功能。"
     )
 
-from .trading_strategies import MarketData, TradingSignal, StrategyFusion
-from .data import BinanceFuturesConnector, ExchangeRateService
-from .risk_management import RiskManager, RiskParameters
+from .trading_strategies import MarketData, TradingSignal, StrategyFusion  # noqa: E402
+from .data import BinanceFuturesConnector, ExchangeRateService  # noqa: E402
+from .risk_management import RiskManager, RiskParameters  # noqa: E402
 
 #  ()
+imported_strategy_gene: Any = None
+imported_evolution_engine: Any = None
+imported_population_manager: Any = None
 try:
     from .core.self_improvement import (
-        StrategyGene,
-        EvolutionEngine,
-        PopulationManager
+        StrategyGene as imported_strategy_gene,
+        EvolutionEngine as imported_evolution_engine,
+        PopulationManager as imported_population_manager,
     )
     GENETIC_ALGO_AVAILABLE = True
 except ImportError:
     GENETIC_ALGO_AVAILABLE = False
-    StrategyGene = None
-    EvolutionEngine = None
-    PopulationManager = None
+
+StrategyGene: Any = imported_strategy_gene
+EvolutionEngine: Any = imported_evolution_engine
+PopulationManager: Any = imported_population_manager
 
 # 
-from .analysis import (
+from .analysis import (  # noqa: E402
     CryptoNewsAnalyzer,
     NewsArticle,
     NewsAnalysisResult,
@@ -86,23 +91,28 @@ from .analysis import (
 )
 
 #  (RLHF)
+imported_news_prediction: Any = None
+imported_news_prediction_loop: Any = None
 try:
     from .analysis.news import (  # ✅ 修正：從 news 子模組導入
-        NewsPredictionLoop
+        NewsPredictionLoop as imported_news_prediction_loop,
     )
     # 檢查是否有 NewsPrediction 類
     try:
-        from .analysis.news.prediction_loop import NewsPrediction
+        from .analysis.news.prediction_loop import NewsPrediction as imported_news_prediction
     except (ImportError, AttributeError):
-        NewsPrediction = None
+        imported_news_prediction = None
     NEWS_PREDICTION_AVAILABLE = True
 except ImportError:
     NEWS_PREDICTION_AVAILABLE = False
-    NewsPrediction = None
-    NewsPredictionLoop = None
+    imported_news_prediction = None
+    imported_news_prediction_loop = None
+
+NewsPrediction: Any = imported_news_prediction
+NewsPredictionLoop: Any = imported_news_prediction_loop
 
 # 
-from .trading import (
+from .trading import (  # noqa: E402
     TradingPlanController,
     MarketAnalyzer,
     StrategySelector,
@@ -111,19 +121,22 @@ from .trading import (
 # : SOPAutomationSystem, PreTradeCheckSystem, TradingPlanGenerator
 
 #  RL Meta-Agent ()
+imported_rl_meta_agent: Any = None
+imported_strategy_fusion_env: Any = None
 try:
     from .strategies.rl_fusion_agent import (
-        RLMetaAgent,
-        StrategyFusionEnv
+        RLMetaAgent as imported_rl_meta_agent,
+        StrategyFusionEnv as imported_strategy_fusion_env,
     )
     RL_FUSION_AVAILABLE = True
 except ImportError:
     RL_FUSION_AVAILABLE = False
-    RLMetaAgent = None
-    StrategyFusionEnv = None
+
+RLMetaAgent: Any = imported_rl_meta_agent
+StrategyFusionEnv: Any = imported_strategy_fusion_env
 
 # CLI 統一入口
-from .cli import cli_main
+from .cli import cli_main  # noqa: E402
 
 #
 CryptoFuturesTrader = TradingEngine

@@ -12,15 +12,13 @@ Backtest Engine - 回測引擎主類
 """
 
 import logging
-from pathlib import Path
-from typing import Dict, List, Optional, Callable, Any, Union
+from typing import Dict, List, Optional, Callable, Any
 from datetime import datetime
 from dataclasses import dataclass, field
 import json
 
 from .mock_connector import MockBinanceConnector
-from .data_stream import HistoricalDataStream, KlineBar
-from .virtual_account import VirtualAccount
+from .data_stream import KlineBar
 
 logger = logging.getLogger(__name__)
 
@@ -336,8 +334,8 @@ class BacktestEngine:
     
     def _calculate_profit_factor(self) -> float:
         """計算獲利因子"""
-        gross_profit = 0
-        gross_loss = 0
+        gross_profit: float = 0.0
+        gross_loss: float = 0.0
         
         for trade in self.connector.account.trade_history:
             if trade.realized_pnl > 0:

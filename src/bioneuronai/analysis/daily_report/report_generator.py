@@ -12,10 +12,9 @@ import json
 import logging
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Any, Dict, Optional, cast
 
 # 2. 本地模組
-from .models import DailyReport, MarketEnvironmentCheck, TradingPlanCheck
 
 logger = logging.getLogger(__name__)
 
@@ -237,7 +236,7 @@ class ReportGenerator:
         else:
             return obj
     
-    def _get_latest_check_result(self) -> Optional[Dict]:
+    def _get_latest_check_result(self) -> Optional[Dict[str, Any]]:
         """
         獲取最新檢查結果
         
@@ -252,7 +251,7 @@ class ReportGenerator:
             latest_file = max(check_files, key=lambda x: x.stat().st_mtime)
             
             with open(latest_file, 'r', encoding='utf-8') as f:
-                return json.load(f)
+                return cast(Dict[str, Any], json.load(f))
                 
         except Exception as e:
             logger.error(f"讀取檢查結果失敗: {e}")

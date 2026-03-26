@@ -574,7 +574,7 @@ class BaseStrategy(ABC):
                 'actions': List[str]
             }
         """
-        result = {
+        result: Dict[str, Any] = {
             'can_trade': True,
             'position_size_multiplier': 1.0,
             'warnings': [],
@@ -593,7 +593,7 @@ class BaseStrategy(ABC):
             elif abs(daily_loss_pct) >= self.risk_params.max_daily_loss_pct * 0.7:
                 result['position_size_multiplier'] = 0.5
                 result['warnings'].append(
-                    f" 50%"
+                    " 50%"
                 )
         
         # 
@@ -676,7 +676,7 @@ class BaseStrategy(ABC):
         
         
         """
-        result = {
+        result: Dict[str, Any] = {
             'state': self.state.value,
             'actions_taken': [],
             'signals': [],
@@ -738,9 +738,9 @@ class BaseStrategy(ABC):
                         )
                         
                         # 
-                        trade = self.execute_entry(setup, connector)
-                        if trade:
-                            self.active_trades[trade.trade_id] = trade
+                        new_trade: Optional[TradeExecution] = self.execute_entry(setup, connector)
+                        if new_trade:
+                            self.active_trades[new_trade.trade_id] = new_trade
                             self.state = StrategyState.POSITION_OPEN
                             result['actions_taken'].append(
                                 f": {setup.symbol} {setup.direction} @ {setup.entry_price}"

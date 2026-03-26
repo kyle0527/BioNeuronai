@@ -4,11 +4,12 @@ LoRA (Low-Rank Adaptation) 微調
 高效的參數微調方法，只訓練很少的參數
 """
 
+import math
+from dataclasses import dataclass
+from typing import Any, Dict, List, Optional, cast
+
 import torch
 import torch.nn as nn
-from typing import Optional, List, Dict, Any
-from dataclasses import dataclass
-import math
 
 
 @dataclass
@@ -69,7 +70,7 @@ class LoRALayer(nn.Module):
         # = (x @ A^T) @ B^T
         x_dropout = self.lora_dropout(x)
         result = x_dropout @ self.lora_A.t() @ self.lora_B.t()
-        return result * self.scaling
+        return cast(torch.Tensor, result * self.scaling)
 
 
 class LoRALinear(nn.Module):
@@ -106,8 +107,8 @@ class LoRALinear(nn.Module):
         """
         # 原始輸出 + LoRA 增量
         if self.lora is not None:
-            return self.linear(x) + self.lora(x)
-        return self.linear(x)
+            return cast(torch.Tensor, self.linear(x) + self.lora(x))
+        return cast(torch.Tensor, self.linear(x))
     
     @classmethod
     def from_linear(
@@ -179,7 +180,7 @@ def apply_lora_to_model(
     Returns:
         應用了 LoRA 的模型
     """
-    print(f"應用 LoRA 到模型...")
+    print("應用 LoRA 到模型...")
     print(f"  秩 (r): {config.r}")
     print(f"  Alpha: {config.lora_alpha}")
     print(f"  Dropout: {config.lora_dropout}")
@@ -241,7 +242,7 @@ def freeze_non_lora_parameters(model: nn.Module):
             param.requires_grad = False
             frozen_params += param.numel()
     
-    print(f"\n參數統計:")
+    print("\n參數統計:")
     print(f"  凍結參數: {frozen_params:,} ({frozen_params/(frozen_params+trainable_params)*100:.2f}%)")
     print(f"  可訓練參數: {trainable_params:,} ({trainable_params/(frozen_params+trainable_params)*100:.2f}%)")
     print(f"  總參數: {frozen_params+trainable_params:,}")
@@ -348,7 +349,6 @@ def load_lora_weights(
         加載了 LoRA 權重的模型
     """
     from pathlib import Path
-    import json
     
     load_dir = Path(load_path)
     

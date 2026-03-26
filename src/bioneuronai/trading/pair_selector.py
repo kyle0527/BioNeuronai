@@ -2,7 +2,7 @@
 交易對選擇器 - 根據 Binance 24 小時行情真實篩選最優交易對
 """
 
-from typing import Dict, List, Optional
+from typing import Dict, List
 import logging
 
 logger = logging.getLogger(__name__)

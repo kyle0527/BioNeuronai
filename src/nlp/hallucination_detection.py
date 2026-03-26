@@ -5,7 +5,7 @@
 
 import torch
 import torch.nn.functional as F
-from typing import List, Dict, Tuple, Optional, Set
+from typing import List, Dict, Tuple, Optional
 import re
 from dataclasses import dataclass
 from collections import defaultdict
@@ -103,7 +103,7 @@ class HallucinationDetector:
         
         # 檢測不同長度的模式
         for pattern_len in range(2, min(max_pattern_length + 1, len(token_ids) // 2 + 1)):
-            pattern_counts = defaultdict(int)
+            pattern_counts: defaultdict[tuple[int, ...], int] = defaultdict(int)
             
             # 滑動窗口提取模式
             for i in range(len(token_ids) - pattern_len + 1):
@@ -364,7 +364,7 @@ class SelfConsistencyChecker:
             confidence: 信心分數
         """
         # 統計每個答案的出現次數
-        answer_counts = defaultdict(int)
+        answer_counts: defaultdict[str, int] = defaultdict(int)
         for text in generated_texts:
             # 簡單的答案提取（可以根據具體任務調整）
             answer = text.strip()

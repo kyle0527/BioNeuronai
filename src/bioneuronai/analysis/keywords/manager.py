@@ -21,7 +21,7 @@ import sqlite3
 import logging
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Tuple, Optional, Any
+from typing import Any, Dict, List, Optional, Tuple, cast
 from dataclasses import asdict
 
 # 2. 本地模組
@@ -414,7 +414,7 @@ class KeywordManager:
         except Exception as e:
             logger.error(f"保存關鍵字失敗: {e}")
     
-    def _update_index_file(self, by_category: Dict[str, List]):
+    def _update_index_file(self, by_category: Dict[str, List[Keyword]]) -> None:
         """更新索引檔"""
         keywords_path = Path(self.keywords_dir)
         index_file = keywords_path / "_index.json"
@@ -502,7 +502,7 @@ class KeywordManager:
         keyword, predicted_direction, price_before = row
         
         # 判斷正確性
-        is_correct = (predicted_direction == actual_direction)
+        is_correct: bool = predicted_direction == actual_direction
         
         # 計算價格變化
         price_change_pct = 0.0
@@ -619,7 +619,6 @@ class KeywordManager:
         # 統計實際影響
         positive_count = sum(1 for _, change in price_changes if change > 1.0)
         negative_count = sum(1 for _, change in price_changes if change < -1.0)
-        neutral_count = len(price_changes) - positive_count - negative_count
         
         total = len(price_changes)
         positive_ratio = positive_count / total
@@ -685,10 +684,10 @@ class KeywordManager:
         )
         return sorted_kw[:n]
     
-    def get_statistics(self) -> Dict:
+    def get_statistics(self) -> Dict[str, Any]:
         """獲取統計資料"""
         total = len(self.keywords)
-        by_category = {}
+        by_category: Dict[str, int] = {}
         stale_count = 0
         high_accuracy = 0
         low_accuracy = 0
@@ -723,7 +722,7 @@ class KeywordManager:
         cursor = conn.cursor()
         
         query = "SELECT * FROM prediction_history"
-        params = []
+        params: list = []
         
         conditions = []
         if keyword:
@@ -783,9 +782,9 @@ class KeywordManager:
         accuracy = correct / total if total > 0 else 0.0
         return accuracy, correct, total
     
-    def get_keyword_performance(self, min_predictions: int = 5) -> List[Dict]:
+    def get_keyword_performance(self, min_predictions: int = 5) -> List[Dict[str, Any]]:
         """獲取關鍵字表現排名"""
-        performance = []
+        performance: List[Dict[str, Any]] = []
         
         for kw in self.keywords.values():
             if kw.prediction_count >= min_predictions:
@@ -800,7 +799,7 @@ class KeywordManager:
                     'is_stale': kw.is_stale
                 })
         
-        performance.sort(key=lambda x: x['accuracy'], reverse=True)
+        performance.sort(key=lambda x: cast(float, x["accuracy"]), reverse=True)
         return performance
     
     # ========================================

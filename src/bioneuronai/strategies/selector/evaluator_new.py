@@ -349,14 +349,25 @@ class MarketEvaluator:
     def _check_complexity_preference(
         self,
         config: StrategyConfigTemplate,
-        preferences: Optional[Dict]
+        preferences: Optional[Dict[str, Any]]
     ) -> bool:
         """檢查複雜度是否符合偏好"""
         if not preferences or 'max_complexity' not in preferences:
             return True
         
         complexity_levels = {"simple": 1, "medium": 2, "complex": 3}
-        max_level = preferences['max_complexity']
+        raw_max_level = preferences['max_complexity']
+        if isinstance(raw_max_level, str):
+            max_level = complexity_levels.get(raw_max_level.lower())
+            if max_level is None:
+                logger.warning("未知的 max_complexity 偏好: %s，忽略複雜度限制", raw_max_level)
+                return True
+        elif isinstance(raw_max_level, (int, float)):
+            max_level = int(raw_max_level)
+        else:
+            logger.warning("無效的 max_complexity 型別: %s，忽略複雜度限制", type(raw_max_level).__name__)
+            return True
+
         current_level = complexity_levels.get(config.complexity.value, 2)
         
         return current_level <= max_level

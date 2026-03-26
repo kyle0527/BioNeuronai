@@ -253,7 +253,7 @@ class TradingCostCalculator:
         """
         self.fees = VIP_FEES.get(vip_level, STANDARD_FEES)
         self.use_bnb = use_bnb
-        self.bnb_discount = BNB_DISCOUNT["discount_rate"] if use_bnb else 0.0
+        self.bnb_discount: float = float(BNB_DISCOUNT["discount_rate"]) if use_bnb else 0.0  # type: ignore[arg-type]
         self.default_leverage = default_leverage
     
     def calculate_entry_exit_costs(
@@ -294,13 +294,13 @@ class TradingCostCalculator:
         # 1. 
         entry_fee = self.fees.calculate_fee(position_size_usd, is_maker_entry)
         if self.use_bnb:
-            entry_fee *= (1 - self.bnb_discount)
+            entry_fee *= (1 - float(self.bnb_discount))
         
         # 2. 
         exit_value = position_size_usd * (exit_price / entry_price)
         exit_fee = self.fees.calculate_fee(exit_value, is_maker_exit)
         if self.use_bnb:
-            exit_fee *= (1 - self.bnb_discount)
+            exit_fee *= (1 - float(self.bnb_discount))
         
         # 3. 
         avg_funding_rate = FUNDING_RATE_REFERENCE.get(
@@ -309,12 +309,12 @@ class TradingCostCalculator:
         )["avg_7d"]
         
         funding_settlements = holding_hours / FUNDING_RATE.settlement_interval_hours
-        funding_cost = position_size_usd * avg_funding_rate * funding_settlements
+        funding_cost = position_size_usd * float(avg_funding_rate) * funding_settlements  # type: ignore[arg-type]
         
         # 4. 
         spread_info = SPREAD_COSTS.get(symbol, SPREAD_COSTS["MINOR_ALTS"])
         spread_bps = spread_info["typical_spread_bps"]
-        spread_cost = position_size_usd * (spread_bps / 10000) * 2  # 
+        spread_cost = position_size_usd * (float(spread_bps) / 10000) * 2  # type: ignore[arg-type]  # 
         
         # 5. 
         slippage_rate = estimate_slippage(position_size_usd, symbol, market_condition)
@@ -426,7 +426,7 @@ class TradingCostCalculator:
             total_cost_pct = costs["cost_percentage"] / 100
             minimum_price_move_pct = total_cost_pct + desired_profit_margin
         
-        return round(minimum_price_move_pct * 100, 2)  # 
+        return float(round(minimum_price_move_pct * 100, 2))  # 
 
 
 # ========================================
@@ -491,19 +491,19 @@ if __name__ == "__main__":
     print(f": {costs_5x['leverage']}x")
     print(f": ${costs_5x['required_margin']:.2f}")
     print(f": ${costs_5x['liquidation_price']:,.2f}")
-    print(f"\n: $50,000")
-    print(f": $51,000 (+2.00%)")
-    print(f"\n:")
+    print("\n: $50,000")
+    print(": $51,000 (+2.00%)")
+    print("\n:")
     print(f"  : ${costs_5x['entry_fee']:.2f}")
     print(f"  : ${costs_5x['exit_fee']:.2f}")
     print(f"  :   ${costs_5x['funding_cost']:.2f}")
     print(f"  +:  ${costs_5x['spread_cost'] + costs_5x['slippage_cost']:.2f}")
-    print(f"  ")
+    print("  ")
     print(f"  :     ${costs_5x['total_cost']:.2f}")
-    print(f"\n:")
+    print("\n:")
     print(f"  : {costs_5x['cost_percentage']:.2f}%")
     print(f"  :   {costs_5x['cost_percentage_on_margin']:.2f}% ")
-    print(f"\n:")
+    print("\n:")
     print(f"  : ${costs_5x['breakeven_price']:,.2f}")
     print(f"  : {costs_5x['roi_on_margin']:.2f}% ")
     print(f"  :   {costs_5x['roi_on_notional']:.2f}%")
@@ -526,10 +526,10 @@ if __name__ == "__main__":
     print(f": {costs_20x['leverage']}x")
     print(f": ${costs_20x['required_margin']:.2f} ")
     print(f": ${costs_20x['liquidation_price']:,.2f}  ")
-    print(f"\n:")
+    print("\n:")
     print(f"  : ${costs_20x['total_cost']:.2f}")
     print(f"  : {costs_20x['cost_percentage_on_margin']:.2f}% ")
-    print(f"\n:")
+    print("\n:")
     print(f"  : {costs_20x['roi_on_margin']:.2f}% ")
     print(f"  ( {costs_20x['leverage']}x)")
     
@@ -537,7 +537,7 @@ if __name__ == "__main__":
     print("\n" + "="*80)
     print(" $1000 +2% ")
     print("-"*80)
-    print(f"               5x     20x     ")
+    print("               5x     20x     ")
     print("-"*80)
     print(f"         ${costs_5x['required_margin']:>7.2f}   ${costs_20x['required_margin']:>8.2f}   4x ")
     print(f"           ${costs_5x['liquidation_price']:>7,.0f}   ${costs_20x['liquidation_price']:>8,.0f}    ")
@@ -552,5 +552,5 @@ if __name__ == "__main__":
     min_20x = calc_20x.get_minimum_profit_target(1000, "BTCUSDT", 0.10, 20, "margin")
     print(f"5x :   {min_5x}%")
     print(f"20x :  {min_20x}%")
-    print(f"\n : ")
+    print("\n : ")
     print("="*80)

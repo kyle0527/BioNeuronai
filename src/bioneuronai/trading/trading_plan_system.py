@@ -7,13 +7,11 @@
 
 import json
 import logging
-import asyncio
-from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Tuple, Any
+from datetime import datetime
+from typing import Any, Dict, List, cast
 from dataclasses import dataclass, field
 from pathlib import Path
 import numpy as np
-import math
 
 logger = logging.getLogger(__name__)
 
@@ -160,7 +158,7 @@ class TradingPlanGenerator:
         analysis = MarketConditionAnalysis(timestamp=datetime.now())
         
         # 步驟1: 宏觀經濟環境分析
-        macro_analysis = await self.market_analyzer.analyze_macro_environment()
+        _macro_analysis = await self.market_analyzer.analyze_macro_environment()
         
         # 步驟2: 技術面綜合分析
         technical_analysis = await self.market_analyzer.comprehensive_technical_analysis()
@@ -172,7 +170,7 @@ class TradingPlanGenerator:
         sentiment_analysis = await self.market_analyzer.analyze_market_sentiment()
         
         # 步驟5: 相關性分析
-        correlation_analysis = await self.market_analyzer.analyze_cross_asset_correlations()
+        _correlation_analysis = await self.market_analyzer.analyze_cross_asset_correlations()
         
         # 整合分析結果
         analysis.trend_direction = technical_analysis.get('primary_trend', 'SIDEWAYS')
@@ -188,15 +186,18 @@ class TradingPlanGenerator:
 
     async def _advanced_strategy_selection(self, market_analysis: MarketConditionAnalysis) -> Dict:
         """高级策略選擇"""
-        return await self.strategy_evaluator.evaluate_all_strategies(market_analysis)
+        return cast(Dict[Any, Any], await self.strategy_evaluator.evaluate_all_strategies(market_analysis))
     
     async def _precise_risk_calculation(self, market_analysis: MarketConditionAnalysis, strategy_selection: Dict) -> RiskParameters:
         """精確風險計算"""
-        return await self.risk_calculator.calculate_optimal_risk_parameters(market_analysis, strategy_selection)
+        return cast(
+            RiskParameters,
+            await self.risk_calculator.calculate_optimal_risk_parameters(market_analysis, strategy_selection),
+        )
     
     async def _intelligent_pair_selection(self, market_analysis: MarketConditionAnalysis, strategy_selection: Dict, risk_params: RiskParameters) -> Dict:
         """智能交易對選擇"""
-        return await self.pair_selector.select_optimal_pairs(market_analysis, risk_params)
+        return cast(Dict[Any, Any], await self.pair_selector.select_optimal_pairs(market_analysis, risk_params))
     
     async def _plan_optimization_and_validation(self, plan: Dict) -> Dict:
         """計劃優化與驗證"""
@@ -567,13 +568,6 @@ class PlanOptimizer:
     async def optimize_plan(self, plan: Dict) -> Dict:
         """優化交易計劃"""
         logger.info("     🔧 優化交易計劃...")
-        
-        optimization_results = {
-            "original_expected_return": 0.0,
-            "optimized_expected_return": 0.0,
-            "optimization_improvements": [],
-            "final_score": 0.0
-        }
         
         # 執行多種優化策略
         optimized_plan = await self._multi_objective_optimization(plan)

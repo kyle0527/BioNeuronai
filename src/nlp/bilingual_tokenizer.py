@@ -40,11 +40,11 @@ class BilingualTokenizer:
             }
         
         self.special_tokens = special_tokens
-        self.special_token_ids = {}
+        self.special_token_ids: Dict[str, int] = {}
         
         # 詞彙表
-        self.vocab = {}
-        self.id_to_token = {}
+        self.vocab: Dict[str, int] = {}
+        self.id_to_token: Dict[int, str] = {}
         
         # 初始化特殊 tokens
         self._init_special_tokens()
@@ -104,7 +104,7 @@ class BilingualTokenizer:
     
     def _get_common_words(self, texts: List[str]) -> List[str]:
         """獲取常用詞"""
-        word_counts = {}
+        word_counts: Dict[str, int] = {}
         
         for text in texts:
             # 英文單詞

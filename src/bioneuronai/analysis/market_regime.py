@@ -50,9 +50,9 @@ Version: 1.0
 
 import numpy as np
 import logging
-from typing import Dict, List, Optional, Tuple, Any
+from typing import Dict, List, Optional, Tuple, Any, cast
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime
 from enum import Enum
 from collections import deque
 
@@ -530,10 +530,11 @@ class MarketRegimeDetector:
         if len(history) < 20:
             return 50.0
         
-        return np.percentile(
+        percentile = np.percentile(
             [v for v in history if v > 0], 
             [np.sum(np.array(history) <= current_vol) / len(history) * 100]
-        )[0]
+        )
+        return float(np.ravel(percentile)[0])
     
     def _find_support_resistance(
         self, 
@@ -550,17 +551,17 @@ class MarketRegimeDetector:
         recent_lows = lows[-20:]
         
         # 
-        local_highs = []
-        local_lows = []
+        local_highs: List[float] = []
+        local_lows: List[float] = []
         
         for i in range(2, len(recent_highs) - 2):
             if recent_highs[i] > recent_highs[i-1] and recent_highs[i] > recent_highs[i-2]:
                 if recent_highs[i] > recent_highs[i+1] and recent_highs[i] > recent_highs[i+2]:
-                    local_highs.append(recent_highs[i])
+                    local_highs.append(float(recent_highs[i]))
             
             if recent_lows[i] < recent_lows[i-1] and recent_lows[i] < recent_lows[i-2]:
                 if recent_lows[i] < recent_lows[i+1] and recent_lows[i] < recent_lows[i+2]:
-                    local_lows.append(recent_lows[i])
+                    local_lows.append(float(recent_lows[i]))
         
         # 
         support = sorted([p for p in local_lows if p < current_price], reverse=True)[:num_levels]
@@ -706,7 +707,7 @@ class MarketRegimeDetector:
         for price in data[1:]:
             ema = (price - ema) * multiplier + ema
         
-        return ema
+        return float(ema)
 
 
 # ============================================================================
@@ -823,4 +824,4 @@ class RegimeBasedStrategySelector:
             },
         }
         
-        return adjustments.get(vol_regime, adjustments[VolatilityRegime.NORMAL])
+        return cast(Dict[str, float], adjustments.get(vol_regime, adjustments[VolatilityRegime.NORMAL]))

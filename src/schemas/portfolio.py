@@ -6,12 +6,11 @@ BioNeuronai 組合管理模型
 
 from datetime import datetime
 from decimal import Decimal
-from typing import Optional, Dict, List, Any
+from typing import Dict, List, Any
 
 from pydantic import BaseModel, Field, computed_field
 
-from .enums import RiskLevel, PositionType
-from .positions import BinancePosition, AccountBalance
+from .enums import RiskLevel
 
 
 class PortfolioSummary(BaseModel):

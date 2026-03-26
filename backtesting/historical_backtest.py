@@ -16,11 +16,9 @@ import logging
 from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import Dict, List, Optional, Tuple
-from uuid import UUID
 
 import numpy as np
 import pandas as pd
-from pydantic import BaseModel, Field
 
 # 從 schemas 導入 (單一數據來源原則)
 from schemas.backtesting import (

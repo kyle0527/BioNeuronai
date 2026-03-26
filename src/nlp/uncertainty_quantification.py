@@ -3,11 +3,12 @@
 用於評估模型預測的信心程度，避免過度自信的輸出
 """
 
+from dataclasses import dataclass
+from typing import Dict, List, Optional, Tuple, cast
+
+import numpy as np
 import torch
 import torch.nn.functional as F
-from typing import Dict, List, Tuple, Optional
-import numpy as np
-from dataclasses import dataclass
 
 
 @dataclass
@@ -226,7 +227,7 @@ class UncertaintyQuantifier:
             0.3 * top_k_mass
         )
         
-        return confidence
+        return cast(torch.Tensor, confidence)
 
 
 class MonteCarloDropout:
@@ -307,8 +308,8 @@ class CalibrationEvaluator:
             num_bins: 用於計算 ECE 的區間數
         """
         self.num_bins = num_bins
-        self.confidences = []
-        self.accuracies = []
+        self.confidences: List[float] = []
+        self.accuracies: List[float] = []
     
     def add_batch(
         self, 

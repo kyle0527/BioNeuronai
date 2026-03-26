@@ -8,21 +8,17 @@
 import asyncio
 import json
 import logging
-from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Tuple, TYPE_CHECKING, Any
+from datetime import datetime
+from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING, cast
 import numpy as np
-import math
 from pathlib import Path
 
 # 從統一的 risk_management 模組導入所有類別
 from ..risk_management.position_manager import (
-    RiskLevel,
-    PositionType,
     RiskParameters,
     PositionSizing,
     PortfolioRisk,
-    RiskAlert,
-    get_risk_params
+    RiskAlert
 )
 
 logger = logging.getLogger(__name__)
@@ -32,11 +28,11 @@ if TYPE_CHECKING:
     from ..data.database_manager import DatabaseManager
 
 DB_AVAILABLE = False
-DatabaseManager: Any = None
+DatabaseManager: Any = None  # type: ignore[no-redef]
 get_database_manager: Any = None
 
 try:
-    from ..data.database_manager import get_database_manager, DatabaseManager
+    from ..data.database_manager import get_database_manager
     DB_AVAILABLE = True
 except ImportError:
     logger.warning("⚠️ 數據庫管理器不可用，風險統計將僅保存到內存")
@@ -50,10 +46,10 @@ class RiskManager:
     def __init__(self, use_database: bool = True):
         # 使用統一的風險參數定義
         self.risk_parameters = self._initialize_risk_parameters()
-        self.portfolio_positions = {}
-        self.risk_alerts = []
-        self.historical_drawdowns = []
-        self.correlation_cache = {}
+        self.portfolio_positions: Dict[str, Dict[str, Any]] = {}
+        self.risk_alerts: List[RiskAlert] = []
+        self.historical_drawdowns: List[Dict[str, Any]] = []
+        self.correlation_cache: Dict[str, Dict[str, float]] = {}
         
         # 交易記錄與統計
         self.trade_history: List[Dict] = []
@@ -363,7 +359,7 @@ class RiskManager:
             optimized_positions = {}
             
             # 1. 
-            total_risk = 0
+            total_risk = 0.0
             for symbol, position in target_positions.items():
                 risk = self._calculate_position_risk(position, account_info['balance'])
                 total_risk += risk
@@ -450,7 +446,7 @@ class RiskManager:
             # 限制最大6Kelly分數25%
             kelly_fraction = max(0, min(0.25, kelly_fraction))
             
-            return kelly_fraction
+            return float(kelly_fraction)
             
         except Exception as e:
             logger.error(f"Kelly計算失敗: {e}")
@@ -464,7 +460,7 @@ class RiskManager:
         try:
             # 從 additional_factors 取得真實 ATR 百分比波動率；無資料時用保守預設
             factors = additional_factors or {}
-            volatility = factors.get("volatility", factors.get("atr_pct", 0.30))  # 預設 30%
+            volatility = float(factors.get("volatility", factors.get("atr_pct", 0.30)))  # 預設 30%
             
             # 基準波動率設為25%
             base_volatility = 0.25
@@ -487,8 +483,8 @@ class RiskManager:
         try:
             # 從 additional_factors 取得真實市場深度與日成交量；無資料時用保守預設
             factors = additional_factors or {}
-            market_depth = factors.get("market_depth", 1.0)      # 預設正常深度
-            daily_volume = factors.get("daily_volume", 50000.0)  # 預設 50k USDT
+            market_depth = float(factors.get("market_depth", 1.0))      # 預設正常深度
+            daily_volume = float(factors.get("daily_volume", 50000.0))  # 預設 50k USDT
             
             # 最大倉位不超過日交易量的2%
             max_size_by_volume = daily_volume * 0.02
@@ -598,7 +594,7 @@ class RiskManager:
         """計算相關矩陣"""
         try:
             symbols = list(positions.keys())
-            correlation_matrix = {}
+            correlation_matrix: Dict[str, Dict[str, float]] = {}
             
             for i, symbol1 in enumerate(symbols):
                 correlation_matrix[symbol1] = {}
@@ -711,7 +707,7 @@ class RiskManager:
             if len(portfolio_values) < 2:
                 return 0.0
             peak = portfolio_values[0]
-            max_drawdown = 0
+            max_drawdown = 0.0
             
             for value in portfolio_values:
                 if value > peak:
@@ -995,7 +991,7 @@ class RiskManager:
         """"""
         return {
             "active_alerts": len([a for a in self.risk_alerts if 
-                                (datetime.now() - a.timestamp).hours < 24]),
+                                (datetime.now() - a.timestamp).total_seconds() < 86400]),
             "current_positions": len(self.portfolio_positions),
             "risk_parameters": {
                 level: {
@@ -1223,7 +1219,9 @@ class RiskManager:
     def _calculate_risk_statistics(self, closed_trades: List[Dict]) -> Dict:
         """計算風險統計"""
         # 最大回撤
-        max_drawdown = max([d['drawdown'] for d in self.historical_drawdowns]) if self.historical_drawdowns else 0
+        max_drawdown = max(
+            [float(d["drawdown"]) for d in self.historical_drawdowns]
+        ) if self.historical_drawdowns else 0.0
         
         # Sharpe Ratio
         sharpe_ratio = self._calculate_sharpe_ratio(closed_trades)

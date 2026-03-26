@@ -229,8 +229,8 @@ class DataGenerator:
                 template = random.choice(templates)
                 
                 # 填充模板
-                input_text = template["input"]
-                output_text = template["output"]
+                input_text = str(template["input"])
+                output_text = str(template["output"])
                 
                 # 隨機替換占位符
                 for key, values in template.items():
@@ -304,7 +304,7 @@ class DatasetManager:
         val_set = samples[train_end:val_end]
         test_set = samples[val_end:]
         
-        print(f"📊 數據集劃分:")
+        print("📊 數據集劃分:")
         print(f"   訓練集: {len(train_set)} ({len(train_set)/n*100:.1f}%)")
         print(f"   驗證集: {len(val_set)} ({len(val_set)/n*100:.1f}%)")
         print(f"   測試集: {len(test_set)} ({len(test_set)/n*100:.1f}%)")
@@ -332,15 +332,15 @@ class DatasetManager:
         
         print(f"\n總樣本數: {stats['total_samples']}")
         
-        print(f"\n按類型:")
+        print("\n按類型:")
         for type_name, count in stats['by_type'].items():
             print(f"  {type_name}: {count} ({count/stats['total_samples']*100:.1f}%)")
         
-        print(f"\n按類別:")
+        print("\n按類別:")
         for category, count in stats['by_category'].items():
             print(f"  {category}: {count} ({count/stats['total_samples']*100:.1f}%)")
         
-        print(f"\n按語言:")
+        print("\n按語言:")
         for lang, count in stats['by_language'].items():
             print(f"  {lang}: {count} ({count/stats['total_samples']*100:.1f}%)")
         

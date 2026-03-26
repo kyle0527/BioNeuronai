@@ -23,9 +23,11 @@
 - 價格行為分析
 """
 
+from __future__ import annotations
+
 import numpy as np
 import logging
-from typing import Optional, Dict, Any, Tuple, List
+from typing import Optional, Dict, Any, Tuple, List, cast
 from datetime import datetime, timedelta
 from dataclasses import dataclass, field
 import uuid
@@ -167,7 +169,7 @@ class SwingTradingStrategy(BaseStrategy):
             # 檢查swing high
             if self._is_swing_high(high, i, lookback):
                 swing_highs.append(SwingPoint(
-                    price=high[i],
+                    price=float(high[i]),
                     index=i,
                     type='high',
                     strength=lookback,
@@ -176,7 +178,7 @@ class SwingTradingStrategy(BaseStrategy):
             # 檢查swing low
             if self._is_swing_low(low, i, lookback):
                 swing_lows.append(SwingPoint(
-                    price=low[i],
+                    price=float(low[i]),
                     index=i,
                     type='low',
                     strength=lookback,
@@ -202,7 +204,7 @@ class SwingTradingStrategy(BaseStrategy):
         """ RSI"""
         n: int = len(close)
         if n < period + 1:
-            return np.full(n, 50.0)
+            return cast(np.ndarray, np.full(n, 50.0))
         
         deltas: np.ndarray[Tuple[Any], np.dtype[Any]] = np.diff(close)
         gains: np.ndarray[Tuple[Any], np.dtype[Any]] = np.where(deltas > 0, deltas, 0)
@@ -224,7 +226,7 @@ class SwingTradingStrategy(BaseStrategy):
         rsi: np.ndarray[Tuple[Any], np.dtype[np.float64]] = 100 - (100 / (1 + rs))
         rsi[:period] = 50
         
-        return rsi
+        return cast(np.ndarray, rsi)
     
     def _calculate_stochastic(
         self,
@@ -243,8 +245,8 @@ class SwingTradingStrategy(BaseStrategy):
         raw_k: np.ndarray[Tuple[int], np.dtype[np.float64]] = np.zeros(n)
         
         for i in range(period - 1, n):
-            highest = np.max(high[i - period + 1:i + 1])
-            lowest = np.min(low[i - period + 1:i + 1])
+            highest: float = float(np.max(high[i - period + 1:i + 1]))
+            lowest: float = float(np.min(low[i - period + 1:i + 1]))
             
             if highest != lowest:
                 raw_k[i] = 100 * (close[i] - lowest) / (highest - lowest)
@@ -257,7 +259,7 @@ class SwingTradingStrategy(BaseStrategy):
         # D  (K )
         d: np.ndarray[Tuple[Any], np.dtype[np.floating[Any]]] = np.convolve(k, np.ones(smooth_d) / smooth_d, mode='same')
         
-        return k, d
+        return cast(np.ndarray, k), cast(np.ndarray, d)
     
     def _calculate_fibonacci_levels(
         self,
@@ -342,8 +344,8 @@ class SwingTradingStrategy(BaseStrategy):
             key_levels.append(np.min(low[-20:]))
         
         # 
-        resistances = [l for l in key_levels if l > current_price]
-        supports = [l for l in key_levels if l < current_price]
+        resistances = [level for level in key_levels if level > current_price]
+        supports = [level for level in key_levels if level < current_price]
         
         nearest_resistance = min(resistances) if resistances else current_price * 1.05
         nearest_support = max(supports) if supports else current_price * 0.95
@@ -389,7 +391,7 @@ class SwingTradingStrategy(BaseStrategy):
         # 各模塊分析 (Extract Method 降低複雜度)
         self._analyze_trend_pattern(analysis, swing_highs, swing_lows)
         self._analyze_support_resistance(analysis, high, low, close, swing_highs, swing_lows)
-        self._analyze_fibonacci_levels(analysis, swing_highs, swing_lows, current_price)
+        self._analyze_fibonacci_levels(analysis, swing_highs, swing_lows, float(current_price))
         self._analyze_rsi_indicators(analysis, close, rsi, swing_lows, swing_highs)
         self._analyze_stochastic_indicators(analysis, stoch_k, stoch_d)
         self._analyze_swing_statistics(analysis, swing_highs, swing_lows)
@@ -397,7 +399,7 @@ class SwingTradingStrategy(BaseStrategy):
         # 判斷市場狀態
         market_condition, trend_direction = self._determine_market_condition(analysis)
         
-        self.state: StrategyState = StrategyState.IDLE
+        self.state = StrategyState.IDLE
         self._last_analysis_time = datetime.now()
         
         return {
@@ -482,7 +484,7 @@ class SwingTradingStrategy(BaseStrategy):
             )
         else:
             # 看跌回撤
-            fib_levels: Dict[str, float] = self._calculate_fibonacci_levels(
+            fib_levels = self._calculate_fibonacci_levels(
                 latest_high.price, latest_low.price, 'bearish'
             )
             analysis.current_retracement_pct = (
@@ -500,9 +502,9 @@ class SwingTradingStrategy(BaseStrategy):
         swing_highs: List[SwingPoint]
     ) -> None:
         """分析 RSI 指標"""
-        analysis.rsi_value = rsi[-1]
-        analysis.rsi_overbought = rsi[-1] > self.rsi_overbought
-        analysis.rsi_oversold = rsi[-1] < self.rsi_oversold
+        analysis.rsi_value = float(rsi[-1])
+        analysis.rsi_overbought = bool(rsi[-1] > self.rsi_overbought)
+        analysis.rsi_oversold = bool(rsi[-1] < self.rsi_oversold)
         analysis.rsi_divergence = self._detect_rsi_divergence(
             close, rsi, swing_lows, swing_highs
         )
@@ -514,16 +516,16 @@ class SwingTradingStrategy(BaseStrategy):
         stoch_d: np.ndarray
     ) -> None:
         """分析 Stochastic 指標"""
-        analysis.stoch_k = stoch_k[-1]
-        analysis.stoch_d = stoch_d[-1]
-        analysis.stoch_overbought = stoch_k[-1] > self.stoch_overbought
-        analysis.stoch_oversold = stoch_k[-1] < self.stoch_oversold
+        analysis.stoch_k = float(stoch_k[-1])
+        analysis.stoch_d = float(stoch_d[-1])
+        analysis.stoch_overbought = bool(stoch_k[-1] > self.stoch_overbought)
+        analysis.stoch_oversold = bool(stoch_k[-1] < self.stoch_oversold)
         
         if len(stoch_k) >= 2 and len(stoch_d) >= 2:
-            analysis.stoch_bullish_cross = (
+            analysis.stoch_bullish_cross = bool(
                 stoch_k[-1] > stoch_d[-1] and stoch_k[-2] <= stoch_d[-2]
             )
-            analysis.stoch_bearish_cross = (
+            analysis.stoch_bearish_cross = bool(
                 stoch_k[-1] < stoch_d[-1] and stoch_k[-2] >= stoch_d[-2]
             )
     
@@ -720,8 +722,8 @@ class SwingTradingStrategy(BaseStrategy):
             confirmations: int = bullish_confirmations
         elif bearish_confirmations >= self.required_confirmations:
             direction = 'short'
-            entry_conditions: List[str] = bearish_conditions
-            confirmations: int = bearish_confirmations
+            entry_conditions = bearish_conditions
+            confirmations = bearish_confirmations
         else:
             logger.debug(
                 f" - : {bullish_confirmations}, : {bearish_confirmations}"
@@ -766,11 +768,11 @@ class SwingTradingStrategy(BaseStrategy):
         if confirmations >= 5:
             signal_strength: SignalStrength = SignalStrength.VERY_STRONG
         elif confirmations >= 4:
-            signal_strength: SignalStrength = SignalStrength.STRONG
+            signal_strength = SignalStrength.STRONG
         elif confirmations >= 3:
-            signal_strength: SignalStrength = SignalStrength.MODERATE
+            signal_strength = SignalStrength.MODERATE
         else:
-            signal_strength: SignalStrength = SignalStrength.WEAK
+            signal_strength = SignalStrength.WEAK
         
         # 建立交易設定 - 從 market_analysis 獲取 symbol，必須提供
         if 'symbol' not in market_analysis:
@@ -860,7 +862,7 @@ class SwingTradingStrategy(BaseStrategy):
                 if setup.direction == 'long':
                     limit_price: float = setup.entry_price * 0.999  #  0.1%
                 else:
-                    limit_price: float = setup.entry_price * 1.001  #  0.1%
+                    limit_price = setup.entry_price * 1.001  #  0.1%
                 
                 order_result = connector.place_order(
                     symbol=setup.symbol,
@@ -888,7 +890,7 @@ class SwingTradingStrategy(BaseStrategy):
             execution.highest_price_since_entry = execution.actual_entry_price
             execution.lowest_price_since_entry = execution.actual_entry_price
             
-            self.state: StrategyState = StrategyState.POSITION_OPEN
+            self.state = StrategyState.POSITION_OPEN
             return execution
             
         except Exception as e:
@@ -1323,7 +1325,7 @@ class SwingTradingStrategy(BaseStrategy):
                 hours=self.risk_params.cooldown_after_loss
             )
         
-        self.state: StrategyState = StrategyState.IDLE
+        self.state = StrategyState.IDLE
         
         logger.info(
             f": {trade.trade_id}, "

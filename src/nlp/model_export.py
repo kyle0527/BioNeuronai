@@ -7,7 +7,7 @@
 import torch
 import torch.nn as nn
 from pathlib import Path
-from typing import Optional, Tuple, List, Dict, Any, Union
+from typing import Optional, List, Dict, Any, Union
 import json
 
 
@@ -59,7 +59,7 @@ class ModelExporter:
                 'logits': {0: 'batch_size', 1: 'sequence'}
             }
         
-        print(f"導出 ONNX 模型...")
+        print("導出 ONNX 模型...")
         print(f"  保存路徑: {save_path}")
         print(f"  Opset 版本: {opset_version}")
         
@@ -76,7 +76,7 @@ class ModelExporter:
             export_params=True
         )
         
-        print(f"✓ ONNX 模型已保存")
+        print("✓ ONNX 模型已保存")
         
         # 驗證
         try:
@@ -105,7 +105,7 @@ class ModelExporter:
         save_path = Path(save_path)
         save_path.parent.mkdir(parents=True, exist_ok=True)
         
-        print(f"導出 TorchScript 模型...")
+        print("導出 TorchScript 模型...")
         print(f"  方法: {method}")
         print(f"  保存路徑: {save_path}")
         
@@ -125,7 +125,7 @@ class ModelExporter:
         else:
             raise ValueError(f"不支持的方法: {method}")
         
-        print(f"✓ TorchScript 模型已保存")
+        print("✓ TorchScript 模型已保存")
     
     def export_to_safetensors(
         self,
@@ -146,7 +146,7 @@ class ModelExporter:
         save_path = Path(save_path)
         save_path.parent.mkdir(parents=True, exist_ok=True)
         
-        print(f"導出 SafeTensors 格式...")
+        print("導出 SafeTensors 格式...")
         print(f"  保存路徑: {save_path}")
         
         # 獲取狀態字典
@@ -158,7 +158,7 @@ class ModelExporter:
         # 保存
         save_file(state_dict, str(save_path), metadata=metadata)
         
-        print(f"✓ SafeTensors 模型已保存")
+        print("✓ SafeTensors 模型已保存")
     
     def export_config(
         self,
@@ -331,10 +331,10 @@ model = torch.jit.load('{model_name}.pt')
     with open(save_dir / "README.md", 'w', encoding='utf-8') as f:
         f.write(readme_content)
     
-    print(f"\n✓ README 已創建")
+    print("\n✓ README 已創建")
     
     print("\n" + "=" * 80)
-    print(f"模型包導出完成!")
+    print("模型包導出完成!")
     print(f"保存目錄: {save_dir.absolute()}")
     print("=" * 80)
 

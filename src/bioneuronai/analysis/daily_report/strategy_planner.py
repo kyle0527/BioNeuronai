@@ -9,28 +9,35 @@
 
 # 1. 標準庫
 import logging
-from typing import Dict, Any
+import requests
+from typing import Any, Dict, Optional
 
 # 2. 本地模組
 from .models import MarketCondition, StrategyPerformance
 
 logger = logging.getLogger(__name__)
 
+# Binance Futures 公開 REST API（K 線不需要 API Key）
+_BINANCE_FUTURES_API = "https://fapi.binance.com"
+
 
 class StrategyPlanner:
     """
     策略規劃器
-    
+
     功能：
-    1. 分析當前市場狀況
-    2. 評估各策略歷史表現
+    1. 分析當前市場狀況（Binance 即時 K 線 + MarketRegimeDetector）
+    2. 評估各策略歷史表現（StrategySelector 配置，無回測時回傳零值）
     3. 匹配策略與市場環境
     4. 配置策略具體參數
     5. 驗證策略適用性
     """
-    
-    def __init__(self):
+
+    def __init__(self, connector: Any = None) -> None:
+        self.connector = connector  # 保留供未來擴充使用
         self.default_strategy = "StrategyFusion"
+        self.request_timeout: int = 10
+        self.user_agent: str = "Mozilla/5.0"
     
     # ========================================
     # 市場狀況分析
@@ -38,29 +45,114 @@ class StrategyPlanner:
     
     def analyze_current_market_condition(self) -> MarketCondition:
         """
-        分析當前市場狀況
-        
+        分析當前市場狀況。
+
+        流程：
+        1. 從 Binance /fapi/v1/klines 取得 BTCUSDT 1h 最近 200 根 K 線（公開，無需 Key）
+        2. 將每根 K 線餵入 MarketRegimeDetector
+        3. 呼叫 detect_regime() 取得 RegimeAnalysis
+        4. 將 MarketRegime / VolatilityRegime 映射為 MarketCondition
+
         Returns:
-            MarketCondition 實例
+            MarketCondition 實例（無法取得資料時各欄位為 UNKNOWN）
         """
         try:
+            from ..market_regime import MarketRegimeDetector, MarketRegime, VolatilityRegime
 
-            # 需要整合: 波動率計算、趨勢識別、支撐阻力分析
-            
-            return MarketCondition(
-                condition="NORMAL",
-                volatility="MEDIUM",
-                trend="SIDEWAYS",
-                strength=0.5
+            url = (
+                f"{_BINANCE_FUTURES_API}/fapi/v1/klines"
+                "?symbol=BTCUSDT&interval=1h&limit=200"
             )
+            response = requests.get(
+                url,
+                timeout=self.request_timeout,
+                headers={"User-Agent": self.user_agent},
+            )
+            response.raise_for_status()
+            klines_raw = response.json()
+
+            if len(klines_raw) < 100:
+                raise ValueError(f"K 線資料不足（{len(klines_raw)} 根），需至少 100 根")
+
+            detector = MarketRegimeDetector()
+            for k in klines_raw:
+                detector.update_data(
+                    symbol="BTCUSDT",
+                    price=float(k[4]),   # close
+                    high=float(k[2]),    # high
+                    low=float(k[3]),     # low
+                    volume=float(k[5]),  # volume
+                )
+
+            analysis = detector.detect_regime("BTCUSDT")
+            if analysis is None:
+                raise ValueError("MarketRegimeDetector.detect_regime() 回傳 None")
+
+            condition = self._map_regime_to_condition(analysis.current_regime)
+            volatility = self._map_volatility_regime(analysis.volatility_regime)
+            trend = self._map_trend_direction(analysis.trend_direction)
+            strength = min(max(float(analysis.trend_score) / 100.0, 0.0), 1.0)
+
+            logger.info(
+                f"市場狀況分析完成: condition={condition}, "
+                f"volatility={volatility}, trend={trend}, strength={strength:.2f}"
+            )
+            return MarketCondition(
+                condition=condition,
+                volatility=volatility,
+                trend=trend,
+                strength=strength,
+            )
+
         except Exception as e:
             logger.error(f"市場狀況分析失敗: {e}")
             return MarketCondition(
                 condition="UNKNOWN",
                 volatility="UNKNOWN",
                 trend="UNKNOWN",
-                strength=0.0
+                strength=0.0,
             )
+
+    # ----------------------------------------
+    # 市場狀況輔助映射
+    # ----------------------------------------
+
+    def _map_regime_to_condition(self, regime: Any) -> str:
+        """將 MarketRegime 枚舉映射為 MarketCondition.condition 字串"""
+        regime_map: Dict[str, str] = {
+            "strong_uptrend":   "BULLISH",
+            "uptrend":          "BULLISH",
+            "weak_uptrend":     "MILD_BULLISH",
+            "sideways_range":   "NORMAL",
+            "weak_downtrend":   "MILD_BEARISH",
+            "downtrend":        "BEARISH",
+            "strong_downtrend": "BEARISH",
+            "high_volatility":  "HIGH_VOLATILITY",
+            "breakout":         "BREAKOUT",
+            "reversal":         "REVERSAL",
+        }
+        key = getattr(regime, "value", str(regime))
+        return regime_map.get(key, "NORMAL")
+
+    def _map_volatility_regime(self, vol_regime: Any) -> str:
+        """將 VolatilityRegime 枚舉映射為 MarketCondition.volatility 字串"""
+        vol_map: Dict[str, str] = {
+            "very_low": "LOW",
+            "low":      "LOW",
+            "normal":   "MEDIUM",
+            "high":     "HIGH",
+            "extreme":  "EXTREME",
+        }
+        key = getattr(vol_regime, "value", str(vol_regime))
+        return vol_map.get(key, "MEDIUM")
+
+    def _map_trend_direction(self, direction: int) -> str:
+        """將 trend_direction 整數（1 / 0 / -1）映射為趨勢字串"""
+        if direction > 0:
+            return "UP"
+        if direction < 0:
+            return "DOWN"
+        return "SIDEWAYS"
     
     # ========================================
     # 策略評估
@@ -68,30 +160,61 @@ class StrategyPlanner:
     
     def evaluate_strategy_performance(self) -> StrategyPerformance:
         """
-        評估各策略歷史表現
-        
+        評估各策略歷史表現。
+
+        優先嘗試從 StrategySelector 取得基於策略配置的績效資料。
+        若 StrategySelector 不可用或無回測資料，回傳 sample_size=0 的誠實空值，
+        不使用任何假數據。
+
         Returns:
             StrategyPerformance 實例
         """
         try:
-            # 需要整合: 歷史回測數據、勝率統計、盈虧比分析
-            
-            return StrategyPerformance(
-                best_strategy=self.default_strategy,
-                win_rate=65.5,
-                profit_factor=1.4,
-                max_drawdown=8.2,
-                sample_size=100
-            )
-        except Exception as e:
-            logger.error(f"策略表現評估失敗: {e}")
-            return StrategyPerformance(
-                best_strategy=self.default_strategy,
-                win_rate=50.0,
-                profit_factor=1.0,
-                max_drawdown=10.0,
-                sample_size=0
-            )
+            from ...strategies.selector.core import StrategySelector
+
+            selector = StrategySelector()
+            configs = selector.get_default_configs() if hasattr(selector, "get_default_configs") else {}
+
+            if configs:
+                # 選取 win_rate 最高的配置作為代表
+                best_name = self.default_strategy
+                best_wr = 0.0
+                best_pf = 0.0
+                best_dd = 0.0
+
+                for name, cfg in configs.items():
+                    wr = float(getattr(cfg, "expected_win_rate", 0.0) or 0.0)
+                    if wr > best_wr:
+                        best_wr = wr
+                        best_name = name
+                        best_pf = float(getattr(cfg, "expected_profit_factor", 0.0) or 0.0)
+                        best_dd = float(getattr(cfg, "max_drawdown_limit", 0.0) or 0.0)
+
+                if best_wr > 0.0:
+                    logger.info(
+                        f"策略績效來自 StrategySelector 配置: "
+                        f"{best_name} win_rate={best_wr:.1f}%"
+                    )
+                    return StrategyPerformance(
+                        best_strategy=best_name,
+                        win_rate=best_wr,
+                        profit_factor=best_pf,
+                        max_drawdown=best_dd,
+                        sample_size=0,   # 來自配置定義，非實測數據
+                    )
+
+        except (ImportError, AttributeError, TypeError, Exception) as e:
+            logger.warning(f"StrategySelector 不可用: {e}")
+
+        # 無任何績效資料：回傳誠實的零值（sample_size=0 表示無實測數據）
+        logger.info("無回測資料，以 StrategyFusion 為預設策略，績效指標尚無實測數據")
+        return StrategyPerformance(
+            best_strategy=self.default_strategy,
+            win_rate=0.0,
+            profit_factor=0.0,
+            max_drawdown=0.0,
+            sample_size=0,
+        )
     
     # ========================================
     # 策略匹配

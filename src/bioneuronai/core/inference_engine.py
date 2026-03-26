@@ -20,11 +20,10 @@ import numpy as np
 import logging
 import time
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Any, Union
-from dataclasses import dataclass, field
+from typing import Dict, List, Optional, Tuple, Any, cast
+from dataclasses import dataclass
 from enum import Enum
 from datetime import datetime, timezone
-import json
 
 logger = logging.getLogger(__name__)
 
@@ -217,7 +216,7 @@ class ModelLoader:
         self.models[model_name] = model
         self.active_model_name = model_name
         
-        return model
+        return cast(nn.Module, model)
     
     def get_model(self, model_name: Optional[str] = None) -> nn.Module:
         """"""
@@ -370,20 +369,20 @@ class FeaturePipeline:
         if self.feature_means is not None and self.feature_stds is not None:
             features = (features - self.feature_means) / (self.feature_stds + 1e-8)
         
-        return features
+        return cast(np.ndarray, features)
     
     def _extract_price_features(self, klines: List[Dict], current_price: float) -> np.ndarray:
         """"""
         features = np.zeros(128, dtype=np.float32)
         
         if not klines:
-            return features
+            return cast(np.ndarray, features)
         
         # 
         closes = np.array([float(k.get('close', k.get('c', 0))) for k in klines[-100:]])
         
         if len(closes) < 2:
-            return features
+            return cast(np.ndarray, features)
         
         #  ()
         for i, period in enumerate([1, 5, 15, 30, 60]):
@@ -392,8 +391,8 @@ class FeaturePipeline:
                 features[i] = change
         
         #  (0-1 )
-        price_min = np.min(closes)
-        price_max = np.max(closes)
+        price_min: float = float(np.min(closes))
+        price_max: float = float(np.max(closes))
         if price_max > price_min:
             features[10] = (current_price - price_min) / (price_max - price_min)
         
@@ -420,20 +419,20 @@ class FeaturePipeline:
             features[40] = (current_price - np.min(closes[-50:])) / current_price
             features[41] = (np.max(closes[-50:]) - current_price) / current_price
         
-        return features
+        return cast(np.ndarray, features)
     
     def _extract_volume_features(self, klines: List[Dict], volume_profile: Optional[Any]) -> np.ndarray:
         """"""
         features = np.zeros(128, dtype=np.float32)
         
         if not klines:
-            return features
+            return cast(np.ndarray, features)
         
         # 
         volumes = np.array([float(k.get('volume', k.get('v', 0))) for k in klines[-100:]])
         
         if len(volumes) < 2:
-            return features
+            return cast(np.ndarray, features)
         
         # 
         for i, period in enumerate([1, 5, 15, 30]):
@@ -462,14 +461,14 @@ class FeaturePipeline:
             features[53] = len(volume_profile.high_volume_nodes)
             features[54] = len(volume_profile.low_volume_nodes)
         
-        return features
+        return cast(np.ndarray, features)
     
     def _extract_orderbook_features(self, order_book: Optional[Any]) -> np.ndarray:
         """"""
         features = np.zeros(128, dtype=np.float32)
         
         if order_book is None:
-            return features
+            return cast(np.ndarray, features)
         
         # 
         features[0] = order_book.spread_percentage if hasattr(order_book, 'spread_percentage') else 0
@@ -485,14 +484,14 @@ class FeaturePipeline:
             for i, depth in enumerate([5, 10, 20]):
                 features[30 + i] = order_book.get_imbalance(depth)
         
-        return features
+        return cast(np.ndarray, features)
     
     def _extract_technical_features(self, klines: List[Dict]) -> np.ndarray:
         """"""
         features = np.zeros(256, dtype=np.float32)
         
         if not klines or len(klines) < 30:
-            return features
+            return cast(np.ndarray, features)
         
         closes = np.array([float(k.get('close', k.get('c', 0))) for k in klines])
         highs = np.array([float(k.get('high', k.get('h', 0))) for k in klines])
@@ -533,14 +532,14 @@ class FeaturePipeline:
                 ema = self._calculate_ema(closes, period)
                 features[50 + i] = (current - ema) / ema if ema > 0 else 0
         
-        return features
+        return cast(np.ndarray, features)
     
     def _extract_microstructure_features(self, microstructure: Optional[Any]) -> np.ndarray:
         """"""
         features = np.zeros(128, dtype=np.float32)
         
         if microstructure is None:
-            return features
+            return cast(np.ndarray, features)
         
         # 
         features[0] = microstructure.price_change_1m / 100 if hasattr(microstructure, 'price_change_1m') else 0
@@ -563,14 +562,14 @@ class FeaturePipeline:
         features[40] = microstructure.long_short_ratio if hasattr(microstructure, 'long_short_ratio') else 1.0
         features[41] = microstructure.taker_buy_sell_ratio if hasattr(microstructure, 'taker_buy_sell_ratio') else 1.0
         
-        return features
+        return cast(np.ndarray, features)
     
     def _extract_regime_features(self, regime_analysis: Optional[Any]) -> np.ndarray:
         """"""
         features = np.zeros(64, dtype=np.float32)
         
         if regime_analysis is None:
-            return features
+            return cast(np.ndarray, features)
         
         # One-hot 
         regime_map = {
@@ -594,7 +593,7 @@ class FeaturePipeline:
             strength_map = {"none": 0, "weak": 0.25, "moderate": 0.5, "strong": 0.75, "very_strong": 1.0}
             features[30] = strength_map.get(regime_analysis.trend_strength.value, 0)
         
-        return features
+        return cast(np.ndarray, features)
     
     def _extract_time_features(self) -> np.ndarray:
         """"""
@@ -628,14 +627,14 @@ class FeaturePipeline:
         features[16] = 1.0 if 7 <= now.hour < 15 else 0.0  # 
         features[17] = 1.0 if 13 <= now.hour < 22 else 0.0 # 
         
-        return features
+        return cast(np.ndarray, features)
     
     def _extract_sentiment_features(self, microstructure: Optional[Any]) -> np.ndarray:
         """"""
         features = np.zeros(64, dtype=np.float32)
         
         if microstructure is None:
-            return features
+            return cast(np.ndarray, features)
         
         # 
         if hasattr(microstructure, 'long_short_ratio'):
@@ -648,7 +647,7 @@ class FeaturePipeline:
         if hasattr(microstructure, 'order_book_imbalance'):
             features[10] = microstructure.order_book_imbalance
         
-        return features
+        return cast(np.ndarray, features)
     
     def _extract_liquidation_features(
         self, 
@@ -674,14 +673,14 @@ class FeaturePipeline:
             features[12] = np.log1p(liquidation_heatmap.total_long_liquidation_risk) / 25
             features[13] = np.log1p(liquidation_heatmap.total_short_liquidation_risk) / 25
         
-        return features
+        return cast(np.ndarray, features)
     
     def _extract_funding_features(self, microstructure: Optional[Any]) -> np.ndarray:
         """"""
         features = np.zeros(32, dtype=np.float32)
         
         if microstructure is None:
-            return features
+            return cast(np.ndarray, features)
         
         if hasattr(microstructure, 'funding_rate'):
             features[0] = microstructure.funding_rate * 100  # 
@@ -693,7 +692,7 @@ class FeaturePipeline:
             #  ()
             features[2] = microstructure.hours_to_funding / 8
         
-        return features
+        return cast(np.ndarray, features)
     
     # ==========  ==========
     
@@ -740,7 +739,7 @@ class FeaturePipeline:
     def _calculate_ema(self, prices: np.ndarray, period: int) -> float:
         """ EMA"""
         if len(prices) < period:
-            return prices[-1] if len(prices) > 0 else 0.0
+            return float(prices[-1]) if len(prices) > 0 else 0.0
         
         multiplier = 2 / (period + 1)
         ema = prices[-period]
@@ -748,7 +747,7 @@ class FeaturePipeline:
         for price in prices[-period+1:]:
             ema = (price * multiplier) + (ema * (1 - multiplier))
         
-        return ema
+        return float(ema)
     
     def _calculate_bollinger_bands(
         self, 
@@ -915,7 +914,7 @@ class SignalInterpreter:
         confidence_logits = model_output[self.OUTPUT_CONFIG["confidence_logits"][0]:
                                          self.OUTPUT_CONFIG["confidence_logits"][1]]
         confidence_probs = self._softmax(confidence_logits)
-        raw_confidence = np.sum(confidence_probs * np.array([0.3, 0.6, 0.9]))
+        raw_confidence: float = float(np.sum(confidence_probs * np.array([0.3, 0.6, 0.9])))
         
         # 
         final_confidence = direction_confidence * raw_confidence
@@ -938,13 +937,13 @@ class SignalInterpreter:
         
         # 
         position_raw = model_output[self.OUTPUT_CONFIG["position_size"][0]]
-        suggested_position = self._sigmoid(position_raw) * 0.1  #  10% 
+        suggested_position = self._sigmoid(float(position_raw)) * 0.1  #  10% 
         
         # 
         sl_raw = model_output[self.OUTPUT_CONFIG["stop_loss_pct"][0]]
         tp_raw = model_output[self.OUTPUT_CONFIG["take_profit_pct"][0]]
-        stop_loss_pct = self._sigmoid(sl_raw) * 0.05  #  5% 
-        take_profit_pct = self._sigmoid(tp_raw) * 0.10  #  10% 
+        stop_loss_pct = self._sigmoid(float(sl_raw)) * 0.05  #  5% 
+        take_profit_pct = self._sigmoid(float(tp_raw)) * 0.10  #  10% 
         
         # 
         if signal_type in [SignalType.STRONG_LONG, SignalType.LONG, SignalType.WEAK_LONG]:
@@ -1065,12 +1064,12 @@ class SignalInterpreter:
     def _softmax(x: np.ndarray) -> np.ndarray:
         """Softmax """
         exp_x = np.exp(x - np.max(x))
-        return exp_x / exp_x.sum()
+        return cast(np.ndarray, exp_x / exp_x.sum())
     
     @staticmethod
     def _sigmoid(x: float) -> float:
         """Sigmoid """
-        return 1 / (1 + np.exp(-np.clip(x, -500, 500)))
+        return float(1 / (1 + np.exp(-np.clip(x, -500, 500))))
 
 
 # ============================================================================

@@ -16,7 +16,7 @@ from decimal import Decimal
 from typing import Any, Optional
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, Field, computed_field, field_validator
+from pydantic import BaseModel, Field, computed_field
 
 from .enums import (
     TradeEventType,
@@ -25,14 +25,6 @@ from .enums import (
     OrderStatus,
     PositionType,
     RiskLevel,
-)
-from .types import (
-    BinanceSymbol,
-    Price,
-    Quantity,
-    PnL,
-    Timestamp,
-    JsonDict,
 )
 
 # 常量定義 - 避免重複字符串

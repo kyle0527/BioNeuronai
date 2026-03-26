@@ -8,7 +8,7 @@ BioNeuronai 交易信號模型
 """
 
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Any
 
 from pydantic import BaseModel, Field, computed_field, field_validator, model_validator
 
@@ -31,24 +31,24 @@ class TradingSignal(BaseModel):
     timestamp: datetime = Field(default_factory=datetime.now, description="信號生成時間")
     
     # 價格相關
-    entry_price: Optional[float] = Field(None, gt=0, description="建議進場價格")
-    target_price: Optional[float] = Field(None, gt=0, description="目標價格")
-    stop_loss: Optional[float] = Field(None, gt=0, description="止損價格")
-    take_profit: Optional[float] = Field(None, gt=0, description="止盈價格")
+    entry_price: Optional[float] = Field(default=None, gt=0, description="建議進場價格")
+    target_price: Optional[float] = Field(default=None, gt=0, description="目標價格")
+    stop_loss: Optional[float] = Field(default=None, gt=0, description="止損價格")
+    take_profit: Optional[float] = Field(default=None, gt=0, description="止盈價格")
     
     # 風險管理
     risk_level: RiskLevel = Field(default=RiskLevel.MEDIUM, description="風險等級")
-    position_size: Optional[float] = Field(None, gt=0, le=1, description="建議倉位大小 (0-1)")
+    position_size: Optional[float] = Field(default=None, gt=0, le=1, description="建議倉位大小 (0-1)")
     
     # 策略相關
-    strategy_name: Optional[str] = Field(None, description="生成信號的策略名稱")
-    reason: Optional[str] = Field(None, description="信號產生原因")
+    strategy_name: Optional[str] = Field(default=None, description="生成信號的策略名稱")
+    reason: Optional[str] = Field(default=None, description="信號產生原因")
     
     # 技術指標依據
-    indicators: Optional[dict] = Field(None, description="相關技術指標數據")
+    indicators: Optional[dict[str, Any]] = Field(default=None, description="相關技術指標數據")
     
     # 元數據
-    metadata: Optional[dict] = Field(None, description="額外元數據")
+    metadata: Optional[dict[str, Any]] = Field(default=None, description="額外元數據")
     
     @computed_field
     @property

@@ -4,7 +4,7 @@
 """
 
 
-from typing import List, Dict, Tuple, Optional
+from typing import List, Dict, Tuple, Optional, Deque
 from datetime import datetime
 import numpy as np
 from collections import deque
@@ -65,8 +65,8 @@ class Strategy1_RSI_Divergence:
         self.rsi_period = rsi_period
         self.overbought = overbought
         self.oversold = oversold
-        self.price_history = deque(maxlen=100)
-        self.rsi_history = deque(maxlen=100)
+        self.price_history: Deque[float] = deque(maxlen=100)
+        self.rsi_history: Deque[float] = deque(maxlen=100)
         
     def calculate_rsi(self, prices: List[float]) -> float:
         """
@@ -272,8 +272,8 @@ class Strategy2_Bollinger_Bands_Breakout:
     def __init__(self, period: int = 20, std_dev: float = 2.0):
         self.period = period
         self.std_dev = std_dev
-        self.price_history = deque(maxlen=100)
-        self.volume_history = deque(maxlen=100)
+        self.price_history: Deque[float] = deque(maxlen=100)
+        self.volume_history: Deque[float] = deque(maxlen=100)
         
     def calculate_bollinger_bands(self, prices: List[float]) -> Tuple[float, float, float]:
         """
@@ -487,9 +487,9 @@ class Strategy3_MACD_Trend_Following:
         self.fast_period = fast_period
         self.slow_period = slow_period
         self.signal_period = signal_period
-        self.price_history = deque(maxlen=100)
-        self.macd_history = deque(maxlen=50)
-        self.signal_history = deque(maxlen=50)
+        self.price_history: Deque[float] = deque(maxlen=100)
+        self.macd_history: Deque[float] = deque(maxlen=50)
+        self.signal_history: Deque[float] = deque(maxlen=50)
         
     def calculate_ema(self, prices: List[float], period: int) -> float:
         """"""

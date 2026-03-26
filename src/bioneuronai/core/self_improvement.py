@@ -31,23 +31,22 @@ AI 自我進化系統 - 基因演算法養蠱場 (Evolutionary Battle Royale Sys
 - 實盤只使用存活者
 """
 
-import torch
 import json
 import random
 import copy
 import numpy as np
 from pathlib import Path
-from datetime import datetime, timedelta
-from typing import List, Dict, Optional, Tuple, Any, Union, Callable
+from datetime import datetime
+from typing import List, Dict, Optional, Tuple, Any, Callable, cast
 from dataclasses import dataclass, asdict, field
 from enum import Enum
-import hashlib
 import logging
 
 logger = logging.getLogger(__name__)
 
 # 常量定義
 DEFAULT_EVOLUTION_DIR = "./evolution_data"
+JsonDict = Dict[str, Any]
 
 
 # ============================================================================
@@ -134,9 +133,6 @@ class BacktestResult:
     max_drawdown: float
     total_trades: int
     fitness_score: float
-    tested_at: datetime = field(default_factory=datetime.now)
-
-
     tested_at: datetime = field(default_factory=datetime.now)
 
 
@@ -588,7 +584,7 @@ class PopulationManager:
         
         logger.info("🎮 族群管理器初始化完成")
     
-    def run_daily_evolution(self, market_data: Any, days: int = 30):
+    def run_daily_evolution(self, market_data: Any, days: int = 30) -> JsonDict:
         """
         每日演化任務
         
@@ -616,8 +612,8 @@ class PopulationManager:
         ma_slow = sum(closes[-gene.ma_slow:]) / gene.ma_slow
         
         # RSI
-        gains = []
-        losses = []
+        gains: list[float] = []
+        losses: list[float] = []
         for i in range(1, min(gene.rsi_period + 1, len(closes))):
             change = closes[-i] - closes[-(i+1)]
             if change > 0:
@@ -634,12 +630,26 @@ class PopulationManager:
         
         return {"ma_fast": ma_fast, "ma_slow": ma_slow, "rsi": rsi}
     
-    def _get_position(self, connector: Any, symbol: str) -> Optional[Dict]:
+    def _get_position(self, connector: Any, symbol: str) -> Optional[JsonDict]:
         """獲取指定交易對的持倉"""
-        account = connector.get_account_info()
-        for p in account["positions"]:
-            if p["symbol"] == symbol and abs(p["positionAmt"]) > 0:
-                return p
+        account = cast(JsonDict, connector.get_account_info())
+        positions = account.get("positions", [])
+        if not isinstance(positions, list):
+            return None
+
+        for position in positions:
+            if not isinstance(position, dict):
+                continue
+
+            position_data = cast(JsonDict, position)
+            if position_data.get("symbol") != symbol:
+                continue
+
+            try:
+                if abs(float(position_data.get("positionAmt", 0))) > 0:
+                    return position_data
+            except (TypeError, ValueError):
+                continue
         return None
     
     def _generate_signal(self, gene: StrategyGene, indicators: Dict[str, float]) -> Optional[str]:
@@ -834,9 +844,9 @@ class SelfImprovementSystem:
         """初始化策略族群"""
         self.evolution_engine.initialize_population(strategy_types)
     
-    def evolve_once(self, market_data: Any) -> Dict:
+    def evolve_once(self, market_data: Any) -> JsonDict:
         """執行一次演化"""
-        return self.population_manager.run_daily_evolution(market_data)
+        return cast(JsonDict, self.population_manager.run_daily_evolution(market_data))
     
     def get_best_strategies(self, top_n: int = 10) -> List[StrategyGene]:
         """獲取最優策略"""

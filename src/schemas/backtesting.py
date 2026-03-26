@@ -17,14 +17,13 @@ from decimal import Decimal
 from typing import Any, Optional
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, Field, field_validator, model_validator, computed_field
+from pydantic import BaseModel, Field, field_validator, computed_field
 
 from .enums import (
     BacktestStatus,
     TimeFrame,
     OrderSide,
     PositionType,
-    RiskLevel,
     StrategyType,
 )
 

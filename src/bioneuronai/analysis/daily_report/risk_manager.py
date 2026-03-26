@@ -9,29 +9,43 @@
 
 # 1. 標準庫
 import logging
-from typing import Dict, List, Any
+import requests
+from typing import Any, Dict, List, Optional, cast
 
 # 2. 本地模組
 from .models import RiskParameters, TradingPairsPriority, MarketCondition
 
 logger = logging.getLogger(__name__)
 
+# Binance Futures 公開 REST API（無需 API Key）
+_BINANCE_FUTURES_API = "https://fapi.binance.com"
+
+# 主流 USDT 永續合約（用於優先級排序）
+_MAJOR_SYMBOLS = {
+    "BTCUSDT", "ETHUSDT", "BNBUSDT", "SOLUSDT", "XRPUSDT",
+    "ADAUSDT", "DOGEUSDT", "AVAXUSDT", "DOTUSDT", "LINKUSDT",
+}
+
 
 class RiskManager:
     """
     風險管理器
-    
+
     功能：
-    1. 帳戶資金分析
+    1. 帳戶資金分析（需 Binance connector）
     2. 計算基礎風險參數
     3. 根據波動率調整風險
     4. 配置持倉管理規則
     5. 計算交易頻率限制
-    6. 交易對篩選與優先級排序
+    6. 交易對篩選與優先級排序（Binance 公開 API）
     """
-    
-    def __init__(self):
-        self.default_risk = {
+
+    def __init__(self, connector: Any = None) -> None:
+        # connector: BinanceFuturesConnector instance（可選，用於取得帳戶資料）
+        self.connector = connector
+        self.request_timeout: int = 10
+        self.user_agent: str = "Mozilla/5.0"
+        self.default_risk: Dict[str, Any] = {
             "single_trade": 1.0,  # 1%
             "daily_limit": 3.0,   # 3%
             "max_positions": 1
@@ -43,29 +57,75 @@ class RiskManager:
     
     def analyze_account_funds(self) -> Dict[str, Any]:
         """
-        分析帳戶資金狀況
-        
+        分析帳戶資金狀況。
+
+        使用 Binance /fapi/v2/account（需要已設定 API Key 的 connector）。
+        若無有效連線，回傳錯誤狀態而非假數據。
+
         Returns:
-            帳戶分析結果
+            帳戶分析結果，含 available / total / in_use / risk_tolerance /
+            max_position_size / leverage / error
         """
         try:
-            # 需要整合真實的帳戶查詢 API
-            # 從交易所獲取真實帳戶餘額、可用資金、凍結資金
-            
+            if self.connector and getattr(self.connector, "api_key", ""):
+                account = self.connector.get_account_info()
+                if account:
+                    total = float(account.get("totalWalletBalance", 0.0))
+                    available = float(account.get("availableBalance", 0.0))
+                    in_use = total - available
+                    unrealized_pnl = float(account.get("totalUnrealizedProfit", 0.0))
+
+                    # 根據可用餘額決定風險承受度
+                    if available < 500:
+                        risk_tolerance = "LOW"
+                    elif available < 5000:
+                        risk_tolerance = "MEDIUM"
+                    else:
+                        risk_tolerance = "HIGH"
+
+                    # 單筆最大倉位：可用餘額的 10%
+                    max_position_size = available * 0.1
+
+                    logger.info(
+                        f"帳戶資金: 可用=${available:.2f}, 總計=${total:.2f}, "
+                        f"未實現盈虧=${unrealized_pnl:.2f}, 風險承受度={risk_tolerance}"
+                    )
+                    return {
+                        "available": available,
+                        "total": total,
+                        "in_use": in_use,
+                        "unrealized_pnl": unrealized_pnl,
+                        "risk_tolerance": risk_tolerance,
+                        "max_position_size": max_position_size,
+                        "leverage": 1.0,
+                        "error": None,
+                    }
+
+            # 無有效連線：回傳明確錯誤狀態，不使用假數據
+            msg = "無 Binance API 連線，請設定 BINANCE_API_KEY / BINANCE_API_SECRET"
+            logger.warning(f"帳戶資金分析：{msg}")
             return {
-                "available": 5000.0,
-                "total": 5500.0,
-                "in_use": 500.0,
-                "risk_tolerance": "MEDIUM",
-                "max_position_size": 500.0,
-                "leverage": 1.0
+                "available": 0.0,
+                "total": 0.0,
+                "in_use": 0.0,
+                "unrealized_pnl": 0.0,
+                "risk_tolerance": "LOW",
+                "max_position_size": 0.0,
+                "leverage": 1.0,
+                "error": msg,
             }
+
         except Exception as e:
             logger.error(f"帳戶資金分析失敗: {e}")
             return {
                 "available": 0.0,
+                "total": 0.0,
+                "in_use": 0.0,
+                "unrealized_pnl": 0.0,
                 "risk_tolerance": "LOW",
-                "max_position_size": 0.0
+                "max_position_size": 0.0,
+                "leverage": 1.0,
+                "error": str(e),
             }
     
     # ========================================
@@ -104,7 +164,7 @@ class RiskManager:
                 }
             }
             
-            return risk_profiles.get(risk_tolerance, self.default_risk)
+            return cast(Dict[str, Any], risk_profiles.get(risk_tolerance, self.default_risk))
             
         except Exception as e:
             logger.error(f"基礎風險參數計算失敗: {e}")
@@ -254,60 +314,146 @@ class RiskManager:
     
     def scan_available_trading_pairs(self) -> Dict[str, Any]:
         """
-        掃描所有可用交易對
-        
+        從 Binance 掃描所有可用的 USDT 永續合約。
+
+        端點：GET /fapi/v1/exchangeInfo（公開，無需 API Key）
+        過濾條件：contractType == PERPETUAL，status == TRADING，quoteAsset == USDT
+
         Returns:
             分類的交易對列表
         """
         try:
-            # 需要整合真實的交易所 API
-            # 從 Binance 獲取所有可用交易對及其狀態
-            
+            url = f"{_BINANCE_FUTURES_API}/fapi/v1/exchangeInfo"
+            response = requests.get(
+                url,
+                timeout=self.request_timeout,
+                headers={"User-Agent": self.user_agent},
+            )
+            response.raise_for_status()
+            data = response.json()
+
+            all_pairs: List[str] = []
+            for sym in data.get("symbols", []):
+                if (
+                    sym.get("contractType") == "PERPETUAL"
+                    and sym.get("status") == "TRADING"
+                    and sym.get("quoteAsset") == "USDT"
+                ):
+                    all_pairs.append(sym["symbol"])
+
+            major = [p for p in all_pairs if p in _MAJOR_SYMBOLS]
+            altcoins = [p for p in all_pairs if p not in _MAJOR_SYMBOLS]
+
+            logger.info(
+                f"交易對掃描完成：共 {len(all_pairs)} 個 USDT 永續合約"
+                f"（主流 {len(major)}，山寨 {len(altcoins)}）"
+            )
             return {
-                "all": ["BTCUSDT", "ETHUSDT", "ADAUSDT", "DOTUSDT", "LINKUSDT"],
-                "major": ["BTCUSDT", "ETHUSDT"],
-                "altcoins": ["ADAUSDT", "DOTUSDT", "LINKUSDT"],
-                "total_count": 5
+                "all": all_pairs,
+                "major": major,
+                "altcoins": altcoins,
+                "total_count": len(all_pairs),
+                "error": None,
             }
+
         except Exception as e:
             logger.error(f"交易對掃描失敗: {e}")
             return {
-                "all": ["BTCUSDT"],
-                "major": ["BTCUSDT"],
-                "altcoins": []
+                "all": [],
+                "major": [],
+                "altcoins": [],
+                "total_count": 0,
+                "error": str(e),
             }
     
     def analyze_liquidity_metrics(self, available_pairs: Dict) -> Dict[str, Any]:
         """
-        分析流動性指標
-        
+        從 Binance 取得 24 小時成交量並分析流動性。
+
+        端點：GET /fapi/v1/ticker/24hr（公開，無需 API Key）
+        分級標準（以 USDT 計價日成交量）：
+          高流動性：≥ 10 億 USDT
+          中流動性：≥ 1 億 USDT
+          低流動性：< 1 億 USDT
+
         Args:
-            available_pairs: 可用交易對
-        
+            available_pairs: scan_available_trading_pairs() 的回傳值
+
         Returns:
             流動性分析結果
         """
         try:
-            # 需要整合真實的流動性分析
-            # 計算: 24h交易量、買賣價差、訂單簿深度
-            
-            all_pairs = available_pairs.get("all", [])
-            
-            # 簡化版：假設主流幣流動性高
-            high_liquidity = [p for p in all_pairs if p in ["BTCUSDT", "ETHUSDT", "BNBUSDT"]]
-            
+            url = f"{_BINANCE_FUTURES_API}/fapi/v1/ticker/24hr"
+            response = requests.get(
+                url,
+                timeout=self.request_timeout,
+                headers={"User-Agent": self.user_agent},
+            )
+            response.raise_for_status()
+            tickers = response.json()
+
+            # 建立成交量與價差映射
+            volume_map: Dict[str, float] = {}
+            spread_map: Dict[str, float] = {}
+            for t in tickers:
+                sym: str = t.get("symbol", "")
+                if not sym.endswith("USDT"):
+                    continue
+                quote_vol = float(t.get("quoteVolume", 0.0))
+                high_price = float(t.get("highPrice", 0.0))
+                low_price = float(t.get("lowPrice", 0.0))
+                spread_pct = (
+                    (high_price - low_price) / low_price * 100
+                    if low_price > 0 else 0.0
+                )
+                volume_map[sym] = quote_vol
+                spread_map[sym] = round(spread_pct, 4)
+
+            # 依照 available_pairs 的清單分類流動性
+            all_pairs: List[str] = available_pairs.get("all", list(volume_map.keys()))
+            high_liq: List[str] = []
+            medium_liq: List[str] = []
+            low_liq: List[str] = []
+
+            for sym in all_pairs:
+                vol = volume_map.get(sym, 0.0)
+                if vol >= 1_000_000_000:     # ≥ 10 億 USDT/天
+                    high_liq.append(sym)
+                elif vol >= 100_000_000:     # ≥ 1 億 USDT/天
+                    medium_liq.append(sym)
+                else:
+                    low_liq.append(sym)
+
+            # 按成交量由大到小排序
+            high_liq.sort(key=lambda s: volume_map.get(s, 0.0), reverse=True)
+            medium_liq.sort(key=lambda s: volume_map.get(s, 0.0), reverse=True)
+
+            avg_spread = (
+                sum(spread_map.values()) / len(spread_map) if spread_map else 0.0
+            )
+
+            logger.info(
+                f"流動性分析完成：高={len(high_liq)}, 中={len(medium_liq)}, 低={len(low_liq)}"
+                f"，平均波幅={avg_spread:.4f}%"
+            )
             return {
-                "high_liquidity": high_liquidity,
-                "medium_liquidity": [p for p in all_pairs if p not in high_liquidity],
-                "low_liquidity": [],
-                "avg_spread": 0.01,  # 0.01%
-                "volume_24h": dict.fromkeys(high_liquidity, 1000000)
+                "high_liquidity": high_liq,
+                "medium_liquidity": medium_liq,
+                "low_liquidity": low_liq,
+                "avg_spread": round(avg_spread, 4),
+                "volume_24h": volume_map,
+                "error": None,
             }
+
         except Exception as e:
             logger.error(f"流動性分析失敗: {e}")
             return {
-                "high_liquidity": ["BTCUSDT"],
-                "avg_spread": 0.02
+                "high_liquidity": [],
+                "medium_liquidity": [],
+                "low_liquidity": [],
+                "avg_spread": 0.0,
+                "volume_24h": {},
+                "error": str(e),
             }
     
     def check_volatility_compatibility(

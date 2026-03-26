@@ -7,18 +7,16 @@ BioNeuronai 警報系統 Schema
 最後更新: 2026-02-14
 """
 
-from datetime import datetime, timedelta
-from decimal import Decimal
+from datetime import datetime
 from typing import Any, Literal, Optional
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, model_validator
 
 from .enums import (
     AlertSeverity,
     AlertType,
     NotificationChannel,
-    OrderSide,
 )
 
 

@@ -2,7 +2,7 @@
 
 """
 
-from .trading_config import *
+from .trading_config import *  # noqa: F403
 from .trading_costs import (
     TradingCostCalculator,
     STANDARD_FEES,

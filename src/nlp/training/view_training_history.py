@@ -6,7 +6,6 @@
 
 import json
 from pathlib import Path
-from datetime import datetime
 import sys
 
 
@@ -61,21 +60,21 @@ def print_detailed_history(log):
         print(f"📅 日期時間: {record['date']}")
         print(f"⏱️  訓練時長: {format_duration(record['duration_seconds'])}")
         
-        print(f"\n📊 數據配置:")
+        print("\n📊 數據配置:")
         print(f"   • 樣本數: {record['num_samples']}")
         print(f"   • 訓練輪數: {record['epochs']}")
         print(f"   • 批次大小: {record['batch_size']}")
         print(f"   • 學習率: {record['learning_rate']}")
         print(f"   • 最大長度: {record['max_length']}")
         
-        print(f"\n📈 訓練效果:")
+        print("\n📈 訓練效果:")
         print(f"   • 初始損失: {record['initial_loss']:.4f}")
         print(f"   • 最終損失: {record['final_loss']:.4f}")
         print(f"   • 損失下降: {(1 - record['final_loss']/record['initial_loss'])*100:.1f}%")
         print(f"   • 初始困惑度: {record['initial_perplexity']:.2f}")
         print(f"   • 最終困惑度: {record['final_perplexity']:.2f}")
         
-        print(f"\n💾 模型位置:")
+        print("\n💾 模型位置:")
         print(f"   {record['model_path']}")
         
         if i < len(log["training_history"]):
@@ -85,7 +84,7 @@ def print_detailed_history(log):
                 loss_change = record['final_loss'] - prev['final_loss']
                 perp_change = record['final_perplexity'] - prev['final_perplexity']
                 
-                print(f"\n📊 與上次比較:")
+                print("\n📊 與上次比較:")
                 if loss_change < 0:
                     print(f"   • 損失改善: {abs(loss_change):.4f} ⬇️")
                 else:

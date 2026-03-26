@@ -5,8 +5,7 @@ BioNeuronai API通信模型
 """
 
 from datetime import datetime
-from typing import Optional, Dict, Any, Union
-from decimal import Decimal
+from typing import Optional, Dict, Any
 
 from pydantic import BaseModel, Field
 

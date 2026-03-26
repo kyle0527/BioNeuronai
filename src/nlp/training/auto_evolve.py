@@ -27,7 +27,7 @@ class EvolutionDataset(Dataset):
     def __init__(self, evolution_data_file: str, tokenizer: BilingualTokenizer, max_length: int = 128):
         self.tokenizer = tokenizer
         self.max_length = max_length
-        self.data = []
+        self.data: list[str] = []
         
         # 載入進化數據
         with open(evolution_data_file, 'r', encoding='utf-8') as f:
@@ -141,7 +141,7 @@ def auto_evolve_training(
     avg_loss = 0.0  # 初始化以避免未綁定錯誤
     
     for epoch in range(num_epochs):
-        total_loss = 0
+        total_loss = 0.0
         progress_bar = tqdm(dataloader, desc=f"Epoch {epoch+1}/{num_epochs}")
         
         for batch_idx, (input_ids, labels) in enumerate(progress_bar):

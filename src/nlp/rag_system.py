@@ -35,16 +35,16 @@ warnings.warn(
     stacklevel=2
 )
 
-import torch
-import torch.nn as nn
-import numpy as np
-from pathlib import Path
-from typing import List, Dict, Optional, Tuple, Union
-from dataclasses import dataclass, asdict
-import json
-import pickle
-from datetime import datetime
-import hashlib
+import hashlib  # noqa: E402
+import json  # noqa: E402
+from dataclasses import dataclass  # noqa: E402
+from datetime import datetime  # noqa: E402
+from pathlib import Path  # noqa: E402
+from typing import Any, Dict, List, Optional, Tuple, Union, cast  # noqa: E402
+
+import numpy as np  # noqa: E402
+import torch  # noqa: E402
+import torch.nn as nn  # noqa: E402
 
 
 @dataclass
@@ -277,7 +277,7 @@ class RAGSystem:
         with torch.no_grad():
             embedding = self.embedding_model(input_ids)
         
-        return embedding.cpu().numpy()[0]
+        return cast(np.ndarray, embedding.cpu().numpy()[0])
     
     def add_documents(
         self,
@@ -424,8 +424,8 @@ class RAGSystem:
         print(f"✅ 找到 {len(retrieval_results)} 個相關文檔")
         
         if show_sources:
-            for result in retrieval_results:
-                print(f"   [{result.rank}] 相似度: {result.score:.3f} | {result.document.text[:80]}...")
+            for retrieval_result in retrieval_results:
+                print(f"   [{retrieval_result.rank}] 相似度: {retrieval_result.score:.3f} | {retrieval_result.document.text[:80]}...")
         
         # 2. 生成回答
         print("\n🤖 生成回答...")
@@ -439,7 +439,7 @@ class RAGSystem:
         print(f"\n💡 回答：{answer}")
         
         # 構建結果
-        result = {
+        response: Dict[str, Any] = {
             'question': question,
             'answer': answer,
             'sources': [
@@ -454,7 +454,7 @@ class RAGSystem:
             'timestamp': datetime.now().isoformat()
         }
         
-        return result
+        return response
     
     def save_knowledge_base(self, save_path: Union[str, Path]):
         """保存知識庫"""

@@ -5,6 +5,8 @@ Per-Trade Pre-Execution Checklist Automation
 根據 CRYPTO_TRADING_SOP.md 自動執行 1.2 單筆交易前檢查
 """
 
+from __future__ import annotations
+
 import json
 import logging
 from datetime import datetime
@@ -130,9 +132,9 @@ class PreTradeCheckSystem:
     def _import_modules(self) -> None:
         """導入所需模組"""
         try:
-            from .. import CryptoFuturesTrader, TradingSignal
-            from ..analysis import CryptoNewsAnalyzer
-            from ..trading_strategies import StrategyFusion
+            from .. import CryptoFuturesTrader, TradingSignal  # noqa: F401
+            from ..analysis import CryptoNewsAnalyzer  # noqa: F401
+            from ..trading_strategies import StrategyFusion  # noqa: F401
             self.modules_available = True
             logger.info("[OK] 交易模組導入成功")
         except ImportError as e:
@@ -314,7 +316,7 @@ class PreTradeCheckSystem:
         
         if stop_price == 0:
             return self._get_default_stop_loss(entry_price, is_buy)
-        return stop_price
+        return float(stop_price)
     
     def _calculate_take_profit(
         self, entry_price: float, price_diff: float, is_buy: bool
@@ -411,7 +413,7 @@ class PreTradeCheckSystem:
             params.order_type = "LIMIT"  # 預設限價單
             params.entry_price = risk_calc.entry_price
             params.quantity = risk_calc.position_size
-            params.leverage = min(5, self.default_risk_params['max_leverage'])  # 保守槓桿
+            params.leverage = int(min(5, self.default_risk_params['max_leverage']))  # 保守槓桿
             
             logger.info(f"     ✓ 訂單類型: {params.order_type}")
             logger.info(f"     ✓ 入場價格: ${params.entry_price:.2f}")
@@ -614,12 +616,12 @@ class PreTradeCheckSystem:
     def _analyze_macd(self, data: Dict) -> str:
         """分析MACD信號"""
         macd_data = data.get("macd", {})
-        return macd_data.get("signal", "NEUTRAL")
+        return str(macd_data.get("signal", "NEUTRAL"))
     
     def _analyze_bollinger(self, data: Dict) -> str:
         """分析布林帶位置"""
         bollinger = data.get("bollinger", {})
-        return bollinger.get("position", "MIDDLE")
+        return str(bollinger.get("position", "MIDDLE"))
     
     def _calculate_signal_strength(self, check: TechnicalSignalCheck, action: str) -> Tuple[float, int]:
         """計算信號強度"""
@@ -960,7 +962,7 @@ class PreTradeCheckSystem:
         """評估整體交易準備度"""
         
         # 評分系統
-        score = 0
+        score = 0.0
         max_score = 5
         
         # 技術分析評分

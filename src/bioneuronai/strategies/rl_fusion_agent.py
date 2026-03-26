@@ -31,15 +31,11 @@
 
 import gymnasium as gym
 import numpy as np
-import torch
-import torch.nn as nn
 from gymnasium import spaces
-from typing import Dict, List, Optional, Any, Tuple, TYPE_CHECKING
-from dataclasses import dataclass, field
-from datetime import datetime
+from typing import Dict, List, Optional, Any, TYPE_CHECKING, cast
+from dataclasses import dataclass
 from pathlib import Path
 import logging
-import json
 
 if TYPE_CHECKING:
     from stable_baselines3 import PPO
@@ -280,7 +276,7 @@ class StrategyFusionEnv(gym.Env):
         # 3. 當前倉位
         obs.extend([float(self.position_type), self.position_size])
         
-        return np.array(obs, dtype=np.float32)
+        return cast(np.ndarray, np.array(obs, dtype=np.float32))
     
     def _calculate_reward(self, action_type: int, position_size: float) -> float:
         """計算獎勵"""
@@ -393,7 +389,7 @@ class RLMetaAgent:
         self._initialize_model()
         
         # 訓練記錄
-        self.training_history = []
+        self.training_history: List[Dict[str, float]] = []
         
         logger.info(f"🤖 RL Meta-Agent 初始化: 策略數={num_strategies}, 訓練模式={training_mode}")
     
@@ -531,6 +527,8 @@ class RLMetaAgent:
             market_state.volume_ratio,
             market_state.news_sentiment,
             market_state.time_of_day,
+            market_state.news_duration_hours,
+            float(market_state.related_news_count),
         ])
         
         # 當前倉位
@@ -542,7 +540,7 @@ class RLMetaAgent:
         
         obs.extend([float(pos_type), pos_size])
         
-        return np.array(obs, dtype=np.float32)
+        return cast(np.ndarray, np.array(obs, dtype=np.float32))
     
     def save_model(self, filename: str = "ppo_strategy_fusion"):
         """保存模型"""

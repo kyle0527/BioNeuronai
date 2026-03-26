@@ -31,12 +31,24 @@ BioNeuronai - 統一入口點
 import sys
 from pathlib import Path
 
+# 修正 Windows cp950 終端亂碼：強制 stdout/stderr 使用 UTF-8
+if hasattr(sys.stdout, "reconfigure"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+if hasattr(sys.stderr, "reconfigure"):
+    try:
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 # 確保 src/ 在路徑中，讓 bioneuronai 套件可以被找到
 _SRC = Path(__file__).parent / "src"
 if str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))
 
-from bioneuronai.cli.main import cli_main
+from bioneuronai.cli.main import cli_main  # noqa: E402
 
 if __name__ == "__main__":
     cli_main()

@@ -16,7 +16,7 @@
 參考文檔: docs/TRADING_PLAN_10_STEPS.md
 """
 
-from typing import Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, cast
 from datetime import datetime
 import logging
 import asyncio
@@ -26,13 +26,15 @@ from .market_analyzer import MarketAnalyzer
 from .risk_manager import RiskManager
 
 # 導入事件評估器 (Step 4 神經接通)
+_imported_get_rule_evaluator: Optional[Callable[[], Any]]
 try:
-    from ..analysis.news import get_rule_evaluator, RuleBasedEvaluator
-    from ..strategies.strategy_fusion import EventContext
+    from ..analysis.news import get_rule_evaluator as _imported_get_rule_evaluator, RuleBasedEvaluator
     EVENT_SYSTEM_AVAILABLE = True
 except ImportError:
     EVENT_SYSTEM_AVAILABLE = False
-    get_rule_evaluator = None
+    _imported_get_rule_evaluator = None
+
+get_rule_evaluator = cast(Optional[Callable[[], Any]], _imported_get_rule_evaluator)
 
 # 導入策略選擇器與交易對選擇器 (Step 5/6/9)
 try:
@@ -55,7 +57,7 @@ class TradingPlanController:
     
     def __init__(self):
         self.name = "TradingPlanController" 
-        self.active_plans = {}
+        self.active_plans: Dict[str, Dict[str, Any]] = {}
         
         # 初始化分析模組
         self.market_analyzer = MarketAnalyzer()
@@ -82,7 +84,7 @@ class TradingPlanController:
                 logger.warning(f"⚠️ 選擇器初始化失敗: {e}")
         
         # 10步驟配置
-        self.steps = {
+        self.steps: Dict[int, Dict[str, str]] = {
             1: {"name": "系統環境檢查", "status": "PENDING", "module": "system"},
             2: {"name": "宏觀市場掃描", "status": "PENDING", "module": "market"},
             3: {"name": "技術面分析", "status": "PENDING", "module": "technical"},
@@ -113,7 +115,7 @@ class TradingPlanController:
         logger.info("="*70)
         
         plan_id = f"plan_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-        plan = {
+        plan: Dict[str, Any] = {
             "id": plan_id,
             "created_at": datetime.now().isoformat(),
             "status": "IN_PROGRESS",
@@ -278,7 +280,7 @@ class TradingPlanController:
             }
         
         try:
-            result = await handler()
+            result = cast(Dict[str, Any], await handler())  # type: ignore[operator]
             result["step"] = step_num
             result["name"] = step_name
             result["status"] = result.get("status", "SUCCESS")
@@ -331,7 +333,7 @@ class TradingPlanController:
         
         try:
             # 使用 MarketAnalyzer 的新功能
-            result = await self.market_analyzer.scan_macro_market(check_mode)
+            result = cast(Dict[str, Any], await self.market_analyzer.scan_macro_market(check_mode))
             
             if result["status"] == "SUCCESS":
                 logger.info("✅ 宏觀市場掃描完成")
@@ -479,7 +481,7 @@ class TradingPlanController:
             }
 
         try:
-            strategies_perf: Dict = {}
+            strategies_perf: Dict[str, Dict[str, float]] = {}
             best_strategy = None
             best_sharpe = -1.0
 
@@ -739,7 +741,7 @@ class TradingPlanController:
             "setup_required": True,
         }
     
-    async def execute_plan(self, plan: Dict) -> Dict:
+    async def execute_plan(self, plan: Dict[str, Any]) -> Dict[str, Any]:
         """執行交易計劃"""
         await asyncio.sleep(0)  # Async yield point for task scheduling
         logger.info("...")
@@ -750,6 +752,6 @@ class TradingPlanController:
             "start_time": "2024-01-01T00:00:00Z"
         }
     
-    def get_active_plans(self) -> Dict:
+    def get_active_plans(self) -> Dict[str, Dict[str, Any]]:
         """"""
         return self.active_plans

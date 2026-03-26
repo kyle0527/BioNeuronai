@@ -107,7 +107,7 @@ class BatchInferenceEngine:
         
         # 合併為批次
         batch_input_ids = torch.cat(padded_inputs, dim=0).to(self.device)
-        batch_attention_mask = torch.cat(attention_masks, dim=0).to(self.device)
+        _batch_attention_mask = torch.cat(attention_masks, dim=0).to(self.device)
         
         # 批量生成
         with torch.no_grad():
@@ -415,7 +415,7 @@ def benchmark_inference(
         start_time = time.time()
         
         with torch.no_grad():
-            output = model.generate(  # type: ignore
+            _ = model.generate(  # type: ignore
                 input_ids,
                 max_new_tokens=max_new_tokens,
                 use_cache=use_cache,

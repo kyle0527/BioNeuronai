@@ -25,7 +25,7 @@ AI 推理引擎 + 趨勢跟隨 + 均值回歸 + 波段交易 + 突破交易
 import numpy as np
 import logging
 from typing import Optional, Dict, Any, List, Tuple, Union
-from datetime import datetime, timedelta
+from datetime import datetime
 from dataclasses import dataclass, field
 from enum import Enum
 import json
@@ -36,11 +36,8 @@ from .base_strategy import (
     TradeSetup,
     TradeExecution,
     PositionManagement,
-    RiskParameters,
-    StrategyState,
     SignalStrength,
     MarketCondition,
-    StrategyPerformance,
 )
 from .breakout_trading import BreakoutTradingStrategy
 from .direction_change_strategy import DirectionChangeStrategy
@@ -246,7 +243,14 @@ class AIStrategyFusion:
         # 
         returns = np.diff(close[-21:]) / close[-21:-1]
         volatility = np.std(returns) * np.sqrt(252)  # 
-        avg_volatility = np.std(np.diff(close[-50:-20]) / close[-50:-20]) * np.sqrt(252)
+
+        # 使用對齊的一階報酬率視窗，避免 np.diff 後長度與分母不一致
+        baseline_window = close[-50:-20]
+        baseline_returns = (
+            np.diff(baseline_window) / baseline_window[:-1]
+            if len(baseline_window) >= 2 else np.array([0.0])
+        )
+        avg_volatility = np.std(baseline_returns) * np.sqrt(252)
         
         # 
         range_20 = (max(high[-20:]) - min(low[-20:])) / np.mean(close[-20:])
@@ -724,7 +728,7 @@ class AIStrategyFusion:
     def _fuse_by_best_performer(self, signal: FusionSignal):
         """"""
         best_strategy = None
-        best_score = -1
+        best_score = -1.0
         
         for name, setup in signal.strategy_signals.items():
             if setup is None:
@@ -759,7 +763,7 @@ class AIStrategyFusion:
         prioritized_strategies = regime.recommended_strategies
         
         best_setup = None
-        best_score = 0
+        best_score = 0.0
         
         for name, setup in signal.strategy_signals.items():
             if setup is None:
@@ -801,7 +805,7 @@ class AIStrategyFusion:
     def _fuse_by_confidence(self, signal: FusionSignal):
         """"""
         best_setup = None
-        best_confidence = 0
+        best_confidence = 0.0
         
         for name, setup in signal.strategy_signals.items():
             if setup is None:
@@ -932,7 +936,7 @@ class AIStrategyFusion:
         if not signal.selected_setup:
             # 
             best_setup = None
-            best_score = 0
+            best_score = 0.0
             
             for name, setup in signal.strategy_signals.items():
                 if setup and setup.direction == signal.consensus_direction:
@@ -1072,7 +1076,7 @@ class AIStrategyFusion:
     
     def get_strategy_report(self) -> Dict[str, Any]:
         """"""
-        report = {
+        report: Dict[str, Any] = {
             'fusion_method': self.fusion_method.value,
             'total_fusion_signals': len(self.fusion_history),
             'total_trades': len(self.trade_outcomes),

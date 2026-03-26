@@ -6,7 +6,7 @@
 1. 全球股市指數 (Yahoo Finance)
 2. 加密貨幣恐慌貪婪指數
 3. Binance 市場情緒
-4. 經濟日曆事件
+4. 經濟日曆事件（Binance 資金費率、季度交割、FOMC）
 
 遵循 CODE_FIX_GUIDE.md 規範
 """
@@ -14,8 +14,30 @@
 # 1. 標準庫
 import logging
 import requests
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, List, Optional, Any
+
+# Binance Futures REST API 根路徑（無需 API Key 的公開端點）
+_BINANCE_FUTURES_API = "https://fapi.binance.com"
+
+# FOMC 2026 利率決議日期（美聯儲官方公告排程，非 mock 資料）
+# 來源：Federal Reserve FOMC meeting calendar 2026
+_FOMC_DATES_2026: List[datetime] = [
+    datetime(2026, 1, 28, 19, 0, 0, tzinfo=timezone.utc),
+    datetime(2026, 3, 18, 18, 0, 0, tzinfo=timezone.utc),
+    datetime(2026, 4, 29, 18, 0, 0, tzinfo=timezone.utc),
+    datetime(2026, 6, 10, 18, 0, 0, tzinfo=timezone.utc),
+    datetime(2026, 7, 29, 18, 0, 0, tzinfo=timezone.utc),
+    datetime(2026, 9, 16, 18, 0, 0, tzinfo=timezone.utc),
+    datetime(2026, 10, 28, 18, 0, 0, tzinfo=timezone.utc),
+    datetime(2026, 12, 9, 19, 0, 0, tzinfo=timezone.utc),
+]
+
+# 查詢資金費率的主要永續合約
+_FUNDING_SYMBOLS = ["BTCUSDT", "ETHUSDT", "BNBUSDT"]
+
+# 季度合約類型
+_QUARTERLY_CONTRACT_TYPES = {"CURRENT_QUARTER", "NEXT_QUARTER"}
 
 logger = logging.getLogger(__name__)
 
@@ -69,18 +91,166 @@ class MarketDataCollector:
     def check_economic_calendar(self) -> List[str]:
         """
         檢查經濟日曆
-        
+
+        整合三個事件來源（依優先級排序）：
+        1. Binance 永續合約資金費率結算（即時 API，無需 Key）
+        2. Binance 季度合約交割日期（即時 API，無需 Key）
+        3. FOMC 利率決議（美聯儲官方公告排程）
+
         Returns:
-            重要經濟事件列表
+            重要事件描述列表，每項為可讀字串
         """
+        events: List[str] = []
+
+        funding_events = self._get_binance_funding_events()
+        events.extend(funding_events)
+        logger.info(f"   ✓ Binance 資金費率事件: {len(funding_events)} 項")
+
+        delivery_events = self._get_binance_delivery_events()
+        events.extend(delivery_events)
+        logger.info(f"   ✓ Binance 季度交割事件: {len(delivery_events)} 項")
+
+        macro_events = self._get_macro_events()
+        events.extend(macro_events)
+        logger.info(f"   ✓ 總體經濟事件: {len(macro_events)} 項")
+
+        return events
+
+    def _get_binance_funding_events(self) -> List[str]:
+        """
+        從 Binance 永續合約 API 取得下次資金費率結算時間與預估費率。
+
+        端點：GET /fapi/v1/premiumIndex（公開，無需 API Key）
+
+        Returns:
+            事件描述列表
+        """
+        events: List[str] = []
+        now_utc = datetime.now(tz=timezone.utc)
+
+        for symbol in _FUNDING_SYMBOLS:
+            try:
+                url = f"{_BINANCE_FUTURES_API}/fapi/v1/premiumIndex?symbol={symbol}"
+                response = requests.get(
+                    url,
+                    timeout=self.request_timeout,
+                    headers={"User-Agent": self.user_agent},
+                )
+                response.raise_for_status()
+                data = response.json()
+
+                next_funding_ms: int = int(data.get("nextFundingTime", 0))
+                last_rate: float = float(data.get("lastFundingRate", 0.0)) * 100
+
+                if next_funding_ms <= 0:
+                    continue
+
+                next_time = datetime.fromtimestamp(next_funding_ms / 1000, tz=timezone.utc)
+                delta_min = int((next_time - now_utc).total_seconds() / 60)
+
+                if delta_min < 0:
+                    continue  # 已結算，跳過
+
+                direction = "+" if last_rate >= 0 else ""
+                payer = "多方付空方" if last_rate >= 0 else "空方付多方"
+                events.append(
+                    f"【資金費率】{symbol} | 下次結算: {next_time.strftime('%H:%M UTC')}"
+                    f"（約 {delta_min} 分鐘後）| 費率: {direction}{last_rate:.4f}% | {payer}"
+                )
+            except Exception as e:
+                logger.warning(f"獲取 {symbol} 資金費率失敗: {e}")
+
+        return events
+
+    def _get_binance_delivery_events(self) -> List[str]:
+        """
+        從 Binance 合約交易所資訊取得季度合約交割日期。
+
+        端點：GET /fapi/v1/exchangeInfo（公開，無需 API Key）
+        過濾條件：contractType in {CURRENT_QUARTER, NEXT_QUARTER} and status == TRADING
+
+        Returns:
+            事件描述列表（僅顯示 90 天內的交割）
+        """
+        events: List[str] = []
+        now_utc = datetime.now(tz=timezone.utc)
+
         try:
-            # 未實現：需要整合經濟日曆 API
-            # 可選方案: Investing.com, TradingEconomics, FRED
-            logger.warning("經濟日曆功能未實現，返回空列表")
-            return []
+            url = f"{_BINANCE_FUTURES_API}/fapi/v1/exchangeInfo"
+            response = requests.get(
+                url,
+                timeout=self.request_timeout,
+                headers={"User-Agent": self.user_agent},
+            )
+            response.raise_for_status()
+            data = response.json()
+
+            for sym_info in data.get("symbols", []):
+                contract_type: str = sym_info.get("contractType", "")
+                status: str = sym_info.get("status", "")
+
+                if contract_type not in _QUARTERLY_CONTRACT_TYPES or status != "TRADING":
+                    continue
+
+                delivery_ms: int = int(sym_info.get("deliveryDate", 0))
+                symbol: str = sym_info.get("symbol", "")
+
+                if delivery_ms <= 0:
+                    continue
+
+                delivery_time = datetime.fromtimestamp(delivery_ms / 1000, tz=timezone.utc)
+                days_until = (delivery_time - now_utc).days
+
+                if days_until < 0 or days_until > 90:
+                    continue
+
+                label = "今日" if days_until == 0 else f"距今 {days_until} 天"
+                events.append(
+                    f"【季度交割】{symbol} | 交割: {delivery_time.strftime('%Y-%m-%d %H:%M UTC')}"
+                    f"（{label}）| 類型: {contract_type}"
+                )
+
         except Exception as e:
-            logger.error(f"檢查經濟日曆失敗: {e}")
-            return []
+            logger.warning(f"獲取 Binance 季度合約交割事件失敗: {e}")
+
+        return events
+
+    def _get_macro_events(self) -> List[str]:
+        """
+        返回 14 天視窗內的總體經濟重大事件。
+
+        資料來源：美聯儲官方公告之 FOMC 2026 會議排程（非 mock 資料）。
+        BTC/ETH 對 FOMC 決議歷史上有顯著的當日波動反應。
+
+        Returns:
+            事件描述列表
+        """
+        events: List[str] = []
+        now_utc = datetime.now(tz=timezone.utc)
+        window_days_before = 1   # 顯示 1 天前的事件（仍有餘波）
+        window_days_after = 14   # 顯示 14 天內的即將事件
+
+        for fomc_dt in _FOMC_DATES_2026:
+            days_delta = (fomc_dt - now_utc).days
+
+            if days_delta < -window_days_before or days_delta > window_days_after:
+                continue
+
+            if days_delta < 0:
+                timing_label = f"{abs(days_delta)} 天前（仍有餘波影響）"
+            elif days_delta == 0:
+                timing_label = "今日（市場高度警戒）"
+            elif days_delta == 1:
+                timing_label = "明日（提前佈局期）"
+            else:
+                timing_label = f"距今 {days_delta} 天"
+
+            events.append(
+                f"【總體經濟】FOMC 利率決議 {fomc_dt.strftime('%Y-%m-%d %H:%M UTC')}"
+                f"（{timing_label}）| 影響: 高 | BTC/ETH 通常出現大幅波動"
+            )
+
+        return events
     
     # ========================================
     # 股市數據
@@ -126,8 +296,9 @@ class MarketDataCollector:
                         meta = result.get('meta', {})
                         
                         current_price = meta.get('regularMarketPrice', 0)
-                        previous_close = meta.get('previousClose', 0)
-                        
+                        # Yahoo Finance v8 chart API 使用 chartPreviousClose（非 previousClose）
+                        previous_close = meta.get('chartPreviousClose') or meta.get('previousClose', 0)
+
                         # 計算漲跌幅
                         change_percent = 0
                         if previous_close > 0:

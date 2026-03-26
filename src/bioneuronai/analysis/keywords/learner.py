@@ -17,7 +17,7 @@ import logging
 import sqlite3
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Any
+from typing import Dict, List, Optional, Any, Callable, cast
 from dataclasses import asdict
 
 from .manager import KeywordManager  # ✅ 修正：從 manager.py 導入
@@ -179,7 +179,7 @@ class KeywordLearner:
     
     def validate_and_learn(
         self,
-        get_current_price: Optional[callable] = None
+        get_current_price: Optional[Callable] = None
     ) -> Dict[str, Any]:
         """
         驗證待驗證的預測並進行學習
@@ -192,7 +192,7 @@ class KeywordLearner:
         """
         if get_current_price is None:
             # 使用預設的價格獲取方式
-            from ..data.binance_futures import BinanceFuturesConnector
+            from ...data.binance_futures import BinanceFuturesConnector
             connector = BinanceFuturesConnector(testnet=True)
             def get_current_price(symbol):
                 data = connector.get_ticker_price(symbol)
@@ -430,7 +430,7 @@ class KeywordLearner:
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         cursor.execute('SELECT COUNT(*) FROM predictions WHERE status = "pending"')
-        count = cursor.fetchone()[0]
+        count = int(cursor.fetchone()[0])
         conn.close()
         return count
 
@@ -439,5 +439,5 @@ class KeywordLearner:
 def get_keyword_learner() -> KeywordLearner:
     """獲取全局 KeywordLearner 實例"""
     if not hasattr(get_keyword_learner, '_instance'):
-        get_keyword_learner._instance = KeywordLearner()
-    return get_keyword_learner._instance
+        get_keyword_learner._instance = KeywordLearner()  # type: ignore[attr-defined]
+    return cast(KeywordLearner, get_keyword_learner._instance)  # type: ignore[attr-defined]

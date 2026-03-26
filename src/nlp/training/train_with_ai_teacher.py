@@ -15,6 +15,7 @@ from tqdm import tqdm
 import time
 import hashlib
 from datetime import datetime
+from typing import Any
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -154,7 +155,7 @@ class AITeacherDataset(Dataset):
     def __init__(self, tokenizer: BilingualTokenizer, max_length: int = 128):
         self.tokenizer = tokenizer
         self.max_length = max_length
-        self.data = []
+        self.data: list[str] = []
         
         # 組合所有數據
         self._prepare_data()
@@ -380,7 +381,7 @@ def train_with_ai_teacher(
     model.load_state_dict(weights)
     model.train()
     
-    tokenizer = BilingualTokenizer.load(model_path / "tokenizer.pkl")
+    tokenizer = BilingualTokenizer.load(str(model_path / "tokenizer.pkl"))
     
     print(f"✅ 學生模型: {model.count_parameters():,} 參數")
     
@@ -406,7 +407,7 @@ def train_with_ai_teacher(
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = model.to(device)
     
-    history = {
+    history: dict[str, list[float]] = {
         "losses": [],
         "perplexities": [],
     }
@@ -563,7 +564,7 @@ def train_with_ai_teacher(
     print(f"  • 損失下降: {(1 - history['losses'][-1]/history['losses'][0])*100:.1f}%")
     
     print(f"\n💾 保存位置: {output_path}")
-    print(f"📝 訓練記錄已更新到: training_log.json")
+    print("📝 訓練記錄已更新到: training_log.json")
     print("\n💡 提示:")
     print("  • 這是一個簡化的訓練示範")
     print(f"  • 使用了 AI 老師生成的 {len(dataset)} 個樣本")

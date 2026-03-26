@@ -5,7 +5,7 @@ BioNeuronai 資料庫模型
 """
 
 from datetime import datetime
-from typing import Optional, Dict, Any, List, Union
+from typing import Optional, Dict, Any, List
 from decimal import Decimal
 
 from pydantic import BaseModel, Field
