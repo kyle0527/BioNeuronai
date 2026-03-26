@@ -43,7 +43,7 @@
 - **`NewsPredictionLoop`**:
   - `log_prediction()`: 當有重要新聞時，系統自動預測未來幾小時的市場方向並記錄。
   - `validate_pending_predictions()`: 對比歷史預測與當下實際價格的漲跌幅度。
-  - `update_keyword_weights_from_results()`: 若預測正確，調高相關關鍵字權重 (最高 1.15 倍)；若錯誤則降低權重，實現完全自動化的 RLHF 學習。
+  - `update_keyword_weights_from_results()`: 依據預測正確與否，自動調用關鍵字模組提供的 API (如 `KeywordManager.record_and_verify_prediction()` 或委託 `KeywordLearner`) 以調高或降低相關關鍵字權重，實現完全自動化的 RLHF 學習。
   - 提供 `get_accuracy_by_source` 與 `get_accuracy_by_symbol` 統計函數，動態評估不同新聞來源的可靠性。
 - **`PredictionScheduler`**: 後台定時器，負責每小時自動觸發上述的驗證流程。
 
@@ -57,7 +57,7 @@
 1. **預測**: 分析某篇重要新聞後，預測 BTC 將在 4 小時內上漲，呼叫 `log_prediction` 寫入 `predictions.jsonl`，狀態為 `PENDING`。
 2. **衰減**: 若為重大事件，套用時間衰減模型 (例如駭客事件初始影響力 9.0，5 天後降至 6.0)。
 3. **驗證**: 排程任務每小時喚醒，抓取當下市價。若 4 小時後價格確實上漲 > 1%，則標記為 `CORRECT`。
-4. **學習**: 將結果回饋給 `KeywordManager`，提高該新聞中出現的關鍵字（如 "ETF"）的動態權重，並增加該新聞來源（如 "CoinDesk"）的信賴度評分。反之亦然。
+4. **學習**: 將結果回饋給 `KeywordManager` 或是透過 `KeywordLearner` 進行學習，調用如 `record_and_verify_prediction()` 等 API 來提高該新聞中出現的關鍵字（如 "ETF"）的動態權重，並可依賴評估結果去修正後續的信賴度評分。反之亦然。
 
 ## 快取與效能優化
 - **API 快取**: `CryptoNewsAnalyzer` 實作了線程安全的記憶體快取 (`_cache`)，預設 TTL 為 300 秒 (5 分鐘)，避免頻繁調用外部 API 觸發 Rate Limit。
