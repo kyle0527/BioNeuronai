@@ -14,12 +14,15 @@
 `news` 子模組是系統的「新聞大腦」，負責從外部來源 (CryptoPanic, RSS) 抓取新聞，進行情緒分析、關鍵字提取、重大事件評估，並產生交易建議。此模組深度整合了 `keywords` 系統，並實作了基於強化學習思想的預測循環 (RLHF)，讓 AI 不僅讀取新聞，還能驗證自身的預測準確度並動態調整權重。
 
 ## 系統架構
-本系統分為三個主要部分：新聞分析與抓取 (`analyzer`)、基於規則的事件評估 (`evaluator`)、與預測循環驗證 (`prediction_loop`)。
+本系統分為三個主要部分：新聞分析與抓取 (`analyzer`)、基於規則的事件評估 (`evaluator`)、與預測循環驗證 (`prediction_loop`)。整個子模組由 5 個 Python 檔案組成，總計約 2,621 行代碼。
 
 ## 核心元件與詳細方法
 
-### `analyzer.py` (核心新聞分析器)
-負責抓取資料並進行自然語言初步處理。
+### `__init__.py` (72 行)
+提供統一對外導出的入口介面，簡化其他模組的匯入，例如 `CryptoNewsAnalyzer`, `RuleBasedEvaluator`, `NewsPredictionLoop`。
+
+### `analyzer.py` (1,140 行)
+核心新聞分析器，負責抓取資料並進行自然語言初步處理。
 - **`CryptoNewsAnalyzer` (Singleton)**:
   - `analyze_news(symbol, hours)`: 主進入點。整合 API 與 RSS，分析指定時間內的新聞，產出 `NewsAnalysisResult`。
   - `_fetch_from_cryptopanic()`, `_fetch_from_rss()`: 從外部服務抓取原始文章。
@@ -28,15 +31,15 @@
   - `should_trade(symbol)`: 提供快速防護機制，若檢測到極端負面情緒或安全事件，會回傳暫停交易建議。
   - `evaluate_pending_news()`: 定期更新並回饋至關鍵字系統。
 
-### `evaluator.py` (規則式事件評估器)
-負責從新聞標題中識別具體事件，並追蹤事件的生命週期。
+### `evaluator.py` (404 行)
+規則式事件評估器，負責從新聞標題中識別具體事件，並追蹤事件的生命週期。
 - **`RuleBasedEvaluator`**:
   - `evaluate_headline()`: 將新聞與預設的 `EventRule` 進行匹配 (如 WAR, HACK, REGULATION)。
   - `_check_termination_keywords()`: 實作 **Hard Stop** 機制，當出現如 "funds recovered" 等關鍵字時，自動將相關的負面安全事件標記為已解析 (resolved)。
   - `cleanup_expired_events()`: 根據每個事件特有的 `decay_hours`，定期清理過期的市場事件影響。
 
-### `prediction_loop.py` (新聞預測驗證循環)
-實作「預測 → 驗證 → 學習」的完整流程。
+### `prediction_loop.py` (903 行)
+新聞預測驗證循環，實作「預測 → 驗證 → 學習」的完整流程。
 - **`NewsPredictionLoop`**:
   - `log_prediction()`: 當有重要新聞時，系統自動預測未來幾小時的市場方向並記錄。
   - `validate_pending_predictions()`: 對比歷史預測與當下實際價格的漲跌幅度。
@@ -44,7 +47,8 @@
   - 提供 `get_accuracy_by_source` 與 `get_accuracy_by_symbol` 統計函數，動態評估不同新聞來源的可靠性。
 - **`PredictionScheduler`**: 後台定時器，負責每小時自動觸發上述的驗證流程。
 
-### `models.py` (資料模型)
+### `models.py` (102 行)
+資料模型定義。
 - **`NewsArticle`**: 儲存單篇新聞的標題、來源、情緒、重要性評分等。
 - **`NewsAnalysisResult`**: 針對特定時間段與交易對的整體分析結果。提供 `is_high_risk()`, `is_bullish()`, `is_bearish()` 等快速判斷方法。
 

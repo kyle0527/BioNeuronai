@@ -14,41 +14,46 @@
 `keywords` 子模組是一個動態的市場關鍵字管理系統。它不再使用硬編碼的關鍵字，而是透過 `config/keywords/` 下的 JSON 檔案進行分類管理，並結合 SQLite 提供高效的查詢與歷史記錄追蹤。系統內建了基於預測準確率的動態權重調整 (RLHF)，讓關鍵字的重要性隨著市場變化自動演進。
 
 ## 系統架構與職責分離
-為了符合單一職責原則 (SRP)，系統將查詢與學習分開：
-- **讀取/查詢 (`KeywordManager`, `KeywordLoader`, `MarketKeywords`)**: 負責將資料載入記憶體，並對外部提供文字匹配與權重查詢。
-- **寫入/學習 (`KeywordLearner`)**: 負責追蹤歷史預測、向外部 API 請求驗證價格，並更新 SQLite 與 JSON 檔案中的權重數值。
+為了符合單一職責原則 (SRP)，系統將查詢與學習分開。總共包含 6 個 Python 檔案，共約 1,824 行代碼。
+- **讀取/查詢 (`manager.py`, `loader.py`, `static_utils.py`, `__init__.py`)**: 負責將資料載入記憶體，對外部提供文字匹配與權重查詢介面。
+- **寫入/學習 (`learner.py`)**: 負責追蹤歷史預測、向外部 API 請求驗證價格，並更新 SQLite 與 JSON 檔案中的權重數值。
+- **資料模型 (`models.py`)**: 定義共用的資料結構。
 
 ## 核心元件與詳細方法
 
-### `manager.py` (核心管理器)
-負責將關鍵字資料結構化，並處理預測記錄寫入。
+### `__init__.py` (60 行)
+提供統一對外的導出，例如 `MarketKeywords`, `KeywordManager`, `get_keyword_manager`，簡化其他模組的調用。
+
+### `manager.py` (905 行)
+核心管理器，負責將關鍵字資料結構化，並處理預測記錄寫入。
 - **`KeywordManager` (Singleton)**:
   - `find_matches(text)`: 在文本中尋找匹配的關鍵字，支援中英文（中文無須 word boundary）。
   - `record_prediction(...)`: 在 SQLite `prediction_history` 寫入一筆預測。
   - `verify_prediction(...)`: 更新該筆預測的實際方向，並修改對應關鍵字的 `dynamic_weight`。若預測次數大於 20，會呼叫 `_update_base_weight()` 調整長期基礎權重。
   - `update_sentiment_bias_from_results()`: 根據近期的實際價格變化，自動修正情緒偏向 (positive/negative)。
 
-### `learner.py` (關鍵字學習器)
-定期被呼叫以執行強化學習 (RLHF) 邏輯，避免與日常的高頻查詢混淆。
+### `learner.py` (443 行)
+關鍵字學習器，定期被呼叫以執行強化學習 (RLHF) 邏輯，避免與日常的高頻查詢混淆。
 - **`KeywordLearner`**:
   - `log_prediction()`: 將新聞或分析預測推入 `predictions` 資料表。
   - `validate_and_learn()`: 找出到期 (預設 4 小時後) 的 pending 預測，請求當前市價，判斷是否正確，然後呼叫內部邏輯或 manager 來更新權重。
   - `_save_keywords()`: 學習完畢後，將新的 `Keyword` 狀態分門別類寫回 `config/keywords/*.json`。
 
-### `loader.py` (JSON 載入器)
-處理從磁碟讀取關鍵字的邏輯。
+### `loader.py` (131 行)
+JSON 載入器，處理從磁碟讀取關鍵字的邏輯。
 - **`KeywordLoader`**:
   - `load_from_category_files()`: 讀取 `_index.json` 並依序載入所有分類檔。
-  - `load_from_single_file()`: 備用方案，讀取單一大檔。
+  - `load_from_single_file()`: 備用方案，讀取單一大檔 (`config/market_keywords.json`)。
 
-### `static_utils.py` (靜態介面)
-提供簡潔的全域靜態方法，背後委託給 `KeywordManager` 單例。
+### `static_utils.py` (186 行)
+靜態介面，提供簡潔的全域靜態方法，背後委託給 `KeywordManager` 單例。
 - **`MarketKeywords`**:
   - `get_importance_score(text)`: 根據匹配到的關鍵字的 `effective_weight` (base * dynamic) 與 `accuracy` 計算總分。
   - `get_sentiment_bias(text)`: 統計正負面權重，判斷整句新聞為看漲或看跌。
   - `is_high_impact_news(text)`: 快速篩選是否包含高權重 (>=2.5) 的災難或利多關鍵字。
 
-### `models.py` (資料模型)
+### `models.py` (99 行)
+資料模型定義。
 - **`Keyword`**: 包含 `base_weight`, `dynamic_weight`, `sentiment_bias`, `accuracy` 等屬性。
 - **`KeywordMatch`**: 匹配結果，包含 `effective_weight`。
 - **`PredictionRecord`**: SQLite 中預測歷史的對應模型。
