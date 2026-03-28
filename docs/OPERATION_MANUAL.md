@@ -137,31 +137,26 @@ python main.py status
 
 ### 設定方式
 
-**方式 A：編輯設定檔**（最簡單）
+**方式 A：.env 檔案**（推薦）
 
-```python
-# config/trading_config.py 第 15-22 行
-BINANCE_API_KEY    = "你的 API Key"
-BINANCE_API_SECRET = "你的 API Secret"
-USE_TESTNET        = True    # 測試網設 True；正式網設 False
+```bash
+cp .env.example .env
+# 編輯 .env，填入以下值：
+# BINANCE_API_KEY=你的 API Key
+# BINANCE_API_SECRET=你的 API Secret
+# BINANCE_TESTNET=true     # false = 正式網
+# CRYPTOPANIC_API_TOKEN=free  # 選填，新聞 API
 ```
 
-**方式 B：環境變數**（更安全，適合生產環境）
+**方式 B：環境變數**（適合生產環境 / Docker）
 
 ```bash
 export BINANCE_API_KEY="你的 API Key"
 export BINANCE_API_SECRET="你的 API Secret"
-export USE_TESTNET="True"
+export BINANCE_TESTNET="true"
 ```
 
-**方式 C：.env 檔案**
-
-```bash
-cp .env.example .env
-# 用文字編輯器開啟 .env，填入金鑰
-```
-
-> **安全提醒**：`.env` 和含有真實金鑰的 `trading_config.py` 請確認已加入 `.gitignore`，勿提交至版本控制。
+> **安全提醒**：`.env` 請確認已加入 `.gitignore`，勿提交至版本控制。金鑰不應直接寫入任何 `.py` 原始碼。
 
 ---
 
@@ -633,9 +628,10 @@ cd tools/data_download && python download-kline.py
 > 本節目前仍以 `config/trading_config.py` 為中心說明排查方式。
 > 若後續已改為環境變數、secrets 或受控輸入流程，請把本節視為「舊路徑排查說明」，不要直接當作唯一標準。
 
-1. 確認 `config/trading_config.py` 的 `BINANCE_API_KEY` 和 `BINANCE_API_SECRET` 填寫正確
-2. 確認 `USE_TESTNET` 與金鑰類型一致（測試網金鑰只能搭配 `USE_TESTNET = True`）
+1. 確認環境變數 `BINANCE_API_KEY` 和 `BINANCE_API_SECRET` 已設定（檢查 .env 或 export）
+2. 確認 `BINANCE_TESTNET` 與金鑰類型一致（測試網金鑰需搭配 `BINANCE_TESTNET=true`）
 3. 確認 Binance API 金鑰已開啟「期貨交易」權限
+4. 可使用 `python main.py status` 或 `POST /api/v1/binance/validate` 快速驗證憑證
 
 ---
 

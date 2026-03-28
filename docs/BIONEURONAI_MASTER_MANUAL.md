@@ -296,23 +296,18 @@ pip install python-binance
 
 #### 2. 配置 API 密鑰
 
-在 `config/trading_config.py` 中設置：
+複製範本並填入金鑰（金鑰不應寫入 `.py` 原始碼）：
 
-```python
-# ===== 幣安 API 配置 =====
-BINANCE_API_KEY = "your_api_key_here"
-BINANCE_API_SECRET = "your_secret_key_here"
+```bash
+cp .env.example .env
+```
 
-# 使用測試網還是主網
-USE_TESTNET = True  # 建議先設為 True 測試
+編輯 `.env`，填入以下三個值：
 
-# 測試網 URL
-TESTNET_BASE_URL = "https://testnet.binancefuture.com"
-TESTNET_WS_URL = "wss://stream.binancefuture.com"
-
-# 主網 URL
-MAINNET_BASE_URL = "https://fapi.binance.com"
-MAINNET_WS_URL = "wss://fstream.binance.com"
+```env
+BINANCE_API_KEY=your_api_key_here
+BINANCE_API_SECRET=your_secret_key_here
+BINANCE_TESTNET=true     # false = 正式網
 ```
 
 #### 3. 驗證 API 連接
@@ -1816,14 +1811,14 @@ python use_crypto_trader.py
 > 本節若仍以直接修改 `config/trading_config.py` 為主，請視為舊路徑說明。
 > 後續實作應優先使用新的憑證流與環境 / secrets / 受控輸入方式。
 
-**A**: 在 `config/trading_config.py` 修改：
+**A**: 在 `.env` 中設定 `BINANCE_TESTNET`：
 
-```python
+```env
 # 測試網（虛擬資金）
-USE_TESTNET = True
+BINANCE_TESTNET=true
 
 # 主網（真實資金）
-USE_TESTNET = False
+BINANCE_TESTNET=false
 ```
 
 ⚠️ **建議**: 先在測試網運行至少 1 個月！
