@@ -934,21 +934,29 @@ trading / core / analysis / data
 - ✅ `cli/main.py cmd_trade` 入口層注入憑證
 - ✅ `.env.example` 修正為僅含 4 個實際有效環境變數
 
-### 批次 C：入口收斂（待執行）
+### 批次 C：入口收斂（部分完成）
 
-- [ ] `api/app.py` 全域狀態封裝（`_trade_task` / `_trade_engine` → TradeManager 類別）
-- [ ] `daily_report/strategy_planner.py`、`risk_manager.py` 直接 requests.get() → 移入 `data/` 封裝
-- [ ] 延後低優先級 endpoint 的決策（backtest / simulate / plan 是否重啟）
+- ✅ `api/app.py` 健康檢查清理：移除 `BacktestEngine`、`PlanController` 殭屍 import（端點已移除，掃描無留存意義）
+- ✅ `schedule>=1.2.0` 確認已在 `pyproject.toml`（文件記載有誤，實際無需修改）
+- [ ] `api/app.py` 全域狀態封裝（`_trade_task` / `_trade_engine` → `TradeManager` 類別）
+- [ ] `daily_report/strategy_planner.py`、`risk_manager.py` 直接 `requests.get()` → 移入 `data/` 封裝
 
-### 批次 D：UI 對接準備（待評估）
+### 批次 D：功能補完（部分完成）
+
+- ✅ `market_analyzer.py` 新聞情緒接入：`calculate_comprehensive_sentiment()` 第 4 項由 `0.0` 硬值替換為 `CryptoNewsAnalyzer.analyze_news()` 實際呼叫（權重 15%，失敗靜默略過）
+- ✅ CLI `evolve` 命令：新增 `python main.py evolve`，`StrategyArena` 遺傳演算法入口，支援 `--symbol / --generations / --population / --output`
+- [ ] `SOP` 回測驗證步驟補完（`sop_automation.py:604-624` 目前 return None）
+- [ ] `phase_router.py` 認知複雜度問題修正
+
+### 批次 E：UI 對接準備（待評估）
 
 - [ ] 評估是否需要 WebSocket / SSE 即時狀態推播
-- [ ] 確認 CLI / REST API 高層流程統一（避免邏輯分叉）
+- [ ] CLI / REST API 高層流程統一（避免邏輯分叉）
 - [ ] CORS `allow_origins` 依部署環境收斂
 
 ---
 
 本文件建立日期：2026-03-28
-最後更新：2026-03-28（批次 A、B 完成）
+最後更新：2026-03-28（批次 A、B 完成；批次 C 部分完成；批次 D 部分完成）
 適用版本：以目前工作樹為準
 維護原則：若後續架構方向變更，應更新本文件而非另立互相衝突的新規格
