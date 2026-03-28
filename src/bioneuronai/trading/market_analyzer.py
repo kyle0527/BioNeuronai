@@ -879,9 +879,20 @@ class MarketAnalyzer:
             components["market_cap_change_24h"] = float(gm.market_cap_change_24h)
             logger.info(f"  ✓ 市場動量: {gm.market_cap_change_24h:+.2f}% → {mc_score:+.3f}")
         
-        # 4. 新聞情緒（預留介面，待 RAG 系統整合）
-        # 未來可透過 bioneuronai.analysis.news.analyzer 提供新聞情緒分析
-        
+        # 4. 新聞情緒（CryptoNewsAnalyzer, 15%）
+        news_score = 0.0
+        try:
+            from bioneuronai.analysis.news.analyzer import CryptoNewsAnalyzer
+            _news_analyzer = CryptoNewsAnalyzer()
+            news_result = await asyncio.to_thread(_news_analyzer.analyze_news, "BTCUSDT")
+            news_score = float(news_result.sentiment_score)
+            sentiment_scores.append(news_score)
+            weights.append(0.15)
+            components["news_sentiment"] = news_score
+            logger.info(f"  ✓ 新聞情緒: {news_score:+.3f}")
+        except Exception as exc:
+            logger.debug(f"新聞情緒分析略過: {exc}")
+
         # 計算加權平均
         if not sentiment_scores:
             logger.warning("⚠️ 無可用數據計算情緒，使用中性值")
@@ -902,7 +913,7 @@ class MarketAnalyzer:
         market_sentiment = MarketSentiment(
             overall_sentiment=float(overall_sentiment),
             fear_greed_score=(sentiment_scores[0] if sentiment_scores else 0.0),
-            news_sentiment=0.0,  # 待實現
+            news_sentiment=news_score,
             social_sentiment=None,
             market_momentum=(sentiment_scores[2] if len(sentiment_scores) > 2 else 0.0),
             confidence_level=float(confidence),
