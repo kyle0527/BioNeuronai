@@ -303,7 +303,10 @@ def cmd_trade(args: argparse.Namespace) -> None:
         sys.exit(1)
 
     try:
-        engine = TradingEngine(testnet=not use_live)
+        import os
+        api_key = os.getenv("BINANCE_API_KEY", "")
+        api_secret = os.getenv("BINANCE_API_SECRET", "")
+        engine = TradingEngine(api_key=api_key, api_secret=api_secret, testnet=not use_live)
         print("  TradingEngine 已初始化")
 
         price_data = engine.get_real_time_price(args.symbol)
