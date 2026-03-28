@@ -408,16 +408,18 @@ SOP 盤前報告的第 18 步驟（回測驗證）目前跳過，所有指標均
 
 ---
 
-### 3. 新聞情感整合（market_analyzer.py）
+### ✅ 3. 新聞情感整合（market_analyzer.py）已完成
 
-**硬編碼為 0.0，未連接 RAG 系統。**
+**已修復（v4.4.1）**：`calculate_comprehensive_sentiment()` 第 4 項現在呼叫 `CryptoNewsAnalyzer.analyze_news()`，權重 15%，取得失敗時靜默略過不中斷流程。
 
 ```python
-# src/bioneuronai/trading/market_analyzer.py:906
-news_sentiment=0.0,  # 待實現
+# src/bioneuronai/trading/market_analyzer.py
+news_score = float(news_result.sentiment_score)
+sentiment_scores.append(news_score)
+weights.append(0.15)
 ```
 
-`MarketCondition.news_sentiment` 欄位永遠為 0，市場分析中不包含實際新聞情緒。
+市場分析的綜合情緒現在包含實際新聞情緒因子。
 
 ---
 
@@ -434,7 +436,7 @@ news_sentiment=0.0,  # 待實現
 | `torch>=2.0.0` | AI 推論引擎 | ✅ 已列入 pyproject.toml | trade（必要）、backtest/simulate（可選） |
 | `sentence-transformers>=2.0.0` | RAG 嵌入 | ✅ 已列入 pyproject.toml | RAG 檢索、新聞語義分析 |
 | `faiss-cpu>=1.7.0` | 向量索引 | ✅ 已列入 pyproject.toml | RAG 高速向量檢索 |
-| `schedule>=1.2.0` | 新聞預測排程 | ❌ **未列入 pyproject.toml** | news（prediction_loop） |
+| `schedule>=1.2.0` | 新聞預測排程 | ✅ 已列入 pyproject.toml | news（prediction_loop） |
 | Git LFS | 模型權重下載 | 🔧 需用戶安裝 | 推論引擎（需 `git lfs pull` 取得 445MB 權重） |
 | Binance API 金鑰 | 實盤交易 | 🔧 需用戶設定 | trade、pretrade（部分） |
 | 本地歷史數據 | 回測與模擬 | ⚠️ 目錄已建立，待填入 CSV | backtest、simulate |
@@ -445,27 +447,21 @@ news_sentiment=0.0,  # 待實現
 ## 已知問題與限制
 
 > ⚠️ 補註：
-> 本節列出的問題仍有參考價值，但尚未納入最新 API / 憑證流規劃下的架構型問題。
-> 後續判讀時，需額外把以下主題納入高優先級：
-> - `src/schemas/` 與 `api/models.py` 雙軌
-> - `pretrade` / `daily_report` / `trade` 的 Binance 憑證來源不一致
-> - REST API 與 CLI / UI 的角色收斂問題
-
 ### 🔴 高優先級（影響核心功能）
 
 | # | 問題 | 位置 | 影響 |
 |---|------|------|------|
 | 1 | 本地歷史數據目錄存在但為空 | `data_downloads/binance_historical/` | backtest/simulate 因讀不到 CSV 而失敗 |
-| 2 | `schedule` 未列入依賴 | `pyproject.toml` | news 排程功能失效 |
-| 3 | Plan Step 5/6 回傳假數據 | `plan_controller.py:429-461` | 策略建議不可信 |
-| 4 | Plan Step 9/10 回傳假數據 | `plan_controller.py:561-593` | 幣對選擇和監控無效 |
+| ~~2~~ | ~~`schedule` 未列入依賴~~ | ~~`pyproject.toml`~~ | ✅ **已確認存在**（`pyproject.toml:38`） |
+| ~~3~~ | ~~Plan Step 5/6 回傳假數據~~ | ~~`plan_controller.py:429-461`~~ | ✅ **v4.3.1 已修復**（呼叫 StrategySelector） |
+| ~~4~~ | ~~Plan Step 9/10 回傳假數據~~ | ~~`plan_controller.py:561-593`~~ | ✅ **v4.3.1 已修復**（呼叫 PairSelector） |
 | 5 | SOP 回測驗證跳過 | `sop_automation.py:604` | 盤前報告缺乏驗證 |
 
 ### 🟡 中優先級（影響分析品質）
 
 | # | 問題 | 位置 | 影響 |
 |---|------|------|------|
-| 6 | 新聞情感硬編碼為 0 | `market_analyzer.py:906` | 市場分析缺新聞因子 |
+| ~~6~~ | ~~新聞情感硬編碼為 0~~ | ~~`market_analyzer.py:906`~~ | ✅ **v4.4.1 已修復**（接入 CryptoNewsAnalyzer） |
 | ~~7~~ | ~~RAG 快取未實作~~ | ~~`rag/core/retriever.py:163`~~ | ✅ **v4.4 已修復**（TTL 快取） |
 | 7 | 均值回歸部分方法回傳 None | `mean_reversion.py:600` | 特定市場條件下策略失效 |
 

@@ -87,9 +87,7 @@ async def get_status():
         ("bioneuronai.data.binance_futures", "BinanceFuturesConnector", "BinanceFutures"),
         ("bioneuronai.analysis", "CryptoNewsAnalyzer", "NewsAnalyzer"),
         ("bioneuronai.trading.sop_automation", "SOPAutomationSystem", "SOPSystem"),
-        ("bioneuronai.trading.plan_controller", "TradingPlanController", "PlanController"),
         ("bioneuronai.trading.pretrade_automation", "PreTradeCheckSystem", "PreTradeCheck"),
-        ("backtest", "BacktestEngine", "BacktestEngine"),
     ]
 
     modules = []

@@ -143,7 +143,6 @@ class PreTradeCheckSystem:
         """取得 BinanceFuturesConnector，憑證優先順序：
         1. 注入值（__init__ 傳入）
         2. 環境變數 BINANCE_API_KEY / BINANCE_API_SECRET / BINANCE_TESTNET
-        3. config.trading_config（fallback，僅含 testnet demo key）
         """
         import os
         from ..data.binance_futures import BinanceFuturesConnector
@@ -154,25 +153,7 @@ class PreTradeCheckSystem:
             testnet = self._testnet
         else:
             env_testnet = os.getenv("BINANCE_TESTNET", "")
-            if env_testnet:
-                testnet = env_testnet.lower() != "false"
-            else:
-                testnet = True  # 安全預設：testnet
-
-        # 若注入與環境變數均無設定，嘗試 config fallback（僅 demo key）
-        if not api_key or not api_secret:
-            try:
-                from config.trading_config import (
-                    BINANCE_API_KEY as _cfg_key,
-                    BINANCE_API_SECRET as _cfg_secret,
-                    USE_TESTNET as _cfg_testnet,
-                )
-                api_key = api_key or _cfg_key
-                api_secret = api_secret or _cfg_secret
-                if self._testnet is None and not env_testnet:
-                    testnet = _cfg_testnet
-            except ImportError:
-                pass
+            testnet = (env_testnet.lower() != "false") if env_testnet else True  # 安全預設：testnet
 
         return BinanceFuturesConnector(
             api_key=api_key,

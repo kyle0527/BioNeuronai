@@ -303,7 +303,10 @@ def cmd_trade(args: argparse.Namespace) -> None:
         sys.exit(1)
 
     try:
-        engine = TradingEngine(testnet=not use_live)
+        import os
+        api_key = os.getenv("BINANCE_API_KEY", "")
+        api_secret = os.getenv("BINANCE_API_SECRET", "")
+        engine = TradingEngine(api_key=api_key, api_secret=api_secret, testnet=not use_live)
         print("  TradingEngine 已初始化")
 
         price_data = engine.get_real_time_price(args.symbol)
@@ -503,6 +506,66 @@ def _print_pretrade_result(result: object) -> None:
 # ─────────────────────────────────────────────────────────────────────────────
 
 
+def cmd_evolve(args: argparse.Namespace) -> None:
+    """
+    策略演化命令（遺傳演算法競技場）
+
+    透過多代遺傳演算法競爭，從策略種群中篩選出最優策略組合。
+    結果可輸出至 JSON 檔供後續 trade / backtest 使用。
+
+    Example:
+        python main.py evolve
+        python main.py evolve --symbol ETHUSDT --generations 20 --population 30
+        python main.py evolve --output best_strategy.json
+    """
+    print(f"\n{'='*60}")
+    print(f"  BioNeuronai Evolve  [{args.symbol}]")
+    print(f"  種群: {args.population}  代數: {args.generations}")
+    print(f"{'='*60}\n")
+
+    try:
+        from bioneuronai.strategies.strategy_arena import StrategyArena, ArenaConfig
+    except ImportError as e:
+        logger.error("StrategyArena 載入失敗: %s", e)
+        sys.exit(1)
+
+    try:
+        config = ArenaConfig(
+            symbol=args.symbol,
+            population_size=args.population,
+            max_generations=args.generations,
+        )
+        arena = StrategyArena(config)
+        best = arena.run()
+
+        print(f"\n{'='*60}")
+        print(f"  最優策略: {best.name}")
+        print(f"  評分:     {best.score:.4f}")
+        print(f"  夏普比率: {best.sharpe_ratio:.2f}")
+        print(f"  總回報:   {best.total_return * 100:.1f}%")
+        print(f"{'='*60}\n")
+
+        if args.output:
+            import json
+            from pathlib import Path
+            result = {
+                "name": best.name,
+                "strategy_type": best.strategy_type,
+                "score": best.score,
+                "sharpe_ratio": best.sharpe_ratio,
+                "total_return": best.total_return,
+                "parameters": best.parameters,
+            }
+            Path(args.output).write_text(json.dumps(result, indent=2, ensure_ascii=False))
+            print(f"  結果已儲存至: {args.output}")
+
+    except KeyboardInterrupt:
+        print("\n  演化已中止。")
+    except Exception as exc:
+        logger.error("演化執行失敗: %s", exc)
+        sys.exit(1)
+
+
 def cmd_status(args: argparse.Namespace) -> None:  # noqa: ARG001
     """
     系統健康狀態命令
@@ -638,6 +701,18 @@ def _build_parser() -> argparse.ArgumentParser:
     prtp.add_argument("--output", default=None, metavar="FILE",
                       help="輸出 JSON 檔案路徑  (可選)")
     prtp.set_defaults(func=cmd_pretrade)
+
+    # ── evolve ────────────────────────────────────────────────────────────────
+    ep = subparsers.add_parser("evolve", help="遺傳演算法策略競技場（找出最優策略組合）")
+    ep.add_argument("--symbol", default="BTCUSDT", metavar="SYMBOL",
+                    help="交易對  (預設: BTCUSDT)")
+    ep.add_argument("--generations", type=int, default=10, metavar="N",
+                    help="最大演化代數  (預設: 10)")
+    ep.add_argument("--population", type=int, default=20, metavar="N",
+                    help="每代種群數量  (預設: 20)")
+    ep.add_argument("--output", default=None, metavar="FILE",
+                    help="輸出最優策略至 JSON 檔案  (可選)")
+    ep.set_defaults(func=cmd_evolve)
 
     # ── status ────────────────────────────────────────────────────────────────
     statp = subparsers.add_parser("status", help="系統健康狀態檢查")

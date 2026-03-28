@@ -689,36 +689,38 @@ trading / core / analysis / data
 
 以下順序以「不破壞現有功能」、「維持現有架構」、「優先改現有檔案」為原則。
 
-### 第 1 階段：建立單一 schema 基礎
+### ✅ 第 1 階段：建立單一 schema 基礎（已完成 2026-03-28）
 
 目標：
 - 確立 `src/schemas/` 為唯一共用 schema 來源
 
 工作：
-- 盤點 `src/bioneuronai/api/models.py`
-- 將跨模組 request / response schema 移入或對齊 `src/schemas/`
-- 保留 `api/models.py` 只作薄包裝或逐步淘汰
+- ✅ 盤點 `src/bioneuronai/api/models.py` → 已改為純轉發層（re-export only）
+- ✅ 將跨模組 request / response schema 移入 `src/schemas/api.py`（NewsRequest、PreTradeRequest、TradeStartRequest、RestApiResponse、ModuleStatus、StatusResponse、JobStatus）
+- ✅ `api/models.py` 已降為薄包裝，不再自行定義主 schema
 
-### 第 2 階段：打通 Binance 憑證流
+### ✅ 第 2 階段：打通 Binance 憑證流（已完成 2026-03-28）
 
 目標：
 - 讓使用者級憑證有一致進入路徑
 
 工作：
-- 新增或調整 credentials schema
-- 增加 Binance validate 流程
-- 讓 `trade/start` 可接憑證
-- 讓 `pretrade` 可接憑證或 injected connector
+- ✅ 新增 `POST /api/v1/binance/validate` 端點（憑證驗證 + Futures 權限確認）
+- ✅ `trade/start` 已支援請求注入 api_key / api_secret，fallback 至環境變數
+- ✅ `pretrade_automation.py` 已支援 __init__ 注入憑證，移除 config fallback 憑證層
+- ✅ `cli/main.py cmd_trade` 入口層主動讀取 BINANCE_API_KEY / BINANCE_API_SECRET 並注入 TradingEngine
 
-### 第 3 階段：移除 config 綁死依賴
+### ✅ 第 3 階段：移除 config 綁死依賴（已完成 2026-03-28）
 
 目標：
-- 減少模組對 `config.trading_config` 的直接綁定
+- 減少模組對 `config.trading_config` 的直接憑證綁定
 
 工作：
-- 重構 `pretrade_automation.py`
-- 重構 `daily_report/__init__.py`
-- 讓憑證與 provider config 透過注入取得
+- ✅ `config/trading_config.py` 硬編碼金鑰已移除，改為 `os.getenv("BINANCE_API_KEY", "")` 等
+- ✅ `config/trading_config.py` USE_TESTNET 改為讀取 `BINANCE_TESTNET` 環境變數
+- ✅ `pretrade_automation.py` 移除 config fallback 憑證層（層 3）
+- ✅ `daily_report/__init__.py` 已直接讀取環境變數，無需修改
+- ✅ `.env.example` 修正：移除 14 個無效條目，補上 BINANCE_TESTNET / CRYPTOPANIC_API_TOKEN
 
 ### 第 4 階段：收斂 REST API 角色
 
@@ -728,7 +730,7 @@ trading / core / analysis / data
 工作：
 - 保留高價值端點
 - 延後次要端點
-- 將流程編排移向內部高層函式
+- 將 `_trade_task` / `_trade_engine` 全域狀態封裝進管理類別
 
 ### 第 5 階段：準備 UI 對接
 
@@ -917,26 +919,44 @@ trading / core / analysis / data
 
 建議以本文件為基準，後續工作分為三批：
 
-### 批次 A：基礎整頓
+### ✅ 批次 A：基礎整頓（已完成 2026-03-28）
 
-- 收斂 schema
-- 盤點 `api/models.py`
-- 整理 Binance credentials schema
+- ✅ 收斂 schema → `src/schemas/api.py` 為唯一定義點
+- ✅ 盤點 `api/models.py` → 已改為純 re-export 層
+- ✅ 整理 Binance credentials schema → TradeStartRequest 含選填 api_key / api_secret
 
-### 批次 B：主鏈修正
+### ✅ 批次 B：主鏈修正（已完成 2026-03-28）
 
-- `pretrade_automation.py` 注入化
-- `trade/start` 憑證流打通
-- 新增 validate 流程
+- ✅ `pretrade_automation.py` 注入化 → 支援 __init__ 傳入憑證，移除 config 憑證 fallback
+- ✅ `trade/start` 憑證流打通 → 請求注入 → 環境變數兩層優先順序
+- ✅ 新增 `POST /api/v1/binance/validate` → 憑證驗證 + Futures 權限確認
+- ✅ `config/trading_config.py` 硬編碼金鑰移除 → 改為 os.getenv()
+- ✅ `cli/main.py cmd_trade` 入口層注入憑證
+- ✅ `.env.example` 修正為僅含 4 個實際有效環境變數
 
-### 批次 C：入口收斂
+### 批次 C：入口收斂（部分完成）
 
-- `api/app.py` 薄化
-- 延後低優先級 endpoint
-- 為 UI 保留最小穩定入口
+- ✅ `api/app.py` 健康檢查清理：移除 `BacktestEngine`、`PlanController` 殭屍 import（端點已移除，掃描無留存意義）
+- ✅ `schedule>=1.2.0` 確認已在 `pyproject.toml`（文件記載有誤，實際無需修改）
+- [ ] `api/app.py` 全域狀態封裝（`_trade_task` / `_trade_engine` → `TradeManager` 類別）
+- [ ] `daily_report/strategy_planner.py`、`risk_manager.py` 直接 `requests.get()` → 移入 `data/` 封裝
+
+### 批次 D：功能補完（部分完成）
+
+- ✅ `market_analyzer.py` 新聞情緒接入：`calculate_comprehensive_sentiment()` 第 4 項由 `0.0` 硬值替換為 `CryptoNewsAnalyzer.analyze_news()` 實際呼叫（權重 15%，失敗靜默略過）
+- ✅ CLI `evolve` 命令：新增 `python main.py evolve`，`StrategyArena` 遺傳演算法入口，支援 `--symbol / --generations / --population / --output`
+- [ ] `SOP` 回測驗證步驟補完（`sop_automation.py:604-624` 目前 return None）
+- [ ] `phase_router.py` 認知複雜度問題修正
+
+### 批次 E：UI 對接準備（待評估）
+
+- [ ] 評估是否需要 WebSocket / SSE 即時狀態推播
+- [ ] CLI / REST API 高層流程統一（避免邏輯分叉）
+- [ ] CORS `allow_origins` 依部署環境收斂
 
 ---
 
-本文件建立日期：2026-03-28  
-適用版本：以目前工作樹為準  
+本文件建立日期：2026-03-28
+最後更新：2026-03-28（批次 A、B 完成；批次 C 部分完成；批次 D 部分完成）
+適用版本：以目前工作樹為準
 維護原則：若後續架構方向變更，應更新本文件而非另立互相衝突的新規格

@@ -235,18 +235,13 @@ code config/trading_config.py
 
 #### 3.2 填入 API 憑證
 ```python
-# config/trading_config.py
+# .env（複製自 .env.example，填入金鑰，勿提交版控）
 
-# =======================================
-# 幣安 API 配置
-# =======================================
-
-# 從步驟 2 複製的 API 憑證
-BINANCE_API_KEY = "貼上你的 API Key"
-BINANCE_API_SECRET = "貼上你的 API Secret"
+BINANCE_API_KEY=貼上你的 API Key
+BINANCE_API_SECRET=貼上你的 API Secret
 
 # 確保使用測試網
-USE_TESTNET = True  # ✅ 必須是 True
+BINANCE_TESTNET=true   # ✅ 必須是 true
 
 # =======================================
 # 交易配置
@@ -276,8 +271,10 @@ MAX_DRAWDOWN_PERCENTAGE = 0.10  # 最大回撤 10%
 
 #### 3.3 驗證配置
 ```bash
-# 檢查配置是否正確
-python -c "from config.trading_config import *; print(f'測試網: {USE_TESTNET}'); print(f'API Key 長度: {len(BINANCE_API_KEY)}'); print('✅ 配置完成' if len(BINANCE_API_KEY) > 0 else '❌ 請填入 API Key')"
+# 檢查環境變數是否已設定
+python main.py status
+# 或驗證 Binance 憑證（需先啟動 API server）：
+# POST /api/v1/binance/validate
 ```
 
 ---
@@ -1082,7 +1079,7 @@ $ python use_crypto_trader.py
 ```
 A: 檢查清單
 1. 確認 API Key 和 Secret 複製正確（無多餘空格）
-2. 確認 USE_TESTNET = True
+2. 確認 .env 中 BINANCE_TESTNET=true
 3. 檢查測試網是否正常運行
 4. 嘗試重新生成 API Key
 5. 檢查網絡連接
@@ -1174,7 +1171,7 @@ A:
 **才建議**切換到正式網：
 
 1. 重新在正式網生成 API
-2. 設置 `USE_TESTNET = False`
+2. 在 `.env` 設置 `BINANCE_TESTNET=false`
 3. **從小資金開始**（建議 $100-500）
 4. 使用低槓桿（1-3x）
 5. 更嚴格的風險控制

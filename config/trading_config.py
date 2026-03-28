@@ -1,24 +1,23 @@
 # 交易配置文件
 
+import os
+
 # =======================================
 # Binance API 配置
 # =======================================
 
-# ⚠️  安全警告：API 金鑰不應寫死在原始碼中！
-# 正式環境請改用環境變數：
+# 憑證統一由環境變數提供，不寫死在原始碼中。
+# 設定方式：
 #   export BINANCE_API_KEY="your_key"
 #   export BINANCE_API_SECRET="your_secret"
-# 或使用 .env 檔（需加入 .gitignore）
-# 以下僅為 Demo Trading (Testnet) 金鑰，無真實資金風險
-# ⚠️ 切勿將正式主網金鑰提交至版本控制
+#   export BINANCE_TESTNET="true"   # false = 主網
+# 或使用專案根目錄的 .env 檔（已加入 .gitignore）
 
-# API 金鑰 (從 Binance Demo Trading 獲取)
-# 申請地址: https://testnet.binancefuture.com/
-BINANCE_API_KEY = "9KZTxxFzolHHnmCwu6yzE7YCfeZGJTSQPKWbuMgXw7ImVXWX5geYIvcZEhO7vDhE"
-BINANCE_API_SECRET = "KuA1Vvi3xvJF0dPdgkFkUhywRQ5oNbY9rCe1PB5QQJjgBoJPI0IfgiGIJnwuJR7g"
+BINANCE_API_KEY = os.getenv("BINANCE_API_KEY", "")
+BINANCE_API_SECRET = os.getenv("BINANCE_API_SECRET", "")
 
 # 使用測試網 (Demo Trading)
-USE_TESTNET = True
+USE_TESTNET = os.getenv("BINANCE_TESTNET", "true").lower() != "false"
 
 # API Endpoint: https://demo-fapi.binance.com (自動選擇)
 
