@@ -1,21 +1,21 @@
 # 回測系統使用指南
-
 **創建日期**: 2026年2月15日  
 **版本**: v4.0.0  
 **適用系統**: BioNeuronai 階段 2 - 回測系統增強
 
 ---
 
-## 目錄
+## 📑 目錄
 
-1. [系統概覽](#系統概覽)
-2. [快速開始](#快速開始)
-3. [核心組件](#核心組件)
-4. [詳細用法](#詳細用法)
-5. [進階功能](#進階功能)
-6. [性能優化](#性能優化)
-7. [故障排除](#故障排除)
-8. [最佳實踐](#最佳實踐)
+1. 系統概覽
+2. 快速開始
+3. 核心組件
+4. 詳細用法
+5. 進階功能
+6. 性能優化
+7. 故障排除
+8. 最佳實踐
+9. 附錄
 
 ---
 
@@ -66,13 +66,13 @@ async def quick_backtest():
         start_date=datetime(2025, 1, 1),
         end_date=datetime(2025, 1, 31)
     )
-    
+
     # 2. 初始化
     backtest = HistoricalBacktest(config)
-    
+
     # 3. 運行（會自動生成隨機信號供測試）
     result = await backtest.run()
-    
+
     # 4. 查看結果
     print(f"總收益: {result.total_return_pct:.2f}%")
     print(f"夏普比率: {result.sharpe_ratio:.2f}")
@@ -266,10 +266,10 @@ async def backtest_rsi_strategy():
         stop_loss_pct=3.0,
         take_profit_pct=6.0
     )
-    
+
     # 2. 初始化回測
     backtest = HistoricalBacktest(config)
-    
+
     # 3. 載入數據
     loader = backtest.data_loader
     data = await loader.load_data(
@@ -278,7 +278,7 @@ async def backtest_rsi_strategy():
         config.end_date,
         config.interval
     )
-    
+
     # 4. 生成 RSI 信號
     def calculate_rsi(data: pd.DataFrame, period=14):
         delta = data['close'].diff()
@@ -287,13 +287,13 @@ async def backtest_rsi_strategy():
         rs = gain / loss
         rsi = 100 - (100 / (1 + rs))
         return rsi
-    
+
     data['rsi'] = calculate_rsi(data)
-    
+
     # 生成信號: RSI < 30 買入, RSI > 70 賣出
     signals = []
     position = None
-    
+
     for i in range(len(data)):
         if data['rsi'].iloc[i] < 30 and position is None:
             signals.append({
@@ -309,10 +309,10 @@ async def backtest_rsi_strategy():
                 'confidence': 0.8
             })
             position = None
-    
+
     # 5. 執行回測
     result = await backtest.engine.run_backtest(data, signals)
-    
+
     # 6. 輸出報告
     print("\n" + "="*60)
     print("📊 RSI 策略回測報告")
@@ -337,7 +337,7 @@ async def backtest_rsi_strategy():
     print(f"最大回撤: {result.max_drawdown_pct:.2f}%")
     print(f"手續費: ${result.total_commission:,.2f}")
     print("="*60)
-    
+
     return result
 
 # 運行
@@ -362,30 +362,30 @@ config = BacktestConfig(
     name="策略名稱",
     description="策略描述",
     version="1.0.0",
-    
+
     # ===== 交易對配置 =====
     symbol="BTCUSDT",              # 交易對
     interval="1h",                 # K 線週期
-    
+
     # ===== 時間範圍 =====
     start_date=datetime(2025, 1, 1),
     end_date=datetime(2025, 12, 31),
-    
+
     # ===== 資金配置 =====
     initial_capital=Decimal("100000"),  # 初始資金
     leverage=1,                         # 槓桿倍數 (1 = 現貨)
     position_size_pct=95,               # 每次使用資金比例 (%)
-    
+
     # ===== 風險管理 =====
     max_drawdown_pct=20.0,         # 最大回撤 (%)
     stop_loss_pct=5.0,             # 止損 (%)
     take_profit_pct=10.0,          # 止盈 (%)
-    
+
     # ===== 成本配置 =====
     maker_fee=0.02,                # Maker 手續費 (%)
     taker_fee=0.04,                # Taker 手續費 (%)
     slippage=0.05,                 # 滑點 (%)
-    
+
     # ===== 其他 =====
     use_testnet=False,             # 使用測試網
     enable_short=False,            # 允許做空
@@ -482,18 +482,18 @@ result.trades              # list[TradeRecord]: 所有交易詳情
 ```python
 async def batch_backtest():
     results = []
-    
+
     # 參數網格
     rsi_periods = [10, 14, 20]
     rsi_oversold = [20, 25, 30]
     rsi_overbought = [70, 75, 80]
-    
+
     for period in rsi_periods:
         for oversold in rsi_oversold:
             for overbought in rsi_overbought:
                 # 生成策略
                 signals = generate_rsi_signals(data, period, oversold, overbought)
-                
+
                 # 運行回測
                 config = BacktestConfig(
                     name=f"RSI_{period}_{oversold}_{overbought}",
@@ -502,22 +502,22 @@ async def batch_backtest():
                     start_date=datetime(2025, 1, 1),
                     end_date=datetime(2025, 12, 31)
                 )
-                
+
                 backtest = HistoricalBacktest(config)
                 result = await backtest.run()
-                
+
                 results.append({
                     'params': (period, oversold, overbought),
                     'return': result.total_return_pct,
                     'sharpe': result.sharpe_ratio,
                     'drawdown': result.max_drawdown_pct
                 })
-    
+
     # 找最佳參數
     best = max(results, key=lambda x: x['sharpe'])
     print(f"最佳參數: RSI({best['params'][0]}, {best['params'][1]}, {best['params'][2]})")
     print(f"夏普比率: {best['sharpe']:.2f}")
-    
+
     return results
 ```
 
@@ -529,7 +529,7 @@ async def batch_backtest():
 async def multi_symbol_backtest():
     symbols = ["BTCUSDT", "ETHUSDT", "BNBUSDT", "ADAUSDT"]
     results = {}
-    
+
     for symbol in symbols:
         config = BacktestConfig(
             name=f"{symbol}_Strategy",
@@ -538,22 +538,22 @@ async def multi_symbol_backtest():
             start_date=datetime(2025, 1, 1),
             end_date=datetime(2025, 12, 31)
         )
-        
+
         backtest = HistoricalBacktest(config)
         result = await backtest.run()
-        
+
         results[symbol] = {
             'return': float(result.total_return_pct),
             'sharpe': float(result.sharpe_ratio or 0),
             'trades': result.total_trades
         }
-    
+
     # 報告
     print("\n多交易對回測結果:")
     for symbol, metrics in results.items():
         print(f"{symbol:10} | 收益: {metrics['return']:>7.2f}% | "
               f"夏普: {metrics['sharpe']:>5.2f} | 交易: {metrics['trades']:>3}")
-    
+
     return results
 ```
 
@@ -564,7 +564,7 @@ async def multi_symbol_backtest():
 ```python
 class AdvancedCostCalculator(TradingCostCalculator):
     """高級成本計算器 - 考慮市場深度"""
-    
+
     def calculate_slippage(
         self,
         order: OrderInfo,
@@ -573,20 +573,20 @@ class AdvancedCostCalculator(TradingCostCalculator):
     ) -> float:
         # 基礎滑點
         slippage = self.base_slippage
-        
+
         # 根據市場深度調整
         if market_depth:
             order_size_ratio = order.quantity * order.price / market_depth['total_bid_volume']
             slippage *= (1 + order_size_ratio * 10)  # 大單增加滑點
-        
+
         # 根據波動率調整
         if recent_volatility:
             slippage *= (1 + recent_volatility / 0.01)  # 高波動增加滑點
-        
+
         # 市價單額外滑點
         if order.order_type == "MARKET":
             slippage *= 1.5
-        
+
         return slippage
 ```
 
@@ -602,15 +602,15 @@ def plot_equity_curve(result: BacktestResult):
     if not result.equity_curve:
         print("無權益曲線數據")
         return
-    
+
     times = [point['time'] for point in result.equity_curve]
     equity = [point['equity'] for point in result.equity_curve]
-    
+
     plt.figure(figsize=(12, 6))
     plt.plot(times, equity, label='權益曲線', linewidth=2)
     plt.axhline(y=float(result.initial_capital), 
                 color='r', linestyle='--', label='初始資金')
-    
+
     plt.title(f"{result.config.name} - 權益曲線", fontsize=14)
     plt.xlabel("時間")
     plt.ylabel("資金 ($)")
@@ -639,29 +639,29 @@ import hashlib
 
 class CachedDataLoader(HistoricalDataLoader):
     """帶緩存的數據載入器"""
-    
+
     def __init__(self, cache_dir="./cache", **kwargs):
         super().__init__(**kwargs)
         self.cache_dir = cache_dir
         os.makedirs(cache_dir, exist_ok=True)
-    
+
     async def load_data(self, symbol, start_date, end_date, interval):
         # 生成緩存鍵
         key = f"{symbol}_{start_date.date()}_{end_date.date()}_{interval}"
         cache_file = f"{self.cache_dir}/{key}.parquet"
-        
+
         # 檢查緩存
         if os.path.exists(cache_file):
             logger.info(f"從緩存載入: {cache_file}")
             return pd.read_parquet(cache_file)
-        
+
         # 載入數據
         data = await super().load_data(symbol, start_date, end_date, interval)
-        
+
         # 保存緩存
         data.to_parquet(cache_file)
         logger.info(f"已緩存數據: {cache_file}")
-        
+
         return data
 ```
 
@@ -673,18 +673,18 @@ class CachedDataLoader(HistoricalDataLoader):
 async def parallel_backtest(configs: list[BacktestConfig]):
     """並行執行多個回測"""
     tasks = []
-    
+
     for config in configs:
         backtest = HistoricalBacktest(config)
         task = asyncio.create_task(backtest.run())
         tasks.append(task)
-    
+
     results = await asyncio.gather(*tasks, return_exceptions=True)
-    
+
     # 過濾錯誤
     successful = [r for r in results if not isinstance(r, Exception)]
     failed = [r for r in results if isinstance(r, Exception)]
-    
+
     print(f"成功: {len(successful)}, 失敗: {len(failed)}")
     return successful
 
@@ -813,11 +813,11 @@ def validate_data(data: pd.DataFrame):
                       (data['low'] <= data['close'])).all(),
         "成交量非負": (data['volume'] >= 0).all()
     }
-    
+
     for check_name, passed in checks.items():
         status = "✅" if passed else "❌"
         print(f"{status} {check_name}")
-    
+
     return all(checks.values())
 
 # 使用
@@ -888,18 +888,18 @@ async def compare_with_buy_hold(config: BacktestConfig):
     """與買入持有策略對比"""
     # 策略回測
     strategy_result = await HistoricalBacktest(config).run()
-    
+
     # 買入持有回測
     loader = HistoricalDataLoader()
     data = await loader.load_data(config.symbol, config.start_date, config.end_date, "1d")
-    
+
     buy_hold_return = (data['close'].iloc[-1] - data['close'].iloc[0]) / data['close'].iloc[0] * 100
-    
+
     # 比較
     print(f"策略收益: {strategy_result.total_return_pct:>7.2f}%")
     print(f"買入持有: {buy_hold_return:>7.2f}%")
     print(f"超額收益: {strategy_result.total_return_pct - buy_hold_return:>7.2f}%")
-    
+
     return strategy_result.total_return_pct > buy_hold_return
 ```
 

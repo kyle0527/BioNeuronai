@@ -51,7 +51,8 @@ Version: 1.0
 import numpy as np
 import logging
 from typing import Dict, List, Optional, Tuple, Any, cast
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from datetime import datetime
 from enum import Enum
 from collections import deque
 
@@ -474,8 +475,9 @@ class MarketRegimeDetector:
         high_diff = np.diff(highs)
         low_diff = -np.diff(lows)
         
-        plus_dm = np.where((high_diff > low_diff) & (high_diff > 0), high_diff, 0)
-        minus_dm = np.where((low_diff > high_diff) & (low_diff > 0), low_diff, 0)
+        _zero = np.float64(0)
+        plus_dm = np.where((high_diff > low_diff) & (high_diff > _zero), high_diff, _zero)
+        minus_dm = np.where((low_diff > high_diff) & (low_diff > _zero), low_diff, _zero)
         
         # ATR
         tr = np.maximum(
@@ -659,41 +661,89 @@ class MarketRegimeDetector:
         vol_regime: VolatilityRegime,
         adx: float
     ) -> Dict[str, float]:
-        """"""
-        transitions = {}
-        
-        # 
-        if current_regime == MarketRegime.SIDEWAYS_RANGE:
-            if vol_regime == VolatilityRegime.VERY_LOW:
-                transitions["breakout_up"] = 0.35
-                transitions["breakout_down"] = 0.35
-                transitions["continue_range"] = 0.30
+        """估算下一體制的轉換概率
+
+        返回值：鍵為 MarketRegime.value 字串，值和恆為 1.0。
+        涵蓋全部 10 種體制，依波動度體制與 ADX 強度調整。
+        """
+        R = MarketRegime
+        V = VolatilityRegime
+        high_adx = adx > 40
+        high_vol = vol_regime in (V.HIGH, V.EXTREME)
+
+        if current_regime == R.STRONG_UPTREND:
+            if high_adx:
+                probs = {R.STRONG_UPTREND: 0.55, R.UPTREND: 0.30,
+                         R.WEAK_UPTREND: 0.10, R.REVERSAL: 0.05}
             else:
-                transitions["uptrend"] = 0.25
-                transitions["downtrend"] = 0.25
-                transitions["continue_range"] = 0.50
-        
-        elif current_regime in [MarketRegime.UPTREND, MarketRegime.STRONG_UPTREND]:
-            if adx > 50:
-                transitions["continue_up"] = 0.65
-                transitions["weaken"] = 0.25
-                transitions["reversal"] = 0.10
+                probs = {R.UPTREND: 0.40, R.STRONG_UPTREND: 0.25,
+                         R.WEAK_UPTREND: 0.25, R.REVERSAL: 0.10}
+
+        elif current_regime == R.UPTREND:
+            if high_vol:
+                probs = {R.UPTREND: 0.30, R.BREAKOUT: 0.25,
+                         R.HIGH_VOLATILITY: 0.25, R.REVERSAL: 0.20}
+            elif high_adx:
+                probs = {R.STRONG_UPTREND: 0.30, R.UPTREND: 0.40,
+                         R.WEAK_UPTREND: 0.20, R.SIDEWAYS_RANGE: 0.10}
             else:
-                transitions["continue_up"] = 0.45
-                transitions["weaken"] = 0.35
-                transitions["reversal"] = 0.20
-        
-        elif current_regime in [MarketRegime.DOWNTREND, MarketRegime.STRONG_DOWNTREND]:
-            if adx > 50:
-                transitions["continue_down"] = 0.65
-                transitions["weaken"] = 0.25
-                transitions["reversal"] = 0.10
+                probs = {R.UPTREND: 0.35, R.WEAK_UPTREND: 0.30,
+                         R.SIDEWAYS_RANGE: 0.25, R.REVERSAL: 0.10}
+
+        elif current_regime == R.WEAK_UPTREND:
+            probs = {R.SIDEWAYS_RANGE: 0.35, R.UPTREND: 0.25,
+                     R.WEAK_UPTREND: 0.25, R.WEAK_DOWNTREND: 0.15}
+
+        elif current_regime == R.SIDEWAYS_RANGE:
+            if vol_regime == V.VERY_LOW:
+                probs = {R.BREAKOUT: 0.40, R.SIDEWAYS_RANGE: 0.35,
+                         R.WEAK_UPTREND: 0.15, R.WEAK_DOWNTREND: 0.10}
+            elif high_vol:
+                probs = {R.BREAKOUT: 0.35, R.HIGH_VOLATILITY: 0.30,
+                         R.UPTREND: 0.20, R.DOWNTREND: 0.15}
             else:
-                transitions["continue_down"] = 0.45
-                transitions["weaken"] = 0.35
-                transitions["reversal"] = 0.20
-        
-        return transitions
+                probs = {R.SIDEWAYS_RANGE: 0.40, R.WEAK_UPTREND: 0.20,
+                         R.WEAK_DOWNTREND: 0.20, R.BREAKOUT: 0.20}
+
+        elif current_regime == R.WEAK_DOWNTREND:
+            probs = {R.SIDEWAYS_RANGE: 0.35, R.DOWNTREND: 0.25,
+                     R.WEAK_DOWNTREND: 0.25, R.WEAK_UPTREND: 0.15}
+
+        elif current_regime == R.DOWNTREND:
+            if high_vol:
+                probs = {R.DOWNTREND: 0.30, R.BREAKOUT: 0.25,
+                         R.HIGH_VOLATILITY: 0.25, R.REVERSAL: 0.20}
+            elif high_adx:
+                probs = {R.STRONG_DOWNTREND: 0.30, R.DOWNTREND: 0.40,
+                         R.WEAK_DOWNTREND: 0.20, R.SIDEWAYS_RANGE: 0.10}
+            else:
+                probs = {R.DOWNTREND: 0.35, R.WEAK_DOWNTREND: 0.30,
+                         R.SIDEWAYS_RANGE: 0.25, R.REVERSAL: 0.10}
+
+        elif current_regime == R.STRONG_DOWNTREND:
+            if high_adx:
+                probs = {R.STRONG_DOWNTREND: 0.55, R.DOWNTREND: 0.30,
+                         R.WEAK_DOWNTREND: 0.10, R.REVERSAL: 0.05}
+            else:
+                probs = {R.DOWNTREND: 0.40, R.STRONG_DOWNTREND: 0.25,
+                         R.WEAK_DOWNTREND: 0.25, R.REVERSAL: 0.10}
+
+        elif current_regime == R.BREAKOUT:
+            probs = {R.STRONG_UPTREND: 0.30, R.STRONG_DOWNTREND: 0.25,
+                     R.HIGH_VOLATILITY: 0.25, R.SIDEWAYS_RANGE: 0.20}
+
+        elif current_regime == R.HIGH_VOLATILITY:
+            probs = {R.SIDEWAYS_RANGE: 0.30, R.BREAKOUT: 0.25,
+                     R.UPTREND: 0.25, R.DOWNTREND: 0.20}
+
+        elif current_regime == R.REVERSAL:
+            probs = {R.SIDEWAYS_RANGE: 0.35, R.WEAK_UPTREND: 0.25,
+                     R.WEAK_DOWNTREND: 0.25, R.HIGH_VOLATILITY: 0.15}
+
+        else:
+            probs = {current_regime: 1.0}
+
+        return {k.value: v for k, v in probs.items()}
     
     def _ema(self, data: np.ndarray, period: int) -> float:
         """"""

@@ -1,21 +1,20 @@
 # 🧬 策略進化系統規劃文件
-
 > **文件狀態**: 草案 - 待討論確認  
 > **建立日期**: 2026-01-25  
 > **目標**: 建立一個讓策略自我優化、相互競爭、最終由 AI 融合創新的系統
 
----
 
-## 📋 目錄
+## 📑 目錄
 
-1. [核心願景](#1-核心願景)
-2. [系統架構總覽](#2-系統架構總覽)
-3. [基因設計](#3-基因設計)
-4. [進化流程](#4-進化流程)
-5. [技術實現計劃](#5-技術實現計劃)
-6. [與現有模組的關係](#6-與現有模組的關係)
-7. [待討論問題](#7-待討論問題)
-8. [開發階段規劃](#8-開發階段規劃)
+1. 1. 核心願景
+2. 2. 系統架構總覽
+3. 3. 基因設計
+4. 4. 進化流程
+5. 5. 技術實現計劃
+6. 6. 與現有模組的關係
+7. 7. 待討論問題
+8. 8. 開發階段規劃
+9. 📝 備註
 
 ---
 
@@ -298,7 +297,7 @@ class EntryGene:
     """進場基因"""
     type: str  # "RSI_OVERSOLD", "MA_CROSS", ...
     params: Dict[str, Any]
-    
+
 class ExitGene:
     """退場基因"""
     type: str
@@ -313,13 +312,13 @@ class StrategyGenome:
     risk: RiskGene
     sizing: SizingGene
     fitness: Optional[FitnessScore]
-    
+
 # population.py - 族群
 class Population:
     """策略族群"""
     generation: int
     strategies: List[StrategyGenome]
-    
+
 # engine.py - 進化引擎
 class EvolutionEngine:
     """主控引擎"""

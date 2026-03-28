@@ -1,21 +1,21 @@
 # BioNeuronai 功能狀態總覽
-
 **版本**：v4.4.1
 **更新日期**：2026-03-20
 **分析方式**：完整原始碼審計（CLI 7 命令 + REST API + 40+ 核心模組）
 
 ---
 
-## 目錄
+## 📑 目錄
 
-1. [快速摘要](#快速摘要)
-2. [CLI 命令可執行狀態](#cli-命令可執行狀態)
-3. [已完成功能（可立即執行）](#已完成功能可立即執行)
-4. [部分完成功能（有限制條件）](#部分完成功能有限制條件)
-5. [尚未完成功能](#尚未完成功能)
-6. [外部依賴清單](#外部依賴清單)
-7. [已知問題與限制](#已知問題與限制)
-8. [建議修復優先順序](#建議修復優先順序)
+1. 快速摘要
+2. CLI 命令可執行狀態
+3. 已完成功能（可立即執行）
+4. 部分完成功能（有限制條件）
+5. 尚未完成功能
+6. 外部依賴清單
+7. 已知問題與限制
+8. 建議修復優先順序
+9. 附錄：核心檔案行數一覽
 
 ---
 
@@ -252,6 +252,14 @@ docker compose up api   # → http://localhost:8000/docs
 
 ### 14. FastAPI REST API 伺服器（v4.4 新增）
 
+> ⚠️ 部分內容過時：
+> 本節記錄的是「目前已有的 REST API 包裝狀態」，不是最新規劃下的長期 API 邊界。
+> 使用前請先對照 [API_INTEGRATION_BASELINE.md](C:/D/E/BioNeuronai/docs/API_INTEGRATION_BASELINE.md)。
+> 尤其以下描述已不宜直接當作後續開發基準：
+> - `9 個端點` 被視為穩定最終集合
+> - `api/models.py` 被視為長期有效的主 schema 定義位置
+> - REST API 被隱含視為主要對外形態，而非薄入口殼
+
 **完整實作，9 個端點，Swagger UI 可用。**
 
 | 端點 | 類型 | 說明 |
@@ -334,6 +342,11 @@ python tools/download_historical_data.py --symbol BTCUSDT --interval 1h
 ---
 
 ### C. 實盤交易（`trade` 命令）
+
+> ⚠️ 補註：
+> 本節對「API 金鑰就緒即可完整執行」的描述過於簡化。
+> 依最新規劃，Binance 屬於使用者級憑證來源，後續不應再以 `config/trading_config.py` 作為長期主路徑；
+> 實際整合時需優先確認憑證流、validate 流程與入口層注入方式。
 
 **技術完整，需外部環境就緒。**
 
@@ -431,6 +444,13 @@ news_sentiment=0.0,  # 待實現
 
 ## 已知問題與限制
 
+> ⚠️ 補註：
+> 本節列出的問題仍有參考價值，但尚未納入最新 API / 憑證流規劃下的架構型問題。
+> 後續判讀時，需額外把以下主題納入高優先級：
+> - `src/schemas/` 與 `api/models.py` 雙軌
+> - `pretrade` / `daily_report` / `trade` 的 Binance 憑證來源不一致
+> - REST API 與 CLI / UI 的角色收斂問題
+
 ### 🔴 高優先級（影響核心功能）
 
 | # | 問題 | 位置 | 影響 |
@@ -460,6 +480,10 @@ news_sentiment=0.0,  # 待實現
 ---
 
 ## 建議修復優先順序
+
+> ⚠️ 補註：
+> 本節排序建立於較早版本的功能盤點，尚未反映最新 API 整合基準。
+> 後續若與 [API_INTEGRATION_BASELINE.md](C:/D/E/BioNeuronai/docs/API_INTEGRATION_BASELINE.md) 衝突，應以基準文件為優先。
 
 ### 立即可做（1 天內）
 
@@ -491,6 +515,10 @@ python tools/download_historical_data.py --symbol BTCUSDT --interval 1h --days 3
 ---
 
 ## 附錄：核心檔案行數一覽
+
+> ⚠️ 補註：
+> 本附錄中的 `REST API 模型 | api/models.py | ✅ 100%` 只代表當時的文件盤點，不代表它仍應作為長期主 schema 來源。
+> 依最新規劃，跨模組 API schema 應逐步收斂回 `src/schemas/`。
 
 | 模組 | 檔案 | 行數 | 完成度 |
 |------|------|------|--------|

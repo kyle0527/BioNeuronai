@@ -10,7 +10,7 @@
 # 1. 標準庫
 import logging
 import requests
-from typing import Any, Dict, List, Optional, cast
+from typing import Any, Dict, List, cast
 
 # 2. 本地模組
 from .models import RiskParameters, TradingPairsPriority, MarketCondition
@@ -116,17 +116,7 @@ class RiskManager:
             }
 
         except Exception as e:
-            logger.error(f"帳戶資金分析失敗: {e}")
-            return {
-                "available": 0.0,
-                "total": 0.0,
-                "in_use": 0.0,
-                "unrealized_pnl": 0.0,
-                "risk_tolerance": "LOW",
-                "max_position_size": 0.0,
-                "leverage": 1.0,
-                "error": str(e),
-            }
+            raise RuntimeError(f"帳戶資金分析失敗: {e}") from e
     
     # ========================================
     # 風險參數計算
@@ -167,8 +157,7 @@ class RiskManager:
             return cast(Dict[str, Any], risk_profiles.get(risk_tolerance, self.default_risk))
             
         except Exception as e:
-            logger.error(f"基礎風險參數計算失敗: {e}")
-            return self.default_risk
+            raise RuntimeError(f"基礎風險參數計算失敗: {e}") from e
     
     def adjust_risk_for_volatility(
         self, 
@@ -206,8 +195,7 @@ class RiskManager:
                 "reason": f"市場波動率: {volatility}"
             }
         except Exception as e:
-            logger.error(f"風險波動調整失敗: {e}")
-            return {**base_risk, "adjustment_factor": 1.0}
+            raise RuntimeError(f"風險波動調整失敗: {e}") from e
     
     # ========================================
     # 持倉管理
@@ -233,8 +221,7 @@ class RiskManager:
                 "take_profit_multiplier": 2.0
             }
         except Exception as e:
-            logger.error(f"持倉管理配置失敗: {e}")
-            return {"max_positions": 1}
+            raise RuntimeError(f"持倉管理配置失敗: {e}") from e
     
     def calculate_trading_frequency(
         self, 
@@ -268,11 +255,7 @@ class RiskManager:
                 "max_consecutive_losses": 3  # 連續虧損上限
             }
         except Exception as e:
-            logger.error(f"交易頻率計算失敗: {e}")
-            return {
-                "daily_max": 3,
-                "interval_minutes": 60
-            }
+            raise RuntimeError(f"交易頻率計算失敗: {e}") from e
     
     def integrate_risk_parameters(
         self, 
@@ -300,13 +283,7 @@ class RiskManager:
                 adjustment_factor=volatility_adjusted_risk.get("adjustment_factor", 1.0)
             )
         except Exception as e:
-            logger.error(f"風險參數整合失敗: {e}")
-            return RiskParameters(
-                single_trade_risk=1.0,
-                daily_max_loss=3.0,
-                max_positions=1,
-                max_daily_trades=3
-            )
+            raise RuntimeError(f"風險參數整合失敗: {e}") from e
     
     # ========================================
     # 交易對篩選
@@ -357,14 +334,7 @@ class RiskManager:
             }
 
         except Exception as e:
-            logger.error(f"交易對掃描失敗: {e}")
-            return {
-                "all": [],
-                "major": [],
-                "altcoins": [],
-                "total_count": 0,
-                "error": str(e),
-            }
+            raise RuntimeError(f"交易對掃描失敗: {e}") from e
     
     def analyze_liquidity_metrics(self, available_pairs: Dict) -> Dict[str, Any]:
         """
@@ -446,15 +416,7 @@ class RiskManager:
             }
 
         except Exception as e:
-            logger.error(f"流動性分析失敗: {e}")
-            return {
-                "high_liquidity": [],
-                "medium_liquidity": [],
-                "low_liquidity": [],
-                "avg_spread": 0.0,
-                "volume_24h": {},
-                "error": str(e),
-            }
+            raise RuntimeError(f"流動性分析失敗: {e}") from e
     
     def check_volatility_compatibility(
         self, 
@@ -479,11 +441,7 @@ class RiskManager:
                 "volatility_range": "MEDIUM_TO_HIGH"
             }
         except Exception as e:
-            logger.error(f"波動率適配性檢查失敗: {e}")
-            return {
-                "compatible": ["BTCUSDT"],
-                "best_match": "BTCUSDT"
-            }
+            raise RuntimeError(f"波動率適配性檢查失敗: {e}") from e
     
     def apply_risk_filters(
         self, 
@@ -517,11 +475,7 @@ class RiskManager:
                 "reason": f"風險級別: {integrated_risk.single_trade_risk:.1f}%"
             }
         except Exception as e:
-            logger.error(f"風險過濾失敗: {e}")
-            return {
-                "approved": ["BTCUSDT"],
-                "excluded": []
-            }
+            raise RuntimeError(f"風險過濾失敗: {e}") from e
     
     def prioritize_trading_pairs(self, risk_filtered: Dict) -> TradingPairsPriority:
         """
@@ -558,12 +512,7 @@ class RiskManager:
                 excluded=excluded
             )
         except Exception as e:
-            logger.error(f"交易對優先級排序失敗: {e}")
-            return TradingPairsPriority(
-                primary=["BTCUSDT"],
-                backup=[],
-                excluded=[]
-            )
+            raise RuntimeError(f"交易對優先級排序失敗: {e}") from e
     
     # ========================================
     # 每日限制計算
@@ -597,9 +546,4 @@ class RiskManager:
                 "daily_reset_time": "00:00 UTC"
             }
         except Exception as e:
-            logger.error(f"每日限制計算失敗: {e}")
-            return {
-                "max_loss_usd": 50.0,
-                "max_single_trade_usd": 20.0,
-                "max_trades": 3
-            }
+            raise RuntimeError(f"每日限制計算失敗: {e}") from e

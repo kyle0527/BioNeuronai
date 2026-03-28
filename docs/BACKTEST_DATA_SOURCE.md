@@ -1,7 +1,18 @@
 # 回測系統數據來源說明
 
-**創建日期**: 2026年2月15日  
-**版本**: v4.0.0
+## 📑 目錄
+
+1. 📊 數據來源概覽
+2. 🔌 API 端點
+3. 📈 支持的數據類型
+4. 🚀 數據載入流程
+5. ⚙️ API 限制與優化
+6. 📊 數據質量
+7. 🔍 數據驗證
+8. 💡 使用示例
+9. 🛠️ 故障排除
+10. 📚 參考資料
+11. ✅ 總結
 
 ---
 
@@ -252,7 +263,7 @@ import asyncio
 
 async def main():
     loader = HistoricalDataLoader(use_testnet=False)
-    
+
     # 載入 BTC 2025 年全年 1 小時 K 線
     data = await loader.load_data(
         symbol="BTCUSDT",
@@ -260,7 +271,7 @@ async def main():
         end_date=datetime(2025, 12, 31),
         interval="1h"
     )
-    
+
     print(f"✅ 成功載入 {len(data)} 根 K 線")
     print(f"時間範圍: {data['open_time'].iloc[0]} 到 {data['open_time'].iloc[-1]}")
     print(f"平均價格: ${data['close'].mean():,.2f}")
@@ -273,10 +284,10 @@ asyncio.run(main())
 ```python
 async def load_multiple_symbols():
     loader = HistoricalDataLoader(use_testnet=False)
-    
+
     symbols = ["BTCUSDT", "ETHUSDT", "BNBUSDT"]
     all_data = {}
-    
+
     for symbol in symbols:
         data = await loader.load_data(
             symbol=symbol,
@@ -286,7 +297,7 @@ async def load_multiple_symbols():
         )
         all_data[symbol] = data
         print(f"✅ {symbol}: {len(data)} 根 K 線")
-    
+
     return all_data
 ```
 

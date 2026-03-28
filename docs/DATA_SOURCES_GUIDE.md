@@ -1,20 +1,14 @@
 # 📊 宏觀市場數據來源完整指南
 
-**版本**: 1.0  
-**最後更新**: 2026年1月22日  
-**用途**: 步驟2 - 宏觀市場掃描數據抓取方案  
-**狀態**: ✅ API 已驗證
+## 📑 目錄
 
----
-
-## 📋 目錄
-
-1. [數據需求清單](#數據需求清單按檢查頻率分類)
-2. [詳細數據源配置](#詳細數據源配置)
-3. [API 實現範例](#api-實現範例)
-4. [錯誤處理](#錯誤處理)
-5. [性能優化建議](#性能優化建議)
-6. [監控與告警](#監控與告警)
+1. 🎯 數據需求清單（按檢查頻率分類）
+2. 📡 詳細數據源配置
+3. 🔧 完整實現模組
+4. ⚠️ 無法抓取數據時的處理策略
+5. 📊 數據源總結
+6. 🚀 建議實施順序
+7. 📝 相關文檔
 
 ---
 
@@ -92,13 +86,13 @@ import asyncio
 async def fetch_global_market_data():
     """獲取全球市場數據（CoinGecko）"""
     url = "https://api.coingecko.com/api/v3/global"
-    
+
     try:
         async with aiohttp.ClientSession() as session:
             async with session.get(url, timeout=10) as response:
                 if response.status == 200:
                     data = await response.json()
-                    
+
                     return {
                         "total_market_cap_usd": data["data"]["total_market_cap"]["usd"],
                         "total_volume_24h_usd": data["data"]["total_volume"]["usd"],
@@ -170,14 +164,14 @@ https://api.alternative.me/fng/?limit=7&format=json
 async def fetch_fear_greed_index():
     """獲取恐慌與貪婪指數"""
     url = "https://api.alternative.me/fng/?limit=7&format=json"
-    
+
     try:
         async with aiohttp.ClientSession() as session:
             async with session.get(url, timeout=10) as response:
                 if response.status == 200:
                     data = await response.json()
                     latest = data["data"][0]
-                    
+
                     return {
                         "index_value": int(latest["value"]),
                         "classification": latest["value_classification"],
@@ -218,7 +212,7 @@ def calculate_custom_fear_greed(
 ) -> int:
     """
     自建恐慌貪婪指數（0-100）
-    
+
     權重分配：
     - 波動率：25%（低波動率 = 貪婪）
     - 交易量：20%（高交易量 = 貪婪）
@@ -226,14 +220,14 @@ def calculate_custom_fear_greed(
     - BTC 主導率：15%（高主導率 = 恐慌）
     - 社交情緒：10%（正面 = 貪婪）
     """
-    
+
     # 標準化各指標到 0-100
     vol_score = max(0, min(100, (1 - btc_volatility / 0.1) * 100))
     volume_score = max(0, min(100, 50 + btc_volume_change * 50))
     momentum_score = max(0, min(100, 50 + btc_price_momentum * 50))
     dominance_score = max(0, min(100, (1 - (market_dominance - 40) / 20) * 100))
     sentiment_score = max(0, min(100, (social_sentiment + 1) * 50))
-    
+
     # 加權平均
     fng_index = (
         vol_score * 0.25 +
@@ -242,7 +236,7 @@ def calculate_custom_fear_greed(
         dominance_score * 0.15 +
         sentiment_score * 0.10
     )
-    
+
     return int(fng_index)
 ```
 
@@ -260,11 +254,11 @@ def calculate_custom_fear_greed(
 async def fetch_24h_volume_change():
     """從 Binance 獲取 24h 交易量變化"""
     url = "https://api.binance.com/api/v3/ticker/24hr?symbol=BTCUSDT"
-    
+
     async with aiohttp.ClientSession() as session:
         async with session.get(url) as response:
             data = await response.json()
-            
+
             return {
                 "symbol": "BTCUSDT",
                 "volume": float(data["volume"]),
@@ -300,11 +294,11 @@ async def fetch_exchange_stablecoin_reserves():
         "0x28C6c06298d514Db089934071355E5743bf21d60",  # Binance 14
         # ... 更多地址
     ]
-    
+
     # 可以使用免費的區塊鏈瀏覽器 API
     # 例如：Etherscan (免費配額：5 calls/秒)
     url = f"https://api.etherscan.io/api?module=account&action=tokenbalance&contractaddress=0xdac17f958d2ee523a2206206994597c13d831ec7&address={binance_usdt_addresses[0]}&tag=latest&apikey=YourApiKeyToken"
-    
+
     # 實現細節...
 ```
 
@@ -317,24 +311,24 @@ async def fetch_stablecoin_supply_change():
     間接反映資金流入/流出
     """
     stablecoins = ["tether", "usd-coin", "binance-usd", "dai"]
-    
+
     url = "https://api.coingecko.com/api/v3/coins/markets"
     params = {
         "vs_currency": "usd",
         "ids": ",".join(stablecoins),
         "order": "market_cap_desc"
     }
-    
+
     async with aiohttp.ClientSession() as session:
         async with session.get(url, params=params) as response:
             data = await response.json()
-            
+
             total_supply = sum(coin["market_cap"] for coin in data)
             supply_change_24h = sum(
                 coin["market_cap"] * coin["market_cap_change_percentage_24h"] / 100
                 for coin in data
             )
-            
+
             return {
                 "total_stablecoin_supply": total_supply,
                 "supply_change_24h": supply_change_24h,
@@ -375,23 +369,23 @@ https://api.llama.fi/v2/protocols
 async def fetch_defi_tvl():
     """獲取 DeFi 總鎖倉量"""
     url = "https://api.llama.fi/v2/protocols"
-    
+
     try:
         async with aiohttp.ClientSession() as session:
             async with session.get(url, timeout=15) as response:
                 if response.status == 200:
                     data = await response.json()
-                    
+
                     # 計算總 TVL
                     total_tvl = sum(p.get("tvl", 0) for p in data)
-                    
+
                     # 獲取 Top 10 協議
                     top_protocols = sorted(
                         data, 
                         key=lambda x: x.get("tvl", 0), 
                         reverse=True
                     )[:10]
-                    
+
                     return {
                         "total_tvl": total_tvl,
                         "total_protocols": len(data),
@@ -445,52 +439,52 @@ logger = logging.getLogger(__name__)
 class MacroMarketScanner:
     """
     宏觀市場數據掃描器
-    
+
     整合多個免費 API，獲取市場全貌
     """
-    
+
     def __init__(self):
         self.coingecko_url = "https://api.coingecko.com/api/v3"
         self.fear_greed_url = "https://api.alternative.me/fng"
         self.defillama_url = "https://api.llama.fi"
-        
+
     async def scan_all(self, check_frequency: str = "daily") -> Dict:
         """
         執行宏觀市場掃描（根據頻率調整檢查項目）
-        
+
         Args:
             check_frequency: "daily" 每日檢查 / "weekly" 每週完整檢查
-        
+
         Returns:
             Dict: 包含相應數據的結果
         """
         logger.info(f"🌍 開始宏觀市場掃描（模式: {check_frequency}）...")
-        
+
         # 每日必查：恐慌指數 + 市場概況
         daily_tasks = [
             self.fetch_fear_greed_index(),
             self.fetch_global_market_data(),
         ]
-        
+
         # 每週選查：DeFi TVL + 穩定幣
         weekly_tasks = [
             self.fetch_defi_tvl(),
             self.fetch_stablecoin_supply(),
         ] if check_frequency == "weekly" else []
-        
+
         # 並行獲取數據
         results = await asyncio.gather(
             *daily_tasks,
             *weekly_tasks,
             return_exceptions=True
         )
-        
+
         if check_frequency == "weekly":
             fng_data, global_data, tvl_data, stable_data = results
         else:
             fng_data, global_data = results
             tvl_data, stable_data = None, None
-        
+
         # 整合結果
         scan_result = {
             "timestamp": datetime.now().isoformat(),
@@ -498,19 +492,19 @@ class MacroMarketScanner:
             "data": {
                 # 1. 全球市值與BTC主導率
                 "market_overview": global_data if not isinstance(global_data, Exception) else None,
-                
+
                 # 2. 恐慌貪婪指數
                 "fear_greed": fng_data if not isinstance(fng_data, Exception) else None,
-                
+
                 # 3. DeFi TVL
                 "defi_tvl": tvl_data if not isinstance(tvl_data, Exception) else None,
-                
+
                 # 4. 穩定幣供應
                 "stablecoin": stable_data if not isinstance(stable_data, Exception) else None,
             },
             "errors": []
         }
-        
+
         # 記錄錯誤
         for i, (name, result) in enumerate([
             ("市場概況", global_data),
@@ -521,36 +515,36 @@ class MacroMarketScanner:
             if isinstance(result, Exception):
                 scan_result["errors"].append(f"{name}: {str(result)}")
                 logger.error(f"❌ {name} 獲取失敗: {result}")
-        
+
         # 生成市場評估
         scan_result["assessment"] = self._assess_market_condition(scan_result["data"])
-        
+
         logger.info("✅ 宏觀市場掃描完成")
         return scan_result
-    
+
     async def fetch_global_market_data(self) -> Dict:
         """獲取全球市場數據（CoinGecko）"""
         url = f"{self.coingecko_url}/global"
         # [實現代碼如前所述]
-    
+
     async def fetch_fear_greed_index(self) -> Dict:
         """獲取恐慌貪婪指數（Alternative.me）"""
         url = f"{self.fear_greed_url}/?limit=7&format=json"
         # [實現代碼如前所述]
-    
+
     async def fetch_defi_tvl(self) -> Dict:
         """獲取 DeFi TVL（DefiLlama）"""
         url = f"{self.defillama_url}/v2/protocols"
         # [實現代碼如前所述]
-    
+
     async def fetch_stablecoin_supply(self) -> Dict:
         """獲取穩定幣供應變化（CoinGecko）"""
         # [實現代碼如前所述]
-    
+
     def _assess_market_condition(self, data: Dict) -> Dict:
         """
         綜合評估市場狀況
-        
+
         Returns:
             Dict: 包含市場趨勢、風險等級、建議等
         """
@@ -560,10 +554,10 @@ class MacroMarketScanner:
             "confidence": 0.0,
             "recommendations": []
         }
-        
+
         # 根據數據進行評估...
         # (具體邏輯可以後續細化)
-        
+
         return assessment
 ```
 
@@ -584,7 +578,7 @@ async def fetch_with_fallback(primary_func, fallback_func, default_value):
             return result
     except Exception as e:
         logger.warning(f"主要數據源失敗: {e}")
-    
+
     try:
         result = await fallback_func()
         if result:
@@ -592,7 +586,7 @@ async def fetch_with_fallback(primary_func, fallback_func, default_value):
             return result
     except Exception as e:
         logger.error(f"備用數據源也失敗: {e}")
-    
+
     logger.warning("使用預設值")
     return default_value
 ```
@@ -605,11 +599,11 @@ from pathlib import Path
 
 class DataCache:
     """數據緩存系統"""
-    
+
     def __init__(self, cache_dir="data_cache"):
         self.cache_dir = Path(cache_dir)
         self.cache_dir.mkdir(exist_ok=True)
-    
+
     def save(self, key: str, data: any, ttl_hours: int = 24):
         """保存數據到緩存"""
         cache_file = self.cache_dir / f"{key}.pkl"
@@ -620,22 +614,22 @@ class DataCache:
         }
         with open(cache_file, "wb") as f:
             pickle.dump(cache_data, f)
-    
+
     def load(self, key: str) -> Optional[any]:
         """從緩存載入數據"""
         cache_file = self.cache_dir / f"{key}.pkl"
-        
+
         if not cache_file.exists():
             return None
-        
+
         with open(cache_file, "rb") as f:
             cache_data = pickle.load(f)
-        
+
         # 檢查是否過期
         age_hours = (datetime.now() - cache_data["timestamp"]).total_seconds() / 3600
         if age_hours > cache_data["ttl_hours"]:
             return None
-        
+
         return cache_data["data"]
 
 # 使用範例
@@ -647,11 +641,11 @@ async def fetch_with_cache(key: str, fetch_func):
     if cached:
         logger.info(f"使用緩存數據: {key}")
         return cached
-    
+
     data = await fetch_func()
     if data:
         cache.save(key, data, ttl_hours=6)
-    
+
     return data
 ```
 
@@ -661,11 +655,11 @@ async def fetch_with_cache(key: str, fetch_func):
 async def scan_essential_only(self) -> Dict:
     """
     只掃描必要指標（最小可行版本）
-    
+
     必要指標：
     - ✅ 全球市值 + BTC 主導率（CoinGecko）
     - ✅ 恐慌貪婪指數（Alternative.me）
-    
+
     可選指標：
     - ⚪ DeFi TVL（DefiLlama）
     - ⚪ 穩定幣流動（付費 API）
@@ -675,7 +669,7 @@ async def scan_essential_only(self) -> Dict:
         self.fetch_fear_greed_index(),
         return_exceptions=True
     )
-    
+
     return {
         "market_overview": essential_data[0],
         "fear_greed": essential_data[1],
@@ -693,11 +687,11 @@ def manual_market_assessment():
     print("\n" + "="*70)
     print("⚠️  自動市場掃描失敗，請手動輸入市場狀況")
     print("="*70)
-    
+
     btc_dominance = float(input("BTC 市場占比 (%): ") or "48")
     fear_greed = int(input("恐慌貪婪指數 (0-100): ") or "50")
     market_trend = input("市場趨勢 (BULLISH/BEARISH/SIDEWAYS): ") or "SIDEWAYS"
-    
+
     return {
         "btc_dominance": btc_dominance,
         "fear_greed_index": fear_greed,

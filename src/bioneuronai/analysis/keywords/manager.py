@@ -25,6 +25,7 @@ from typing import Any, Dict, List, Optional, Tuple, cast
 from dataclasses import asdict
 
 # 2. 本地模組
+from ..._paths import resolve_project_path
 from .models import Keyword, KeywordMatch, PredictionRecord
 from .loader import KeywordLoader
 
@@ -65,7 +66,7 @@ class KeywordManager:
     def __init__(self, config_path: Optional[str] = None, db_path: Optional[str] = None):
         self.config_path = config_path or self.DEFAULT_CONFIG_PATH
         self.keywords_dir = self.DEFAULT_KEYWORDS_DIR
-        self.db_path = db_path or self.DEFAULT_DB_PATH
+        self.db_path = str(resolve_project_path(db_path or self.DEFAULT_DB_PATH))
         self.keywords: Dict[str, Keyword] = {}
         
         # 初始化 SQLite 資料庫
@@ -341,7 +342,7 @@ class KeywordManager:
     
     def _save_keywords(self):
         """保存關鍵字（優先儲存到分類目錄）"""
-        keywords_path = Path(self.keywords_dir)
+        keywords_path = resolve_project_path(self.keywords_dir)
         
         if keywords_path.exists():
             self._save_to_category_files()
@@ -350,7 +351,7 @@ class KeywordManager:
     
     def _save_to_category_files(self):
         """儲存到分類檔案"""
-        keywords_path = Path(self.keywords_dir)
+        keywords_path = resolve_project_path(self.keywords_dir)
         keywords_path.mkdir(parents=True, exist_ok=True)
         
         # 按類別分組
@@ -392,7 +393,8 @@ class KeywordManager:
     
     def _save_to_single_file(self):
         """儲存到單一 JSON 檔案"""
-        Path(self.config_path).parent.mkdir(parents=True, exist_ok=True)
+        config_path = resolve_project_path(self.config_path)
+        config_path.parent.mkdir(parents=True, exist_ok=True)
         
         category_stats = {}
         for kw in self.keywords.values():
@@ -408,15 +410,15 @@ class KeywordManager:
         }
         
         try:
-            with open(self.config_path, 'w', encoding='utf-8') as f:
+            with open(config_path, 'w', encoding='utf-8') as f:
                 json.dump(data, f, ensure_ascii=False, indent=2)
-            logger.debug(f"已保存關鍵字到 {self.config_path}")
+            logger.debug(f"已保存關鍵字到 {config_path}")
         except Exception as e:
             logger.error(f"保存關鍵字失敗: {e}")
     
     def _update_index_file(self, by_category: Dict[str, List[Keyword]]) -> None:
         """更新索引檔"""
-        keywords_path = Path(self.keywords_dir)
+        keywords_path = resolve_project_path(self.keywords_dir)
         index_file = keywords_path / "_index.json"
         
         index_data = {
@@ -482,7 +484,8 @@ class KeywordManager:
         self,
         prediction_id: int,
         actual_direction: str,
-        price_after: float = 0.0
+        price_after: float = 0.0,
+        adjustment_factor: Optional[float] = None
     ) -> bool:
         """驗證預測"""
         conn = sqlite3.connect(self.db_path)
@@ -534,18 +537,20 @@ class KeywordManager:
         if kw and is_correct:
             kw.correct_count += 1
         
-        # 調整動態權重
+        # 調整動態權重（自適應步長：預測次數越多步長越小，防止震盪）
         if kw:
-            if is_correct:
-                kw.dynamic_weight = min(
-                    kw.dynamic_weight * self.WEIGHT_INCREASE_FACTOR,
-                    self.MAX_DYNAMIC_WEIGHT
-                )
-            else:
-                kw.dynamic_weight = max(
-                    kw.dynamic_weight * self.WEIGHT_DECREASE_FACTOR,
-                    self.MIN_DYNAMIC_WEIGHT
-                )
+            factor = adjustment_factor
+            if factor is None:
+                n = max(1, kw.prediction_count)
+                scale = 1.0 / (1.0 + 0.05 * n)  # 隨預測次數衰減
+                if is_correct:
+                    factor = 1.0 + (self.WEIGHT_INCREASE_FACTOR - 1.0) * scale
+                else:
+                    factor = 1.0 - (1.0 - self.WEIGHT_DECREASE_FACTOR) * scale
+            kw.dynamic_weight = min(
+                max(kw.dynamic_weight * factor, self.MIN_DYNAMIC_WEIGHT),
+                self.MAX_DYNAMIC_WEIGHT
+            )
             
             cursor.execute('''
                 UPDATE keywords SET 
@@ -657,15 +662,23 @@ class KeywordManager:
         keyword: str,
         predicted_direction: str,
         actual_direction: str,
-        price_change_pct: float = 0.0
-    ):
+        price_before: float = 1000.0,
+        price_after: Optional[float] = None,
+        adjustment_factor: Optional[float] = None,
+        news_title: str = ""
+    ) -> None:
         """快速記錄並驗證預測"""
-        price_before = 1000.0
-        price_after = price_before * (1 + price_change_pct / 100)
-        
-        pred_id = self.record_prediction(keyword, predicted_direction, price_before)
+        if price_after is None:
+            price_after = price_before
+
+        pred_id = self.record_prediction(keyword, predicted_direction, price_before, news_title)
         if pred_id > 0:
-            self.verify_prediction(pred_id, actual_direction, price_after)
+            self.verify_prediction(
+                pred_id,
+                actual_direction,
+                price_after,
+                adjustment_factor=adjustment_factor,
+            )
     
     # ========================================
     # 查詢與統計

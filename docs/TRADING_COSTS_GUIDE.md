@@ -1,8 +1,15 @@
 # 💰 交易成本配置系統
 
-**版本**: 1.0  
-**最後更新**: 2026年1月19日  
-**用途**: 提供完整的交易成本數據，幫助 AI 精確分析交易盈虧
+## 📑 目錄
+
+1. 🎯 為什麼需要這個系統？
+2. 📊 包含的成本項目
+3. 🛠️ 使用方式
+4. 📈 實際案例分析
+5. 💡 AI 應該如何使用這些數據？
+6. ⚠️ 重要注意事項
+7. 🔗 相關文檔
+8. 📊 快速參考表
 
 ---
 
@@ -133,13 +140,13 @@ class TradingEngine:
             vip_level=0,
             use_bnb=True
         )
-    
+
     def analyze_trade_opportunity(self, signal):
         """分析交易機會（考慮成本）"""
-        
+
         # 1. 計算預期獲利
         expected_profit_pct = signal['target_price'] / signal['entry_price'] - 1
-        
+
         # 2. 計算交易成本
         costs = self.cost_calculator.calculate_entry_exit_costs(
             position_size_usd=signal['position_size'],
@@ -148,12 +155,12 @@ class TradingEngine:
             symbol=signal['symbol'],
             holding_hours=signal['expected_duration_hours']
         )
-        
+
         # 3. 計算淨利潤
         gross_profit = signal['position_size'] * expected_profit_pct
         net_profit = gross_profit - costs['total_cost']
         net_profit_pct = (net_profit / signal['position_size']) * 100
-        
+
         # 4. 決策
         if net_profit_pct < 1.0:  # 淨利潤低於1%
             return {
@@ -258,11 +265,11 @@ if rsi < 30:
 if rsi < 30:
     # 計算如果現在買，目標價是多少
     costs = calc.calculate_entry_exit_costs(...)
-    
+
     # 目標價 = 入場價 × (1 + 最小獲利目標)
     min_target_pct = costs['cost_percentage'] / 100 + 0.015  # +1.5%淨利潤
     target_price = entry_price * (1 + min_target_pct)
-    
+
     # 檢查是否有足夠上漲空間
     resistance_price = get_next_resistance()
     if target_price < resistance_price:
@@ -283,14 +290,14 @@ def calculate_stop_levels(entry_price, position_size, symbol):
         symbol=symbol,
         holding_hours=24
     )
-    
+
     # 止損: -2%（固定）
     stop_loss = entry_price * 0.98
-    
+
     # 止盈: 至少要覆蓋成本 + 2% 淨利潤
     min_profit_pct = costs['cost_percentage'] / 100 + 0.02
     take_profit = entry_price * (1 + min_profit_pct)
-    
+
     return {
         "stop_loss": stop_loss,
         "take_profit": take_profit,
@@ -304,11 +311,11 @@ def calculate_stop_levels(entry_price, position_size, symbol):
 # 計算真實回報率（扣除所有成本）
 def calculate_true_return(trade_history):
     total_pnl = 0
-    
+
     for trade in trade_history:
         # 計算毛利潤
         gross_pnl = (trade['exit_price'] - trade['entry_price']) * trade['quantity']
-        
+
         # 計算成本
         costs = calc.calculate_entry_exit_costs(
             position_size_usd=trade['position_value'],
@@ -317,11 +324,11 @@ def calculate_true_return(trade_history):
             symbol=trade['symbol'],
             holding_hours=trade['duration_hours']
         )
-        
+
         # 淨利潤
         net_pnl = gross_pnl - costs['total_cost']
         total_pnl += net_pnl
-    
+
     return total_pnl
 ```
 

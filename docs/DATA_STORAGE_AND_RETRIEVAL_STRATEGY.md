@@ -1,21 +1,16 @@
 # 數據分層存儲與讀取策略
 
-**版本**: v2.1  
-**最後更新**: 2026年1月22日  
-**狀態**: ✅ 已實現
+## 📑 目錄
 
----
-
-## 📋 目錄
-
-1. [數據分層原理](#數據分層原理)
-2. [數據類型與存儲位置](#數據類型與存儲位置)
-3. [讀取策略](#讀取策略)
-4. [寫入策略](#寫入策略)
-5. [數據遷移與歸檔](#數據遷移與歸檔)
-6. [性能優化](#性能優化)
-7. [故障恢復](#故障恢復)
-8. [最佳實踐](#最佳實踐)
+1. 數據分層原理
+2. 數據類型與存儲位置
+3. 數據讀取模式對比
+4. 數據寫入策略
+5. 數據一致性保證
+6. 數據查詢優化
+7. 數據備份與恢復
+8. 數據清理策略
+9. 總結
 
 ---
 
@@ -196,21 +191,21 @@ def process_all_trades():
     db = get_database_manager()
     offset = 0
     batch_size = 1000
-    
+
     while True:
         # SQLite 不直接支持 offset，使用 timestamp 分頁
         batch = db.get_trades(
             start_date=last_timestamp,
             limit=batch_size
         )
-        
+
         if not batch:
             break
-        
+
         # 處理這批數據
         for trade in batch:
             analyze_trade(trade)
-        
+
         last_timestamp = batch[-1]['timestamp']
 ```
 
@@ -248,7 +243,7 @@ def get_recent_trades(hours=24):
 # TradingEngine 執行交易時
 def execute_trade(self, signal):
     # ... 執行交易 ...
-    
+
     # 立即寫入數據庫
     trade_info = {
         'order_id': order['orderId'],
@@ -258,7 +253,7 @@ def execute_trade(self, signal):
         'price': price,
         'timestamp': datetime.now().isoformat()
     }
-    
+
     self.db_manager.save_trade(trade_info)  # 同步寫入
 ```
 
@@ -270,7 +265,7 @@ metrics_buffer = []
 
 def buffer_metric(name, value):
     metrics_buffer.append({'name': name, 'value': value})
-    
+
     # 達到閾值時批量寫入
     if len(metrics_buffer) >= 100:
         flush_metrics()
@@ -295,7 +290,7 @@ def flush_metrics():
 def _save_trade_to_file(self, trade_info):
     # 1. 主存儲：數據庫
     trade_id = self.db_manager.save_trade(trade_info)
-    
+
     # 2. 備份：JSONL（異步，容錯）
     try:
         with open("trading_data/trades_history.jsonl", 'a') as f:
@@ -359,10 +354,10 @@ filtered = [t for t in all_trades if t['symbol'] == 'BTCUSDT']
 # 每日執行
 def daily_backup():
     db = get_database_manager()
-    
+
     # 導出到 JSON
     db.export_to_json(output_dir="trading_data/exports")
-    
+
     # 壓縮數據庫文件
     import shutil
     shutil.copy(
@@ -377,7 +372,7 @@ def daily_backup():
 # 從備份恢復
 def restore_from_backup(backup_date):
     import shutil
-    
+
     backup_file = f"trading_data/backups/trading_{backup_date}.db"
     if Path(backup_file).exists():
         shutil.copy(backup_file, "trading_data/trading.db")
@@ -396,10 +391,10 @@ def restore_from_backup(backup_date):
 # 每週執行
 def weekly_cleanup():
     db = get_database_manager()
-    
+
     # 清理90天前的未執行信號
     db.cleanup_old_data(keep_days=90)
-    
+
     logger.info("🗑️ 數據清理完成")
 ```
 
@@ -409,16 +404,16 @@ def weekly_cleanup():
 # 歸檔舊數據到冷存儲
 def archive_old_data(before_date):
     db = get_database_manager()
-    
+
     # 查詢舊數據
     old_trades = db.get_trades(end_date=before_date)
-    
+
     # 保存到歸檔文件
     archive_file = f"trading_data/archives/trades_{before_date}.json.gz"
     import gzip
     with gzip.open(archive_file, 'wt', encoding='utf-8') as f:
         json.dump(old_trades, f)
-    
+
     # 從數據庫刪除（可選）
     # DELETE FROM trades WHERE timestamp < ?
 ```

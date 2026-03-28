@@ -15,6 +15,12 @@ BioNeuronai CLI 模組
     python main.py --help
 """
 
-from .main import cli_main
+
+def cli_main() -> None:
+    """Lazy import to avoid runpy warnings when executing cli.main as a module."""
+    from .main import cli_main as _cli_main
+
+    _cli_main()
+
 
 __all__ = ["cli_main"]

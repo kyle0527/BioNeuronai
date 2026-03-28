@@ -20,6 +20,7 @@ from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Protocol, Tuple, cast
 
 # 2. 本地模組
+from ..._paths import resolve_project_path
 from .models import NewsArticle
 
 # 設置日誌
@@ -196,13 +197,20 @@ class RuleBasedEvaluator:
     
     def _connect_db(self) -> None:
         """連接資料庫管理器"""
+        db_path = resolve_project_path("data/bioneuronai/trading/runtime/trading.db")
         try:
             from ...data.database_manager import get_database_manager
-            self._db = cast(EventDatabase, get_database_manager())
-            logger.debug("RuleBasedEvaluator 已連接 DatabaseManager")
+            self._db = cast(EventDatabase, get_database_manager(str(db_path)))
+            logger.debug("RuleBasedEvaluator 已連接 DatabaseManager: %s", db_path)
         except Exception as e:
-            logger.warning(f"無法連接資料庫: {e}，將以無狀態模式運行")
             self._db = None
+            raise RuntimeError(f"RuleBasedEvaluator 無法連接資料庫 {db_path}: {e}") from e
+
+    def _require_db(self) -> EventDatabase:
+        """取得資料庫，若不可用則直接拋錯。"""
+        if self._db is None:
+            raise RuntimeError("RuleBasedEvaluator 資料庫未初始化")
+        return self._db
     
     def evaluate_headline(
         self,
@@ -279,25 +287,25 @@ class RuleBasedEvaluator:
         }
         
         # 存入資料庫
-        if self._db:
-            saved_id = self._db.save_event(event_info)
-            if saved_id:
-                logger.info(f"🧠 事件已記錄: [{rule.event_type}] {headline[:40]}...")
+        saved_id = self._require_db().save_event(event_info)
+        if not saved_id:
+            raise RuntimeError(f"事件已匹配但寫入 event_memory 失敗: {headline[:80]}")
+
+        logger.info(f"🧠 事件已記錄: [{rule.event_type}] {headline[:40]}...")
         
         return event_info
     
     def _check_termination_keywords(self, headline_lower: str) -> None:
         """檢查是否有事件結束關鍵字，自動解析相關事件 (Hard Stop)"""
-        if not self._db:
-            return
-        
+        db = self._require_db()
+
         for rule in self.rules:
             for term_keyword in rule.termination_keywords:
                 if term_keyword in headline_lower:
                     # 找到所有該類型的 ACTIVE 事件並解析
-                    active_events = self._db.get_active_events(event_type=rule.event_type)
+                    active_events = db.get_active_events(event_type=rule.event_type)
                     for event in active_events:
-                        self._db.resolve_event(
+                        db.resolve_event(
                             event['event_id'],
                             resolution_note=f"Terminated by keyword: {term_keyword}"
                         )
@@ -313,11 +321,7 @@ class RuleBasedEvaluator:
         Returns:
             (total_score, active_events_list)
         """
-        if not self._db:
-            logger.warning("資料庫未連接，無法計算事件分數")
-            return 0.0, []
-        
-        return self._db.calculate_total_event_score(symbol)
+        return self._require_db().calculate_total_event_score(symbol)
     
     def evaluate_news_batch(self, articles: List[NewsArticle]) -> List[Dict[str, Any]]:
         """
@@ -356,11 +360,10 @@ class RuleBasedEvaluator:
         Returns:
             清理的事件數量
         """
-        if not self._db:
-            return 0
-        
+        db = self._require_db()
+
         cleaned = 0
-        active_events = self._db.get_active_events()
+        active_events = db.get_active_events()
         
         for event in active_events:
             # 從 metadata 解析 decay_hours
@@ -377,7 +380,7 @@ class RuleBasedEvaluator:
             # 檢查是否過期
             created_at = datetime.fromisoformat(event['created_at'])
             if datetime.now() > created_at + timedelta(hours=decay_hours):
-                self._db.resolve_event(
+                db.resolve_event(
                     event['event_id'],
                     resolution_note=f"Auto-expired after {decay_hours} hours"
                 )

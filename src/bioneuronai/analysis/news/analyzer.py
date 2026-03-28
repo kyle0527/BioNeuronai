@@ -339,9 +339,8 @@ class CryptoNewsAnalyzer:
                 record['evaluated_at'] = datetime.now().isoformat()
                 stats['evaluated'] += 1
                 stats[result['direction']] += 1
-                
-                # 更新關鍵字權重
-                self._update_keyword_weights(record['keywords'], result)
+                # 注意：關鍵字權重更新由 NewsPredictionLoop.validate_pending_predictions()
+                # 統一負責（含正確/錯誤追蹤），此處不重複更新以避免雙重計算。
             else:
                 stats['failed'] += 1
             
@@ -674,7 +673,8 @@ class CryptoNewsAnalyzer:
         """獲取當前價格"""
         try:
             from ...data.binance_futures import BinanceFuturesConnector
-            connector = BinanceFuturesConnector(testnet=True)
+            _testnet = os.getenv("BINANCE_TESTNET", "false").lower() == "true"
+            connector = BinanceFuturesConnector(testnet=_testnet)
             price_data = connector.get_ticker_price(symbol)
             if price_data:
                 logger.info(f"獲取 {symbol} 當前價格: ${price_data.price:,.2f}")
@@ -999,9 +999,10 @@ class CryptoNewsAnalyzer:
             symbol = record.get('symbol') or (record['target_coin'] + 'USDT')
             
             from ...data.binance_futures import BinanceFuturesConnector
-            connector = BinanceFuturesConnector(testnet=True)
+            _testnet = os.getenv("BINANCE_TESTNET", "false").lower() == "true"
+            connector = BinanceFuturesConnector(testnet=_testnet)
             price_data = connector.get_ticker_price(symbol)
-            
+
             if not price_data:
                 logger.warning(f"無法獲取 {symbol} 當前價格")
                 return None
@@ -1053,15 +1054,19 @@ class CryptoNewsAnalyzer:
     def _update_single_keyword(self, km: Any, kw: str, factor: float, result: Dict) -> None:
         """更新單個關鍵字權重"""
         direction = result['direction']
-        
-        if hasattr(km, 'update_keyword_weight'):
-            km.update_keyword_weight(kw, factor)
-        
-        if direction in ['bullish', 'bearish']:
-            if hasattr(km, 'record_and_verify_prediction'):
-                km.record_and_verify_prediction(kw, direction, direction, result['price_change'])
+
+        if hasattr(km, 'record_and_verify_prediction'):
+            km.record_and_verify_prediction(
+                kw,
+                direction,
+                direction,
+                price_before=result['old_price'],
+                price_after=result['new_price'],
+                adjustment_factor=factor,
+                news_title=result.get('headline', ''),
+            )
         elif hasattr(km, 'record_prediction'):
-            km.record_prediction(kw, 'neutral', result['old_price'])
+            km.record_prediction(kw, direction, result['old_price'])
     
     def _update_keyword_weights(self, keywords: List[str], result: Dict) -> None:
         """更新關鍵字權重"""
@@ -1075,8 +1080,9 @@ class CryptoNewsAnalyzer:
             
             km = get_keyword_manager()
             if km is not None:
+                enriched_result = {**result, 'headline': ', '.join(keywords[:3])}
                 for kw in keywords:
-                    self._update_single_keyword(km, kw, factor, result)
+                    self._update_single_keyword(km, kw, factor, enriched_result)
                 
                 logger.info(f"已更新 {len(keywords)} 個關鍵字權重 (factor={factor})")
         except Exception as e:

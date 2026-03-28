@@ -449,10 +449,12 @@ class AIStrategyFusion:
                 weight.total_trades
             )
         
-        # 
-        weight.recent_trades = min(weight.recent_trades + 1, 20)  #  20 
+        #
+        weight.recent_trades = min(weight.recent_trades + 1, 20)  #  20
         if is_win:
             weight.recent_wins += 1
+        # recent_wins 不可超過 recent_trades（避免勝率 > 1.0）
+        weight.recent_wins = min(weight.recent_wins, weight.recent_trades)
         
         # 
         recent_win_rate = weight.recent_wins / weight.recent_trades if weight.recent_trades > 0 else 0.5
@@ -575,12 +577,15 @@ class AIStrategyFusion:
             _scale('pair_trading', 1 - adj * 0.5)       # 配對關係在衝擊下不穩定
             logger.info(f"[事件權重調整] {event_type}: 提升趨勢/突破/DC，降低均值回歸/配對")
 
-        # --- 監管事件: 謹慎觀望，整體降低風險暴露 ---
+        # --- 監管事件: 謹慎觀望，將權重拉向均等分佈以降低集中度 ---
         elif event_type in ['REGULATION', 'POLICY']:
-            adj = 0.15 * intensity_multiplier
+            adj = min(0.15 * intensity_multiplier, 1.0)
+            n_strategies = len(self.strategy_weights)
+            equal_weight = 1.0 / n_strategies if n_strategies > 0 else 1.0
             for weight in self.strategy_weights.values():
-                weight.final_weight *= (1 - adj * 0.5)
-            logger.info(f"[事件權重調整] {event_type}: 整體降低權重，謹慎觀望")
+                # 向均等權重靠攏 adj 比例，實際改變分佈而不被 normalize 抵消
+                weight.final_weight = weight.final_weight * (1 - adj) + equal_weight * adj
+            logger.info(f"[事件權重調整] {event_type}: 權重向均等分佈靠攏 {adj:.0%}，降低策略集中度")
 
         # --- 宏觀經濟事件: 趨勢與波段主導 ---
         elif event_type in ['MACRO', 'FED', 'CPI', 'EARNINGS']:

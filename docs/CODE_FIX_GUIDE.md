@@ -1,5 +1,4 @@
 # BioNeuronai 代碼修復與開發指南
-
 > **基於 AIVA Common 專業化標準，適配加密貨幣交易系統**  
 > **最後更新**: 2026年2月15日
 
@@ -7,57 +6,20 @@
 
 ## 📑 目錄
 
-1. [核心原則](#核心原則)
-   - [單一數據來源](#單一數據來源-single-source-of-truth)
-   - [四層優先級原則](#四層優先級原則)
-   - [程式可運行原則](#程式可運行原則)
-   - [直接運作驗證原則](#直接運作驗證原則)
-2. [修復前檢查清單](#修復前檢查清單)
-   - [執行前必做事項](#執行前必做事項)
-3. [批量修復規範](#批量修復規範)
-   - [批量處理前置原則](#批量處理前置原則)
-   - [批量處理禁忌](#批量處理禁忌)
-4. [代碼定義規範](#代碼定義規範)
-   - [禁止重複定義](#禁止重複定義)
-   - [模組專屬定義判斷](#模組專屬定義判斷)
-5. [Import 路徑規範](#import-路徑規範)
-   - [標準導入結構](#標準導入結構)
-   - [常見導入錯誤修復](#常見導入錯誤修復)
-   - [路徑查找方法](#路徑查找方法)
-6. [Schema 設計原則](#schema-設計原則)
-   - [Pydantic v2 標準格式](#pydantic-v2-標準格式)
-   - [Schema 修改檢查清單](#schema-修改檢查清單)
-7. [錯誤處理最佳實踐](#錯誤處理最佳實踐)
-   - [標準異常處理](#標準異常處理)
-   - [重試機制](#重試機制)
-8. [測試與驗證](#測試與驗證)
-   - [單元測試範例](#單元測試範例)
-   - [驗證命令](#驗證命令)
-   - [實際執行驗證原則](#實際執行驗證原則)
-9. [認知複雜度降低](#認知複雜度降低)
-   - [認知複雜度增量規則](#認知複雜度增量規則)
-   - [降低認知複雜度的最佳實踐](#降低認知複雜度的最佳實踐)
-   - [本專案常見複雜函數修復策略](#本專案常見複雜函數修復策略)
-   - [使用 Pylance 自動重構工具](#使用-pylance-自動重構工具)
-   - [修復驗證清單](#修復驗證清單)
-   - [延伸閱讀](#延伸閱讀)
-10. [常見問題修復](#常見問題修復)
-    - [問題 1: Import 路徑錯誤](#問題-1-import-路徑錯誤)
-    - [問題 2: Schema 驗證失敗](#問題-2-schema-驗證失敗)
-    - [問題 3: 類型標註不一致](#問題-3-類型標註不一致)
-    - [問題 4: 配置檔案路徑](#問題-4-配置檔案路徑)
-    - [問題 5: 資料庫路徑錯誤](#問題-5-資料庫路徑錯誤)
-11. [保留未使用函數原則](#保留未使用函數原則)
-12. [修復工作流程總結](#修復工作流程總結)
-13. [快速參考](#快速參考)
-    - [關鍵文檔位置](#關鍵文檔位置)
-    - [常用命令](#常用命令)
-    - [需要協助時](#需要協助時)
-14. [附錄：標準資源連結](#附錄標準資源連結)
-    - [金融交易標準](#金融交易標準)
-    - [Python 標準](#python-標準)
-    - [技術分析](#技術分析)
-    - [開發工具](#開發工具)
+1. 核心原則
+2. 修復前檢查清單
+3. 批量修復規範
+4. 代碼定義規範
+5. Import 路徑規範
+6. Schema 設計原則
+7. 錯誤處理最佳實踐
+8. 測試與驗證
+9. 認知複雜度降低
+10. 常見問題修復
+11. 保留未使用函數原則
+12. 修復工作流程總結
+13. 快速參考
+14. 附錄：標準資源連結
 
 ---
 
@@ -117,10 +79,10 @@ class MarketData(BaseModel):  # 禁止！schemas 已定義
 if __name__ == "__main__":
     # 初始化必要元件
     config = load_config()
-    
+
     # 執行主功能
     result = main(config)
-    
+
     # 輸出結果
     print(f"執行結果: {result}")
 
@@ -143,10 +105,10 @@ class MyStrategy:
 if __name__ == "__main__":
     # 載入真實數據
     data = load_real_market_data("ETHUSDT", "1h")
-    
+
     # 初始化策略
     strategy = TrendFollowingStrategy()
-    
+
     # 實際運作驗證
     signal = strategy.generate_signal(data)
     print(f"✅ 策略運作正常: {signal}")
@@ -460,7 +422,7 @@ from datetime import datetime
 
 class TradingSignal(BaseModel):
     """交易信號 - 標準格式範例
-    
+
     Attributes:
         symbol: 交易對符號 (如 BTCUSDT)
         action: 操作類型 (long/short/close)
@@ -471,19 +433,19 @@ class TradingSignal(BaseModel):
         strategy_name: 產生信號的策略名稱
         metadata: 額外資訊
     """
-    
+
     # 必填欄位 - 使用 Field 添加描述
     symbol: str = Field(..., description="交易對符號", examples=["BTCUSDT"])
     action: str = Field(..., description="操作類型: long/short/close")
     price: float = Field(..., description="觸發價格", gt=0)
     quantity: float = Field(..., description="交易數量", gt=0)
     timestamp: datetime = Field(default_factory=datetime.now, description="信號產生時間")
-    
+
     # 可選欄位 - 使用 Optional
     confidence: Optional[float] = Field(default=0.5, ge=0, le=1, description="信號可信度")
     strategy_name: Optional[str] = Field(default=None, description="策略名稱")
     metadata: Optional[Dict[str, Any]] = Field(default_factory=dict, description="額外資訊")
-    
+
     # 驗證器 - 自訂驗證邏輯
     @field_validator('action')
     @classmethod
@@ -493,7 +455,7 @@ class TradingSignal(BaseModel):
         if v.lower() not in allowed:
             raise ValueError(f"action 必須是 {allowed} 之一")
         return v.lower()
-    
+
     @field_validator('symbol')
     @classmethod
     def validate_symbol(cls, v: str) -> str:
@@ -501,7 +463,7 @@ class TradingSignal(BaseModel):
         if not v.endswith('USDT'):
             raise ValueError("目前只支援 USDT 交易對")
         return v.upper()
-    
+
     # 配置
     model_config = {
         "json_schema_extra": {
@@ -578,13 +540,13 @@ class APIConnectionError(TradingError):
 # ✅ 正確的異常處理範例
 def execute_order(order: OrderData) -> Optional[TradeResult]:
     """執行訂單
-    
+
     Args:
         order: 訂單數據
-        
+
     Returns:
         交易結果，失敗時返回 None
-        
+
     Raises:
         InsufficientBalanceError: 餘額不足
         InvalidOrderError: 訂單參數無效
@@ -594,7 +556,7 @@ def execute_order(order: OrderData) -> Optional[TradeResult]:
         # 1. 參數驗證
         if order.quantity <= 0:
             raise InvalidOrderError(f"訂單數量必須大於 0: {order.quantity}")
-        
+
         # 2. 餘額檢查
         balance = get_balance(order.symbol)
         required = order.quantity * order.price
@@ -602,25 +564,25 @@ def execute_order(order: OrderData) -> Optional[TradeResult]:
             raise InsufficientBalanceError(
                 f"餘額不足: 需要 {required}, 可用 {balance}"
             )
-        
+
         # 3. 執行交易
         result = api_client.place_order(order)
         logger.info(f"訂單執行成功: {result.order_id}")
         return result
-        
+
     except InvalidOrderError:
         # 業務邏輯錯誤 - 直接拋出
         raise
-        
+
     except InsufficientBalanceError:
         # 業務邏輯錯誤 - 直接拋出
         raise
-        
+
     except ConnectionError as e:
         # 網路錯誤 - 包裝後拋出
         logger.error(f"API 連接失敗: {e}")
         raise APIConnectionError(f"無法連接到交易所: {e}") from e
-        
+
     except Exception as e:
         # 未預期的錯誤 - 記錄並返回 None
         logger.exception(f"執行訂單時發生未預期錯誤: {e}")
@@ -635,7 +597,7 @@ from functools import wraps
 
 def retry(max_attempts: int = 3, delay: float = 1.0, backoff: float = 2.0):
     """重試裝飾器
-    
+
     Args:
         max_attempts: 最大嘗試次數
         delay: 初始延遲時間（秒）
@@ -646,7 +608,7 @@ def retry(max_attempts: int = 3, delay: float = 1.0, backoff: float = 2.0):
         def wrapper(*args, **kwargs):
             current_delay = delay
             last_exception = None
-            
+
             for attempt in range(1, max_attempts + 1):
                 try:
                     return func(*args, **kwargs)
@@ -655,14 +617,14 @@ def retry(max_attempts: int = 3, delay: float = 1.0, backoff: float = 2.0):
                     if attempt == max_attempts:
                         logger.error(f"{func.__name__} 失敗，已達最大重試次數")
                         raise
-                    
+
                     logger.warning(
                         f"{func.__name__} 失敗 (嘗試 {attempt}/{max_attempts}), "
                         f"{current_delay:.1f}秒後重試: {e}"
                     )
                     time.sleep(current_delay)
                     current_delay *= backoff
-                    
+
             raise last_exception
         return wrapper
     return decorator
@@ -688,7 +650,7 @@ from src.bioneuronai.strategies.rsi_strategy import RSIStrategy
 
 class TestRSIStrategy:
     """RSI 策略測試"""
-    
+
     def setup_method(self):
         """每個測試前執行"""
         self.strategy = RSIStrategy(
@@ -697,50 +659,50 @@ class TestRSIStrategy:
             oversold=30,
             overbought=70
         )
-    
+
     def test_generate_buy_signal_when_oversold(self):
         """測試超賣時產生買入信號"""
         # 準備測試數據 - RSI = 25 (超賣)
         market_data = self._create_oversold_data()
-        
+
         # 執行
         signal = self.strategy.generate_signal(market_data)
-        
+
         # 驗證
         assert signal is not None
         assert signal.action == "long"
         assert signal.symbol == "BTCUSDT"
         assert signal.confidence > 0.6
-    
+
     def test_generate_sell_signal_when_overbought(self):
         """測試超買時產生賣出信號"""
         # 準備測試數據 - RSI = 75 (超買)
         market_data = self._create_overbought_data()
-        
+
         # 執行
         signal = self.strategy.generate_signal(market_data)
-        
+
         # 驗證
         assert signal is not None
         assert signal.action == "short"
         assert signal.confidence > 0.6
-    
+
     def test_no_signal_when_neutral(self):
         """測試中性區間不產生信號"""
         # 準備測試數據 - RSI = 50 (中性)
         market_data = self._create_neutral_data()
-        
+
         # 執行
         signal = self.strategy.generate_signal(market_data)
-        
+
         # 驗證
         assert signal is None
-    
+
     def test_invalid_symbol_raises_error(self):
         """測試無效交易對拋出錯誤"""
         with pytest.raises(ValueError):
             RSIStrategy(symbol="INVALID")
-    
+
     def _create_oversold_data(self):
         """創建超賣測試數據"""
         # 實現省略...
@@ -847,22 +809,22 @@ def recursive(n):
 def execute_trade(self, signal: TradingSignal):
     if signal is None:
         return
-    
+
     if signal.action == "long":
         if self.positions:
             if self.positions[0].side == "short":
                 self._close_position()
-        
+
         if self.risk_manager.check_risk(signal):
             if self.account_balance > signal.cost:
                 if not self._check_market_hours():
                     logger.warning("非交易時段")
                     return
-                
+
                 if self._check_news_risk(signal.symbol):
                     logger.warning("新聞風險")
                     return
-                
+
                 order = self._create_order(signal)
                 if order:
                     self._submit_order(order)
@@ -879,13 +841,13 @@ def execute_trade(self, signal: TradingSignal):
     """執行交易 - 主流程"""
     if not self._validate_signal(signal):  # 提取驗證邏輯
         return
-    
+
     if not self._handle_position_conflict(signal):  # 提取倉位處理
         return
-    
+
     if not self._check_preconditions(signal):  # 提取前置檢查
         return
-    
+
     self._execute_order(signal)  # 提取訂單執行
 
 def _validate_signal(self, signal: TradingSignal) -> bool:
@@ -898,7 +860,7 @@ def _handle_position_conflict(self, signal: TradingSignal) -> bool:
     """處理倉位衝突"""
     if not self.positions:
         return True
-    
+
     current_side = self.positions[0].side
     if current_side != signal.action:
         self._close_position()
@@ -909,19 +871,19 @@ def _check_preconditions(self, signal: TradingSignal) -> bool:
     if not self.risk_manager.check_risk(signal):
         logger.error("風險檢查失敗")
         return False
-    
+
     if self.account_balance <= signal.cost:
         logger.error("餘額不足")
         return False
-    
+
     if not self._check_market_hours():
         logger.warning("非交易時段")
         return False
-    
+
     if self._check_news_risk(signal.symbol):
         logger.warning("新聞風險")
         return False
-    
+
     return True
 
 def _execute_order(self, signal: TradingSignal):
@@ -966,16 +928,16 @@ def analyze_market(self, data: MarketData):
     # Guard Clauses - 提前處理異常情況
     if data is None:
         return None
-    
+
     if data.volume <= 1000:
         return None
-    
+
     if data.price <= self.threshold:
         return None
-    
+
     if not self._check_trend(data):
         return None
-    
+
     # 主邏輯在最外層，無嵌套
     return self._generate_signal(data)
 ```
@@ -1014,7 +976,7 @@ def get_market_status(self, sentiment: float, volatility: float):
     """獲取市場狀態 - 使用分類邏輯"""
     sentiment_level = self._classify_sentiment(sentiment)
     volatility_level = self._classify_volatility(volatility)
-    
+
     # 查詢表
     status_map = {
         ('high', 'low'): 'BULLISH_STABLE',
@@ -1024,7 +986,7 @@ def get_market_status(self, sentiment: float, volatility: float):
         ('low', 'low'): 'BEARISH_STABLE',
         ('low', 'high'): 'BEARISH_VOLATILE',
     }
-    
+
     return status_map.get(
         (sentiment_level, volatility_level),
         'UNKNOWN'
@@ -1059,22 +1021,22 @@ def _classify_volatility(self, value: float) -> str:
 # ❌ 認知複雜度 = 12 (重複判斷)
 def check_risk(self, signal: TradingSignal):
     risk_score = 0
-    
+
     if signal.confidence < 0.5:
         risk_score += 2
-    
+
     if signal.volatility > 0.8:
         risk_score += 2
-    
+
     if signal.volume_ratio < 0.5:
         risk_score += 1
-    
+
     if signal.news_sentiment < -0.5:
         risk_score += 3
-    
+
     if signal.market_trend == "bearish":
         risk_score += 2
-    
+
     if risk_score > 5:
         return "HIGH_RISK"
     elif risk_score > 3:
@@ -1093,10 +1055,10 @@ def check_risk(self, signal: TradingSignal):
         (signal.news_sentiment < -0.5, 3),
         (signal.market_trend == "bearish", 2),
     ]
-    
+
     # 計算總風險分數
     risk_score = sum(weight for condition, weight in risk_factors if condition)
-    
+
     # 返回風險等級
     return self._classify_risk_level(risk_score)
 
@@ -1142,7 +1104,7 @@ def process_order(self, order: Order):
 # ✅ 認知複雜度 < 8 (狀態機模式)
 class OrderStateMachine:
     """訂單狀態機"""
-    
+
     def __init__(self):
         self.transitions = {
             'pending': self._handle_pending,
@@ -1150,27 +1112,27 @@ class OrderStateMachine:
             'submitted': self._handle_submitted,
             'partial': self._handle_partial,
         }
-    
+
     def process(self, order: Order) -> Order:
         """處理訂單狀態轉換"""
         handler = self.transitions.get(order.status)
         if handler:
             return handler(order)
         return order
-    
+
     def _handle_pending(self, order: Order) -> Order:
         """處理待處理訂單"""
         if not self._validate_order(order):
             order.status = 'invalid'
             return order
-        
+
         if not self._check_balance(order):
             order.status = 'rejected'
             return order
-        
+
         order.status = 'validated'
         return order
-    
+
     def _handle_validated(self, order: Order) -> Order:
         """處理已驗證訂單"""
         if self._submit_to_exchange(order):
@@ -1178,7 +1140,7 @@ class OrderStateMachine:
         else:
             order.status = 'failed'
         return order
-    
+
     def _handle_submitted(self, order: Order) -> Order:
         """處理已提交訂單"""
         if self._check_fill_status(order):
@@ -1186,7 +1148,7 @@ class OrderStateMachine:
         elif self._is_partially_filled(order):
             order.status = 'partial'
         return order
-    
+
     def _handle_partial(self, order: Order) -> Order:
         """處理部分成交訂單"""
         if self._check_complete(order):
@@ -1429,11 +1391,11 @@ class NewsAnalyzer:
     def analyze_news(self, symbol: str):
         """當前使用的方法"""
         pass
-    
+
     def analyze_batch(self, symbols: List[str]):
         """未使用但保留 - 可能用於批次分析"""
         pass
-    
+
     def export_to_csv(self, filename: str):
         """未使用但保留 - 可能用於數據導出"""
         pass

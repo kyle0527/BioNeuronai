@@ -29,7 +29,7 @@
 ### 模組職責
 - ✅ 6 種基礎交易策略（趨勢 / 波段 / 均值回歸 / 突破 / 方向變化 / 配對交易）
 - ✅ AI 策略融合（整合全部 6 種基礎策略，動態加權）
-- ✅ 智能策略選擇器（市場狀態 → 最佳策略，含 10 種配置模板）
+- ✅ 智能策略選擇器（市場體制識別 → 策略推薦 / 詳細選擇）
 - ✅ 策略競技場（遺傳算法單策略優化，支援多進程並行）
 - ✅ 階段路由器（9 交易階段動態切換）
 - ✅ 組合優化器（全局多階段最優解）
@@ -58,12 +58,13 @@ src/bioneuronai/strategies/
 ├── rl_fusion_agent.py             # RL 融合代理 (669 行)
 │
 └── selector/                      # 策略選擇子模組
-    ├── __init__.py                # 子模組入口 (80 行)
-    ├── core.py                    # 選擇器核心 (645 行)
-    ├── evaluator.py               # 市場評估器 v1 (354 行)
-    ├── evaluator_new.py           # 市場評估器 v2 (393 行)
-    ├── configs.py                 # 策略配置模板 (390 行)
-    └── types.py                   # 型別定義 (118 行)
+    ├── __init__.py                # 子模組入口
+    ├── core.py                    # 選擇器核心
+    ├── evaluator.py               # 目前主路徑市場評估器
+    ├── evaluator_new.py           # 保留中的替代評估器
+    ├── configs.py                 # 策略配置模板
+    ├── types.py                   # 型別定義
+    └── README.md                  # 子模組詳細說明
 ```
 
 ---
@@ -200,37 +201,42 @@ class MarketRegime:
 
 ## 🔍 策略選擇器 (`selector/` 子模組)
 
-根據當前市場狀態（`MarketRegime`）智能推薦最佳策略或策略組合。
+`selector/` 是 `strategies/` 內部的**下一層子模組**，責任比上層 README 更聚焦。  
+上層 `strategies/README.md` 只保留架構摘要與定位；`selector/` 的檔案職責、型別邊界、主路徑 / 替代實作、詳細接口與限制，請直接看子模組文件：
 
-| 檔案 | 行數 | 職責 |
-|------|------|------|
-| `core.py` | 645 | 選擇器主邏輯：整合 v1 配置 + v2 策略實例化 + AI Fusion + EventContext |
-| `evaluator.py` | 354 | 市場評估器 v1（ADX 體制識別、策略評分） |
-| `evaluator_new.py` | 393 | 市場評估器 v2（擴充 ADX 邏輯、體制完整計算） |
-| `configs.py` | 390 | 10 種預定義策略配置模板（`get_default_strategy_configs()`） |
-| `types.py` | 118 | `StrategyConfigTemplate` · `StrategySelectionResult` · `InternalPerformanceMetrics` |
+- [selector/README.md](C:/D/E/BioNeuronai/src/bioneuronai/strategies/selector/README.md)
 
-**`configs.py` 10 種預定義模板**: MA 交叉趨勢、RSI 均值回歸、布林突破、ADX 強趨勢、Stochastic 波段、方向變化、配對交易，以及多種組合配置。
+### 這一層只強調 4 個重點
 
-**統一接口**:
+1. `selector/` 負責「市場體制 → 策略推薦 / 詳細選擇」，不是基礎策略本身。
+2. 目前主路徑是 `core.py + evaluator.py + configs.py + types.py`。
+3. `evaluator_new.py` 目前存在，但不是主流程依賴。
+4. 這個子模組已取代較舊的 `trading/strategy_selector.py` 系列，且已被 `plan_controller.py` 實際使用。
+
+### 對外主要接口
+
 ```python
 selector = StrategySelector(timeframe="1h")
-result = selector.recommend_strategy(ohlcv_data)       # 同步，回傳 StrategyRecommendation
-result = await selector.select_optimal_strategy(data)  # 非同步，回傳 StrategySelectionResult
+recommendation = selector.recommend_strategy(ohlcv_data)
+selection = await selector.select_optimal_strategy(ohlcv_data)
 ```
 
-**型別定義** (`types.py`)（從 `schemas` 重新導出 + 模組專屬型別）：
-- `StrategyConfigTemplate` — 靜態設定模板（入場/出場條件、風險參數、預期績效）
-- `StrategySelectionResult` — async API 返回值（含主策略 + 備援策略清單）
-- `InternalPerformanceMetrics` — 內部性能指標追蹤
-- `MarketRegime` · `StrategyType` · `Complexity` · `RiskLevel` — 從 `schemas.enums` 重新導出
-- `StrategyRecommendation` · `STRATEGY_MARKET_FIT` — 從 `schemas.strategy` 重新導出
+### 為什麼這裡不重複寫完整細節
 
-**額外工具函數與常量**（`configs.py` / `__init__.py`）：
-- `get_default_strategy_configs()` — 取得所有預設策略配置模板
-- `get_strategy_by_type(strategy_type)` — 依類型取得特定策略配置
-- `STRATEGY_ALIASES` — 策略名稱別名映射字典
-- `STRATEGY_MARKET_FIT` — 策略 × 市場體制適配矩陣
+因為 `selector/README.md` 和本文件是**不同層級**：
+
+- 本文件：`strategies/` 模組總覽
+- 子文件：`selector/` 子模組詳解
+
+因此像以下內容，只保留在子 README：
+
+- `types.py` 的模組專屬型別細節
+- `configs.py` 10 種模板的完整說明
+- `core.py` 的資料流與方法分工
+- `evaluator.py` / `evaluator_new.py` 的主從關係
+- selector 與 `schemas/` 的精確邊界
+
+這樣可以避免上下兩層文件重複，並降低後續維護成本。
 
 ---
 
@@ -413,6 +419,7 @@ print(f"最優候選: {best.strategy_name}, Sharpe: {best.metrics.get('sharpe_ra
 
 - **策略進化指南**: [STRATEGY_EVOLUTION_GUIDE.md](../../../docs/STRATEGY_EVOLUTION_GUIDE.md)
 - **策略快速參考**: [STRATEGIES_QUICK_REFERENCE.md](../../../docs/STRATEGIES_QUICK_REFERENCE.md)
+- **策略選擇器子模組**: [selector/README.md](C:/D/E/BioNeuronai/src/bioneuronai/strategies/selector/README.md)
 - **父模組**: [BioNeuronai 主模組](../README.md)
 
 ---

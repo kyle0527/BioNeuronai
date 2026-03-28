@@ -1,5 +1,19 @@
 # 🚀 BioNeuronai v2.1 快速開始指南
 
+## 📑 目錄
+
+1. 📦 安裝
+2. 🧪 驗證安裝
+3. 🎯 快速使用案例
+4. 🏗️ 整合到現有系統
+5. ⚙️ 配置文件示例
+6. 📊 監控儀表板
+7. 🐛 故障排除
+8. 📚 進階主題
+9. 📞 技術支持
+
+---
+
 ## 📦 安裝
 
 ### 方式 1: 自動安裝腳本 (推薦)
@@ -134,7 +148,7 @@ manager = PopulationManager(population_size=100)
 print("開始演化...")
 for gen in range(50):
     result = manager.run_generation()
-    
+
     if gen % 10 == 0:
         print(f"第 {gen} 代: 最佳={result['best_fitness']:.2f}, 平均={result['avg_fitness']:.2f}")
 
@@ -235,7 +249,7 @@ from .self_improvement import PopulationManager
 class TradingEngine:
     def __init__(self, config):
         self.config = config
-        
+
         # 啟用基因演算法
         if config.use_genetic_algo:
             self.population_manager = PopulationManager(
@@ -244,14 +258,14 @@ class TradingEngine:
             )
         else:
             self.population_manager = None
-    
+
     def optimize_strategies(self):
         """優化策略參數"""
         if self.population_manager:
             # 使用基因演算法
             result = self.population_manager.run_generation()
             best_genes = self.population_manager.get_best_genes(top_n=10)
-            
+
             # 將最優基因轉換為策略實例
             strategies = [self._gene_to_strategy(gene) for gene in best_genes]
             return strategies
@@ -270,13 +284,13 @@ from ..strategies.rl_fusion_agent import RLMetaAgent
 class StrategyFusion:
     def __init__(self, config):
         self.config = config
-        
+
         # 啟用 RL 融合
         if config.use_rl_fusion:
             self.rl_agent = RLMetaAgent.load("models/rl_fusion_agent.zip")
         else:
             self.rl_agent = None
-    
+
     def fuse_signals(self, strategy_signals, market_state):
         """融合策略信號"""
         if self.rl_agent:
@@ -303,7 +317,7 @@ from .news_prediction_loop import NewsPredictionLoop
 class CryptoNewsAnalyzer:
     def __init__(self, config, db_manager, price_fetcher, keyword_manager):
         self.config = config
-        
+
         # 啟用預測循環
         if config.use_prediction_loop:
             self.prediction_loop = NewsPredictionLoop(
@@ -313,12 +327,12 @@ class CryptoNewsAnalyzer:
             )
         else:
             self.prediction_loop = None
-    
+
     def analyze_news(self, article):
         """分析新聞"""
         # 情感分析
         sentiment_result = self._sentiment_analysis(article)
-        
+
         # 如果啟用預測循環，記錄預測
         if self.prediction_loop and sentiment_result.confidence > 0.7:
             pred_id = self.prediction_loop.log_prediction({
@@ -334,13 +348,22 @@ class CryptoNewsAnalyzer:
                 'check_after_hours': 4
             })
             logger.info(f"預測已記錄: {pred_id}")
-        
+
         return sentiment_result
 ```
 
 ---
 
 ## ⚙️ 配置文件示例
+
+> ⚠️ 本節部分過時：
+> 這裡示範的是 v2.1 時期的配置模型，並非目前專案的長期標準。
+> 特別是以下內容需重新對照後再使用：
+> - 在 `config/trading_config.py` 中定義一套新的 `TradingConfig` schema
+> - 直接把 Binance 憑證欄位視為該配置模型的一部分
+> - 將它當作當前 `src/schemas/` 單一事實來源的替代
+>
+> 後續若要落地，應以 `src/schemas/`、現行模組結構與最新憑證流規劃為準。
 
 ```python
 # config/trading_config.py
@@ -349,29 +372,29 @@ from pydantic import BaseModel
 
 class TradingConfig(BaseModel):
     """交易配置"""
-    
+
     # === 基因演算法配置 ===
     use_genetic_algo: bool = True
     genetic_population_size: int = 100
     genetic_survival_rate: float = 0.20
     genetic_mutation_rate: float = 0.15
     genetic_max_generations: int = 50
-    
+
     # === RL Meta-Agent 配置 ===
     use_rl_fusion: bool = True
     rl_model_path: str = "models/rl_fusion_agent.zip"
     rl_n_strategies: int = 5
     rl_training_timesteps: int = 100000
-    
+
     # === 新聞預測循環配置 ===
     use_prediction_loop: bool = True
     prediction_check_after_hours: float = 4.0
     prediction_min_confidence: float = 0.7
     prediction_enable_human_feedback: bool = True
-    
+
     # === 資料庫配置 ===
     database_path: str = "trading_data/trading.db"
-    
+
     # === API 配置 ===
     binance_api_key: str = ""
     binance_api_secret: str = ""
@@ -409,10 +432,10 @@ db = get_database_manager()
 def monitor_genetic_algo():
     """監控基因演算法"""
     history = db.get_evolution_history(last_n=10)
-    
+
     avg_fitness = sum(h['avg_fitness'] for h in history) / len(history)
     best_fitness = max(h['best_fitness'] for h in history)
-    
+
     print(f"🧬 基因演算法:")
     print(f"   最近 10 代平均適應度: {avg_fitness:.2f}")
     print(f"   最佳適應度: {best_fitness:.2f}")
@@ -420,16 +443,16 @@ def monitor_genetic_algo():
 def monitor_rl_training():
     """監控 RL 訓練"""
     progress = db.get_rl_training_progress("rl_fusion_v1", last_n=100)
-    
+
     avg_reward = sum(p['mean_reward'] for p in progress) / len(progress)
-    
+
     print(f"🤖 RL Meta-Agent:")
     print(f"   最近 100 步平均獎勵: {avg_reward:.2f}")
 
 def monitor_prediction_accuracy():
     """監控預測準確率"""
     stats = db.get_prediction_accuracy()
-    
+
     print(f"📰 新聞預測:")
     print(f"   總預測: {stats['total']}")
     print(f"   準確率: {stats['accuracy_rate']:.1%}")
@@ -510,16 +533,16 @@ class EvolutionEngine:
             result.win_rate * 0.1 +
             result.profit_factor * 0.1
         )
-        
+
         # 新增懲罰: 交易次數太少
         if result.total_trades < 50:
             fitness *= 0.8
-        
+
         # 新增獎勵: 高 Calmar Ratio
         calmar = result.total_return / result.max_drawdown if result.max_drawdown > 0 else 0
         if calmar > 3.0:
             fitness *= 1.2
-        
+
         return max(0, fitness)
 ```
 
@@ -533,23 +556,23 @@ class StrategyFusionEnv:
         """自定義獎勵計算"""
         # 基礎獎勵
         reward = pnl
-        
+
         # 交易成本
         if self.last_action != self.current_action:
             reward -= self.transaction_cost
-        
+
         # 持倉成本
         if self.current_action != 0:  # 持有倉位
             reward -= self.holding_cost
-        
+
         # 新增: 懲罰頻繁交易
         if self.trade_count_in_window > 10:
             reward -= 0.1
-        
+
         # 新增: 獎勵高 Sharpe
         if self.sharpe_ratio > 2.0:
             reward += 0.5
-        
+
         return reward
 ```
 

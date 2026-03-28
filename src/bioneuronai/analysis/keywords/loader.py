@@ -11,8 +11,10 @@
 import json
 import logging
 from pathlib import Path
+from typing import Dict
 
 # 2. 本地模組
+from ..._paths import resolve_project_path
 from .models import Keyword
 
 logger = logging.getLogger(__name__)
@@ -40,7 +42,7 @@ class KeywordLoader:
             Dict[str, Keyword]: 關鍵字字典
         """
         keywords: Dict[str, Keyword] = {}
-        keywords_path = Path(self.keywords_dir)
+        keywords_path = resolve_project_path(self.keywords_dir)
         
         if not keywords_path.exists():
             logger.warning(f"關鍵字目錄不存在: {self.keywords_dir}")
@@ -90,12 +92,14 @@ class KeywordLoader:
         """
         keywords: Dict[str, Keyword] = {}
         
-        if not Path(self.config_path).exists():
+        config_path = resolve_project_path(self.config_path)
+
+        if not config_path.exists():
             logger.warning(f"設定檔不存在: {self.config_path}")
             return keywords
-        
+
         try:
-            with open(self.config_path, 'r', encoding='utf-8') as f:
+            with open(config_path, 'r', encoding='utf-8') as f:
                 data = json.load(f)
             
             for kw_data in data.get('keywords', []):

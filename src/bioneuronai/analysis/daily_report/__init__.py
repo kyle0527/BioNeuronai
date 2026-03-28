@@ -19,7 +19,9 @@ import io
 import os
 import logging
 import sys
-from typing import Dict, List, Optional
+from dataclasses import is_dataclass
+from datetime import datetime
+from typing import Any, Dict, List, Optional, cast
 
 # 2. 本地模組 - 資料模型
 from .models import (
@@ -109,7 +111,7 @@ class SOPAutomationSystem:
             return None
 
     def _import_modules(self) -> None:
-        """導入可選模組（新聞分析器）"""
+        """導入新聞分析模組，失敗時記錄錯誤並保持 news_sentiment_analyzer 為 None"""
         try:
             from ..news import CryptoNewsAnalyzer
 
@@ -118,9 +120,9 @@ class SOPAutomationSystem:
 
             self.modules_available = True
             logger.info("[OK] 所有分析模組導入成功（含共享新聞分析器）")
-        except ImportError as e:
-            logger.warning(f"[WARN] 部分模組不可用: {e}")
-            self.news_sentiment_analyzer = NewsSentimentAnalyzer(None)
+        except Exception as e:
+            logger.error(f"[ERROR] 新聞分析模組初始化失敗: {e}")
+            self.news_sentiment_analyzer = None
             self.modules_available = False
     
     # ========================================
@@ -200,38 +202,32 @@ class SOPAutomationSystem:
             
             # 3. AI 新聞分析
             logger.info("   📰 執行 AI 新聞分析...")
-            news_analysis = None
-            if self.news_sentiment_analyzer:
-                news_analysis = self.news_sentiment_analyzer.perform_ai_news_analysis("BTCUSDT", 24)
+            if self.news_sentiment_analyzer is None:
+                raise RuntimeError("新聞分析器未初始化，請確認 CryptoNewsAnalyzer 可正常載入")
+
+            news_analysis = self.news_sentiment_analyzer.perform_ai_news_analysis("BTCUSDT", 24)
             check.news_analysis = news_analysis
-            
-            if news_analysis:
-                sentiment_score = news_analysis.get('sentiment_score', 0.0)
-                check.crypto_sentiment = sentiment_score
-                
-                logger.info(f"     ✓ 整體情緒: {sentiment_score:.2f}")
-                logger.info(f"     ✓ 新聞數量: {news_analysis.get('news_count', 0)}")
-                
-                # 檢查重大事件
-                major_events = news_analysis.get('major_events', [])
-                for event in major_events:
-                    event_type = event.get('type', '')
-                    logger.info(f"     🚨 重大事件: {event_type} - {event.get('description', '')}")
-            else:
-                logger.warning("   [WARN] 新聞分析暫時不可用")
-            
+
+            sentiment_score = news_analysis.get('sentiment_score', 0.0)
+            check.crypto_sentiment = sentiment_score
+
+            logger.info(f"     ✓ 整體情緒: {sentiment_score:.2f}")
+            logger.info(f"     ✓ 新聞數量: {news_analysis.get('news_count', 0)}")
+
+            # 檢查重大事件
+            major_events = news_analysis.get('major_events', [])
+            for event in major_events:
+                event_type = event.get('type', '')
+                logger.info(f"     🚨 重大事件: {event_type} - {event.get('description', '')}")
+
             # 4. 綜合評估市場環境
-            if self.news_sentiment_analyzer:
-                check.overall_status = self.news_sentiment_analyzer.assess_market_status_from_news(
-                    news_analysis
-                )
-            else:
-                check.overall_status = "UNKNOWN"
+            check.overall_status = self.news_sentiment_analyzer.assess_market_status_from_news(
+                news_analysis
+            )
             
         except Exception as e:
-            logger.error(f"   [ERROR] 市場環境檢查失敗: {e}")
-            check.overall_status = "ERROR"
-        
+            raise RuntimeError(f"市場環境檢查失敗: {e}") from e
+
         return check
     
     # ========================================
@@ -344,9 +340,8 @@ class SOPAutomationSystem:
             logger.info(f"     ✓ 驗證狀態: {final_validation['status']}")
             
         except Exception as e:
-            logger.error(f"   [ERROR] 交易計劃制定失敗: {e}")
-            check.overall_status = "ERROR"
-        
+            raise RuntimeError(f"交易計劃制定失敗: {e}") from e
+
         return check
     
     # ========================================
@@ -432,8 +427,7 @@ class SOPAutomationSystem:
                 "recommendations": recommendations
             }
         except Exception as e:
-            logger.error(f"最終驗證失敗: {e}")
-            return {"score": 5.0, "status": "UNCERTAIN", "risk_level": "HIGH"}
+            raise RuntimeError(f"最終驗證失敗: {e}") from e
     
     # ========================================
     # 技術分析（需要 K 棒資料）

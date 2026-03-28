@@ -1,20 +1,19 @@
 # BioNeuronai 風險管理系統使用手冊
-
 > **版本**: v2.1.0  
 > **更新日期**: 2026-01-22  
 > **模組**: `src.bioneuronai.trading.risk_manager`
 
----
 
-## 📋 目錄
+## 📑 目錄
 
-1. [系統概述](#系統概述)
-2. [核心功能](#核心功能)
-3. [風險等級配置](#風險等級配置)
-4. [API 參考](#api-參考)
-5. [使用範例](#使用範例)
-6. [最佳實踐](#最佳實踐)
-7. [故障排除](#故障排除)
+1. 🎯 系統概述
+2. 🎛️ 核心功能
+3. ⚙️ 風險等級配置
+4. 📚 使用範例
+5. 🎯 最佳實踐
+6. 🔧 故障排除
+7. 📖 延伸閱讀
+8. 📞 技術支持
 
 ---
 
@@ -364,14 +363,14 @@ trades = [
 
 for trade in trades:
     risk_manager.record_trade(trade)
-    
+
     # 每次交易後檢查風險
     can_continue, reason = risk_manager.check_can_trade(
         signal_confidence=0.7,
         account_balance=risk_manager.current_balance,
         risk_level="MODERATE"
     )
-    
+
     if not can_continue:
         print(f"🛑 停止交易: {reason}")
         break
@@ -419,10 +418,10 @@ import schedule
 
 def risk_health_check():
     stats = risk_manager.get_risk_statistics()
-    
+
     if stats['max_drawdown'] > 0.10:
         send_alert("⚠️ 回撤警報: " + stats['max_drawdown'])
-    
+
     if stats['profit_factor'] < 1.5:
         send_alert("📉 Profit Factor 過低: " + stats['profit_factor'])
 

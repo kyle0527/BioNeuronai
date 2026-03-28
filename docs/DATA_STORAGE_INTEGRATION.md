@@ -1,17 +1,18 @@
 # BioNeuronai 數據存儲與整合方案
-
 > **版本**: v2.1.0  
 > **更新日期**: 2026-01-22
 
----
 
-## � 目錄
+## 📑 目錄
 
-1. [Risk Manager 模組整合狀態](#risk-manager-模組整合狀態)
-2. [已整合模組](#已整合模組)
-3. [數據流向分析](#數據流向分析)
-4. [未整合模組](#未整合模組)
-5. [整合建議](#整合建議)
+1. �📊 Risk Manager 模組整合狀態
+2. 💾 數據存儲方案
+3. 🔄 數據備份與恢復
+4. 📈 數據查詢與分析
+5. 🔐 數據安全
+6. 📊 數據庫 Schema (trading.db)
+7. 🎯 完整整合範例
+8. 📝 總結
 
 ---
 
@@ -160,7 +161,7 @@ logging.FileHandler('trading_system.log', encoding='utf-8')
 def save_statistics(self, filepath: str = "trading_data/risk_statistics.json"):
     stats = self.get_risk_statistics()
     stats['last_updated'] = datetime.now().isoformat()
-    
+
     with open(filepath, 'w', encoding='utf-8') as f:
         json.dump(stats, f, indent=2, ensure_ascii=False)
 
@@ -201,7 +202,7 @@ def load_statistics(self, filepath: str = "trading_data/risk_statistics.json"):
 # 在 RiskManager.record_trade() 中添加
 def record_trade(self, trade_info: Dict):
     # ... 現有邏輯 ...
-    
+
     # 自動保存到文件
     self._save_trade_history()
 
@@ -210,7 +211,7 @@ def _save_trade_history(self, filepath: str = "trading_data/trade_history.json")
         'trades': self.trade_history,
         'last_updated': datetime.now().isoformat()
     }
-    
+
     with open(filepath, 'w', encoding='utf-8') as f:
         json.dump(data, f, indent=2, ensure_ascii=False, default=str)
 ```
@@ -244,7 +245,7 @@ def _save_trade_history(self, filepath: str = "trading_data/trade_history.json")
 # 在 RiskManager.update_balance() 中添加
 def update_balance(self, balance: float):
     # ... 現有邏輯 ...
-    
+
     # 記錄快照
     self._save_balance_snapshot(balance)
 
@@ -255,7 +256,7 @@ def _save_balance_snapshot(self, balance: float):
         'peak_balance': self.peak_balance,
         'drawdown': (self.peak_balance - balance) / self.peak_balance if self.peak_balance > 0 else 0
     }
-    
+
     # 讀取現有數據
     filepath = "trading_data/balance_history.json"
     if Path(filepath).exists():
@@ -263,14 +264,14 @@ def _save_balance_snapshot(self, balance: float):
             data = json.load(f)
     else:
         data = {'balance_snapshots': []}
-    
+
     # 添加新快照
     data['balance_snapshots'].append(snapshot)
-    
+
     # 限制最多保存 10000 條
     if len(data['balance_snapshots']) > 10000:
         data['balance_snapshots'] = data['balance_snapshots'][-10000:]
-    
+
     # 保存
     with open(filepath, 'w', encoding='utf-8') as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
@@ -295,15 +296,15 @@ def backup_trading_data():
     source_dir = Path("trading_data")
     backup_dir = Path("trading_data_backups")
     backup_dir.mkdir(exist_ok=True)
-    
+
     # 創建日期命名的備份
     today = datetime.now().strftime("%Y%m%d")
     backup_path = backup_dir / f"backup_{today}"
-    
+
     if not backup_path.exists():
         shutil.copytree(source_dir, backup_path)
         print(f"✅ 備份完成: {backup_path}")
-    
+
     # 清理 30 天前的備份
     for old_backup in backup_dir.glob("backup_*"):
         if (datetime.now() - datetime.strptime(old_backup.name[-8:], "%Y%m%d")).days > 30:
@@ -328,11 +329,11 @@ def restore_from_backup(backup_date: str):
     """從指定日期恢復數據"""
     backup_path = Path(f"trading_data_backups/backup_{backup_date}")
     target_dir = Path("trading_data")
-    
+
     if backup_path.exists():
         # 備份當前數據
         shutil.move(target_dir, f"trading_data_old_{datetime.now():%Y%m%d%H%M%S}")
-        
+
         # 恢復備份
         shutil.copytree(backup_path, target_dir)
         print(f"✅ 數據已從 {backup_date} 恢復")
@@ -364,7 +365,7 @@ def get_trades_by_date_range(start_date: str, end_date: str) -> List[Dict]:
     filepath = "trading_data/trade_history.json"
     with open(filepath, 'r') as f:
         data = json.load(f)
-    
+
     return [
         t for t in data['trades']
         if start_date <= t['timestamp'][:10] <= end_date
@@ -380,7 +381,7 @@ def get_trades_by_symbol(symbol: str) -> List[Dict]:
     filepath = "trading_data/trade_history.json"
     with open(filepath, 'r') as f:
         data = json.load(f)
-    
+
     return [t for t in data['trades'] if t['symbol'] == symbol]
 
 # 使用範例
@@ -391,10 +392,10 @@ btc_trades = get_trades_by_symbol("BTCUSDT")
 ```python
 def generate_performance_report(start_date: str, end_date: str) -> Dict:
     trades = get_trades_by_date_range(start_date, end_date)
-    
+
     total_pnl = sum(t.get('pnl', 0) for t in trades if 'pnl' in t)
     winning_trades = [t for t in trades if t.get('pnl', 0) > 0]
-    
+
     return {
         'period': f"{start_date} to {end_date}",
         'total_trades': len(trades),
@@ -412,6 +413,10 @@ print(json.dumps(report, indent=2))
 ---
 
 ## 🔐 數據安全
+
+> ⚠️ 補註：
+> 本章節的「使用 `.env` 文件」方向本身可參考；
+> 但若要作為目前專案的正式基準，仍需結合最新的使用者級 / 系統級憑證分層與 `src/schemas/` 單一事實來源原則一起理解。
 
 ### 敏感數據處理
 
@@ -518,7 +523,7 @@ class TradingDatabase:
     def __init__(self, db_path: str = "trading_data/trading.db"):
         self.conn = sqlite3.connect(db_path)
         self.create_tables()
-    
+
     def create_tables(self):
         self.conn.execute('''
             CREATE TABLE IF NOT EXISTS trades (
@@ -535,7 +540,7 @@ class TradingDatabase:
             )
         ''')
         self.conn.commit()
-    
+
     def insert_trade(self, trade_info: Dict):
         self.conn.execute('''
             INSERT INTO trades (timestamp, symbol, side, entry_price, size, strategy, confidence)
@@ -550,7 +555,7 @@ class TradingDatabase:
             trade_info.get('confidence', 0)
         ))
         self.conn.commit()
-    
+
     def get_recent_trades(self, n: int = 10):
         cursor = self.conn.execute(
             'SELECT * FROM trades ORDER BY timestamp DESC LIMIT ?',
@@ -569,14 +574,14 @@ class TradingDatabase:
 class TradingEngine:
     def __init__(self, ...):
         # ... 現有初始化 ...
-        
+
         # 數據持久化
         self.db = TradingDatabase()
         self.enable_data_persistence = True
-    
+
     def execute_trade(self, signal: TradingSignal):
         # ... 執行交易邏輯 ...
-        
+
         if order_result and order_result.status != "ERROR":
             trade_info = {
                 'symbol': signal.symbol,
@@ -586,14 +591,14 @@ class TradingEngine:
                 'strategy': signal.strategy_name,
                 'confidence': signal.confidence
             }
-            
+
             # 1. Risk Manager 記錄
             self.risk_manager.record_trade(trade_info)
-            
+
             # 2. 數據庫記錄
             if self.enable_data_persistence:
                 self.db.insert_trade(trade_info)
-            
+
             # 3. JSON 文件記錄 (舊方法)
             self._save_trade_to_file(trade_info)
 ```

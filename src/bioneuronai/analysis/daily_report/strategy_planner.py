@@ -10,7 +10,7 @@
 # 1. 標準庫
 import logging
 import requests
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 # 2. 本地模組
 from .models import MarketCondition, StrategyPerformance
@@ -57,7 +57,7 @@ class StrategyPlanner:
             MarketCondition 實例（無法取得資料時各欄位為 UNKNOWN）
         """
         try:
-            from ..market_regime import MarketRegimeDetector, MarketRegime, VolatilityRegime
+            from ..market_regime import MarketRegimeDetector
 
             url = (
                 f"{_BINANCE_FUTURES_API}/fapi/v1/klines"
@@ -105,13 +105,7 @@ class StrategyPlanner:
             )
 
         except Exception as e:
-            logger.error(f"市場狀況分析失敗: {e}")
-            return MarketCondition(
-                condition="UNKNOWN",
-                volatility="UNKNOWN",
-                trend="UNKNOWN",
-                strength=0.0,
-            )
+            raise RuntimeError(f"市場狀況分析失敗: {e}") from e
 
     # ----------------------------------------
     # 市場狀況輔助映射
@@ -203,7 +197,7 @@ class StrategyPlanner:
                         sample_size=0,   # 來自配置定義，非實測數據
                     )
 
-        except (ImportError, AttributeError, TypeError, Exception) as e:
+        except Exception as e:
             logger.warning(f"StrategySelector 不可用: {e}")
 
         # 無任何績效資料：回傳誠實的零值（sample_size=0 表示無實測數據）
@@ -249,12 +243,7 @@ class StrategyPlanner:
                 "reason": f"市場波動率 {market_condition.volatility}"
             }
         except Exception as e:
-            logger.error(f"策略匹配失敗: {e}")
-            return {
-                "recommended": self.default_strategy,
-                "match_score": 5.0,
-                "alternatives": []
-            }
+            raise RuntimeError(f"策略匹配失敗: {e}") from e
     
     # ========================================
     # 策略配置
@@ -302,8 +291,7 @@ class StrategyPlanner:
             return strategy_configs.get(strategy_name, default_config)
             
         except Exception as e:
-            logger.error(f"策略參數配置失敗: {e}")
-            return {"rsi_period": 14}
+            raise RuntimeError(f"策略參數配置失敗: {e}") from e
     
     # ========================================
     # 策略驗證
@@ -367,13 +355,7 @@ class StrategyPlanner:
             }
             
         except Exception as e:
-            logger.error(f"策略適用性驗證失敗: {e}")
-            return {
-                "score": 5.0,
-                "status": "UNCERTAIN",
-                "confidence": 0.5,
-                "risks": ["驗證失敗"]
-            }
+            raise RuntimeError(f"策略適用性驗證失敗: {e}") from e
     
     def _get_suitability_recommendation(self, status: str) -> str:
         """獲取適用性建議"""
@@ -416,12 +398,7 @@ class StrategyPlanner:
                 "risks": suitability.get("risks", [])
             }
         except Exception as e:
-            logger.error(f"策略最終選擇失敗: {e}")
-            return {
-                "name": self.default_strategy,
-                "confidence": 0.5,
-                "parameters": {}
-            }
+            raise RuntimeError(f"策略最終選擇失敗: {e}") from e
     
     # ========================================
     # 回測驗證

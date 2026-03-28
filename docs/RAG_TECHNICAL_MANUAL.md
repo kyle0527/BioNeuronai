@@ -1,5 +1,4 @@
 # BioNeuronai RAG 系統技術手冊
-
 > **檢索增強生成 (Retrieval-Augmented Generation) 完整技術文檔**
 > **版本**: v1.1.0
 > **最後更新**: 2026年3月20日
@@ -8,21 +7,19 @@
 
 ## 📑 目錄
 
-1. [系統概述](#系統概述)
-2. [系統架構](#系統架構)
-3. [核心組件](#核心組件)
-   - [向量嵌入服務 (EmbeddingService)](#向量嵌入服務-embeddingservice)
-   - [統一檢索器 (UnifiedRetriever)](#統一檢索器-unifiedretriever)
-   - [內部知識庫 (InternalKnowledgeBase)](#內部知識庫-internalknowledgebase)
-   - [FAISS 向量索引 (VectorIndex)](#faiss-向量索引-vectorindex)
-4. [安裝與配置](#安裝與配置)
-5. [快速開始](#快速開始)
-6. [API 參考](#api-參考)
-7. [使用示例](#使用示例)
-8. [性能優化](#性能優化)
-9. [故障排除](#故障排除)
-10. [最佳實踐](#最佳實踐)
-11. [擴展開發](#擴展開發)
+1. 系統概述
+2. 系統架構
+3. 核心組件
+4. 安裝與配置
+5. 快速開始
+6. API 參考
+7. 使用示例
+8. 性能優化
+9. 故障排除
+10. 最佳實踐
+11. 擴展開發
+12. 附錄
+13. 更新日誌
 
 ---
 
@@ -399,19 +396,19 @@ RAG_CONFIG = {
     # 嵌入模型
     "embedding_model": EmbeddingModel.LOCAL_MINILM,
     "openai_api_key": None,  # 如使用 OpenAI
-    
+
     # 緩存設置
     "cache_enabled": True,
     "max_cache_size": 10000,
-    
+
     # 檢索設置
     "default_top_k": 10,
     "min_relevance_score": 0.3,
-    
+
     # 存儲路徑
     "knowledge_base_path": "rag_test_data/knowledge_base.json",
     "faiss_index_path": "rag_test_data/vectorindex.faiss",
-    
+
     # FAISS 設置
     "faiss_index_type": "Flat",  # 或 "IVF100,Flat"
 }
@@ -742,7 +739,7 @@ for rule in related_rules:
     if rule.doc_type == DocumentType.TRADING_RULE:
         print(f"\n⚠️ {rule.title}")
         print(f"   {rule.content[:150]}...")
-        
+
         # 檢查是否違反規則
         if "50%" in trade_decision and "單筆交易" in rule.content:
             print("   ❌ 可能違反風險限制！")
@@ -993,7 +990,7 @@ kb.add_document(
     1. 當價格突破 20 日 EMA 時買入
     2. 當價格跌破 10 日 EMA 時賣出
     3. 止損: 2%, 止盈: 5%
-    
+
     適用市場：牛市上升趨勢
     回測收益：+25% (2025-Q1)
     """,
@@ -1050,12 +1047,12 @@ def monitor_search(kb, query):
     start = time.time()
     results = kb.search(query)
     duration = time.time() - start
-    
+
     print(f"查詢: {query}")
     print(f"耗時: {duration*1000:.2f}ms")
     print(f"結果: {len(results)} 個文檔")
     print(f"平均相關性: {np.mean([d.score for d in results]):.2f}")
-    
+
     return results
 
 # 使用
@@ -1102,13 +1099,13 @@ def safe_search(kb, query: str, top_k: int = 5) -> Optional[List]:
     """安全搜索，帶錯誤處理"""
     try:
         results = kb.search(query, top_k=top_k)
-        
+
         if not results:
             logger.warning(f"搜索無結果: {query}")
             return []
-        
+
         return results
-    
+
     except Exception as e:
         logger.error(f"搜索錯誤: {query} - {e}", exc_info=True)
         return None
@@ -1150,14 +1147,14 @@ from datetime import datetime
 
 class TwitterSearchSource:
     """Twitter 數據源"""
-    
+
     def __init__(self, api_key: str):
         self.api_key = api_key
-    
+
     def search(self, query: str, top_k: int = 10) -> List[RetrievalResult]:
         # 實現 Twitter 搜索邏輯
         tweets = self._fetch_tweets(query, count=top_k)
-        
+
         results = []
         for tweet in tweets:
             result = RetrievalResult(
@@ -1169,7 +1166,7 @@ class TwitterSearchSource:
                 metadata={"likes": tweet["likes"], "retweets": tweet["retweets"]}
             )
             results.append(result)
-        
+
         return results
 ```
 

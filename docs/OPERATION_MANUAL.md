@@ -1,23 +1,23 @@
 # BioNeuronai 操作手冊
-
 **版本**：v4.3.1
 **更新日期**：2026-03-16
 **適用對象**：初次使用者 / 日常操作參考
 
 ---
 
-## 目錄
+## 📑 目錄
 
-1. [系統概述](#系統概述)
-2. [安裝與環境設定](#安裝與環境設定)
-3. [Binance API 金鑰設定](#binance-api-金鑰設定)
-4. [CLI 命令完整參考](#cli-命令完整參考)
-5. [設定檔說明](#設定檔說明)
-6. [標準操作流程](#標準操作流程)
-7. [歷史數據下載](#歷史數據下載)
-8. [工具腳本](#工具腳本)
-9. [常見問題排查](#常見問題排查)
-10. [風險警示](#風險警示)
+1. 系統概述
+2. 安裝與環境設定
+3. Binance API 金鑰設定
+4. CLI 命令完整參考
+5. 設定檔說明
+6. 標準操作流程
+7. 歷史數據下載
+8. 工具腳本
+9. 常見問題排查
+10. 風險警示
+11. 附錄：快速指令速查
 
 ---
 
@@ -109,6 +109,16 @@ python main.py status
 ---
 
 ## Binance API 金鑰設定
+
+> ⚠️ 部分內容過時：
+> 本章節中的「直接修改 `config/trading_config.py`」仍可視為舊版本地操作方式，但不應再作為後續架構與 UI 整合的主要基準。
+> 依最新規劃，Binance 屬於使用者級憑證來源，後續應優先對照 [API_INTEGRATION_BASELINE.md](C:/D/E/BioNeuronai/docs/API_INTEGRATION_BASELINE.md) 中的憑證流原則。
+> 可繼續參考本章節的內容：
+> - 哪些命令需要 Binance 憑證
+> - Testnet / Live 的差別
+> 需謹慎使用的內容：
+> - `方式 A：編輯設定檔`
+> - 把 `config/trading_config.py` 視為長期標準做法
 
 ### 哪些命令需要 API 金鑰
 
@@ -382,6 +392,10 @@ python main.py trade --live
 
 ## 設定檔說明
 
+> ⚠️ 部分內容過時：
+> 本章節中 `config/trading_config.py` 的靜態交易參數仍可參考，但 `BINANCE_API_KEY` / `BINANCE_API_SECRET` 不應再被理解為長期推薦的主要存放方式。
+> 後續若涉及 API、UI、憑證輸入或整合設計，請先對照 [API_INTEGRATION_BASELINE.md](C:/D/E/BioNeuronai/docs/API_INTEGRATION_BASELINE.md)。
+
 ### `config/trading_config.py` — 主要交易設定
 
 | 參數 | 預設值 | 說明 |
@@ -614,6 +628,10 @@ cd tools/data_download && python download-kline.py
 ---
 
 ### Q：`pretrade` 或 `trade` 報 API 驗證失敗
+
+> ⚠️ 補註：
+> 本節目前仍以 `config/trading_config.py` 為中心說明排查方式。
+> 若後續已改為環境變數、secrets 或受控輸入流程，請把本節視為「舊路徑排查說明」，不要直接當作唯一標準。
 
 1. 確認 `config/trading_config.py` 的 `BINANCE_API_KEY` 和 `BINANCE_API_SECRET` 填寫正確
 2. 確認 `USE_TESTNET` 與金鑰類型一致（測試網金鑰只能搭配 `USE_TESTNET = True`）

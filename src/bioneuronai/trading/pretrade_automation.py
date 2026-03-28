@@ -94,16 +94,26 @@ class FinalConfirmation:
 
 class PreTradeCheckSystem:
     """單筆交易前檢查系統"""
-    
-    def __init__(self) -> None:
+
+    def __init__(
+        self,
+        api_key: Optional[str] = None,
+        api_secret: Optional[str] = None,
+        testnet: Optional[bool] = None,
+    ) -> None:
         # pretrade_automation.py 位於 src/bioneuronai/trading/，4 層 parent = 專案根目錄
         _project_root = Path(__file__).parent.parent.parent.parent
         self.data_dir = _project_root / "data" / "bioneuronai" / "trading" / "pretrade"
         self.data_dir.mkdir(exist_ok=True, parents=True)
-        
+
+        # 儲存注入的憑證（None 表示由 _get_connector 自行解析）
+        self._api_key = api_key
+        self._api_secret = api_secret
+        self._testnet = testnet
+
         # 嘗試導入交易模組
         self._import_modules()
-        
+
         # 從配置文件載入風險參數
         try:
             from config.trading_config import (
@@ -128,6 +138,47 @@ class PreTradeCheckSystem:
                 "min_expected_return": 0.005
             }
             logger.warning("⚠️ 配置文件不可用，使用默認風險參數")
+
+    def _get_connector(self):
+        """取得 BinanceFuturesConnector，憑證優先順序：
+        1. 注入值（__init__ 傳入）
+        2. 環境變數 BINANCE_API_KEY / BINANCE_API_SECRET / BINANCE_TESTNET
+        3. config.trading_config（fallback，僅含 testnet demo key）
+        """
+        import os
+        from ..data.binance_futures import BinanceFuturesConnector
+
+        api_key = self._api_key or os.getenv("BINANCE_API_KEY", "")
+        api_secret = self._api_secret or os.getenv("BINANCE_API_SECRET", "")
+        if self._testnet is not None:
+            testnet = self._testnet
+        else:
+            env_testnet = os.getenv("BINANCE_TESTNET", "")
+            if env_testnet:
+                testnet = env_testnet.lower() != "false"
+            else:
+                testnet = True  # 安全預設：testnet
+
+        # 若注入與環境變數均無設定，嘗試 config fallback（僅 demo key）
+        if not api_key or not api_secret:
+            try:
+                from config.trading_config import (
+                    BINANCE_API_KEY as _cfg_key,
+                    BINANCE_API_SECRET as _cfg_secret,
+                    USE_TESTNET as _cfg_testnet,
+                )
+                api_key = api_key or _cfg_key
+                api_secret = api_secret or _cfg_secret
+                if self._testnet is None and not env_testnet:
+                    testnet = _cfg_testnet
+            except ImportError:
+                pass
+
+        return BinanceFuturesConnector(
+            api_key=api_key,
+            api_secret=api_secret,
+            testnet=testnet,
+        )
     
     def _import_modules(self) -> None:
         """導入所需模組"""
@@ -694,15 +745,8 @@ class PreTradeCheckSystem:
             return {"is_normal": False, "error": ERROR_MODULE_UNAVAILABLE, "net_flow": 0}
         
         try:
-            from ..data.binance_futures import BinanceFuturesConnector
-            from config.trading_config import BINANCE_API_KEY, BINANCE_API_SECRET, USE_TESTNET
-            
-            connector = BinanceFuturesConnector(
-                api_key=BINANCE_API_KEY,
-                api_secret=BINANCE_API_SECRET,
-                testnet=USE_TESTNET
-            )
-            
+            connector = self._get_connector()
+
             # 獲取 Open Interest（未平倉合約量）
             oi_data = connector.get_open_interest(symbol)
             if oi_data:
@@ -726,15 +770,8 @@ class PreTradeCheckSystem:
             return {"is_normal": False, "error": "模組不可用", "volume_ratio": 0}
         
         try:
-            from ..data.binance_futures import BinanceFuturesConnector
-            from config.trading_config import BINANCE_API_KEY, BINANCE_API_SECRET, USE_TESTNET
-            
-            connector = BinanceFuturesConnector(
-                api_key=BINANCE_API_KEY,
-                api_secret=BINANCE_API_SECRET,
-                testnet=USE_TESTNET
-            )
-            
+            connector = self._get_connector()
+
             # 獲取 24h 行情統計
             ticker_24h = connector.get_ticker_24hr(symbol)
             if ticker_24h:
@@ -771,15 +808,8 @@ class PreTradeCheckSystem:
             return {"sufficient": False, "error": "模組不可用", "bid_ask_spread": 999}
         
         try:
-            from ..data.binance_futures import BinanceFuturesConnector
-            from config.trading_config import BINANCE_API_KEY, BINANCE_API_SECRET, USE_TESTNET
-            
-            connector = BinanceFuturesConnector(
-                api_key=BINANCE_API_KEY,
-                api_secret=BINANCE_API_SECRET,
-                testnet=USE_TESTNET
-            )
-            
+            connector = self._get_connector()
+
             # 獲取訂單簿深度（前 20 檔）
             depth_data = connector.get_order_book(symbol, limit=20)
             if depth_data and 'bids' in depth_data and 'asks' in depth_data:
@@ -847,15 +877,8 @@ class PreTradeCheckSystem:
             raise RuntimeError("交易模組不可用，無法獲取帳戶信息")
         
         try:
-            from ..data.binance_futures import BinanceFuturesConnector
-            from config.trading_config import BINANCE_API_KEY, BINANCE_API_SECRET, USE_TESTNET
-            
-            connector = BinanceFuturesConnector(
-                api_key=BINANCE_API_KEY,
-                api_secret=BINANCE_API_SECRET,
-                testnet=USE_TESTNET
-            )
-            
+            connector = self._get_connector()
+
             # 嘗試獲取帳戶信息（需要有效 API Key）
             account_data = connector.get_account_info()
             
@@ -891,21 +914,8 @@ class PreTradeCheckSystem:
             raise RuntimeError("交易模組不可用，無法獲取市場價格")
         
         try:
-            from ..data.binance_futures import BinanceFuturesConnector
-            
-            # 獲取配置
-            try:
-                from config.trading_config import BINANCE_API_KEY, BINANCE_API_SECRET, USE_TESTNET
-            except ImportError:
-                raise RuntimeError("無法讀取 API 配置，請檢查 config/trading_config.py")
-            
-            # 建立連接
-            connector = BinanceFuturesConnector(
-                api_key=BINANCE_API_KEY,
-                api_secret=BINANCE_API_SECRET,
-                testnet=USE_TESTNET
-            )
-            
+            connector = self._get_connector()
+
             # 獲取真實價格 (返回 MarketData 物件)
             market_data: MarketData | None = connector.get_ticker_price(symbol)
             if market_data is None or market_data.price <= 0:

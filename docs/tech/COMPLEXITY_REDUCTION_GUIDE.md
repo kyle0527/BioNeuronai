@@ -1,14 +1,19 @@
 # 程式碼複雜度降低指南 (Code Complexity Reduction Guide)
 
-## 目錄
-1. [指南概述](#指南概述)
-2. [什麼是複雜度](#什麼是複雜度)
-3. [如何發現複雜度問題](#如何發現複雜度問題)
-4. [複雜度度量標準](#複雜度度量標準)
-5. [重構技術](#重構技術)
-6. [實施步驟](#實施步驟)
-7. [最佳實踐](#最佳實踐)
-8. [工具與驗證](#工具與驗證)
+## 📑 目錄
+
+1. 指南概述
+2. 什麼是複雜度
+3. 如何發現複雜度問題
+4. 複雜度度量標準
+5. 重構技術
+6. 實施步驟
+7. 改善目標範例
+8. 程式碼複雜度規範
+9. 最佳實踐
+10. 工具與驗證
+11. 附錄: 快速參考
+12. 結語
 
 ---
 
@@ -154,24 +159,24 @@ def process_data(data):
     if not isinstance(data, list):
         raise TypeError("Expected list")
     # ... 更多驗證
-    
+
     # 資料轉換 (30 行)
     cleaned = []
     for item in data:
         if item.strip():
             cleaned.append(item.lower())
     # ... 更多轉換
-    
+
     # 資料分析 (40 行)
     results = {}
     for item in cleaned:
         # ... 複雜統計邏輯
-    
+
     # 結果格式化 (30 行)
     formatted = []
     for key, value in results.items():
         # ... 格式化邏輯
-    
+
     return formatted
 ```
 
@@ -305,16 +310,16 @@ def process_payment(payment):
     # Guard clauses: 快速失敗
     if payment is None:
         raise NullPaymentError()
-    
+
     if not payment.is_valid():
         raise InvalidPaymentError()
-    
+
     if payment.amount <= 0:
         raise InvalidAmountError()
-    
+
     if not payment.account.has_sufficient_balance():
         raise InsufficientFundsError()
-    
+
     # 正常流程
     return payment.execute()
 ```
@@ -334,20 +339,20 @@ def process_payment(payment):
 ```python
 class UserManager:
     """上帝類別 - 做所有事情"""
-    
+
     def create_user(self, data): ...
     def update_user(self, user_id, data): ...
     def delete_user(self, user_id): ...
-    
+
     def send_welcome_email(self, user): ...
     def send_password_reset(self, user): ...
-    
+
     def validate_email(self, email): ...
     def validate_password(self, password): ...
-    
+
     def log_user_activity(self, user, action): ...
     def generate_activity_report(self, user): ...
-    
+
     def calculate_user_score(self, user): ...
     def update_user_ranking(self, user): ...
 ```
@@ -735,7 +740,7 @@ def process():
 def process():
     if not condition1 or not condition2:
         return
-    
+
     valid_items = [item for item in items if item.valid]
     for item in valid_items:
         process_children(item.children)

@@ -1,236 +1,195 @@
-# 交易模型權重
+# 模型目錄說明
 
 ## 目錄
 
-- [當前模型](#當前模型)
-- [Git LFS 說明](#git-lfs-說明)
-- [為什麼選擇這個模型？](#為什麼選擇這個模型)
-- [輸入特徵設計](#輸入特徵設計)
-- [整合到交易系統](#整合到交易系統)
-- [注意事項](#注意事項)
-- [後續優化方向](#後續優化方向)
-- [子目錄文檔](#子目錄文檔)
+- [定位](#定位)
+- [目前內容](#目前內容)
+- [主要模型資產](#主要模型資產)
+- [實際載入位置](#實際載入位置)
+- [使用建議](#使用建議)
+- [已移除的舊描述](#已移除的舊描述)
 
 ---
 
-## 當前模型
+## 定位
 
-### my_100m_model.pth (445 MB)
+`model/` 是專案根目錄下的**模型資產目錄**，存放目前仍會被程式碼直接載入或供訓練流程使用的權重與模型封裝。
 
-**架構**: MLP (Multi-Layer Perceptron)
-**參數量**: ~111M
-**用途**: 加密貨幣日內短線交易決策
-**儲存方式**: Git LFS（Large File Storage）
+這份 README 是**上層總覽**，只說明：
 
-#### 模型結構
-```
-輸入層: 1024 維特徵向量
-  ↓
-隱藏層1: 8192 維 (Layer Norm + GELU + Dropout)
-  ↓
-隱藏層2: 8192 維 (Layer Norm + GELU + Dropout)
-  ↓
-隱藏層3: 4096 維 (Layer Norm + GELU + Dropout)
-  ↓
-輸出層: 512 維
-```
+- 這個目錄目前有哪些模型資產
+- 哪些仍有主程式載入點
+- 哪些屬於 NLP / 歷史訓練資產
+- 應該優先看哪份子 README
 
-#### 推理速度
-- CPU: ~2-5ms
-- GPU: ~0.5-1ms
+較細的 TinyLLM 架構、訓練能力、檔案清單，請直接看子目錄文件：
+
+- [tiny_llm_en_zh/README.md](C:/D/E/BioNeuronai/model/tiny_llm_en_zh/README.md)
+- [tiny_llm_en_zh_trained/README.md](C:/D/E/BioNeuronai/model/tiny_llm_en_zh_trained/README.md)
 
 ---
 
-## Git LFS 說明
+## 目前內容
 
-模型權重 `my_100m_model.pth`（445 MB）透過 **Git LFS** 管理，不直接存放在 Git 物件中。
+| 項目 | 類型 | 目前狀態 | 主要用途 |
+| --- | --- | --- | --- |
+| `my_100m_model.pth` | PyTorch checkpoint | 主交易模型 | `bioneuronai.core` 交易推論 |
+| `tiny_llm_100m.pth` | PyTorch checkpoint | NLP 基礎權重 | `src/nlp/` 訓練/封裝流程起點 |
+| `tiny_llm_en_zh/` | 模型封裝目錄 | 基礎版 | TinyLLM 雙語基礎模型包 |
+| `tiny_llm_en_zh_trained/` | 模型封裝目錄 | 訓練版 | TinyLLM 訓練後模型包 |
 
-### 本地取得權重步驟
+目前檔案大小（依工作樹實際內容）：
 
-```bash
-# 1. 安裝 Git LFS（若尚未安裝）
-# macOS
-brew install git-lfs
-
-# Ubuntu / Debian
-sudo apt install git-lfs
-
-# Windows
-# 下載安裝：https://git-lfs.com
-
-# 2. 初始化 Git LFS
-git lfs install
-
-# 3. 拉取權重檔案
-git lfs pull
-```
-
-### 驗證權重是否已下載
-
-```bash
-# 檢查檔案大小（應約 445 MB）
-ls -lh model/my_100m_model.pth
-
-# 若顯示 134 bytes 且內容開頭為 "version https://git-lfs.github.com/spec/v1"
-# 表示只有 LFS pointer，需要執行 git lfs pull
-```
-
-### LFS 追蹤設定
-
-`.gitattributes` 中已設定：
-```
-model/my_100m_model.pth filter=lfs diff=lfs merge=lfs -text
-```
-
-### 注意事項
-
-- 雲端 CI/CD 環境可能不支援 LFS，需確認環境已安裝 `git-lfs` 並執行 `git lfs pull`
-- Docker 建構時，需在 `COPY` 前確保 LFS 檔案已下載
-- 推論引擎使用 `weights_only=True` 載入，LFS pointer 檔案（134 bytes 文字檔）無法被 `torch.load()` 解析，必須取得完整權重
+- `my_100m_model.pth`: `444,849,917` bytes
+- `tiny_llm_100m.pth`: `496,238,771` bytes
+- `tiny_llm_en_zh_trained/pytorch_model.bin`: `496,238,131` bytes
 
 ---
 
-#### 使用方式
+## 主要模型資產
+
+### `my_100m_model.pth`
+
+這是目前 **`src/bioneuronai` 主交易路徑** 仍會直接載入的模型權重。
+
+已確認的實際用途：
+
+- `src/bioneuronai/core/inference_engine.py`
+- `src/bioneuronai/core/trading_engine.py`
+
+目前載入名稱固定使用 `my_100m_model`，對應實體檔案：
+
+```text
+model/my_100m_model.pth
+```
+
+模型類別仍來自：
+
+```text
+archived/pytorch_100m_model.py::HundredMillionModel
+```
+
+這代表它雖然是主交易模型，但**模型定義仍依賴 `archived/`**，後續若要整理模型系統，這會是需要處理的技術債。
+
+### `tiny_llm_100m.pth`
+
+這是 TinyLLM 權重 checkpoint，主要被 `src/nlp/` 工具鏈使用，不是 `src/bioneuronai` 交易主鏈的一部分。
+
+目前已確認的用途：
+
+- `src/nlp/tiny_llm.py` 產出/保存
+- `src/nlp/tools/create_model_package.py` 作為模型封裝輸入
+- `src/nlp/training/` 相關流程的基礎權重
+
+因此它比較接近：
+
+- NLP 開發資產
+- 訓練起點
+- 封裝來源
+
+而不是現在交易系統的直接推論模型。
+
+### `tiny_llm_en_zh/`
+
+這是 TinyLLM 的**基礎模型封裝目錄**，包含：
+
+- `config.json`
+- `metadata.json`
+- `pytorch_model.bin`
+- tokenizer 與 vocab 檔案
+
+它的詳細架構、功能與使用方式已在子 README 中維護，請直接查看：
+
+- [tiny_llm_en_zh/README.md](C:/D/E/BioNeuronai/model/tiny_llm_en_zh/README.md)
+
+### `tiny_llm_en_zh_trained/`
+
+這是 TinyLLM 的**訓練後模型封裝目錄**，包含：
+
+- `config.json`
+- `pytorch_model.bin`
+- `training_history.json`
+- tokenizer 與 vocab 檔案
+
+它目前仍可被 `src/nlp/` 舊工具鏈與訓練/實驗流程引用，但上層 README 不再把它描述成 `src/bioneuronai` 主交易系統的正式依賴。
+
+原因是：
+
+- 目前直接命中的載入點在 `src/nlp/`
+- `src/nlp/rag_system.py` 已明確標示為 `DEPRECATED`
+- 現行 `bioneuronai.core` 主交易流程並不依賴這個模型目錄
+
+詳細內容請看：
+
+- [tiny_llm_en_zh_trained/README.md](C:/D/E/BioNeuronai/model/tiny_llm_en_zh_trained/README.md)
+
+---
+
+## 實際載入位置
+
+### 交易主鏈
+
+目前交易模型由 `ModelLoader` 預設解析到專案根目錄下的 `model/`：
 
 ```python
-import torch
-from pathlib import Path
-
-# 載入模型
-model_path = Path("model/my_100m_model.pth")
-checkpoint = torch.load(model_path, map_location="cpu", weights_only=True)
-
-# 創建模型實例
-from archived.pytorch_100m_model import HundredMillionModel
-model = HundredMillionModel(
-    input_dim=1024,
-    hidden_dims=[8192, 8192, 4096],
-    output_dim=512
-)
-model.load_state_dict(checkpoint)
-model.eval()
-
-# 推論
-with torch.no_grad():
-    features = torch.randn(1, 1024)  # 你的市場特徵
-    output = model(features)
+# src/bioneuronai/core/inference_engine.py
+model_dir = Path(__file__).parent.parent.parent.parent / "model"
 ```
 
-## 🎯 為什麼選擇這個模型？
-
-### ✅ 適合日內短線交易
-1. **速度快** - 毫秒級響應，適合高頻決策
-2. **固定輸入** - 接受當前市場狀態的特徵向量
-3. **簡單高效** - 不需要複雜的序列處理
-
-### ❌ 不選擇 Transformer (tiny_llm_100m.pth)
-1. 推理較慢 (~50-100ms)
-2. 需要序列輸入（歷史K線）
-3. 內存消耗大
-4. 對日內短線來說過於複雜
-
-## 📊 輸入特徵設計
-
-模型需要 1024 維特徵向量，建議包含：
-
-### 技術指標類 (~100 維)
-- RSI (多週期: 7, 14, 21)
-- MACD (線、信號線、柱狀圖)
-- 布林帶 (上、中、下軌)
-- KDJ, ATR, OBV 等
-
-### 價格行為類 (~100 維)
-- 當前價格、開盤價、最高價、最低價
-- 各週期收益率 (1m, 5m, 15m, 30m, 1h)
-- 價格動量、加速度
-
-### 成交量類 (~50 維)
-- 當前成交量
-- 成交量比率
-- 買賣壓力指標
-
-### 市場微觀結構 (~100 維)
-- 買賣價差
-- 訂單簿深度
-- 大單流入/流出
-
-### 時間特徵 (~50 維)
-- 小時 (0-23)
-- 星期 (0-6)
-- 是否交易高峰期
-
-### 跨品種相關性 (~200 維)
-- BTC-ETH 相關性
-- 與主流幣種的相對強度
-- 市場情緒指標
-
-### 其他特徵 (~424 維)
-- 預留空間供未來擴展
-- 可加入新聞情緒分數
-- 資金費率等
-
-## 🔗 整合到交易系統
-
-模型權重放在此目錄後，在交易系統中的引用路徑：
+主交易載入範例：
 
 ```python
-# 從項目根目錄引用
-model_path = "model/my_100m_model.pth"
+from bioneuronai.core.inference_engine import InferenceEngine
 
-# 或使用絕對路徑
-model_path = Path(__file__).parent.parent / "model" / "my_100m_model.pth"
+engine = InferenceEngine()
+engine.load_model("my_100m_model")
 ```
 
-### 與 Analysis 模組整合
-
-模型的 1024 維輸入特徵由 `analysis` 模組的 `MarketMicrostructure` 類生成：
+更高層的交易引擎則會呼叫：
 
 ```python
-from bioneuronai.analysis import MarketMicrostructure
+from bioneuronai.core.trading_engine import TradingEngine
 
-# 初始化特徵工程器
-feature_engineer = MarketMicrostructure()
-
-# 生成模型輸入特徵
-features_1024d = feature_engineer.create_model_features(market_data, orderbook_data)
-
-# 輸入到模型進行預測
-prediction = model.predict(features_1024d)
+engine = TradingEngine(enable_ai_model=True)
+engine.load_ai_model("my_100m_model", warmup=True)
 ```
 
-特徵包括：
-- 技術指標計算
-- 市場微觀結構分析
-- 成交量分布特徵
-- 清算風險評估
-- 時間和季節性特徵
+### NLP / TinyLLM 路徑
 
-## 📝 注意事項
+TinyLLM 相關資產目前主要由 `src/nlp/` 使用，例如：
 
-1. **特徵標準化**: 輸入特徵需要標準化/歸一化
-2. **模型微調**: 建議使用真實交易數據進行微調
-3. **版本管理**: 訓練新版本後保留舊版本做對比
-4. **性能監控**: 持續追蹤模型預測準確率
+- `src/nlp/tiny_llm.py`
+- `src/nlp/tools/create_model_package.py`
+- `src/nlp/training/train_with_ai_teacher.py`
+- `src/nlp/training/auto_evolve.py`
 
-## 🚀 後續優化方向
-
-1. 收集實盤交易數據
-2. 使用強化學習進一步訓練
-3. 添加對抗訓練提高魯棒性
-4. 針對不同市場環境訓練專門模型
+這些是**NLP 工具鏈與模型實驗路徑**，不等同於 `src/bioneuronai` 的主交易執行鏈。
 
 ---
 
-## 📁 子目錄文檔
+## 使用建議
 
-| 子目錄 | 說明 | README |
-|--------|------|--------|
-| `tiny_llm_en_zh/` | 英中雙語 LLM 基礎版本（未訓練） | [README](tiny_llm_en_zh/README.md) |
-| `tiny_llm_en_zh_trained/` | 英中雙語 LLM 訓練版本 ⭐ 推薦 | [README](tiny_llm_en_zh_trained/README.md) |
+1. 若你在看主交易系統，只需要先關注 `my_100m_model.pth`。
+2. 若你在看語言模型訓練、封裝或歷史 RAG 實驗，再看 `tiny_llm_*` 系列。
+3. 上層 README 不再重複 TinyLLM 子目錄的完整功能表，避免和子 README 產生雙重維護。
+4. 若 `my_100m_model.pth` 無法載入，先確認不是 Git LFS pointer 或缺檔。
 
 ---
 
-**最後更新**: 2026-03-20
-**模型狀態**: Git LFS 管理，本地 `git lfs pull` 後可用於推論
+## 已移除的舊描述
 
-> 📖 上層目錄：[根目錄 README](../README.md)
+以下內容已從上層 README 移除，因為它們已過時、過細，或不再適合作為上層總覽描述：
+
+- 把 `tiny_llm_en_zh_trained/` 直接寫成目前正式的 `RAG 新聞分析` 主依賴
+- 直接把 `src/nlp/rag_system.py` 視為現行主路徑
+- 過細的 checkpoint key 列表
+- 舊版推論速度與載入耗時數值
+- 應留在子 README 的 TinyLLM 架構細節與訓練歷程全文
+
+---
+
+**最後更新**: 2026-03-28
+
+上層連結：
+
+- [根目錄 README](C:/D/E/BioNeuronai/README.md)

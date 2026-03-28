@@ -27,6 +27,8 @@ from pathlib import Path
 import threading
 from contextlib import contextmanager
 
+from .._paths import resolve_project_path
+
 logger = logging.getLogger(__name__)
 
 
@@ -44,7 +46,7 @@ class DatabaseManager:
             db_path: 數據庫文件路徑
             backup_enabled: 是否啟用 JSONL 備份
         """
-        self.db_path = Path(db_path)
+        self.db_path = resolve_project_path(db_path)
         self.db_path.parent.mkdir(exist_ok=True, parents=True)
         
         self.backup_enabled = backup_enabled
@@ -1343,10 +1345,11 @@ _db_path_cache: Optional[str] = None
 def get_database_manager(db_path: str = "data/bioneuronai/trading/runtime/trading.db") -> DatabaseManager:
     """獲取數據庫管理器單例"""
     global _db_manager, _db_path_cache
+    normalized_path = str(resolve_project_path(db_path))
     
     # 如果路徑變了，重新創建
-    if _db_manager is None or _db_path_cache != db_path:
-        _db_manager = DatabaseManager(db_path)
-        _db_path_cache = db_path
+    if _db_manager is None or _db_path_cache != normalized_path:
+        _db_manager = DatabaseManager(normalized_path)
+        _db_path_cache = normalized_path
     
     return _db_manager

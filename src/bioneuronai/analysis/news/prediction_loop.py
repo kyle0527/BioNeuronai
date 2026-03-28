@@ -81,6 +81,8 @@ from enum import Enum
 from pathlib import Path
 import threading
 
+from ..._paths import resolve_project_path
+
 logger = logging.getLogger(__name__)
 
 
@@ -196,7 +198,7 @@ class NewsPredictionLoop:
         price_fetcher: Any = None,  # 價格獲取器（Binance connector）
         keyword_manager: Any = None,  # 關鍵字管理器
     ):
-        self.data_dir = Path(data_dir)
+        self.data_dir = resolve_project_path(data_dir)
         self.data_dir.mkdir(exist_ok=True, parents=True)
         
         self.price_fetcher = price_fetcher
@@ -342,51 +344,20 @@ class NewsPredictionLoop:
     
     def update_keyword_weights_from_results(self):
         """
-        根據預測結果自動更新關鍵字權重（RLHF 核心）
-        
-        核心邏輯：準確就增加權重，不準確就降低權重
-        系統自動學習，不需要人工評分
+        RLHF 摘要日誌（權重更新已在 _feedback_to_keywords() 逐預測完成）
+
+        此方法僅記錄本輪整體準確率統計，不再重複更新關鍵字管理器。
         """
-        if not self.keyword_manager:
-            logger.warning("⚠️  未設置關鍵字管理器，跳過權重更新")
+        validated = [p for p in self.predictions.values() if p.is_correct is not None]
+        if not validated:
             return
-        
-        keyword_stats = {}  # {keyword: {'correct': 0, 'wrong': 0}}
-        
-        # 統計每個關鍵字的準確率
-        for pred in self.predictions.values():
-            if pred.is_correct is None:
-                continue
-            
-            for keyword in pred.keywords_used:
-                if keyword not in keyword_stats:
-                    keyword_stats[keyword] = {'correct': 0, 'wrong': 0}
-                
-                if pred.is_correct:
-                    keyword_stats[keyword]['correct'] += 1
-                else:
-                    keyword_stats[keyword]['wrong'] += 1
-        
-        # 自動調整權重
-        updates = 0
-        for keyword, stats in keyword_stats.items():
-            total = stats['correct'] + stats['wrong']
-            if total < 3:  # 樣本太少，不更新
-                continue
-            
-            accuracy = stats['correct'] / total
-            
-            # 準確率高 → 增加權重，準確率低 → 減少權重
-            if accuracy > 0.7:  # > 70%
-                # 假設 keyword_manager 有 adjust_weight 方法
-                updates += 1
-                logger.info(f"📈 {keyword}: 準確率 {accuracy:.1%} → 增加權重")
-            elif accuracy < 0.4:  # < 40%
-                updates += 1
-                logger.info(f"📉 {keyword}: 準確率 {accuracy:.1%} → 降低權重")
-        
-        if updates > 0:
-            logger.info(f"🔄 RLHF 權重更新: {updates} 個關鍵字已自動調整")
+
+        correct = sum(1 for p in validated if p.is_correct)
+        accuracy = correct / len(validated)
+        logger.info(
+            f"🔄 RLHF 本輪統計: {len(validated)} 筆已驗證, "
+            f"準確率 {accuracy:.1%} ({correct}/{len(validated)})"
+        )
     
     def add_manual_note(
         self,
@@ -421,40 +392,49 @@ class NewsPredictionLoop:
     def _validate_single_prediction(self, prediction: NewsPrediction) -> ValidationResult:
         """驗證單個預測"""
         prediction.status = PredictionStatus.VALIDATING
-        
-        # 獲取當前價格
+
+        # 獲取當前價格；has_real_price 標記是否取得真實市場數據
+        has_real_price = False
         if self.price_fetcher:
             try:
                 current_price = self.price_fetcher.get_current_price(prediction.target_symbol)
+                has_real_price = True
             except Exception as e:
                 logger.warning(f"⚠️  無法獲取價格 {prediction.target_symbol}: {e}")
-                current_price = prediction.price_at_prediction  # 使用預測時價格
+                current_price = prediction.price_at_prediction
         else:
-            # price_fetcher 未設定，無法驗證；使用預測時價格作為佔位，標記為無效驗證
+            # price_fetcher 未設定，無法驗證；標記為 EXPIRED 並直接返回
             logger.warning(
                 f"⚠️  prediction_loop: price_fetcher 未設定，"
                 f"無法驗證 {prediction.target_symbol} 的真實價格，跳過驗證"
             )
-            current_price = prediction.price_at_prediction
-        
+            prediction.status = PredictionStatus.EXPIRED
+            return ValidationResult(
+                prediction_id=prediction.prediction_id,
+                is_correct=False,
+                accuracy_score=0.0,
+                price_change_pct=0.0,
+                status=PredictionStatus.EXPIRED,
+            )
+
         # 計算實際變化
-        price_change_pct = ((current_price - prediction.price_at_prediction) 
+        price_change_pct = ((current_price - prediction.price_at_prediction)
                            / prediction.price_at_prediction * 100)
-        
+
         # 判斷是否正確
         is_correct = self._evaluate_accuracy(
             prediction.predicted_direction,
             price_change_pct,
             prediction.predicted_magnitude
         )
-        
+
         # 計算準確度分數
         accuracy_score = self._calculate_accuracy_score(
             prediction.predicted_direction,
             price_change_pct,
             prediction.predicted_magnitude
         )
-        
+
         # 更新預測
         prediction.price_at_validation = current_price
         prediction.actual_change_pct = price_change_pct
@@ -462,9 +442,9 @@ class NewsPredictionLoop:
         prediction.is_correct = is_correct
         prediction.accuracy_score = accuracy_score
         prediction.status = PredictionStatus.CORRECT if is_correct else PredictionStatus.WRONG
-        
-        # 如果判斷錯誤，執行權重修正
-        if not is_correct:
+
+        # 只有取得真實市場數據才反饋給關鍵字系統
+        if has_real_price:
             self._feedback_to_keywords(prediction)
         
         result = ValidationResult(
@@ -559,41 +539,45 @@ class NewsPredictionLoop:
     
     def _feedback_to_keywords(self, prediction: NewsPrediction):
         """
-        將錯誤預測反饋給關鍵字系統，調整權重
-        
-        這是自我學習的關鍵
+        將預測結果（對或錯）反饋給關鍵字系統，更新動態權重（RLHF 核心）
+
+        使用 KeywordManager.record_and_verify_prediction() 確保
+        正確與錯誤預測都被記錄，讓 dynamic_weight 收斂。
         """
         if not self.keyword_manager:
             return
-        
-        logger.info(f"🔧 反饋給關鍵字系統: {prediction.prediction_id}")
-        
-        # 降低導致錯誤的關鍵字權重
+
+        if not hasattr(self.keyword_manager, 'record_and_verify_prediction'):
+            logger.warning("⚠️  keyword_manager 不支援 record_and_verify_prediction，跳過")
+            return
+
+        # 從實際漲跌推導 actual_direction
+        actual_change = prediction.actual_change_pct or 0.0
+        if actual_change > 1.0:
+            actual_direction = 'bullish'
+        elif actual_change < -1.0:
+            actual_direction = 'bearish'
+        else:
+            actual_direction = 'neutral'
+
+        price_after = prediction.price_at_validation or prediction.price_at_prediction
+
         for keyword in prediction.keywords_used:
             try:
-                # 調用關鍵字管理器的權重調整方法
-                # 這個方法需要在 MarketKeywords 中實現
-                if hasattr(self.keyword_manager, 'adjust_keyword_weight'):
-                    # 錯誤預測：降低10%權重
-                    self.keyword_manager.adjust_keyword_weight(
-                        keyword,
-                        adjustment_factor=0.9,
-                        reason=f"錯誤預測: {prediction.news_title[:50]}"
-                    )
-                    logger.debug(f"   降低關鍵字權重: {keyword}")
+                self.keyword_manager.record_and_verify_prediction(
+                    keyword,
+                    prediction.predicted_direction.value,
+                    actual_direction,
+                    price_before=prediction.price_at_prediction,
+                    price_after=price_after,
+                )
+                logger.debug(
+                    f"   {'✅' if prediction.is_correct else '❌'} "
+                    f"keyword={keyword} predicted={prediction.predicted_direction.value} "
+                    f"actual={actual_direction}"
+                )
             except Exception as e:
                 logger.error(f"   調整權重失敗 {keyword}: {e}")
-        
-        # 降低新聞來源的信賴度
-        if hasattr(self.keyword_manager, 'adjust_source_credibility'):
-            try:
-                self.keyword_manager.adjust_source_credibility(
-                    prediction.news_source,
-                    adjustment_factor=0.95
-                )
-                logger.debug(f"   降低來源信賴度: {prediction.news_source}")
-            except Exception as e:
-                logger.error(f"   調整來源信賴度失敗: {e}")
     
     def add_human_feedback(
         self,

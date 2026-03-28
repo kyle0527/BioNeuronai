@@ -12,7 +12,6 @@ BioNeuronai REST API Server
 import asyncio
 import logging
 import sys
-import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
@@ -32,20 +31,14 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from bioneuronai.api.models import (  # noqa: E402
     ApiResponse,
-    BacktestRequest,
-    JobStatus,
     ModuleStatus,
     NewsRequest,
     PreTradeRequest,
-    SimulateRequest,
     StatusResponse,
     TradeStartRequest,
 )
 
 logger = logging.getLogger(__name__)
-
-# ── 背景任務儲存 ──────────────────────────────────────────────────────────────
-_jobs: Dict[str, JobStatus] = {}
 
 
 # ── Lifespan ──────────────────────────────────────────────────────────────────
@@ -60,7 +53,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="BioNeuronai API",
     description="AI-driven cryptocurrency futures trading system REST API",
-    version="4.3.0",
+    version="4.1.0",
     lifespan=lifespan,
 )
 
@@ -80,7 +73,7 @@ app.add_middleware(
 
 @app.get("/", tags=["root"])
 async def root():
-    return {"service": "BioNeuronai API", "version": "4.3.0", "docs": "/docs"}
+    return {"service": "BioNeuronai API", "version": "4.1.0", "docs": "/docs"}
 
 
 # ── Status ────────────────────────────────────────────────────────────────────
@@ -120,36 +113,54 @@ async def get_status():
     return StatusResponse(modules=modules, version=version, all_ok=all_ok)
 
 
-# ── Plan ──────────────────────────────────────────────────────────────────────
+# ── Binance Validate ─────────────────────────────────────────────────────────
 
 
-@app.post("/api/v1/plan", response_model=ApiResponse, tags=["trading"])
-async def create_plan():
-    """生成每日 SOP 交易計劃"""
-    report = None
+@app.post("/api/v1/binance/validate", response_model=ApiResponse, tags=["system"])
+async def validate_binance_credentials(req: TradeStartRequest):
+    """驗證 Binance API 憑證是否有效（讀取權限 + Futures 可用性）
 
-    # 優先：TradingPlanController（10 步驟，async）
+    憑證優先順序：請求體 api_key/api_secret → 環境變數 → config fallback。
+    """
+    import os
+
+    api_key = req.api_key or os.getenv("BINANCE_API_KEY", "")
+    api_secret = req.api_secret or os.getenv("BINANCE_API_SECRET", "")
+
+    if not api_key or not api_secret:
+        return ApiResponse(
+            success=False,
+            message="缺少 API 憑證。請在請求中提供 api_key/api_secret，或設定環境變數 BINANCE_API_KEY / BINANCE_API_SECRET。",
+        )
+
     try:
-        from bioneuronai.trading.plan_controller import TradingPlanController
+        from bioneuronai.data.binance_futures import BinanceFuturesConnector
 
-        controller = TradingPlanController()
-        report = await controller.create_comprehensive_plan()
-    except ImportError:
-        pass
+        connector = BinanceFuturesConnector(
+            api_key=api_key,
+            api_secret=api_secret,
+            testnet=req.testnet,
+        )
+
+        # 1. 取得報價（不需簽名，驗連線可達性）
+        price_data = connector.get_ticker_price(req.symbol)
+        if price_data is None:
+            return ApiResponse(success=False, message="無法連線至 Binance，請檢查網路或 testnet 設定。")
+
+        # 2. 獲取帳戶資訊（需簽名，驗 key 有效 + Futures 權限）
+        account = connector.get_account_info()
+        if not account:
+            return ApiResponse(success=False, message="API Key 無效或缺乏 Futures 權限，請檢查 Key 設定。")
+
+        total_balance = account.get("totalWalletBalance", "N/A")
+        mode = "testnet" if req.testnet else "mainnet"
+        return ApiResponse(
+            success=True,
+            message=f"憑證驗證成功 [{mode}]",
+            data={"total_wallet_balance": total_balance, "environment": mode},
+        )
     except Exception as exc:
-        logger.warning("TradingPlanController 執行失敗: %s", exc)
-
-    # Fallback：SOPAutomationSystem（同步）
-    if report is None:
-        try:
-            from bioneuronai.trading.sop_automation import SOPAutomationSystem
-
-            sop = SOPAutomationSystem()
-            report = await asyncio.to_thread(sop.execute_daily_premarket_check)
-        except Exception as exc:
-            return ApiResponse(success=False, message=f"計劃生成失敗: {exc}")
-
-    return ApiResponse(success=True, message="交易計劃已生成", data=_safe_serialize(report))
+        return ApiResponse(success=False, message=f"憑證驗證失敗: {exc}")
 
 
 # ── News ──────────────────────────────────────────────────────────────────────
@@ -208,169 +219,6 @@ async def pretrade_check(req: PreTradeRequest):
         return ApiResponse(success=False, message=f"進場前檢查失敗: {exc}")
 
 
-# ── Backtest (background job) ─────────────────────────────────────────────────
-
-
-@app.post("/api/v1/backtest", response_model=JobStatus, tags=["backtest"])
-async def start_backtest(req: BacktestRequest):
-    """啟動回測（背景任務）"""
-    job_id = str(uuid.uuid4())[:8]
-    job = JobStatus(job_id=job_id, status="pending")
-    _jobs[job_id] = job
-
-    asyncio.create_task(_run_backtest(job_id, req))
-    return job
-
-
-async def _run_backtest(job_id: str, req: BacktestRequest):
-    job = _jobs[job_id]
-    job.status = "running"
-    try:
-        from backtest import BacktestEngine
-        from bioneuronai.core.trading_engine import TradingEngine
-
-        def _execute():
-            te = None
-            try:
-                te = TradingEngine(testnet=True)
-            except Exception:
-                pass
-
-            engine = BacktestEngine(
-                symbol=req.symbol,
-                interval=req.interval,
-                start_date=req.start_date,
-                end_date=req.end_date,
-                initial_balance=req.balance,
-            )
-
-            def ai_strategy(bar, connector):
-                if te is None or not (te.inference_engine and te.ai_model_loaded):
-                    return
-                klines = connector.data_stream.get_klines_until_now(100)
-                if not klines or len(klines) < 20:
-                    return
-                try:
-                    signal = te.inference_engine.predict(
-                        symbol=bar.symbol, current_price=bar.close, klines=klines,
-                    )
-                    pos = next(
-                        (p for p in connector.get_account_info()["positions"]
-                         if p["symbol"] == bar.symbol and abs(p["positionAmt"]) > 0),
-                        None,
-                    )
-                    sig_str = signal.signal_type.value
-                    if "long" in sig_str and (not pos or float(pos["positionAmt"]) <= 0):
-                        if pos and float(pos["positionAmt"]) < 0:
-                            connector.place_order(bar.symbol, "BUY", "MARKET", abs(float(pos["positionAmt"])))
-                        connector.place_order(bar.symbol, "BUY", "MARKET", 0.05)
-                    elif "short" in sig_str and (not pos or float(pos["positionAmt"]) >= 0):
-                        if pos and float(pos["positionAmt"]) > 0:
-                            connector.place_order(bar.symbol, "SELL", "MARKET", float(pos["positionAmt"]))
-                        connector.place_order(bar.symbol, "SELL", "MARKET", 0.05)
-                except Exception:
-                    pass
-
-            result = engine.run(ai_strategy)
-            return {
-                attr: getattr(result, attr, None)
-                for attr in ("total_return", "sharpe_ratio", "max_drawdown", "win_rate", "total_trades")
-                if getattr(result, attr, None) is not None
-            }
-
-        data = await asyncio.to_thread(_execute)
-        job.status = "completed"
-        job.result = data
-    except Exception as exc:
-        job.status = "failed"
-        job.error = str(exc)
-
-
-# ── Simulate (background job) ────────────────────────────────────────────────
-
-
-@app.post("/api/v1/simulate", response_model=JobStatus, tags=["backtest"])
-async def start_simulate(req: SimulateRequest):
-    """啟動模擬交易（背景任務）"""
-    job_id = str(uuid.uuid4())[:8]
-    job = JobStatus(job_id=job_id, status="pending")
-    _jobs[job_id] = job
-
-    asyncio.create_task(_run_simulate(job_id, req))
-    return job
-
-
-async def _run_simulate(job_id: str, req: SimulateRequest):
-    job = _jobs[job_id]
-    job.status = "running"
-    try:
-        from backtest import MockBinanceConnector
-
-        def _execute():
-            te = None
-            try:
-                from bioneuronai.core.trading_engine import TradingEngine
-                te = TradingEngine(testnet=True)
-            except Exception:
-                pass
-
-            mock = MockBinanceConnector(
-                symbol=req.symbol,
-                interval=req.interval,
-                initial_balance=req.balance,
-                start_date=req.start_date,
-                end_date=req.end_date,
-            )
-
-            bar_count = 0
-            while mock.next_tick() and bar_count < req.bars:
-                bar = mock._current_bar
-                if bar is None:
-                    continue
-                bar_count += 1
-
-                if te and te.inference_engine and te.ai_model_loaded:
-                    try:
-                        klines = mock.data_stream.get_klines_until_now(50)
-                        te.inference_engine.predict(
-                            symbol=bar.symbol, current_price=bar.close, klines=klines,
-                        )
-                    except Exception:
-                        pass
-
-            acct = mock.get_account_info()
-            final_balance = float(acct.get("totalWalletBalance", req.balance))
-            pnl = final_balance - req.balance
-            stats = mock.virtual_account.get_stats() if hasattr(mock, "virtual_account") else {}
-
-            return {
-                "final_balance": final_balance,
-                "pnl": pnl,
-                "total_return_pct": stats.get("total_return", 0),
-                "total_trades": stats.get("total_trades", 0),
-                "win_rate": stats.get("win_rate", 0),
-                "bars_processed": bar_count,
-            }
-
-        data = await asyncio.to_thread(_execute)
-        job.status = "completed"
-        job.result = data
-    except Exception as exc:
-        job.status = "failed"
-        job.error = str(exc)
-
-
-# ── Job Status ────────────────────────────────────────────────────────────────
-
-
-@app.get("/api/v1/jobs/{job_id}", response_model=JobStatus, tags=["system"])
-async def get_job_status(job_id: str):
-    """查詢背景任務狀態"""
-    if job_id not in _jobs:
-        return JobStatus(job_id=job_id, status="not_found", error="Job not found")
-    return _jobs[job_id]
-
-
 # ── Trade Control ─────────────────────────────────────────────────────────────
 
 _trade_task = None
@@ -386,9 +234,18 @@ async def start_trade(req: TradeStartRequest):
         return ApiResponse(success=False, message="交易已在運行中")
 
     try:
+        import os
         from bioneuronai.core.trading_engine import TradingEngine
 
-        _trade_engine = TradingEngine(testnet=req.testnet)
+        # 憑證優先順序：請求注入 → 環境變數
+        api_key = req.api_key or os.getenv("BINANCE_API_KEY", "")
+        api_secret = req.api_secret or os.getenv("BINANCE_API_SECRET", "")
+
+        _trade_engine = TradingEngine(
+            api_key=api_key,
+            api_secret=api_secret,
+            testnet=req.testnet,
+        )
 
         async def _monitor():
             await asyncio.to_thread(_trade_engine.start_monitoring, req.symbol)

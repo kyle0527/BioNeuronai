@@ -1,8 +1,19 @@
 # Analysis 模組驗證報告
-
 > 日期: 2026-03-24
 > 範圍基準: `tools/PROJECT_REPORT_20260322_221527.txt` 第 375-401 行 `src/bioneuronai/analysis/`
 > 驗證方式: 實際執行 `main.py news`、`python -m bioneuronai.analysis --kw`、`python -m bioneuronai.analysis`
+
+
+## 📑 目錄
+
+1. 1. 結論摘要
+2. 2. 本次實際執行的驗證命令
+3. 3. 已驗證範圍
+4. 4. 已確認修復的問題
+5. 5. 仍存在的問題
+6. 6. 尚未驗證到的能力
+7. 7. 本次驗證邊界
+8. 8. 後續建議
 
 ---
 

@@ -1,20 +1,15 @@
 # 📂 BioNeuronAI 項目結構
 
-**最後更新**: 2026年1月22日  
-**版本**: v4.0 (數據庫整合版)  
-**專注方向**: AI 驅動的加密貨幣期貨交易系統
+## 📑 目錄
 
----
-
-## 📋 目錄
-
-1. [項目概覽](#項目概覽)
-2. [根目錄結構](#根目錄結構)
-3. [核心模組 (src/bioneuronai/)](#核心模組-srcbioneuronai)
-4. [文檔結構 (docs/)](#文檔結構-docs)
-5. [數據存儲 (trading_data/)](#數據存儲-trading_data)
-6. [開發工具 (tools/)](#開發工具-tools)
-7. [快速開始](#快速開始)
+1. 🎯 項目概覽
+2. 🧠 核心模組 (src/bioneuronai/)
+3. 📚 文檔結構 (docs/)
+4. 💾 數據存儲 (trading_data/)
+5. 🛠️ 開發工具 (tools/)
+6. 🚀 快速開始
+7. 📝 開發指南
+8. 🔗 相關鏈接
 
 ---
 
@@ -32,35 +27,6 @@
 - **數據庫**: SQLite (交易數據) + SQLite (關鍵字)
 - **API**: Binance Futures REST + WebSocket
 - **數據驗證**: Pydantic v2
-
----
-
-## 📁 根目錄結構
-
-```
-BioNeuronai/
-├── 📘 README.md                          # 項目主文檔
-├── 🐍 use_trading_engine_v2.py          # ⭐ AI 整合交易引擎入口
-├── 🐍 use_crypto_trader.py              # ⭐ 互動式交易系統入口
-├── 🐍 migrate_to_database.py            # 數據庫遷移工具
-├── 🐍 test_integration.py               # 系統整合測試
-│
-├── 📦 requirements-crypto.txt            # 交易系統依賴
-├── 📦 requirements-dev.txt               # 開發依賴
-├── ⚙️ pyproject.toml                    # Python 項目配置
-├── 📄 BioNeuronai.code-workspace        # VS Code 工作區
-│
-├── 📁 src/bioneuronai/                  # 核心代碼模組
-├── 📁 docs/                             # 完整文檔
-├── 📁 config/                           # 配置文件
-├── 📁 model/                            # AI 模型文件
-├── 📁 trading_data/                     # 交易數據存儲
-├── 📁 data_downloads/                   # 歷史數據
-├── 📁 tools/                            # 開發工具
-├── 📁 archived/                         # 歸檔文件
-├── 📁 pretrade_check_data/              # 交易前檢查記錄
-└── 📁 sop_automation_data/              # SOP 自動化記錄
-```
 
 ---
 
@@ -227,6 +193,11 @@ pip install -r requirements-crypto.txt
 ```
 
 ### 2. 配置 API
+
+> ⚠️ 本節部分過時：
+> 這裡把 `config/trading_config.py` 視為主要 API 憑證配置方式，僅能作為舊版本地操作參考；
+> 後續若涉及 UI、REST API、Binance 憑證流或 schema 設計，應以最新基準文件為優先。
+
 編輯 `config/trading_config.py` 填入 Binance API 憑證
 
 ### 3. 運行系統

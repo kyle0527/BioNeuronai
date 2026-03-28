@@ -60,8 +60,7 @@ class ReportGenerator:
             return report
             
         except Exception as e:
-            logger.error(f"生成報告失敗: {e}")
-            return f"❌ 報告生成失敗: {e}"
+            raise RuntimeError(f"生成報告失敗: {e}") from e
     
     def _build_report_text(self, result: Dict, check_time: str) -> str:
         """構建報告文本"""
@@ -151,8 +150,8 @@ class ReportGenerator:
     
     def _format_news_analysis(self, news: Dict) -> str:
         """格式化新聞分析"""
-        if not news or news.get('mock'):
-            return "  ⚠️ 新聞分析暫時不可用"
+        if not news:
+            return "  ⚠️ 新聞分析暫不可用"
         
         sentiment = news.get('sentiment', 'neutral')
         score = news.get('sentiment_score', 0.0)
@@ -213,7 +212,7 @@ class ReportGenerator:
             logger.info(f"✅ 檢查結果已保存: {filepath}")
             
         except Exception as e:
-            logger.error(f"保存檢查結果失敗: {e}")
+            raise RuntimeError(f"保存檢查結果失敗: {e}") from e
     
     def _convert_to_serializable(self, obj):
         """
@@ -254,8 +253,7 @@ class ReportGenerator:
                 return cast(Dict[str, Any], json.load(f))
                 
         except Exception as e:
-            logger.error(f"讀取檢查結果失敗: {e}")
-            return None
+            raise RuntimeError(f"讀取檢查結果失敗: {e}") from e
     
     # ========================================
     # 報告摘要
@@ -285,5 +283,4 @@ class ReportGenerator:
             return summary.strip()
             
         except Exception as e:
-            logger.error(f"生成摘要失敗: {e}")
-            return "❌ 摘要生成失敗"
+            raise RuntimeError(f"生成摘要失敗: {e}") from e

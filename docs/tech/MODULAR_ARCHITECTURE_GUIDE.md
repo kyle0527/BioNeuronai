@@ -1,23 +1,30 @@
 # BioNeuronai 模組化架構技術手冊
-
 > **版本**: v2.0  
 > **日期**: 2026年1月19日  
 > **狀態**: ✅ 已完成重構並推送至 GitHub
 
----
 
-## 📚 目錄
+## 📑 目錄
 
-1. [架構概覽](#架構概覽)
-2. [模組詳細說明](#模組詳細說明)
-3. [API 參考](#api-參考)
-4. [遷移指南](#遷移指南)
-5. [最佳實踐](#最佳實踐)
-6. [故障排除](#故障排除)
+1. 架構概覽
+2. 模組詳細說明
+3. API 參考
+4. 遷移指南
+5. 最佳實踐
+6. 故障排除
+7. 📊 性能指標
+8. 🚀 後續規劃
+9. 📚 相關文檔
+10. 📞 技術支持
+11. 📝 變更日誌
 
 ---
 
 ## 架構概覽
+
+> ⚠️ 本章節部分過時：
+> 此處列出的部分目錄與模組路徑屬於舊版重構設計，不應直接當作目前實際檔案結構的唯一依據。
+> 閱讀時應搭配現行 repo 結構與最新基準文件。
 
 ### 🎯 重構目標
 
@@ -664,6 +671,10 @@ strategy = StrategyFusion()
 
 ## 最佳實踐
 
+> ⚠️ 本章節部分過時：
+> 這裡同時混用了 `config/trading_config.py` 舊配置方式與環境變數方式。
+> 目前若要落地，應優先以最新憑證流、`src/schemas/` 單一事實來源與現行模組路徑為準，而不是直接照本章節套用。
+
 ### 1. 📝 配置管理
 
 #### 使用配置文件
@@ -737,7 +748,7 @@ from bioneuronai.strategies import TrendFollowingStrategy
 
 def test_trend_strategy_buy_signal():
     strategy = TrendFollowingStrategy()
-    
+
     # 準備測試數據
     market_data = MarketData(
         symbol="BTCUSDT",
@@ -745,10 +756,10 @@ def test_trend_strategy_buy_signal():
         volume=1000.0,
         timestamp=1642012800000
     )
-    
+
     # 執行分析
     signal = strategy.analyze(market_data)
-    
+
     # 驗證結果
     assert signal.symbol == "BTCUSDT"
     assert signal.action in ["BUY", "SELL", "HOLD"]
@@ -893,6 +904,10 @@ print(bioneuronai.__file__)  # 確認加載的包位置
 ---
 
 ## 🚀 後續規劃
+
+> ⚠️ 補註：
+> 本章節屬於歷史規劃，不代表目前已確認的開發方向。
+> 特別是 `GraphQL API`、`分散式交易`、`多帳戶協調` 這類內容，不能壓過目前「外部 API 集中、內部模組直連、避免過度設計」的基準。
 
 ### v2.1 計劃功能
 

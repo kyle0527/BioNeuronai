@@ -318,7 +318,7 @@ class EvolutionEngine:
             pf_score = max(0, min(result.profit_factor / 3.0, 1.0))  # 0-3 映射到 0-1
             wr_score = result.win_rate  # 已經是 0-1
             return_score = max(0, min(result.total_return / 0.5, 1.0))  # 0-50% 映射到 0-1
-            dd_penalty = max(0, 1 - abs(result.max_drawdown) / 0.3)  # 回撤懲罰
+            dd_penalty = max(0, 1 - abs(result.max_drawdown))  # 回撤懲罰：線性 0%→1.0, 100%→0.0，無飽和截斷
             
             # 加權平均
             fitness = (

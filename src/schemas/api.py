@@ -2,10 +2,14 @@
 BioNeuronai API通信模型
 
 專為幣安期貨API通信設計的 Pydantic 模型。
+包含：
+- 底層 Binance 通訊模型（ApiCredentials、ApiResponse、BinanceApiError…）
+- REST API 入口層的 Request / Response / JobStatus 模型
 """
 
 from datetime import datetime
-from typing import Optional, Dict, Any
+from typing import Any, Dict, List, Optional
+from uuid import uuid4
 
 from pydantic import BaseModel, Field
 
@@ -204,3 +208,85 @@ class ExchangeInfo(BaseModel):
             ]
         }
     }
+
+
+# ── REST API Request Models ───────────────────────────────────────────────────
+
+
+class NewsRequest(BaseModel):
+    """新聞分析請求"""
+    symbol: str = Field(default="BTCUSDT", description="交易對")
+    max_items: int = Field(default=10, ge=1, le=50, description="最大新聞數量")
+
+
+class PreTradeRequest(BaseModel):
+    """進場前檢查請求"""
+    symbol: str = Field(default="BTCUSDT", description="交易對")
+    action: str = Field(default="long", pattern="^(long|short)$", description="交易方向")
+
+
+class BacktestRequest(BaseModel):
+    """回測請求"""
+    symbol: str = Field(default="ETHUSDT", description="交易對")
+    interval: str = Field(default="1h", description="K 線週期")
+    start_date: Optional[str] = Field(default=None, description="起始日期 YYYY-MM-DD")
+    end_date: Optional[str] = Field(default=None, description="結束日期 YYYY-MM-DD")
+    balance: float = Field(default=10000.0, gt=0, description="初始資金")
+
+
+class SimulateRequest(BaseModel):
+    """模擬交易請求"""
+    symbol: str = Field(default="BTCUSDT", description="交易對")
+    interval: str = Field(default="15m", description="K 線週期")
+    balance: float = Field(default=100000.0, gt=0, description="模擬資金")
+    bars: int = Field(default=200, ge=1, le=5000, description="模擬 K 線數量")
+    start_date: Optional[str] = Field(default=None, description="起始日期")
+    end_date: Optional[str] = Field(default=None, description="結束日期")
+
+
+class TradeStartRequest(BaseModel):
+    """啟動交易監控請求"""
+    symbol: str = Field(default="BTCUSDT", description="交易對")
+    testnet: bool = Field(default=True, description="使用測試網")
+    # 選填：由 UI/CLI 注入使用者憑證；不填則 fallback 至環境變數
+    api_key: Optional[str] = Field(default=None, description="Binance API Key（選填）")
+    api_secret: Optional[str] = Field(default=None, description="Binance API Secret（選填）", repr=False)
+
+
+# ── REST API Response / Status Models ────────────────────────────────────────
+
+
+class RestApiResponse(BaseModel):
+    """REST API 標準回應（薄入口層專用）
+
+    與 ApiResponse（底層 Binance 通訊用）功能不同，此為 FastAPI 路由回傳格式。
+    """
+    success: bool
+    message: Optional[str] = None
+    data: Optional[Dict[str, Any]] = None
+    timestamp: datetime = Field(default_factory=datetime.now)
+
+
+class ModuleStatus(BaseModel):
+    """模組可用性狀態"""
+    name: str
+    available: bool
+    error: Optional[str] = None
+
+
+class StatusResponse(BaseModel):
+    """系統健康狀態回應"""
+    success: bool = True
+    modules: List[ModuleStatus]
+    version: Optional[str] = None
+    all_ok: bool
+    timestamp: datetime = Field(default_factory=datetime.now)
+
+
+class JobStatus(BaseModel):
+    """長時間背景任務狀態"""
+    job_id: str
+    status: str = Field(description="pending | running | completed | failed | not_found")
+    result: Optional[Dict[str, Any]] = None
+    error: Optional[str] = None
+    created_at: datetime = Field(default_factory=datetime.now)

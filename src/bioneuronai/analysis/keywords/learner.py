@@ -14,12 +14,14 @@
 
 import json
 import logging
+import os
 import sqlite3
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Any, Callable, cast
 from dataclasses import asdict
 
+from ..._paths import resolve_project_path
 from .manager import KeywordManager  # ✅ 修正：從 manager.py 導入
 from .models import Keyword  # ✅ 修正：從 models.py 導入
 
@@ -78,7 +80,7 @@ class KeywordLearner:
             db_path: 學習記錄資料庫路徑
         """
         self.keyword_manager = keyword_manager or KeywordManager()
-        self.db_path = db_path
+        self.db_path = str(resolve_project_path(db_path))
         
         # 初始化學習記錄資料庫
         self._init_learning_db()
@@ -193,7 +195,8 @@ class KeywordLearner:
         if get_current_price is None:
             # 使用預設的價格獲取方式
             from ...data.binance_futures import BinanceFuturesConnector
-            connector = BinanceFuturesConnector(testnet=True)
+            _testnet = os.getenv("BINANCE_TESTNET", "false").lower() == "true"
+            connector = BinanceFuturesConnector(testnet=_testnet)
             def get_current_price(symbol):
                 data = connector.get_ticker_price(symbol)
                 return data.price if data else None
@@ -265,7 +268,13 @@ class KeywordLearner:
             
             # 更新關鍵字權重
             for kw in keywords:
-                updated = self._update_keyword_weight(kw, is_correct, pred_id, cursor)
+                updated = self._update_keyword_weight(
+                    kw,
+                    is_correct,
+                    pred_id,
+                    cursor,
+                    abs(price_change_pct) * 100,
+                )
                 if updated:
                     stats['keywords_updated'] += 1
             
@@ -294,7 +303,8 @@ class KeywordLearner:
         keyword: str,
         is_correct: bool,
         prediction_id: str,
-        cursor: sqlite3.Cursor
+        cursor: sqlite3.Cursor,
+        price_change_pct_abs: float,
     ) -> bool:
         """
         更新單一關鍵字的權重
@@ -316,13 +326,14 @@ class KeywordLearner:
         
         kw_obj = self.keyword_manager.keywords[kw_lower]
         old_weight = kw_obj.dynamic_weight
-        
+        factor = self._get_adjustment_factor(is_correct, price_change_pct_abs)
+
         # 計算新權重
         if is_correct:
-            new_weight = min(old_weight * self.WEIGHT_INCREASE_FACTOR, self.MAX_DYNAMIC_WEIGHT)
+            new_weight = min(old_weight * factor, self.MAX_DYNAMIC_WEIGHT)
             kw_obj.correct_count += 1
         else:
-            new_weight = max(old_weight * self.WEIGHT_DECREASE_FACTOR, self.MIN_DYNAMIC_WEIGHT)
+            new_weight = max(old_weight * factor, self.MIN_DYNAMIC_WEIGHT)
         
         kw_obj.dynamic_weight = new_weight
         kw_obj.prediction_count += 1
@@ -344,12 +355,20 @@ class KeywordLearner:
         
         logger.debug(f"  📊 {keyword}: {old_weight:.2f} -> {new_weight:.2f} "
                     f"({'↑' if is_correct else '↓'})")
-        
+
         return True
+
+    def _get_adjustment_factor(self, is_correct: bool, price_change_pct_abs: float) -> float:
+        """根據實際波動幅度選擇權重調整因子。"""
+        if price_change_pct_abs >= 3.0:
+            return 1.15 if is_correct else 0.85
+        if price_change_pct_abs >= 1.0:
+            return 1.08 if is_correct else 0.92
+        return 1.02 if is_correct else 0.98
     
     def _save_keywords(self):
         """儲存更新後的關鍵字到分類檔案"""
-        keywords_dir = Path("config/keywords")
+        keywords_dir = resolve_project_path("config/keywords")
         
         if not keywords_dir.exists():
             # 如果分類目錄不存在，使用舊的單檔儲存

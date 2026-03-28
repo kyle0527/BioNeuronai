@@ -1,6 +1,19 @@
 # 自然語言處理（NLP）訓練指南
 
-本項目包含完整的自然語言模型訓練系統，包括 100M 參數的 Tiny LLM 模型。
+## 📑 目錄
+
+1. 📁 訓練腳本位置
+2. 🎯 訓練腳本說明
+3. 🚀 快速開始訓練
+4. 📊 訓練數據準備
+5. 🔧 訓練配置優化
+6. 📈 監控訓練進度
+7. 🎯 訓練最佳實踐
+8. 🔗 相關資源
+9. ⚠️ 常見問題
+10. 📞 技術支援
+
+---
 
 ## 📁 訓練腳本位置
 
@@ -199,10 +212,10 @@ class CustomDataset(Dataset):
         self.texts = texts
         self.tokenizer = tokenizer
         self.max_length = max_length
-    
+
     def __len__(self):
         return len(self.texts)
-    
+
     def __getitem__(self, idx):
         text = self.texts[idx]
         tokens = self.tokenizer.encode(text)[:self.max_length]

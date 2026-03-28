@@ -85,8 +85,7 @@ class MarketDataCollector:
             )
             
         except Exception as e:
-            logger.error(f"獲取全球市場數據失敗: {e}")
-            return None
+            raise RuntimeError(f"獲取全球市場數據失敗: {e}") from e
     
     def check_economic_calendar(self) -> List[str]:
         """

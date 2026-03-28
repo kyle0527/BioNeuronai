@@ -120,13 +120,27 @@ from .portfolio import (
     RiskMetrics,
 )
 
-# API 通信模型
+# API 通信模型（底層 Binance 通訊）
 from .api import (
     ApiCredentials,
     ApiResponse,
     BinanceApiError,
     WebSocketMessage,
     ExchangeInfo,
+    ApiStatusInfo,
+)
+
+# REST API 入口層 Request / Response / Status 模型 (2026-03-28 新增)
+from .api import (
+    NewsRequest,
+    PreTradeRequest,
+    BacktestRequest,
+    SimulateRequest,
+    TradeStartRequest,
+    RestApiResponse,
+    ModuleStatus,
+    StatusResponse,
+    JobStatus,
 )
 
 # 命令系統模型 (AIVA Common v6.3)
@@ -312,12 +326,24 @@ __all__ = [
     "PortfolioAnalytics",
     "RiskMetrics",
     
-    # API 通信
+    # API 通信（底層 Binance）
     "ApiCredentials",
     "ApiResponse",
     "BinanceApiError",
     "WebSocketMessage",
     "ExchangeInfo",
+    "ApiStatusInfo",
+
+    # REST API 入口層 Request / Response / Status (2026-03-28)
+    "NewsRequest",
+    "PreTradeRequest",
+    "BacktestRequest",
+    "SimulateRequest",
+    "TradeStartRequest",
+    "RestApiResponse",
+    "ModuleStatus",
+    "StatusResponse",
+    "JobStatus",
     
     # 命令系統 (AIVA Common v6.3)
     "AICommand",
