@@ -1,6 +1,6 @@
 # BioNeuronai 技術債與開發路線圖
 
-> 更新日期：2026-03-28
+> 更新日期：2026-04-03
 > 本文件彙整多輪分析 session 中發現的所有問題、已完成的修復、以及後續行動計畫。
 
 ---
@@ -64,21 +64,19 @@ get_funding_rate()
 
 ---
 
-### T2：兩個同名 StrategySelector（高優先）
+### ✅ T2：兩個同名 StrategySelector（已完成 — 2026-04-03）
 
-**問題：** 專案中存在兩個功能重疊的 `StrategySelector` 類別：
+**原問題：** 專案中存在兩個功能重疊的 `StrategySelector` 類別。
 
-| 位置 | 特點 |
+| 位置 | 狀態 |
 |------|------|
-| `strategies/selector/core.py` | 評分式選擇，有 AI fusion hook，async 介面（保留） |
-| `trading/strategy_selector.py` | 已移除（改為單一路徑） |
+| `strategies/selector/core.py` | ✅ 唯一實作，保留 |
+| `trading/strategy_selector.py` | ✅ 已於 commit `80d4da3` 刪除 |
 
-兩者都有 `select_optimal_strategy()`，但 schema 不同、被不同地方呼叫。這是兩個並行開發後未整合的結果。
-
-**修復方向：**
-1. 先 grep 出各自的實際呼叫者
-2. 確定哪個是主要路徑（推測是 `strategies/selector/core.py` 較新）
-3. 讓舊的重導向至新的，或合併後移除舊的
+**已完成：**
+- `trading/strategy_selector.py` 已刪除，唯一實作為 `strategies/selector/core.py`。
+- `trading/README.md` 確認「已統一使用 src/bioneuronai/strategies/selector/」。
+- T2 可視為已解決。
 
 ---
 
@@ -178,7 +176,7 @@ news = analyzer.analyze_news(symbol, hours=max(1, min(48, hours_since_last)))
 ```
 優先執行（地基）
   T1 → 外部 API 移到 data/ 層        （最具架構意義）
-  T2 → 合併重複 StrategySelector     （消除混亂的選策略路徑）
+  T2 → ✅ 已完成（2026-04-03）
 
 中期執行（功能完整）
   T5 → 新聞時間邏輯修復                （具體功能缺口）

@@ -14,8 +14,9 @@
 - ✅ PreTrade 新聞檢查已改為 RAG 單一路徑（移除 legacy fallback），並回傳 `OK/NO_DATA/ERROR`。
 - ✅ 入庫可觀測性補強：新增 `ingest_news_analysis_with_status(...)`，可明確區分 `NO_DATA` 與 `ERROR`。
 
-### 進行中
-- 🔄 D.6（待做）：建立 CLI/API 共用的 Application Facade，進一步降低入口層重複組裝。
+### 待完成
+- ⏳ D.6（未開始）：建立 CLI/API 共用的 Application Facade，進一步降低入口層重複組裝。
+- ⏳ T3 消費端：`pretrade._final_confirmation_check()` 與 `strategy_fusion` 查詢 InternalKnowledgeBase（見 TECH_DEBT_AND_ROADMAP.md T3）。
 
 ### 跨模組重複功能盤點（2026-03-31）
 

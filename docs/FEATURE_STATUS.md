@@ -499,31 +499,26 @@ weights.append(0.15)
 > 本節排序建立於較早版本的功能盤點，尚未反映最新 API 整合基準。
 > 後續若與 [API_INTEGRATION_BASELINE.md](C:/D/E/BioNeuronai/docs/API_INTEGRATION_BASELINE.md) 衝突，應以基準文件為優先。
 
-### 立即可做（1 天內）
+### ✅ 立即可做（已全部完成）
 
-```bash
-# 1. 加入 schedule 依賴
-# 在 pyproject.toml [project] dependencies 加一行：
-"schedule>=1.2.0",
+| 項目 | 狀態 | 完成時間 |
+|------|------|---------|
+| 加入 `schedule>=1.2.0` 依賴 | ✅ 已確認存在 `pyproject.toml:38` | v4.4.1 |
+| 建立 `data_downloads/binance_historical/` 目錄 | ✅ 已建立 | v4.3.1 |
 
-# 2. 準備回測數據目錄
-mkdir -p data_downloads/binance_historical
+### ✅ 短期修復（已全部完成）
 
-# 3. 下載歷史數據（若有下載工具）
-python tools/download_historical_data.py --symbol BTCUSDT --interval 1h --days 365
-```
+| 項目 | 狀態 | 完成時間 |
+|------|------|---------|
+| Plan Step 9：串接 `PairSelector.select_optimal_pairs()` | ✅ 已完成 | v4.3.1 |
+| `market_analyzer.py:906`：串接 `CryptoNewsAnalyzer.analyze_news()` | ✅ 已完成（v4.4.1 修復） | v4.4.1 |
+| Plan Step 5/6：整合策略績效（StrategySelector） | ✅ 已完成（BacktestEngine 數據仍待填入） | v4.3.1 |
 
-### 短期修復（1 週內）
-
-1. **Plan Step 9**：將靜態幣對列表改為呼叫 `PairSelector.select_optimal_pairs()`（已實作，只需串接）
-2. **market_analyzer.py:906**：將 `news_sentiment=0.0` 改為呼叫 `CryptoNewsAnalyzer.analyze_news()`
-3. **Plan Step 5/6**：整合 BacktestEngine 計算真實策略績效
-
-### 中期規劃（1 個月內）
+### 中期規劃（仍待執行）
 
 1. **Plan Step 10**：實作真正的 WebSocket 監控，整合現有的 `subscribe_ticker_stream()`
 2. **SOP 回測驗證**：啟用 `_perform_plan_backtest()`，連接 BacktestEngine
-3. **RAG 快取**：實作 `retriever.py` 的快取偵測邏輯
+3. **RAG 消費端接通**：`pretrade._final_confirmation_check()` 與 `strategy_fusion` 查詢 InternalKnowledgeBase（T3 剩餘）
 4. **策略進化整合**：將 StrategyArena、TradingPhaseRouter、RLFusionAgent 加入 CLI
 
 ---
