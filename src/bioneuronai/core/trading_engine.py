@@ -327,15 +327,14 @@ class TradingEngine:
             lows: List[float] = [float(k.get('low', k.get('l', 0))) for k in klines]
             volumes: List[float] = [float(k.get('volume', k.get('v', 0))) for k in klines]
             
-            # 更新歷史數據
-            for i in range(len(klines)):
-                self.regime_detector.update_data(
-                    symbol=symbol,
-                    price=closes[i],
-                    high=highs[i],
-                    low=lows[i],
-                    volume=volumes[i]
-                )
+            # 批量更新歷史數據（避免逐筆迴圈）
+            self.regime_detector.bulk_update_data(
+                symbol=symbol,
+                prices=closes,
+                highs=highs,
+                lows=lows,
+                volumes=volumes
+            )
             
             return self.regime_detector.detect_regime(symbol=symbol)
         except Exception as e:

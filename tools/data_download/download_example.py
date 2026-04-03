@@ -8,6 +8,8 @@ BioNeuronai - Binance 歷史數據下載範例
 """
 
 import os
+import shlex
+import subprocess
 import sys
 from datetime import datetime, timedelta
 
@@ -39,7 +41,7 @@ def example_1_download_btc_hourly():
     )
     
     print(f"\n執行命令:\n{cmd}\n")
-    os.system(cmd)
+    subprocess.run(shlex.split(cmd), check=False)
 
 def example_2_download_multiple_pairs():
     """
@@ -61,7 +63,7 @@ def example_2_download_multiple_pairs():
     )
     
     print(f"\n執行命令:\n{cmd}\n")
-    os.system(cmd)
+    subprocess.run(shlex.split(cmd), check=False)
 
 def example_3_download_recent_minute_data():
     """
@@ -88,7 +90,7 @@ def example_3_download_recent_minute_data():
     
     print(f"\n執行命令:\n{cmd}\n")
     print(f"日期範圍: {start_date} 至 {end_date}")
-    os.system(cmd)
+    subprocess.run(shlex.split(cmd), check=False)
 
 def example_4_download_trade_data():
     """
@@ -109,7 +111,7 @@ def example_4_download_trade_data():
     )
     
     print(f"\n執行命令:\n{cmd}\n")
-    os.system(cmd)
+    subprocess.run(shlex.split(cmd), check=False)
 
 def example_5_download_for_backtesting():
     """
@@ -143,10 +145,10 @@ def example_5_download_for_backtesting():
     )
     
     print(f"\n第一步 - 下載 K線數據:\n{cmd_kline}\n")
-    os.system(cmd_kline)
-    
+    subprocess.run(shlex.split(cmd_kline), check=False)
+
     print(f"\n第二步 - 下載聚合交易數據:\n{cmd_agg}\n")
-    os.system(cmd_agg)
+    subprocess.run(shlex.split(cmd_agg), check=False)
 
 def show_menu():
     """顯示互動式選單"""

@@ -8,7 +8,6 @@ import json
 import re
 from pathlib import Path
 from typing import List, Dict, Optional
-import pickle
 
 
 class BilingualTokenizer:
@@ -207,46 +206,39 @@ class BilingualTokenizer:
         """保存 tokenizer"""
         path_obj = Path(path)
         path_obj.parent.mkdir(parents=True, exist_ok=True)
-        
+
+        # JSON 不支援整數鍵，將 id_to_token 的 key 轉為字串
         data = {
             "vocab": self.vocab,
-            "id_to_token": self.id_to_token,
+            "id_to_token": {str(k): v for k, v in self.id_to_token.items()},
             "special_tokens": self.special_tokens,
             "special_token_ids": self.special_token_ids,
             "vocab_size": self.vocab_size,
         }
-        
-        with open(path_obj, 'wb') as f:
-            pickle.dump(data, f)
-        
-        # 也保存為 JSON 方便查看
-        json_path = path_obj.with_suffix('.json')
-        with open(json_path, 'w', encoding='utf-8') as f:
-            json.dump({
-                "vocab_size": len(self.vocab),
-                "special_tokens": self.special_tokens,
-                "sample_vocab": dict(list(self.vocab.items())[:100])
-            }, f, ensure_ascii=False, indent=2)
-        
+
+        with open(path_obj, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+
         print(f"✅ Tokenizer 已保存: {path}")
-    
+
     @classmethod
     def load(cls, path: str) -> 'BilingualTokenizer':
         """載入 tokenizer"""
-        with open(path, 'rb') as f:
-            data = pickle.load(f)
-        
+        with open(path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+
         tokenizer = cls(vocab_size=data["vocab_size"])
         tokenizer.vocab = data["vocab"]
-        tokenizer.id_to_token = data["id_to_token"]
+        # JSON 鍵為字串，還原為整數
+        tokenizer.id_to_token = {int(k): v for k, v in data["id_to_token"].items()}
         tokenizer.special_tokens = data["special_tokens"]
         tokenizer.special_token_ids = data["special_token_ids"]
-        
+
         tokenizer.pad_token_id = tokenizer.special_token_ids.get("pad_token", 0)
         tokenizer.unk_token_id = tokenizer.special_token_ids.get("unk_token", 1)
         tokenizer.bos_token_id = tokenizer.special_token_ids.get("bos_token", 2)
         tokenizer.eos_token_id = tokenizer.special_token_ids.get("eos_token", 3)
-        
+
         return tokenizer
 
 
