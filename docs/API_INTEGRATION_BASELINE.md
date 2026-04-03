@@ -689,7 +689,7 @@ trading / core / analysis / data
 
 以下順序以「不破壞現有功能」、「維持現有架構」、「優先改現有檔案」為原則。
 
-### ✅ 第 1 階段：建立單一 schema 基礎（已完成 2026-03-28）
+### ✅ 第 1 階段：建立單一 schema 基礎（已完成 2026-03-28，補完 2026-03-29）
 
 目標：
 - 確立 `src/schemas/` 為唯一共用 schema 來源
@@ -698,6 +698,9 @@ trading / core / analysis / data
 - ✅ 盤點 `src/bioneuronai/api/models.py` → 已改為純轉發層（re-export only）
 - ✅ 將跨模組 request / response schema 移入 `src/schemas/api.py`（NewsRequest、PreTradeRequest、TradeStartRequest、RestApiResponse、ModuleStatus、StatusResponse、JobStatus）
 - ✅ `api/models.py` 已降為薄包裝，不再自行定義主 schema
+- ✅ 新增 `BinanceValidateRequest`（無 symbol 欄位，語意與 TradeStartRequest 分離）至 `schemas/api.py`（2026-03-29）
+- ✅ `POST /api/v1/binance/validate` 已改用 `BinanceValidateRequest`，connectivity check 固定用 BTCUSDT
+- ✅ `api/__init__.py` 補上 `from .app import app`，對外完整導出 FastAPI app
 
 ### ✅ 第 2 階段：打通 Binance 憑證流（已完成 2026-03-28）
 
@@ -945,7 +948,7 @@ trading / core / analysis / data
 
 - ✅ `market_analyzer.py` 新聞情緒接入：`calculate_comprehensive_sentiment()` 第 4 項由 `0.0` 硬值替換為 `CryptoNewsAnalyzer.analyze_news()` 實際呼叫（權重 15%，失敗靜默略過）
 - ✅ CLI `evolve` 命令：新增 `python main.py evolve`，`StrategyArena` 遺傳演算法入口，支援 `--symbol / --generations / --population / --output`
-- [ ] `SOP` 回測驗證步驟補完（`sop_automation.py:604-624` 目前 return None）
+- [ ] `SOP` 回測驗證步驟補完（`analysis/daily_report/__init__.py` 仍有待補強）
 - [ ] `phase_router.py` 認知複雜度問題修正
 
 ### 批次 E：UI 對接準備（待評估）

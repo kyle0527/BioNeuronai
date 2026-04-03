@@ -88,10 +88,14 @@ class SearchEngine(str, Enum):
 
 
 class RetrievalSource(str, Enum):
-    """檢索來源"""
-    INTERNAL_KB = "internal_kb"     # 內部知識庫
-    WEB_SEARCH = "web_search"       # 網路搜索
-    NEWS_API = "news_api"           # 新聞 API
+    """檢索來源（單一事實來源，rag/core/retriever.py 從此導入）"""
+    INTERNAL_KNOWLEDGE = "internal_knowledge"   # 內部知識庫
+    WEB_SEARCH = "web_search"                   # 網路搜索
+    NEWS_API = "news_api"                       # 新聞 API
+    SOCIAL_MEDIA = "social_media"               # 社交媒體
+    HISTORICAL_DATA = "historical_data"         # 歷史數據
+    TRADING_RULES = "trading_rules"             # 交易規則
+    ALL = "all"                                 # 所有來源
 
 
 # ========== RAG Pydantic 模型 ==========
@@ -179,28 +183,42 @@ class SearchResult(BaseModel):
 
 
 class RetrievalQuery(BaseModel):
-    """統一檢索查詢"""
+    """統一檢索查詢（單一事實來源，rag/core/retriever.py 從此導入）"""
     query: str
     symbol: Optional[str] = None
     sources: List[RetrievalSource] = Field(
-        default_factory=lambda: list(RetrievalSource)
+        default_factory=lambda: [RetrievalSource.ALL]
     )
     top_k: int = Field(default=10, ge=1, le=100)
-    time_range_hours: Optional[int] = Field(default=24, ge=1, le=720)
-    
+    min_relevance: float = Field(default=0.3, ge=0.0, le=1.0)
+    time_range_hours: Optional[int] = Field(default=None, ge=1, le=720)
+    filters: Dict[str, Any] = Field(default_factory=dict)
+
     class Config:
         use_enum_values = True
 
 
 class RetrievalResult(BaseModel):
-    """統一檢索結果"""
-    source: RetrievalSource
-    title: str
+    """統一檢索結果（單一事實來源，rag/core/retriever.py 從此導入）"""
     content: str
+    source: RetrievalSource
+    relevance_score: float = Field(default=0.0, ge=0.0, le=1.0)
+    timestamp: Optional[datetime] = Field(default=None)
     url: Optional[str] = None
-    score: float = Field(default=0.0, ge=0.0, le=1.0)
+    title: Optional[str] = None
     metadata: Dict[str, Any] = Field(default_factory=dict)
-    
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "content": self.content,
+            "source": self.source.value if hasattr(self.source, "value") else self.source,
+            "relevance_score": self.relevance_score,
+            "timestamp": self.timestamp.isoformat() if self.timestamp else None,
+            "url": self.url,
+            "title": self.title,
+            "metadata": self.metadata,
+        }
+
     class Config:
         use_enum_values = True
 

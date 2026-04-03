@@ -1,0 +1,109 @@
+{
+  "_comment": "事件規則配置 - 對應 schemas.rag.EventRule。可透過 UI 面板或直接編輯此檔案調整。",
+  "_schema": {
+    "event_type": "事件類型識別碼（唯一）",
+    "trigger_keywords": "觸發關鍵字列表（任一命中即觸發）",
+    "termination_keywords": "終止關鍵字列表（Hard Stop，任一命中即解除事件）",
+    "base_score": "基礎分數，-1.0(極度利空) ~ +1.0(極度利多)",
+    "decay_hours": "事件衰減時間（小時）。過了此時間後分數降至一半，見 database_manager.calculate_total_event_score",
+    "affected_symbols": "影響的交易對列表，null 表示影響全部"
+  },
+  "rules": [
+    {
+      "event_type": "WAR",
+      "trigger_keywords": [
+        "war", "military strike", "invasion", "attack on",
+        "missile", "nuclear threat", "armed conflict"
+      ],
+      "termination_keywords": [
+        "ceasefire", "peace agreement", "truce", "war ended",
+        "conflict resolved", "de-escalation"
+      ],
+      "base_score": -0.8,
+      "decay_hours": 72,
+      "affected_symbols": null
+    },
+    {
+      "event_type": "HACK",
+      "trigger_keywords": [
+        "hacked", "hack", "exploit", "stolen", "breach",
+        "security incident", "funds stolen", "vulnerability exploited",
+        "private keys compromised", "hot wallet drained"
+      ],
+      "termination_keywords": [
+        "funds recovered", "hacker identified", "security restored",
+        "patch deployed", "vulnerability fixed", "compensation announced"
+      ],
+      "base_score": -0.7,
+      "decay_hours": 48,
+      "affected_symbols": null
+    },
+    {
+      "event_type": "REGULATION",
+      "trigger_keywords": [
+        "sec lawsuit", "regulatory crackdown", "banned", "illegal",
+        "regulatory action", "investigation launched", "subpoena",
+        "enforcement action", "crypto ban"
+      ],
+      "termination_keywords": [
+        "case dismissed", "settlement reached", "charges dropped",
+        "regulatory approval", "compliance achieved", "ban lifted"
+      ],
+      "base_score": -0.6,
+      "decay_hours": 168,
+      "affected_symbols": null
+    },
+    {
+      "event_type": "MACRO",
+      "trigger_keywords": [
+        "rate hike", "fed raises", "inflation surge", "recession",
+        "economic crisis", "bank failure", "liquidity crisis",
+        "market crash", "systemic risk"
+      ],
+      "termination_keywords": [
+        "rate cut", "fed pauses", "inflation cools", "recovery",
+        "economic rebound", "bailout approved", "liquidity restored"
+      ],
+      "base_score": -0.5,
+      "decay_hours": 120,
+      "affected_symbols": null
+    },
+    {
+      "event_type": "EXCHANGE_ISSUE",
+      "trigger_keywords": [
+        "exchange halts", "withdrawal suspended", "insolvency",
+        "bankruptcy filing", "exchange down", "liquidity issues",
+        "trading halted"
+      ],
+      "termination_keywords": [
+        "withdrawals resumed", "trading resumed", "exchange recovered",
+        "liquidity restored", "operations normal"
+      ],
+      "base_score": -0.65,
+      "decay_hours": 48,
+      "affected_symbols": null
+    },
+    {
+      "event_type": "ETF_APPROVAL",
+      "trigger_keywords": [
+        "etf approved", "etf approval", "sec approves etf",
+        "spot etf approved"
+      ],
+      "termination_keywords": [],
+      "base_score": 0.8,
+      "decay_hours": 72,
+      "affected_symbols": null
+    },
+    {
+      "event_type": "INSTITUTIONAL",
+      "trigger_keywords": [
+        "institutional adoption", "major investment", "billion dollar",
+        "hedge fund buys", "corporate treasury", "mass adoption"
+      ],
+      "termination_keywords": [],
+      "base_score": 0.6,
+      "decay_hours": 48,
+      "affected_symbols": null
+    }
+  ]
+}

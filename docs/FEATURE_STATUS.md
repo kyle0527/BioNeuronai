@@ -1,6 +1,6 @@
 # BioNeuronai 功能狀態總覽
-**版本**：v4.4.1
-**更新日期**：2026-03-20
+**版本**：v4.5.0
+**更新日期**：2026-04-02
 **分析方式**：完整原始碼審計（CLI 7 命令 + REST API + 40+ 核心模組）
 
 ---
@@ -26,9 +26,9 @@
 
   ██████████████████████████░░  約 75%
 
-  ✅ 完整可執行   ：15 項功能（+3：Docker、FastAPI、RAG 快取）
+  ✅ 完整可執行   ：16 項功能（+1：Analysis → RAG 知識入庫）
   ⚠️ 部分可執行   ：8  項功能（有條件限制）
-  ❌ 尚未完成     ：4  項功能（原 7 項，完成 3 項）
+  ❌ 尚未完成     ：4  項功能
   🔧 需外部依賴   ：4  項依賴
 ```
 
@@ -286,6 +286,24 @@ docker compose up api   # → http://localhost:8000/docs
 
 ---
 
+### 16. Analysis → RAG 知識入庫（v4.5.0 新增）
+
+**完整可執行，已端對端驗證（2026-04-02）。**
+
+完整實作「新聞分析 → 知識入庫 → RAG 可查詢」的單一路徑：
+
+1. `CryptoNewsAnalyzer.analyze_news()` 完成後自動呼叫 `_ingest_analysis_to_rag()`
+2. 透過 `rag.services.news_adapter.ingest_news_analysis_with_status()` 唯一入口寫入
+3. `InternalKnowledgeBase.add_news_analysis()` 依 title+source+published_at+url 去重，寫入 `NEWS_ARCHIVE` 類型文檔
+4. 知識庫持久化至 `src/data/bioneuronai/rag/internal/knowledge_base.json`
+5. 入庫失敗不阻斷主分析流程（捕捉例外，記錄 log）
+
+入庫狀態區分：`OK`（成功）/ `NO_DATA`（無可入庫內容）/ `ERROR`（異常）
+
+**實際驗證**：26 篇新聞分析後知識庫達 128 篇文檔（5 交易規則 + 123 新聞）
+
+---
+
 ### 12. 每日 SOP 盤前報告
 
 **完整實作，20 個子步驟分 4 個階段。**
@@ -373,19 +391,19 @@ python tools/download_historical_data.py --symbol BTCUSDT --interval 1h
 **存在但有依賴問題。**
 
 - `analysis/news/prediction_loop.py` 使用 `schedule` 排程庫
-- `schedule` **未列入 `pyproject.toml` 的 dependencies**
-- 影響：`news` 命令的預測驗證功能無法使用
+- `schedule` 已列入 `pyproject.toml`（#2 已確認）
+- 影響：預測驗證排程功能可用，但尚未整合至主 CLI 流程
 
 ---
 
 ## 尚未完成功能
 
-### 1. 回測驗證（`sop_automation.py`）
+### 1. 回測驗證（`analysis/daily_report/__init__.py`）
 
 **明確標記為 NOT_IMPLEMENTED。**
 
 ```python
-# src/bioneuronai/trading/sop_automation.py:604-624
+# src/bioneuronai/analysis/daily_report/__init__.py
 def _perform_plan_backtest(self, ...):
     logger.warning("⚠️ 回測功能未實現，跳過此步驟")
     return {
@@ -455,7 +473,7 @@ weights.append(0.15)
 | ~~2~~ | ~~`schedule` 未列入依賴~~ | ~~`pyproject.toml`~~ | ✅ **已確認存在**（`pyproject.toml:38`） |
 | ~~3~~ | ~~Plan Step 5/6 回傳假數據~~ | ~~`plan_controller.py:429-461`~~ | ✅ **v4.3.1 已修復**（呼叫 StrategySelector） |
 | ~~4~~ | ~~Plan Step 9/10 回傳假數據~~ | ~~`plan_controller.py:561-593`~~ | ✅ **v4.3.1 已修復**（呼叫 PairSelector） |
-| 5 | SOP 回測驗證跳過 | `sop_automation.py:604` | 盤前報告缺乏驗證 |
+| 5 | SOP 回測驗證跳過 | `analysis/daily_report/__init__.py` | 盤前報告缺乏驗證 |
 
 ### 🟡 中優先級（影響分析品質）
 
@@ -529,7 +547,7 @@ python tools/download_historical_data.py --symbol BTCUSDT --interval 1h --days 3
 | 均值回歸 | `strategies/mean_reversion.py` | 1,295 | ⚠️ 85% |
 | 突破策略 | `strategies/breakout_trading.py` | 1,194 | ⚠️ 85% |
 | 交易計劃控制器 | `trading/plan_controller.py` | 608 | ⚠️ 70% |
-| SOP 自動化 | `trading/sop_automation.py` | 824 | ⚠️ 75% |
+| SOP 自動化 | `analysis/daily_report/__init__.py` | 717 | ⚠️ 75% |
 | 交易前檢查 | `trading/pretrade_automation.py` | 1,051 | ✅ 95% |
 | 市場分析器 | `trading/market_analyzer.py` | 1,068+ | ⚠️ 80% |
 | 新聞分析器 | `analysis/news/analyzer.py` | 1,200+ | ✅ 90% |

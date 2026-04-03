@@ -13,7 +13,7 @@ import requests
 from typing import Any, Dict
 
 # 2. 本地模組
-from .models import MarketCondition, StrategyPerformance
+from .models import DailyMarketCondition, StrategyPerformance
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +43,7 @@ class StrategyPlanner:
     # 市場狀況分析
     # ========================================
     
-    def analyze_current_market_condition(self) -> MarketCondition:
+    def analyze_current_market_condition(self) -> DailyMarketCondition:
         """
         分析當前市場狀況。
 
@@ -51,10 +51,10 @@ class StrategyPlanner:
         1. 從 Binance /fapi/v1/klines 取得 BTCUSDT 1h 最近 200 根 K 線（公開，無需 Key）
         2. 將每根 K 線餵入 MarketRegimeDetector
         3. 呼叫 detect_regime() 取得 RegimeAnalysis
-        4. 將 MarketRegime / VolatilityRegime 映射為 MarketCondition
+        4. 將 MarketRegime / VolatilityRegime 映射為 DailyMarketCondition
 
         Returns:
-            MarketCondition 實例（無法取得資料時各欄位為 UNKNOWN）
+            DailyMarketCondition 實例（無法取得資料時各欄位為 UNKNOWN）
         """
         try:
             from ..market_regime import MarketRegimeDetector
@@ -97,7 +97,7 @@ class StrategyPlanner:
                 f"市場狀況分析完成: condition={condition}, "
                 f"volatility={volatility}, trend={trend}, strength={strength:.2f}"
             )
-            return MarketCondition(
+            return DailyMarketCondition(
                 condition=condition,
                 volatility=volatility,
                 trend=trend,
@@ -112,7 +112,7 @@ class StrategyPlanner:
     # ----------------------------------------
 
     def _map_regime_to_condition(self, regime: Any) -> str:
-        """將 MarketRegime 枚舉映射為 MarketCondition.condition 字串"""
+        """將 MarketRegime 枚舉映射為 DailyMarketCondition.condition 字串"""
         regime_map: Dict[str, str] = {
             "strong_uptrend":   "BULLISH",
             "uptrend":          "BULLISH",
@@ -129,7 +129,7 @@ class StrategyPlanner:
         return regime_map.get(key, "NORMAL")
 
     def _map_volatility_regime(self, vol_regime: Any) -> str:
-        """將 VolatilityRegime 枚舉映射為 MarketCondition.volatility 字串"""
+        """將 VolatilityRegime 枚舉映射為 DailyMarketCondition.volatility 字串"""
         vol_map: Dict[str, str] = {
             "very_low": "LOW",
             "low":      "LOW",
@@ -214,7 +214,7 @@ class StrategyPlanner:
     # 策略匹配
     # ========================================
     
-    def match_strategy_to_market(self, market_condition: MarketCondition) -> Dict[str, Any]:
+    def match_strategy_to_market(self, market_condition: DailyMarketCondition) -> Dict[str, Any]:
         """
         匹配策略與市場環境
         
@@ -300,7 +300,7 @@ class StrategyPlanner:
     def verify_strategy_suitability(
         self, 
         strategy_match: Dict, 
-        market_condition: MarketCondition
+        market_condition: DailyMarketCondition
     ) -> Dict[str, Any]:
         """
         驗證策略適用性

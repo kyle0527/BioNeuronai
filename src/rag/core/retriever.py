@@ -10,11 +10,16 @@ import hashlib
 import logging
 import time
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union, cast
-from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from enum import Enum
 
 logger = logging.getLogger(__name__)
+
+# ── 單一事實來源：從 schemas 導入，不在此重複定義 ─────────────────────────────
+from schemas.rag import (  # noqa: E402
+    RetrievalSource,
+    RetrievalResult,
+    RetrievalQuery,
+)
 
 # 導入監控（可選）
 _imported_get_monitor: Optional[Callable[[], Any]]
@@ -26,51 +31,6 @@ except ImportError:
     _imported_get_monitor = None
 
 _get_monitor = cast(Optional[Callable[[], Any]], _imported_get_monitor)
-
-
-class RetrievalSource(Enum):
-    """檢索來源"""
-    INTERNAL_KNOWLEDGE = "internal_knowledge"   # 內部知識庫
-    WEB_SEARCH = "web_search"                   # 網路搜索
-    NEWS_API = "news_api"                       # 新聞 API
-    SOCIAL_MEDIA = "social_media"              # 社交媒體
-    HISTORICAL_DATA = "historical_data"        # 歷史數據
-    TRADING_RULES = "trading_rules"            # 交易規則
-    ALL = "all"                                 # 所有來源
-
-
-@dataclass
-class RetrievalResult:
-    """檢索結果"""
-    content: str
-    source: RetrievalSource
-    relevance_score: float          # 0-1 相關性分數
-    timestamp: datetime
-    url: Optional[str] = None
-    title: Optional[str] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    
-    def to_dict(self) -> Dict[str, Any]:
-        return {
-            "content": self.content,
-            "source": self.source.value,
-            "relevance_score": self.relevance_score,
-            "timestamp": self.timestamp.isoformat(),
-            "url": self.url,
-            "title": self.title,
-            "metadata": self.metadata
-        }
-
-
-@dataclass
-class RetrievalQuery:
-    """檢索查詢"""
-    query: str
-    sources: List[RetrievalSource] = field(default_factory=lambda: [RetrievalSource.ALL])
-    top_k: int = 10
-    min_relevance: float = 0.3
-    time_range_hours: Optional[int] = None  # 時間範圍限制
-    filters: Dict[str, Any] = field(default_factory=dict)
 
 
 class UnifiedRetriever:

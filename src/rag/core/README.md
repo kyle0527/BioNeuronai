@@ -1,6 +1,6 @@
 # RAG Core — 核心檢索與嵌入模組
 
-> **版本**: v2.0.0 | **更新日期**: 2026-02-15
+> **版本**: v2.1.0 | **更新日期**: 2026-03-29
 
 ---
 
@@ -15,8 +15,8 @@
 ```
 core/
 ├── __init__.py          # 匯出核心類別
-├── embeddings.py        # 向量嵌入服務 (288 行)
-└── retriever.py         # 統一檢索器 (337 行)
+├── embeddings.py        # 向量嵌入服務 (287 行)
+└── retriever.py         # 統一檢索器 (338 行)
 ```
 
 ---
@@ -68,6 +68,8 @@ result = service.embed("BTC 今日走勢分析")
 
 ### RetrievalSource 枚舉
 
+> ⚠️ **單一事實來源**：定義於 `schemas/rag.py`，`retriever.py` 從此導入，不在本地重複定義。
+
 | 來源 | 說明 |
 |------|------|
 | `INTERNAL_KNOWLEDGE` | 內部知識庫 |
@@ -86,10 +88,12 @@ result = service.embed("BTC 今日走勢分析")
 | `retrieve_for_trading(symbol, ...)` | 交易專用檢索（快捷方法） |
 | `get_stats()` | 取得統計資訊 |
 
-### 相關資料類
+### 相關資料類（定義於 `schemas/rag.py`）
 
 - `RetrievalQuery` — 檢索查詢（query, sources, top_k, min_relevance, time_range_hours, filters）
-- `RetrievalResult` — 檢索結果（content, source, relevance_score, timestamp, url, title, metadata）
+- `RetrievalResult` — 檢索結果（content, source, relevance_score, timestamp, url, title, metadata, to_dict()）
+
+> 2026-03-29：`RetrievalSource`、`RetrievalQuery`、`RetrievalResult` 已從 `retriever.py` 移除重複定義，統一由 `schemas/rag.py` 提供（Single Source of Truth）。`INTERNAL_KB` 值名稱整合為 `INTERNAL_KNOWLEDGE`。
 
 ```python
 from src.rag.core import UnifiedRetriever, RetrievalQuery, RetrievalSource

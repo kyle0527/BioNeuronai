@@ -1,6 +1,6 @@
 # RAG Services — 外部數據服務層
 
-> **版本**: v2.0.0 | **更新日期**: 2026-02-15
+> **版本**: v2.2.0 | **更新日期**: 2026-04-02
 
 ---
 
@@ -14,8 +14,8 @@
 
 ```
 services/
-├── __init__.py            # 匯出 NewsAdapter + PreTradeCheckSystem
-└── news_adapter.py        # 新聞適配器 (358 行)
+├── __init__.py            # 匯出 NewsAdapter + ingest_news_analysis
+└── news_adapter.py        # 新聞適配器（含唯一入庫入口）
 ```
 
 ---
@@ -41,32 +41,41 @@ services/
 
 | 方法 | 說明 |
 |------|------|
-| `search(query, max_results, hours)` | 搜索相關新聞 |
-| `get_event_context(symbol)` | 取得指定幣種的事件上下文 |
+| `search(query, max_results, hours)` | 搜索相關新聞，回傳 `List[RAGNewsItem]` |
+| `get_event_context(symbol)` | 取得指定幣種的事件上下文（呼叫 `RuleBasedEvaluator.get_current_event_score()`） |
+| `ingest_news_analysis(analysis_result, symbol, hours)` | 唯一新聞知識寫入入口，將分析結果寫入 InternalKnowledgeBase |
+| `ingest_news_analysis_with_status(analysis_result, symbol, hours)` | 狀態化入庫入口，回傳 `OK/NO_DATA/ERROR` + `ingested_docs` + `message` |
 
 **內部方法**：
+- `_ensure_initialized()` — 延遲初始化 `CryptoNewsAnalyzer` 與 `RuleBasedEvaluator`
 - `_extract_symbol()` — 從查詢中提取交易對符號
 - `_calculate_relevance()` — 計算相關性分數
-- `_check_for_events()` — 檢測事件觸發
+- `_check_for_events()` — 檢測事件觸發（呼叫 `RuleBasedEvaluator.evaluate_headline()`）
+
+> 2026-03-29 修復：`get_event_context()` 原本呼叫不存在的 `get_total_event_score()` / `get_active_events()`，已改為正確的 `get_current_event_score()`（回傳 `Tuple[float, List[Dict]]`）。
 
 ### 工廠函數
 
 ```python
-from src.rag.services import get_news_adapter
+from src.rag.services import (
+    get_news_adapter,
+    ingest_news_analysis,
+    ingest_news_analysis_with_status,
+)
 
 adapter = get_news_adapter()  # 全局單例
 results = adapter.search("BTC 突破新高", max_results=5, hours=24)
+# analysis 結果入庫
+count = ingest_news_analysis(analysis_result, symbol="BTCUSDT", hours=24)
+status = ingest_news_analysis_with_status(analysis_result, symbol="BTCUSDT", hours=24)
 ```
 
----
+### 新增（2026-03-30）
 
-## PreTradeCheckSystem 整合
-
-`services/__init__.py` 也從 `bioneuronai.trading.pretrade_automation` 匯入 `PreTradeCheckSystem`，提供交易前檢查的 RAG 整合入口。
-
-```python
-from src.rag.services import PreTradeCheckSystem
-```
+- 已補齊 B.3 缺口：`news_adapter.py` 提供唯一寫入函數 `ingest_news_analysis()`。
+- 補強入庫可觀測性：新增 `ingest_news_analysis_with_status()`，可區分 `NO_DATA` 與 `ERROR`。
+- `InternalKnowledgeBase` 新增新聞專用 API：`add_news_analysis()`。
+- `CryptoNewsAnalyzer.analyze_news()` 執行後會自動呼叫入庫（失敗不阻塞主流程）。
 
 ---
 
@@ -75,7 +84,6 @@ from src.rag.services import PreTradeCheckSystem
 ```
 services/
 ├── → bioneuronai.analysis.news (CryptoNewsAnalyzer)
-├── → bioneuronai.trading.pretrade_automation (PreTradeCheckSystem)
 └── → schemas.rag (RAGNewsItem, NewsSentiment, EventContext, EventRule)
 ```
 

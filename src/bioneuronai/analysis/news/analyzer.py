@@ -189,10 +189,11 @@ class CryptoNewsAnalyzer:
         'PEPE': ['pepe'],
     }
     
-    def __init__(self):
+    def __init__(self, enable_rag_ingest: bool = True):
         self._cache: Dict[str, Tuple[NewsAnalysisResult, datetime]] = {}
         self._cache_ttl = 300  # 5 分鐘
         self._lock = threading.Lock()
+        self.enable_rag_ingest = enable_rag_ingest
         
         # 新聞記錄文件路徑
         self._news_records_dir = os.path.join(
@@ -234,12 +235,47 @@ class CryptoNewsAnalyzer:
         
         # 分析新聞
         result = self._analyze_articles(symbol, articles)
+
+        # Analysis -> RAG 知識入庫（B.6）
+        self._ingest_analysis_to_rag(result=result, symbol=symbol, hours=hours)
         
         # 更新快取
         with self._lock:
             self._cache[cache_key] = (result, datetime.now())
         
         return result
+
+    def _ingest_analysis_to_rag(
+        self,
+        result: NewsAnalysisResult,
+        symbol: str,
+        hours: int,
+    ) -> None:
+        """將分析結果寫入 RAG 知識庫（失敗不影響主流程）"""
+        if not self.enable_rag_ingest:
+            return
+
+        try:
+            # 延遲導入避免循環依賴
+            from rag.services.news_adapter import ingest_news_analysis_with_status
+
+            ingest_result = ingest_news_analysis_with_status(
+                analysis_result=result,
+                symbol=symbol,
+                hours=hours,
+            )
+            status = str(ingest_result.get("status", "ERROR"))
+            docs = int(ingest_result.get("ingested_docs", 0) or 0)
+            message = str(ingest_result.get("message", ""))
+
+            if status == "OK":
+                logger.info(f"✅ 新聞分析結果已寫入知識庫: {symbol} | docs={docs}")
+            elif status == "NO_DATA":
+                logger.warning(f"[NO_DATA] 新聞分析無可入庫資料: {symbol} | {message}")
+            else:
+                logger.error(f"[ERROR] 新聞分析結果入庫失敗: {symbol} | {message}")
+        except Exception as e:
+            logger.warning(f"新聞分析結果入庫失敗（不中斷主流程）: {e}")
     
     def get_quick_summary(self, symbol: str = "BTCUSDT") -> str:
         """獲取快速摘要"""

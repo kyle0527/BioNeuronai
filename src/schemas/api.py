@@ -253,6 +253,17 @@ class TradeStartRequest(BaseModel):
     api_secret: Optional[str] = Field(default=None, description="Binance API Secret（選填）", repr=False)
 
 
+class BinanceValidateRequest(BaseModel):
+    """Binance 憑證驗證請求
+
+    專用於 POST /api/v1/binance/validate，語意上只驗證憑證有效性，
+    不綁定交易對（連線測試用固定 BTCUSDT）。
+    """
+    testnet: bool = Field(default=True, description="使用測試網")
+    api_key: Optional[str] = Field(default=None, description="Binance API Key（選填，不填從環境變數讀取）")
+    api_secret: Optional[str] = Field(default=None, description="Binance API Secret（選填）", repr=False)
+
+
 # ── REST API Response / Status Models ────────────────────────────────────────
 
 

@@ -1,6 +1,6 @@
 # config/ — 配置文件
 
-> **更新日期**: 2026-03-10
+> **更新日期**: 2026-03-29
 
 ---
 
@@ -21,6 +21,7 @@ config/
 ├── __init__.py                    # 模組匯出
 ├── trading_config.py              # 交易參數配置（API 金鑰、槓桿等）
 ├── trading_costs.py               # 交易成本計算器（手續費結構）
+├── event_rules.json               # 事件規則外部配置（2026-03-29 新增）
 ├── market_keywords.json           # 市場關鍵字定義
 ├── market_keywords.db             # 關鍵字 SQLite 資料庫
 ├── risk_config_optimized.json     # 優化後風險參數
@@ -76,6 +77,34 @@ config/
 - **macro** — 宏觀經濟指標（50 個）
 - **person** — 關鍵人物（59 個）
 - **tech** — 技術發展（60 個）
+
+---
+
+## 事件規則配置
+
+**檔案**: `event_rules.json` (2026-03-29 新增)
+
+由 `RuleBasedEvaluator` 在初始化時自動載入（優先於程式碼內建的 `DEFAULT_RULES`）。若檔案不存在或格式錯誤，系統自動回退至 `DEFAULT_RULES`。
+
+**結構**：
+
+```json
+{
+  "rules": [
+    {
+      "event_type": "WAR",
+      "keywords": [...],
+      "base_score": -0.9,
+      "confidence": 0.85,
+      "decay_hours": 72
+    }
+  ]
+}
+```
+
+**目前定義的事件類型**（7 條）：`WAR`、`HACK`、`REGULATION`、`MACRO`、`EXCHANGE_ISSUE`、`ETF_APPROVAL`、`INSTITUTIONAL`
+
+各事件的 `decay_hours` 決定時間衰減速率，供 `DatabaseManager.calculate_total_event_score()` 使用。
 
 ---
 

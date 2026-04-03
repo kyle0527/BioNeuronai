@@ -31,6 +31,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from bioneuronai.api.models import (  # noqa: E402
     ApiResponse,
+    BinanceValidateRequest,
     ModuleStatus,
     NewsRequest,
     PreTradeRequest,
@@ -86,7 +87,7 @@ async def get_status():
         ("bioneuronai.core.trading_engine", "TradingEngine", "TradingEngine"),
         ("bioneuronai.data.binance_futures", "BinanceFuturesConnector", "BinanceFutures"),
         ("bioneuronai.analysis", "CryptoNewsAnalyzer", "NewsAnalyzer"),
-        ("bioneuronai.trading.sop_automation", "SOPAutomationSystem", "SOPSystem"),
+        ("bioneuronai.analysis.daily_report", "SOPAutomationSystem", "SOPSystem"),
         ("bioneuronai.trading.pretrade_automation", "PreTradeCheckSystem", "PreTradeCheck"),
     ]
 
@@ -115,7 +116,7 @@ async def get_status():
 
 
 @app.post("/api/v1/binance/validate", response_model=ApiResponse, tags=["system"])
-async def validate_binance_credentials(req: TradeStartRequest):
+async def validate_binance_credentials(req: BinanceValidateRequest):
     """驗證 Binance API 憑證是否有效（讀取權限 + Futures 可用性）
 
     憑證優先順序：請求體 api_key/api_secret → 環境變數 → config fallback。
@@ -141,7 +142,7 @@ async def validate_binance_credentials(req: TradeStartRequest):
         )
 
         # 1. 取得報價（不需簽名，驗連線可達性）
-        price_data = connector.get_ticker_price(req.symbol)
+        price_data = connector.get_ticker_price("BTCUSDT")
         if price_data is None:
             return ApiResponse(success=False, message="無法連線至 Binance，請檢查網路或 testnet 設定。")
 

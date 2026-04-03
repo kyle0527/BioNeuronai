@@ -13,7 +13,7 @@ import requests
 from typing import Any, Dict, List, cast
 
 # 2. 本地模組
-from .models import RiskParameters, TradingPairsPriority, MarketCondition
+from .models import DailyRiskLimits, TradingPairsPriority, DailyMarketCondition
 
 logger = logging.getLogger(__name__)
 
@@ -162,7 +162,7 @@ class RiskManager:
     def adjust_risk_for_volatility(
         self, 
         base_risk: Dict, 
-        market_condition: MarketCondition
+        market_condition: DailyMarketCondition
     ) -> Dict[str, Any]:
         """
         根據市場波動調整風險
@@ -225,7 +225,7 @@ class RiskManager:
     
     def calculate_trading_frequency(
         self, 
-        market_condition: MarketCondition
+        market_condition: DailyMarketCondition
     ) -> Dict[str, Any]:
         """
         計算交易頻率限制
@@ -262,7 +262,7 @@ class RiskManager:
         volatility_adjusted_risk: Dict, 
         position_rules: Dict, 
         frequency_limits: Dict
-    ) -> RiskParameters:
+    ) -> DailyRiskLimits:
         """
         整合風險參數
         
@@ -272,10 +272,10 @@ class RiskManager:
             frequency_limits: 頻率限制
         
         Returns:
-            RiskParameters 實例
+            DailyRiskLimits 實例
         """
         try:
-            return RiskParameters(
+            return DailyRiskLimits(
                 single_trade_risk=volatility_adjusted_risk.get("single_trade", 1.0),
                 daily_max_loss=volatility_adjusted_risk.get("daily_limit", 3.0),
                 max_positions=position_rules.get("max_positions", 1),
@@ -446,7 +446,7 @@ class RiskManager:
     def apply_risk_filters(
         self, 
         volatility_match: Dict, 
-        integrated_risk: RiskParameters
+        integrated_risk: DailyRiskLimits
     ) -> Dict[str, Any]:
         """
         應用風險過濾器
@@ -521,7 +521,7 @@ class RiskManager:
     def calculate_comprehensive_daily_limits(
         self, 
         account_analysis: Dict, 
-        integrated_risk: RiskParameters
+        integrated_risk: DailyRiskLimits
     ) -> Dict[str, Any]:
         """
         計算每日交易限制

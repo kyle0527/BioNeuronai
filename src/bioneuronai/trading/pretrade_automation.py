@@ -19,6 +19,9 @@ from bioneuronai.trading_strategies import MarketData
 # 錯誤常量定義
 ERROR_MODULE_UNAVAILABLE = "MODULE_UNAVAILABLE"
 ERROR_API_EMPTY_DATA = "API_EMPTY_DATA"
+NEWS_CHECK_OK = "OK"
+NEWS_CHECK_NO_DATA = "NO_DATA"
+NEWS_CHECK_ERROR = "ERROR"
 
 # 設定日誌
 logging.basicConfig(level=logging.INFO)
@@ -43,6 +46,8 @@ class FundamentalCheck:
     """基本面檢查結果"""
     timestamp: datetime
     no_major_negative: bool = True
+    news_check_status: str = "UNKNOWN"
+    news_check_message: str = ""
     normal_fund_flow: bool = True
     normal_volume: bool = True
     sufficient_depth: bool = True
@@ -111,6 +116,9 @@ class PreTradeCheckSystem:
         self._api_secret = api_secret
         self._testnet = testnet
 
+        # NewsAdapter 延遲初始化（避免循環 import）
+        self._news_adapter: Optional[Any] = None
+
         # 嘗試導入交易模組
         self._import_modules()
 
@@ -161,6 +169,24 @@ class PreTradeCheckSystem:
             testnet=testnet,
         )
     
+    def _get_news_adapter(self) -> Optional[Any]:
+        """取得 NewsAdapter 單例（延遲初始化）。
+
+        RAG 路徑不可用（sentence-transformers 未安裝、import 失敗等）時
+        回傳 None，呼叫端應直接回報新聞檢查失敗，不做 legacy fallback。
+        """
+        if self._news_adapter is not None:
+            return self._news_adapter
+        try:
+            # 延遲 import 避免與 rag/__init__.py 的循環依賴
+            from rag.services.news_adapter import NewsAdapter  # noqa: PLC0415
+            self._news_adapter = NewsAdapter()
+            logger.info("[OK] NewsAdapter 已延遲初始化 (RAG 路徑啟用)")
+        except Exception as exc:
+            logger.error(f"[ERROR] NewsAdapter 不可用: {exc}")
+            self._news_adapter = None
+        return self._news_adapter
+
     def _import_modules(self) -> None:
         """導入所需模組"""
         try:
@@ -303,8 +329,17 @@ class PreTradeCheckSystem:
             
             # 1. 重大消息檢查
             major_news = self._check_major_news(symbol)
-            check.no_major_negative = not major_news.get('has_major_negative', False)
-            logger.info(f"     ✓ 無重大利空: {'是' if check.no_major_negative else '否'}")
+            news_status = major_news.get("status", NEWS_CHECK_ERROR)
+            check.news_check_status = news_status
+            check.news_check_message = major_news.get("summary", "")
+            check.no_major_negative = not major_news.get("has_major_negative", False)
+
+            if news_status == NEWS_CHECK_ERROR:
+                logger.error(f"     [ERROR] 新聞檢查失敗: {check.news_check_message}")
+            elif news_status == NEWS_CHECK_NO_DATA:
+                logger.warning(f"     [NO_DATA] 新聞檢查無相關資料: {check.news_check_message}")
+            else:
+                logger.info(f"     ✓ 無重大利空: {'是' if check.no_major_negative else '否'}")
             
             # 2. 資金流動檢查
             fund_flow = self._check_fund_flow(symbol)
@@ -322,7 +357,10 @@ class PreTradeCheckSystem:
             logger.info(f"     ✓ 市場深度充足: {'是' if check.sufficient_depth else '否'}")
             
             # 綜合評估
-            check.overall_status = self._assess_fundamental_status(check)
+            if check.news_check_status == NEWS_CHECK_ERROR:
+                check.overall_status = NEWS_CHECK_ERROR
+            else:
+                check.overall_status = self._assess_fundamental_status(check)
             
         except Exception as e:
             logger.error(f"   [ERROR] 基本面檢查失敗: {e}")
@@ -702,22 +740,94 @@ class PreTradeCheckSystem:
             return "INSUFFICIENT"
     
     def _check_major_news(self, symbol: str) -> Dict:
-        """檢查重大新聞"""
+        """檢查重大新聞
+
+        僅走 RAG 路徑（NewsAdapter → 結構化情緒分數 + 事件分數）。
+        不做 legacy fallback，避免把系統失敗誤判為「無重大利空」。
+
+        回傳 dict 必含:
+        - status: OK / NO_DATA / ERROR
+        - has_major_negative: bool
+        - summary: 狀態說明
+        """
+        adapter = self._get_news_adapter()
+        if adapter is None:
+            return {
+                "status": NEWS_CHECK_ERROR,
+                "has_major_negative": False,
+                "summary": "NewsAdapter 不可用，無法完成新聞檢查",
+                "error": "news_adapter_unavailable",
+                "sentiment_score": 0.0,
+                "event_score": 0.0,
+                "articles_count": 0,
+                "rag_available": False,
+            }
+
         try:
-            if self.modules_available:
-                from ..analysis import CryptoNewsAnalyzer
-                analyzer = CryptoNewsAnalyzer()
-                news_summary: str = analyzer.get_quick_summary(symbol)
-                
-                # 簡單的負面新聞檢測
-                negative_keywords: List[str] = ["crash", "ban", "hack", "scam", "regulation"]
-                has_negative: bool = any(keyword in news_summary.lower() for keyword in negative_keywords)
-                
-                return {"has_major_negative": has_negative, "summary": news_summary}
-            else:
-                return {"has_major_negative": False, "summary": "新聞分析不可用"}
-        except Exception:
-            return {"has_major_negative": False, "summary": "無法獲取新聞"}
+            articles = adapter.search(symbol, max_results=10, hours=24)
+            event_context = adapter.get_event_context(symbol)
+
+            articles_count = len(articles)
+            if articles_count == 0 and not event_context:
+                return {
+                    "status": NEWS_CHECK_NO_DATA,
+                    "has_major_negative": False,
+                    "summary": f"{symbol} 在最近 24 小時沒有可用的相關新聞知識",
+                    "sentiment_score": 0.0,
+                    "event_score": 0.0,
+                    "articles_count": 0,
+                    "rag_available": True,
+                }
+
+            avg_sentiment = (
+                sum(a.sentiment_score for a in articles) / articles_count
+                if articles_count > 0 else 0.0
+            )
+
+            # event_score 來自 RuleBasedEvaluator.get_current_event_score()
+            event_score = 0.0
+            if event_context and isinstance(event_context, dict):
+                raw = event_context.get("event_score", 0.0)
+                event_score = raw[0] if isinstance(raw, tuple) else float(raw)
+
+            # 判斷重大利空：情緒過低 或 負面事件分數超過閾值
+            SENTIMENT_THRESHOLD = -0.3
+            EVENT_THRESHOLD = -0.5
+            has_major_negative = (
+                avg_sentiment < SENTIMENT_THRESHOLD
+                or event_score < EVENT_THRESHOLD
+            )
+
+            summary_parts = [f"分析了 {articles_count} 則新聞，平均情緒 {avg_sentiment:.2f}"]
+            if event_context:
+                et = event_context.get("event_type", "N/A")
+                summary_parts.append(f"偵測到事件: {et}")
+
+            logger.info(
+                f"[RAG] {symbol} 新聞摘要 | "
+                f"articles={articles_count} sentiment={avg_sentiment:.2f} "
+                f"event_score={event_score:.2f} negative={has_major_negative}"
+            )
+            return {
+                "status": NEWS_CHECK_OK,
+                "has_major_negative": has_major_negative,
+                "summary": "; ".join(summary_parts),
+                "sentiment_score": round(avg_sentiment, 4),
+                "event_score": round(event_score, 4),
+                "articles_count": articles_count,
+                "rag_available": True,
+            }
+        except Exception as exc:
+            return {
+                "status": NEWS_CHECK_ERROR,
+                "has_major_negative": False,
+                "summary": f"新聞檢查失敗: {exc}",
+                "error": str(exc),
+                "sentiment_score": 0.0,
+                "event_score": 0.0,
+                "articles_count": 0,
+                "rag_available": True,
+            }
     
     def _check_fund_flow(self, symbol: str) -> Dict:
         """檢查資金流動 - 使用 Open Interest 作為市場資金流動指標"""

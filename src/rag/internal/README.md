@@ -1,6 +1,6 @@
 # RAG Internal — 內部知識庫模組
 
-> **版本**: v2.0.0 | **更新日期**: 2026-02-15
+> **版本**: v2.1.0 | **更新日期**: 2026-04-02
 
 ---
 
@@ -15,8 +15,8 @@
 ```
 internal/
 ├── __init__.py            # 匯出核心類別
-├── knowledge_base.py      # 內部知識庫管理器 (461 行)
-└── faiss_index.py         # FAISS 向量索引包裝器 (197 行)
+├── knowledge_base.py      # 內部知識庫管理器 (576 行)
+└── faiss_index.py         # FAISS 向量索引包裝器 (217 行)
 ```
 
 ---
@@ -38,8 +38,9 @@ internal/
 
 | 方法 | 說明 |
 |------|------|
-| `add_document(doc)` | 新增文檔 |
-| `update_document(doc)` | 更新文檔 |
+| `add_document(doc_id, title, content, ...)` | 新增文檔（通用） |
+| `add_news_analysis(symbol, analysis_result, hours, source)` | **新聞分析專用入庫**（2026-03-30 新增），接受 `NewsAnalysisResult`，依 title+source+time 去重，自動補全 metadata，回傳 `List[KnowledgeDocument]` |
+| `update_document(doc_id, ...)` | 更新文檔 |
 | `delete_document(id)` | 刪除文檔 |
 | `get_document(id)` | 取得單一文檔 |
 | `search(query, top_k)` | 語義搜索 |
@@ -47,6 +48,8 @@ internal/
 | `get_by_tags(tags)` | 按標籤篩選 |
 | `save_to_storage()` | 持久化存儲 |
 | `get_stats()` | 統計資訊 |
+
+**去重機制**：`_build_news_doc_id(symbol, title, source, published_at, url)` 以 MD5(symbol|title|source|published_at|url) 產生穩定 ID，避免同一篇新聞重複寫入。
 
 ### KnowledgeDocument 資料類
 

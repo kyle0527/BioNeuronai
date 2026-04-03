@@ -16,9 +16,16 @@ BioNeuronAI 分析模組 — 完整報告入口
         sop.run_full_report(klines=real_klines, symbol="BTCUSDT", current_price=price)
 """
 
+import io
 import random
 import sys
 from dataclasses import dataclass
+
+# Windows 終端機可能使用 cp950，強制 stdout/stderr 以 UTF-8 輸出
+if isinstance(sys.stdout, io.TextIOWrapper):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+if isinstance(sys.stderr, io.TextIOWrapper):
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 from bioneuronai.analysis.daily_report import SOPAutomationSystem
 

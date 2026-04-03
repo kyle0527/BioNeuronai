@@ -27,9 +27,9 @@ from typing import Any, Dict, List, Optional, cast
 from .models import (
     MarketEnvironmentCheck,
     TradingPlanCheck,
-    MarketCondition,
+    DailyMarketCondition,
     StrategyPerformance,
-    RiskParameters,
+    DailyRiskLimits,
     TradingPairsPriority,
     DailyReport
 )
@@ -644,7 +644,10 @@ class SOPAutomationSystem:
             parts.append(f"  [ERROR] 每日報告: {e}")
 
         full_report = "\n".join(parts)
-        print(full_report)
+        try:
+            print(full_report)
+        except UnicodeEncodeError:
+            print(full_report.encode("utf-8", errors="replace").decode("utf-8", errors="replace"))
         return full_report
 
     # ========================================
@@ -695,9 +698,9 @@ __all__ = [
     # 資料模型
     'MarketEnvironmentCheck',
     'TradingPlanCheck',
-    'MarketCondition',
+    'DailyMarketCondition',
     'StrategyPerformance',
-    'RiskParameters',
+    'DailyRiskLimits',
     'TradingPairsPriority',
     'DailyReport',
     # 功能模組

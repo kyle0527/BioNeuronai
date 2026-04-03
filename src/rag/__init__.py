@@ -14,20 +14,22 @@ BioNeuronai RAG 模塊 (Retrieval-Augmented Generation)
 🔹 對外功能 (External - 使用 analysis 模組)
    - 關鍵字系統 → analysis.market_keywords.KeywordManager
    - 新聞分析 → analysis.news_analyzer.CryptoNewsAnalyzer
-   - 交易前檢查 → trading.pretrade_automation.PreTradeCheckSystem
+   - 入庫服務 → services.news_adapter.ingest_news_analysis
 
 架構:
     rag/
     ├── core/               # 核心組件
     │   ├── embeddings.py   # 向量嵌入
     │   └── retriever.py    # 統一檢索器
-    └── internal/           # 對內知識庫
-        └── knowledge_base.py
-        
+    ├── internal/           # 對內知識庫
+    │   └── knowledge_base.py
+    └── services/           # 外部數據橋接層
+        └── news_adapter.py # Analysis → RAG 唯一入庫入口
+
     整合使用:
-    - analysis.market_keywords → 181 個市場關鍵字
+    - analysis.market_keywords → 505 個市場關鍵字（7 大類）
     - analysis.news_analyzer → CryptoPanic + RSS 新聞
-    - trading.pretrade_automation → 完整 SOP 檢查流程
+    - services.news_adapter → ingest_news_analysis（B.3 唯一寫入入口）
 """
 
 import logging
@@ -117,26 +119,19 @@ CryptoNewsAnalyzer: Any = imported_crypto_news_analyzer
 NewsArticle: Any = imported_news_article
 get_news_analyzer: Optional[Callable[[], Any]] = imported_get_news_analyzer
 
-# 整合交易前檢查 (從 bioneuronai.trading 導入)
-imported_pretrade_check_system: Any = None
-try:
-    from bioneuronai.trading.pretrade_automation import PreTradeCheckSystem as imported_pretrade_check_system
-    PRETRADE_AVAILABLE = True
-except ImportError as e:
-    logger.warning(f"交易前檢查模組導入失敗: {e}")
-    PRETRADE_AVAILABLE = False
-
-PreTradeCheckSystem: Any = imported_pretrade_check_system
-
 # 新聞適配器 - RAG 統一接口 (2026-01-25 新增)
 imported_news_adapter: Any = None
 imported_news_search_result: Any = None
 imported_get_news_adapter: Optional[Callable[[], Any]] = None
+imported_ingest_news_analysis: Optional[Callable[..., int]] = None
+imported_ingest_news_analysis_with_status: Optional[Callable[..., Any]] = None
 try:
     from .services.news_adapter import (
         NewsAdapter as imported_news_adapter,
         NewsSearchResult as imported_news_search_result,
         get_news_adapter as imported_get_news_adapter,
+        ingest_news_analysis as imported_ingest_news_analysis,
+        ingest_news_analysis_with_status as imported_ingest_news_analysis_with_status,
     )
     NEWS_ADAPTER_AVAILABLE = True
 except ImportError as e:
@@ -146,6 +141,8 @@ except ImportError as e:
 NewsAdapter: Any = imported_news_adapter
 NewsSearchResult: Any = imported_news_search_result
 get_news_adapter: Optional[Callable[[], Any]] = imported_get_news_adapter
+ingest_news_analysis: Optional[Callable[..., int]] = imported_ingest_news_analysis
+ingest_news_analysis_with_status: Optional[Callable[..., Any]] = imported_ingest_news_analysis_with_status
 
 
 def get_rag_status() -> dict:
@@ -154,15 +151,14 @@ def get_rag_status() -> dict:
         "core_available": CORE_AVAILABLE,
         "internal_kb_available": INTERNAL_KB_AVAILABLE,
         "analysis_available": ANALYSIS_AVAILABLE,
-        "pretrade_available": PRETRADE_AVAILABLE,
         "news_adapter_available": NEWS_ADAPTER_AVAILABLE,
         "components": {
             "EmbeddingService": EmbeddingService is not None,
             "InternalKnowledgeBase": InternalKnowledgeBase is not None,
             "KeywordManager": KeywordManager is not None,
             "CryptoNewsAnalyzer": CryptoNewsAnalyzer is not None,
-            "PreTradeCheckSystem": PreTradeCheckSystem is not None,
             "NewsAdapter": NewsAdapter is not None,
+            "ingest_news_analysis": ingest_news_analysis is not None,
         }
     }
 
@@ -233,14 +229,13 @@ __all__ = [
     'NewsArticle',
     'get_news_analyzer',
     
-    # 新聞適配器 (2026-01-25 新增)
+    # 新聞適配器 + 入庫服務 (2026-01-25 新增 / 2026-04-02 補全入庫函數)
     'NewsAdapter',
     'NewsSearchResult',
     'get_news_adapter',
-    
-    # 交易前檢查 (整合 trading 模組)
-    'PreTradeCheckSystem',
-    
+    'ingest_news_analysis',
+    'ingest_news_analysis_with_status',
+
     # 工廠函數 (2026-01-27 新增)
     'create_unified_retriever',
     
@@ -249,8 +244,7 @@ __all__ = [
     'CORE_AVAILABLE',
     'INTERNAL_KB_AVAILABLE',
     'ANALYSIS_AVAILABLE',
-    'PRETRADE_AVAILABLE',
     'NEWS_ADAPTER_AVAILABLE',
 ]
 
-__version__ = "2.0.0"
+__version__ = "2.1.0"

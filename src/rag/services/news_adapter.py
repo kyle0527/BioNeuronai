@@ -29,6 +29,7 @@ Date: 2026-01-25
 import logging
 from typing import Any, Callable, Dict, List, Optional, cast
 from datetime import datetime
+from pathlib import Path
 from typing_extensions import TypeAlias
 
 logger = logging.getLogger(__name__)
@@ -69,6 +70,18 @@ CryptoNewsAnalyzer = cast(Optional[type[Any]], _imported_crypto_news_analyzer)
 get_rule_evaluator = cast(Optional[Callable[[], Any]], _imported_get_rule_evaluator)
 NewsSearchResult: TypeAlias = RAGNewsItem
 
+# 導入 InternalKnowledgeBase（新聞知識寫入）
+_imported_internal_kb: Optional[type[Any]]
+try:
+    from rag.internal import InternalKnowledgeBase as _imported_internal_kb
+    INTERNAL_KB_AVAILABLE = True
+except ImportError as e:
+    logger.warning(f"無法導入 InternalKnowledgeBase: {e}")
+    INTERNAL_KB_AVAILABLE = False
+    _imported_internal_kb = None
+
+InternalKnowledgeBase = cast(Optional[type[Any]], _imported_internal_kb)
+
 
 class NewsAdapter:
     """
@@ -86,6 +99,8 @@ class NewsAdapter:
         self,
         enable_event_detection: bool = True,
         default_hours: int = 24,
+        knowledge_base: Optional[Any] = None,
+        kb_storage_path: Optional[str] = None,
     ):
         """
         初始化新聞適配器
@@ -98,11 +113,41 @@ class NewsAdapter:
         self._rule_evaluator = None
         self.enable_event_detection = enable_event_detection
         self.default_hours = default_hours
+        self._knowledge_base = knowledge_base
+        self._kb_storage_path = kb_storage_path
         
         # 延遲初始化
         self._initialized = False
         
         logger.info("NewsAdapter 已建立 (延遲初始化)")
+
+    def _ensure_knowledge_base(self) -> Optional[Any]:
+        """確保 InternalKnowledgeBase 已初始化"""
+        if self._knowledge_base is not None:
+            return self._knowledge_base
+
+        if not INTERNAL_KB_AVAILABLE or InternalKnowledgeBase is None:
+            logger.warning("InternalKnowledgeBase 不可用，跳過新聞入庫")
+            return None
+
+        try:
+            storage_path = self._kb_storage_path
+            if not storage_path:
+                # 專案根目錄/data/bioneuronai/rag/internal
+                project_root = Path(__file__).parent.parent.parent
+                storage_path = str(project_root / "data" / "bioneuronai" / "rag" / "internal")
+
+            self._knowledge_base = InternalKnowledgeBase(
+                storage_path=storage_path,
+                auto_load=True,
+                use_faiss=False,  # 入庫路徑預設穩定優先
+            )
+            logger.info("✅ InternalKnowledgeBase 已初始化")
+        except Exception as e:
+            logger.error(f"InternalKnowledgeBase 初始化失敗: {e}")
+            self._knowledge_base = None
+
+        return self._knowledge_base
     
     def _ensure_initialized(self):
         """確保分析器已初始化"""
@@ -273,15 +318,15 @@ class NewsAdapter:
             return None
         
         try:
-            event_score = self._rule_evaluator.get_total_event_score(symbol)
-            active_events = self._rule_evaluator.get_active_events(symbol)
-            
+            # get_current_event_score 回傳 Tuple[float, List[Dict]]
+            event_score, active_events = self._rule_evaluator.get_current_event_score(symbol)
+
             if not active_events:
                 return None
-            
+
             # 構建 EventContext 兼容的返回值
             primary_event = active_events[0] if active_events else {}
-            
+
             return {
                 "event_score": event_score,
                 "event_type": primary_event.get("event_type"),
@@ -307,6 +352,82 @@ class NewsAdapter:
         else:
             return "LOW"
 
+    def ingest_news_analysis(
+        self,
+        analysis_result: Any,
+        symbol: str = "BTCUSDT",
+        hours: int = 24,
+    ) -> int:
+        """
+        唯一新聞知識寫入服務入口（B.3）
+
+        Args:
+            analysis_result: NewsAnalysisResult 相容物件
+            symbol: 交易對
+            hours: 分析時間範圍
+
+        Returns:
+            寫入或更新的文檔數量
+        """
+        result = self.ingest_news_analysis_with_status(
+            analysis_result=analysis_result,
+            symbol=symbol,
+            hours=hours,
+        )
+        return int(result.get("ingested_docs", 0) or 0)
+
+    def ingest_news_analysis_with_status(
+        self,
+        analysis_result: Any,
+        symbol: str = "BTCUSDT",
+        hours: int = 24,
+    ) -> Dict[str, Any]:
+        """
+        新聞知識入庫（含狀態）
+
+        Returns:
+            Dict[str, Any]:
+            - status: OK / NO_DATA / ERROR
+            - ingested_docs: int
+            - message: str
+        """
+        kb = self._ensure_knowledge_base()
+        if kb is None:
+            return {
+                "status": "ERROR",
+                "ingested_docs": 0,
+                "message": "InternalKnowledgeBase 不可用",
+            }
+
+        try:
+            docs = kb.add_news_analysis(
+                symbol=symbol,
+                analysis_result=analysis_result,
+                hours=hours,
+                source="NewsAdapter",
+                update_index=True,
+            )
+            if not docs:
+                return {
+                    "status": "NO_DATA",
+                    "ingested_docs": 0,
+                    "message": f"{symbol} 無可入庫的新聞資料",
+                }
+            kb.save_to_storage()
+            logger.info(f"✅ 新聞知識入庫完成: {symbol} | docs={len(docs)}")
+            return {
+                "status": "OK",
+                "ingested_docs": len(docs),
+                "message": f"{symbol} 入庫成功",
+            }
+        except Exception as e:
+            logger.error(f"新聞知識入庫失敗: {e}")
+            return {
+                "status": "ERROR",
+                "ingested_docs": 0,
+                "message": str(e),
+            }
+
 
 # 單例模式
 _news_adapter_instance: Optional[NewsAdapter] = None
@@ -320,8 +441,42 @@ def get_news_adapter() -> NewsAdapter:
     return _news_adapter_instance
 
 
+def ingest_news_analysis(
+    analysis_result: Any,
+    symbol: str = "BTCUSDT",
+    hours: int = 24,
+) -> int:
+    """
+    模組級唯一寫入函數（供 analysis 直接呼叫）
+    """
+    adapter = get_news_adapter()
+    return adapter.ingest_news_analysis(
+        analysis_result=analysis_result,
+        symbol=symbol,
+        hours=hours,
+    )
+
+
+def ingest_news_analysis_with_status(
+    analysis_result: Any,
+    symbol: str = "BTCUSDT",
+    hours: int = 24,
+) -> Dict[str, Any]:
+    """
+    模組級入庫函數（含狀態）
+    """
+    adapter = get_news_adapter()
+    return adapter.ingest_news_analysis_with_status(
+        analysis_result=analysis_result,
+        symbol=symbol,
+        hours=hours,
+    )
+
+
 __all__ = [
     "NewsAdapter",
     "NewsSearchResult",
     "get_news_adapter",
+    "ingest_news_analysis",
+    "ingest_news_analysis_with_status",
 ]

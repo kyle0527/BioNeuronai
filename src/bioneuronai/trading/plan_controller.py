@@ -38,7 +38,7 @@ get_rule_evaluator = cast(Optional[Callable[[], Any]], _imported_get_rule_evalua
 
 # 導入策略選擇器與交易對選擇器 (Step 5/6/9)
 try:
-    from .strategy_selector import StrategySelector
+    from ..strategies.selector import StrategySelector
     from .pair_selector import PairSelector
     SELECTORS_AVAILABLE = True
 except ImportError:
@@ -464,7 +464,7 @@ class TradingPlanController:
         return result
     
     async def _step5_strategy_evaluation(self) -> Dict:
-        """5: 策略性能評估 - 使用 StrategySelector 評估各策略配置績效"""
+        """5: 策略性能評估 - 使用 strategies.selector 配置評估"""
         await asyncio.sleep(0)  # Async yield point for task scheduling
 
         if self._strategy_selector is None:
@@ -485,25 +485,27 @@ class TradingPlanController:
             best_strategy = None
             best_sharpe = -1.0
 
-            for name in list(self._strategy_selector.available_strategies.keys())[:5]:
-                perf = await self._strategy_selector.analyze_strategy_performance(name)
+            strategy_configs = getattr(self._strategy_selector, "strategy_configs", {})
+            for name, config in list(strategy_configs.items())[:5]:
                 strategies_perf[name] = {
-                    "win_rate": perf.win_rate,
-                    "sharpe": perf.sharpe_ratio,
-                    "profit_factor": perf.profit_factor,
-                    "max_drawdown": perf.max_drawdown,
-                    "expected_return": perf.total_return,
+                    "win_rate": float(config.win_rate),
+                    "sharpe": float(config.sharpe_ratio),
+                    "profit_factor": float(config.profit_factor),
+                    "max_drawdown": float(config.max_drawdown),
+                    "expected_return": float(config.expected_return),
                 }
-                logger.info(f"  ✓ {name}: 勝率={perf.win_rate:.1%}, Sharpe={perf.sharpe_ratio:.2f}")
-                if perf.sharpe_ratio > best_sharpe:
-                    best_sharpe = perf.sharpe_ratio
+                logger.info(
+                    f"  ✓ {name}: 勝率={float(config.win_rate):.1%}, Sharpe={float(config.sharpe_ratio):.2f}"
+                )
+                if float(config.sharpe_ratio) > best_sharpe:
+                    best_sharpe = float(config.sharpe_ratio)
                     best_strategy = name
 
             return {
                 "status": "SUCCESS",
                 "strategies": strategies_perf,
                 "best_strategy": best_strategy,
-                "source": "strategy_selector_config",
+                "source": "strategies.selector.configs",
             }
 
         except Exception as e:
@@ -511,7 +513,7 @@ class TradingPlanController:
             return {"status": "ERROR", "error": str(e)}
     
     async def _step6_strategy_selection(self, klines: Optional[List[Dict]] = None, account_balance: float = 10000) -> Dict:
-        """6: 策略選擇權重 - 使用 StrategySelector 根據資金與市場選擇策略"""
+        """6: 策略選擇權重 - 使用 strategies.selector.select_optimal_strategy"""
         await asyncio.sleep(0)  # Async yield point for task scheduling
 
         if self._strategy_selector is None:
@@ -546,14 +548,21 @@ class TradingPlanController:
                 except Exception:
                     ohlcv = np.empty((0, 6))
 
-            selection = self._strategy_selector.select_strategy(
+            selection = await self._strategy_selector.select_optimal_strategy(
                 ohlcv_data=ohlcv,
-                capital=account_balance,
-                risk_tolerance="medium",
+                account_balance=account_balance,
+                preferences={"risk_tolerance": "medium"},
             )
 
             primary = selection.primary_strategy
-            fallback = selection.backup_strategies[0].name if selection.backup_strategies else "None"
+            if primary is None:
+                raise ValueError("策略選擇結果缺少 primary_strategy")
+
+            fallback = (
+                selection.backup_strategies[0].name
+                if selection.backup_strategies
+                else "None"
+            )
 
             logger.info(f"  ✓ 主要策略: {primary.name} (勝率={primary.win_rate:.1%})")
             logger.info(f"  ✓ 備用策略: {fallback}")
@@ -569,7 +578,7 @@ class TradingPlanController:
                 "strategy_mix": selection.strategy_mix,
                 "reasoning": selection.reasoning,
                 "expected_performance": selection.expected_performance,
-                "source": "strategy_selector",
+                "source": "strategies.selector.core",
             }
 
         except Exception as e:

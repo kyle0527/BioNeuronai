@@ -45,7 +45,7 @@ class TradingPlanCheck:
 
 
 @dataclass
-class MarketCondition:
+class DailyMarketCondition:
     """
     市場狀況分析結果
     """
@@ -68,7 +68,7 @@ class StrategyPerformance:
 
 
 @dataclass
-class RiskParameters:
+class DailyRiskLimits:
     """
     風險參數配置
     """

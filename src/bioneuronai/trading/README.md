@@ -1,8 +1,8 @@
 # 交易管理模組 (Trading Management)
 
 **路徑**: `src/bioneuronai/trading/`  
-**版本**: v4.1  
-**更新日期**: 2026-02-15  
+**版本**: v4.2
+**更新日期**: 2026-04-02  
 **架構層級**: Layer 3 — 交易管理層
 
 ---
@@ -38,26 +38,22 @@
 
 ```
 src/bioneuronai/trading/
-├── __init__.py              # 模組入口 (53 行)
-├── plan_controller.py       # 10 步驟交易計劃控制器 (608 行)
-├── market_analyzer.py       # 市場環境分析器 (1,090 行)
-├── strategy_selector.py     # 智能策略選擇器 (940 行)
-├── strategy_selector_v2.py  # [已棄用] 增強版選擇器 (559 行)
-├── risk_manager.py          # 風險管理器封裝 (1,375 行)
-├── pretrade_automation.py   # 交易前檢查系統 (1,051 行)
-├── sop_automation.py        # SOP 每日報告系統 (824 行)
-├── plan_generator.py        # 交易計劃生成器 (691 行)
-├── trading_plan_system.py   # 交易計劃制定系統 (691 行)
-└── pair_selector.py         # 交易對選擇器 (30 行)
+├── __init__.py              # 模組入口 (52 行)
+├── plan_controller.py       # 10 步驟交易計劃控制器 (766 行)
+├── market_analyzer.py       # 市場環境分析器 (1,078 行)
+├── risk_manager.py          # 風險管理器封裝 (1,394 行)
+├── pretrade_automation.py   # 交易前檢查系統 (1,156 行)
+├── trading_plan_system.py   # TradingPlanGenerator 相容層（57 行，委派 plan_controller）
+└── pair_selector.py         # 交易對選擇器 (109 行)
                                ─────────
-                               合計 ~7,912 行
+                               合計 ~4,612 行（實測）
 ```
 
 ---
 
 ## 🎯 核心組件
 
-### `plan_controller.py` — 10 步驟交易計劃控制器 (608 行)
+### `plan_controller.py` — 10 步驟交易計劃控制器 (766 行)
 
 系統化交易流程的總指揮，按序執行 10 個步驟。
 
@@ -80,7 +76,7 @@ src/bioneuronai/trading/
 
 ---
 
-### `market_analyzer.py` — 市場環境分析器 (1,090 行)
+### `market_analyzer.py` — 市場環境分析器 (1,078 行)
 
 整合外部數據源進行全面市場狀態評估。
 
@@ -91,27 +87,33 @@ src/bioneuronai/trading/
 
 ---
 
-### `strategy_selector.py` — 智能策略選擇器 (940 行)
+### `strategies/selector/` — 智能策略選擇器（主實作）
 
 根據市場狀態選擇最佳交易策略，支持 10 種策略類型。
 
 **主要類**: `StrategyType` (Enum) — 趨勢跟隨 / 均值回歸 / 動量 / 突破 / 網格等  
 **整合**: `AIStrategyFusion` · `EventContext` 事件驅動調整
 
-> ⚠️ `strategy_selector_v2.py` 已棄用，功能已合併至此，使用 `StrategySelector(enable_ai_fusion=True)`
+> ✅ 已統一使用 `src/bioneuronai/strategies/selector/`。`plan_controller.py` 也已切換到此路徑。
 
 ---
 
-### `pretrade_automation.py` — 交易前檢查系統 (1,051 行)
+### `pretrade_automation.py` — 交易前檢查系統 (1,156 行)
 
 單筆交易前的自動化檢查系統（SOP 第二步），遇錯即停。
 
-**主要類**: `PreTradeCheckSystem`  
+**主要類**: `PreTradeCheckSystem`
 **檢查項目**: `TechnicalSignalCheck` (RSI/MACD/布林帶) · `FundamentalCheck` (資金流/成交量/深度) · `RiskCalculation`
+
+**新聞檢查路徑（2026-03-30 更新）**：`_check_major_news()` 採 **RAG 單一路徑** 設計：
+1. 透過 `_get_news_adapter()` 延遲初始化 `NewsAdapter`，取得結構化新聞結果（含 `sentiment_score`）與事件分數（`RuleBasedEvaluator.get_current_event_score()`）。
+2. **不做 legacy fallback**，避免把系統失敗誤判為「無重大利空」。
+3. 重大利空判定閾值：`SENTIMENT_THRESHOLD = -0.3`、`EVENT_THRESHOLD = -0.5`。
+4. 回傳 dict 統一包含：`status`（`OK` / `NO_DATA` / `ERROR`）、`has_major_negative`、`sentiment_score`、`event_score`、`articles_count`、`rag_available`。
 
 ---
 
-### `sop_automation.py` — SOP 每日報告系統 (824 行)
+### `analysis/daily_report/__init__.py` — SOP 每日報告系統（主實作）
 
 每日開盤前自動生成市場分析報告。
 
@@ -120,7 +122,7 @@ src/bioneuronai/trading/
 
 ---
 
-### `risk_manager.py` — 風險管理器封裝 (1,375 行)
+### `risk_manager.py` — 風險管理器封裝 (1,394 行)
 
 向後兼容的風險管理接口，實際類別與參數統一從 `risk_management.position_manager` 導入。
 
@@ -133,9 +135,8 @@ src/bioneuronai/trading/
 
 | 檔案 | 行數 | 說明 |
 |------|------|------|
-| `plan_generator.py` | 691 | 交易計劃生成（`MarketConditionAnalysis` · `StrategyPerformanceMetrics`） |
-| `trading_plan_system.py` | 691 | 交易計劃制定（與 plan_generator 結構相似，提供 `TradingPlanGenerator`） |
-| `pair_selector.py` | 30 | 交易對篩選（骨架實現，回傳預設 BTC/ETH/BNB） |
+| `trading_plan_system.py` | 57 行 | 保留 `TradingPlanGenerator` 舊入口，實際委派 `TradingPlanController`（單一路徑） |
+| `pair_selector.py` | 109 行 | 交易對篩選（骨架實現，回傳預設 BTC/ETH/BNB） |
 
 ---
 
@@ -171,7 +172,7 @@ from bioneuronai.trading import (
     RiskManager,             # 風險管理器
     PairSelector,            # 交易對選擇器
     PreTradeCheckSystem,     # 交易前檢查
-    TradingPlanGenerator,    # 交易計劃生成
+    TradingPlanGenerator,    # 相容入口（內部委派 TradingPlanController）
 )
 ```
 
@@ -181,13 +182,10 @@ from bioneuronai.trading import (
 
 ### SOP 自動化
 ```python
-from bioneuronai.trading import SOPAutomationSystem
+from bioneuronai.analysis.daily_report import SOPAutomationSystem
 
 sop = SOPAutomationSystem(connector=connector)
-report = sop.run_full_sop(
-    symbols=['BTCUSDT', 'ETHUSDT'],
-    initial_capital=10000
-)
+report = sop.execute_daily_premarket_check()
 ```
 
 ### 交易前檢查
@@ -195,12 +193,11 @@ report = sop.run_full_sop(
 from bioneuronai.trading import PreTradeCheckSystem
 
 checker = PreTradeCheckSystem()
-result = checker.run_pretrade_check(
+result = checker.execute_pretrade_check(
     symbol="BTCUSDT",
-    direction="LONG",
-    entry_price=45000
+    intended_action="LONG",
 )
-if result.passed:
+if result.get("overall_passed"):
     print("✅ 通過所有檢查，可以交易")
 ```
 
@@ -209,7 +206,7 @@ if result.passed:
 from bioneuronai.trading import StrategySelector
 
 selector = StrategySelector(enable_ai_fusion=True)
-recommendation = selector.select_strategy(market_data)
+recommendation = selector.recommend_strategy(market_data)
 print(f"推薦策略: {recommendation.strategy_type}")
 ```
 
@@ -224,6 +221,6 @@ print(f"推薦策略: {recommendation.strategy_type}")
 
 ---
 
-**最後更新**: 2026 年 2 月 15 日
+**最後更新**: 2026-04-02
 
 > 📖 上層目錄：[src/bioneuronai/README.md](../README.md)

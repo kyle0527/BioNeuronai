@@ -39,8 +39,8 @@
 │  Internal 層 │  InternalKnowledgeBase + VectorIndex        │
 │             │  文檔管理 + FAISS 向量索引                    │
 ├─────────────┼────────────────────────────────────────────┤
-│  Services 層 │  NewsAdapter + PreTradeCheckSystem           │
-│             │  外部數據橋接（新聞 + 交易前檢查）             │
+│  Services 層 │  NewsAdapter                                  │
+│             │  外部數據橋接（新聞）                           │
 ├─────────────┼────────────────────────────────────────────┤
 │  Monitoring  │  RAGMonitor                                 │
 │             │  請求追蹤 / 延遲統計 / 快取命中率              │
@@ -228,7 +228,6 @@ from src.rag import (
 | `CORE_AVAILABLE` | rag.core | 核心嵌入 + 檢索 |
 | `INTERNAL_KB_AVAILABLE` | rag.internal | 內部知識庫 |
 | `ANALYSIS_AVAILABLE` | bioneuronai.analysis | 關鍵字 + 新聞分析 |
-| `PRETRADE_AVAILABLE` | bioneuronai.trading | 交易前檢查 |
 | `NEWS_ADAPTER_AVAILABLE` | rag.services | 新聞適配器 |
 
 ```python
@@ -247,7 +246,6 @@ RAG 模組與 bioneuronai 的以下模組整合：
 |----------|------|------|
 | `bioneuronai.analysis.keywords` | `KeywordManager` | 關鍵字匹配 |
 | `bioneuronai.analysis.news` | `CryptoNewsAnalyzer` | 新聞分析 |
-| `bioneuronai.trading.pretrade_automation` | `PreTradeCheckSystem` | 交易前檢查 |
 | `schemas.rag` | RAG Pydantic 模型 | 結構化數據定義 |
 
 ---

@@ -106,9 +106,9 @@
 **主要文件**:
 - `risk_manager.py` - 風險管理器 (1307 行)
 - `market_analyzer.py` - 市場分析器
-- `strategy_selector.py` - 策略選擇器
+- `src/bioneuronai/strategies/selector/` - 策略選擇器（主實作）
 - `pretrade_automation.py` - 交易前檢查 (864 行)
-- `sop_automation.py` - SOP 自動化 (934 行)
+- `src/bioneuronai/analysis/daily_report/__init__.py` - SOP 自動化（主實作）
 
 ---
 

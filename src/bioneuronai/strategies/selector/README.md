@@ -567,7 +567,7 @@ recommendation = get_recommended_strategy(
    - 績效摘要  
    功能偏多，後續若再擴充，需注意不要讓 `core.py` 繼續膨脹。
 
-5. 舊版 `trading/strategy_selector.py` 仍存在於 repo，閱讀或維護時應以 `strategies/selector/` 為主，避免雙軌理解。
+5. 舊版 `trading/strategy_selector.py` 已移除，閱讀或維護時以 `strategies/selector/` 為唯一實作來源。
 
 ---
 

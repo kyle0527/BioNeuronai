@@ -1,8 +1,8 @@
 # 數據基礎設施模組 (Data Infrastructure)
 
 **路徑**: `src/bioneuronai/data/`  
-**版本**: v4.3.1  
-**更新日期**: 2026-03-16  
+**版本**: v4.3.2
+**更新日期**: 2026-03-29  
 **架構層級**: Layer 0 — 基礎設施層
 
 ---
@@ -118,6 +118,8 @@ connector.close_all_connections()        # 關閉所有 WebSocket 連接
 | `evolution_history` | 演化歷史 | `save_evolution_record()` | `get_evolution_history()` |
 | `rl_training_history` | RL 訓練歷程 | `save_rl_training_step()` | `get_rl_training_progress()` |
 | `event_memory` | 市場事件記憶 | `save_event()` | `get_active_events()` / `resolve_event()` / `calculate_total_event_score()` |
+
+> **2026-03-29 更新**：`calculate_total_event_score()` 實作線性時間衰減。公式：`decay_factor = max(0.1, 1.0 - (age_hours / decay_hours) * 0.5)`，`decay_hours` 從各事件的 `metadata` 欄位中讀取（預設 72 小時）。最終分數以 `score × confidence × decay_factor` 累加後限制在 [-1.0, 1.0]，並回傳 `Tuple[float, List[Dict]]`。
 
 **維護功能**: `export_to_json()` · `cleanup_old_data()` · `get_database_stats()` · `close()`
 

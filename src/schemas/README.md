@@ -7,7 +7,7 @@
 [![Schema Version](https://img.shields.io/badge/schema_version-2.3.0-orange.svg)]()
 
 > **✅ 系統狀態**: 100% 功能完整，零錯誤零警告，Pydantic v2 完全兼容，專為幣安期貨交易設計  
-> **🔄 最後更新**: 2026年2月15日  
+> **🔄 最後更新**: 2026年3月29日  
 > **📋 符合標準**: [PEP 257](https://peps.python.org/pep-0257/), [Pydantic v2 官方標準](https://docs.pydantic.dev/), [幣安期貨 API 官方文檔](https://developers.binance.com/docs/derivatives)
 
 **BioNeuronAI Schemas** 是 BioNeuronAI 交易系統的**核心數據基準**，基於 Pydantic v2 構建，提供完整的類型安全、數據驗證和序列化功能，專為 AI 驅動的加密貨幣期貨交易而設計。
@@ -373,7 +373,7 @@ signal = TradingSignal(
 | `database.py` | DatabaseConfig, DatabaseQuery, DatabaseResult, DatabaseConnection, TradingDataRecord, DatabaseService | 資料庫 |
 | `commands.py` | AICommand, AICommandResult, TradingCommand, AnalysisCommand, RiskManagementCommand, SystemCommand | 命令系統 |
 | `external_data.py` | FearGreedIndex, GlobalMarketData, DeFiMetrics, StablecoinMetrics, EconomicEvent, MarketSentiment, ExternalDataSnapshot | 外部數據源 |
-| `rag.py` | EventContext, EventRule, RAGRiskItem, RAGNewsItem, PreTradeCheckRequest, PreTradeCheckResponse, SearchResult | RAG 系統 |
+| `rag.py` | EventContext, EventRule, RAGRiskItem, RAGNewsItem, PreTradeCheckRequest, PreTradeCheckResponse, SearchResult, RetrievalQuery, RetrievalResult | RAG 系統（2026-03-29：`RetrievalSource` 擴展至 7 個值，`INTERNAL_KB` 統一為 `INTERNAL_KNOWLEDGE`；`RetrievalQuery`/`RetrievalResult` 新增欄位，為全系統單一事實來源） |
 
 ---
 
@@ -595,6 +595,13 @@ def get_suitable_strategies(regime: MarketRegime) -> list[StrategyType]:
 - 🤖 **AI/ML 整合**: 模型生命週期管理，特徵工程，預測對標
 - 📈 **進階回測**: 走向前分析、蒙地卡羅模擬、風險指標
 - 🔔 **智能警報**: 多渠道通知 (Email, Telegram, Discord, Webhook)
+
+### 2026-03-29 更新 (v2.3.1) — RAG 類型統一
+
+- 🔧 **`RetrievalSource`** 擴展至 7 個值，`INTERNAL_KB` 統一更名為 `INTERNAL_KNOWLEDGE`（與 `retriever.py` 實際用法一致）；新增 `SOCIAL_MEDIA`、`HISTORICAL_DATA`、`TRADING_RULES`、`ALL`
+- 🔧 **`RetrievalQuery`** 新增 `min_relevance: float = 0.3`、`filters: Dict[str, Any]`；預設 sources 改為 `[RetrievalSource.ALL]`
+- 🔧 **`RetrievalResult`** 欄位 `score` 更名為 `relevance_score`，新增 `timestamp`、`url`、`title`、`to_dict()`
+- ♻️ **`rag/core/retriever.py`** 移除本地重複定義，統一從此導入（Single Source of Truth）
 
 ### 2026-01-25 更新 (v2.1.0)
 - ➕ 新增 `StrategyRecommendation` 完整策略推薦模型

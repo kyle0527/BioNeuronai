@@ -70,8 +70,8 @@ get_funding_rate()
 
 | 位置 | 特點 |
 |------|------|
-| `strategies/selector/core.py` | 評分式選擇，有 AI fusion hook，async 介面 |
-| `trading/strategy_selector.py` | 評分式選擇，包裝 `AIStrategyFusion`，sync/async 混用 |
+| `strategies/selector/core.py` | 評分式選擇，有 AI fusion hook，async 介面（保留） |
+| `trading/strategy_selector.py` | 已移除（改為單一路徑） |
 
 兩者都有 `select_optimal_strategy()`，但 schema 不同、被不同地方呼叫。這是兩個並行開發後未整合的結果。
 
@@ -82,27 +82,29 @@ get_funding_rate()
 
 ---
 
-### T3：RAG 模組已建立但未接通交易管道（中優先）
+### T3：RAG 模組知識庫已接通新聞分析（部分完成）
 
-**問題：** `src/rag/` 架構完整（embeddings、FAISS、UnifiedRetriever、InternalKnowledgeBase），但：
-- `UnifiedRetriever.retrieve_for_trading()` 從未被呼叫
-- `InternalKnowledgeBase` 的 5 條預設交易規則從未被查詢
-- `strategy_fusion.py` 接收 `EventContext` 參數，但該物件從未從 RAG 填充
+**已完成（2026-04-02）：**
+- `CryptoNewsAnalyzer.analyze_news()` → `_ingest_analysis_to_rag()` → `InternalKnowledgeBase.add_news_analysis()`
+- 知識庫現有 123 篇新聞 + 5 條預設交易規則，且每次 `news` 命令自動更新
+- `rag/services/news_adapter.ingest_news_analysis_with_status()` 為唯一寫入入口
+- `schemas/rag.py` 為所有跨模組 RAG 類型的 Single Source of Truth
 
-**接通方案（最小可行）：**
+**剩餘未完成：**
+- `UnifiedRetriever.retrieve_for_trading()` 仍未在交易前檢查中呼叫
+- `strategy_fusion.py` 的 `EventContext` 仍未從 RAG 知識庫填充
+- `report_generator.py` 尚未將每日報告存入 `knowledge_base`（`MARKET_ANALYSIS` 類型）
+
+**後續接通方案（最小可行）：**
 ```
-market_regime 結果 + event_score
+pretrade._final_confirmation_check()
        ↓
-InternalKnowledgeBase.search("strong uptrend high ADX ETF news")
+InternalKnowledgeBase.search(symbol + regime + event_type)
        ↓
-返回相關規則 → 填入 EventContext
+返回相關交易規則/歷史新聞 → 填入 EventContext
        ↓
 strategy_fusion._adjust_weights_by_event(event_context)
 ```
-
-**第二階段（中期）：**
-- `report_generator.py` 每次生成報告後，存入 `knowledge_base`（`DocumentType.MARKET_ANALYSIS`）
-- 未來交易時可語意查詢「過去類似市況的分析」
 
 ---
 
@@ -165,7 +167,7 @@ news = analyzer.analyze_news(symbol, hours=max(1, min(48, hours_since_last)))
 | 項目 | 位置 | 優先 |
 |------|------|------|
 | `api/app.py` 全域狀態未封裝 | `_trade_task`/`_trade_engine` → 應封裝為 `TradeManager` | 低 |
-| `sop_automation.py:604-624` | Backtest 驗證步驟未完成 | 低 |
+| `analysis/daily_report/__init__.py` | Backtest 驗證步驟未完成 | 低 |
 | `phase_router.py` 認知複雜度過高 | 單一函式邏輯過多 | 低 |
 | `nlp/rag_system.py` | 已廢棄，計畫 2026-04-26 移除 | 已排程 |
 
@@ -179,9 +181,9 @@ news = analyzer.analyze_news(symbol, hours=max(1, min(48, hours_since_last)))
   T2 → 合併重複 StrategySelector     （消除混亂的選策略路徑）
 
 中期執行（功能完整）
-  T5 → 新聞時間邏輯修復              （具體功能缺口）
-  T4 → news/analyzer.py 拆分        （可維護性）
-  T3 → RAG 接通 strategy_fusion     （讓 RAG 真正有用）
+  T5 → 新聞時間邏輯修復                （具體功能缺口）
+  T4 → news/analyzer.py 拆分          （可維護性）
+  T3 → RAG 接通 strategy_fusion/pretrade（知識庫已有資料，剩接通消費端）
 
 延後執行（精進）
   T6 → Wrapper 加注釋               （低風險，1 小時內完成）

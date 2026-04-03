@@ -422,7 +422,8 @@ from schemas.external_data import ExternalDataSnapshot
 - `market_analyzer.py` - 市場分析器
 - `risk_manager.py` - 風險管理器
 - `plan_controller.py` - 交易計劃控制器
-- `sop_automation.py` - SOP 自動化
+- `pretrade_automation.py` - 交易前檢查
+- `src/bioneuronai/analysis/daily_report/__init__.py` - SOP 自動化（主實作）
 
 **依賴**:
 - ✅ `schemas.external_data`
@@ -621,10 +622,7 @@ bioneuronai/
 │   ├── risk_manager.py
 │   ├── plan_controller.py
 │   ├── plan_generator.py
-│   ├── strategy_selector.py
-│   ├── strategy_selector_v2.py
 │   ├── pair_selector.py
-│   ├── sop_automation.py
 │   ├── pretrade_automation.py     ← 使用 MarketData
 │   └── trading_plan_system.py
 │

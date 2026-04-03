@@ -12,6 +12,7 @@ from schemas.api import (  # noqa: F401
     NewsRequest,
     PreTradeRequest,
     TradeStartRequest,
+    BinanceValidateRequest,
     # Response / status models
     RestApiResponse as ApiResponse,
     ModuleStatus,
@@ -22,6 +23,7 @@ __all__ = [
     "NewsRequest",
     "PreTradeRequest",
     "TradeStartRequest",
+    "BinanceValidateRequest",
     "ApiResponse",
     "ModuleStatus",
     "StatusResponse",

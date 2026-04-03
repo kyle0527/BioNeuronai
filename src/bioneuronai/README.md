@@ -186,13 +186,10 @@ risk_mgr = RiskManager()
 ### 3. 執行完整流程
 ```python
 # SOP 日常流程
-from bioneuronai.trading import SOPAutomationSystem
+from bioneuronai.analysis.daily_report import SOPAutomationSystem
 
 sop = SOPAutomationSystem(connector)
-results = sop.run_full_sop(
-    symbols=['BTCUSDT', 'ETHUSDT'],
-    initial_capital=10000
-)
+results = sop.execute_daily_premarket_check()
 
 if results['risk_check']['passed']:
     for signal in results['signals']:

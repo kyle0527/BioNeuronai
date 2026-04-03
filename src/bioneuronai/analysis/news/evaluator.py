@@ -181,19 +181,44 @@ class RuleBasedEvaluator:
     def __init__(self, custom_rules: Optional[List[EventRule]] = None):
         """
         初始化規則式評估器
-        
+
+        規則載入優先順序：
+        1. config/event_rules.json（外部配置，UI 面板 / AI 可直接編輯）
+        2. DEFAULT_RULES（程式碼預設值，JSON 不存在時的 fallback）
+        3. custom_rules（呼叫端注入，會附加在上述規則之後）
+
         Args:
-            custom_rules: 自定義規則，會與預設規則合併
+            custom_rules: 額外注入的規則，會與載入的規則合併
         """
-        self.rules = self.DEFAULT_RULES.copy()
+        self.rules = self._load_rules_from_json()
         if custom_rules:
             self.rules.extend(custom_rules)
-        
+
         # 嘗試連接資料庫
         self._db: Optional[EventDatabase] = None
         self._connect_db()
-        
+
         logger.info(f"✅ RuleBasedEvaluator 初始化完成，載入 {len(self.rules)} 條規則")
+
+    def _load_rules_from_json(self) -> List[EventRule]:
+        """從 config/event_rules.json 載入規則，失敗時 fallback 到 DEFAULT_RULES。"""
+        import json as _json
+
+        rules_path = resolve_project_path("config/event_rules.json")
+        try:
+            with open(rules_path, "r", encoding="utf-8") as f:
+                data = _json.load(f)
+            rules = [EventRule(**r) for r in data.get("rules", [])]
+            if rules:
+                logger.info(f"從 config/event_rules.json 載入 {len(rules)} 條規則")
+                return rules
+            logger.warning("config/event_rules.json 的 rules 為空，使用 DEFAULT_RULES")
+        except FileNotFoundError:
+            logger.info("config/event_rules.json 不存在，使用 DEFAULT_RULES")
+        except Exception as exc:
+            logger.warning(f"載入 event_rules.json 失敗（{exc}），使用 DEFAULT_RULES")
+
+        return self.DEFAULT_RULES.copy()
     
     def _connect_db(self) -> None:
         """連接資料庫管理器"""

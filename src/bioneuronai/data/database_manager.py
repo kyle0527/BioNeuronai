@@ -1284,30 +1284,71 @@ class DatabaseManager:
     
     def calculate_total_event_score(self, symbol: Optional[str] = None) -> Tuple[float, List[Dict]]:
         """
-        計算所有 ACTIVE 事件的總分數
-        
+        計算所有 ACTIVE 事件的總分數（含時間衰減）
+
+        衰減邏輯：
+        - 每個事件從 metadata 讀取 decay_hours（由 EventRule 定義）
+        - age_hours = 事件發生至今的小時數
+        - decay_factor = max(MIN_DECAY, 1.0 - age_hours / decay_hours * 0.5)
+          → 剛發生：factor=1.0（滿分）
+          → 過了一個 decay_hours：factor=0.5（半衰）
+          → 超過兩個 decay_hours：factor=MIN_DECAY（下限，事件仍 ACTIVE 但影響微小）
+        - MIN_DECAY = 0.1，確保事件在被 Hard Stop 之前仍有最低殘留影響力
+
+        具體數值（decay_hours）後續可在 EventRule 定義中調整，框架不變。
+
         Args:
             symbol: 過濾特定交易對 (選填)
-            
+
         Returns:
             (total_score, active_events_list)
         """
+        import re
+
         active_events = self.get_active_events(symbol=symbol)
-        
+
         if not active_events:
             return 0.0, []
-        
-        # 加權計算總分
+
+        MIN_DECAY = 0.1
+        now = datetime.now()
         total_score = 0.0
+
         for event in active_events:
             score = event.get('score', 0.0)
             confidence = event.get('source_confidence', 0.5)
-            # 以信心度加權
-            total_score += score * confidence
-        
+
+            # ── 解析 decay_hours（存於 metadata 字串）────────────────────────
+            decay_hours = 72.0  # 預設 3 天
+            metadata_str = event.get('metadata') or ''
+            m = re.search(r'decay_hours:\s*(\d+(?:\.\d+)?)', metadata_str)
+            if m:
+                decay_hours = float(m.group(1))
+
+            # ── 計算事件年齡 ─────────────────────────────────────────────────
+            created_at_str = event.get('created_at') or ''
+            try:
+                # SQLite 存的格式：'2026-03-29 12:34:56' 或 ISO8601
+                created_at = datetime.fromisoformat(created_at_str.replace('Z', ''))
+                age_hours = (now - created_at).total_seconds() / 3600.0
+            except (ValueError, TypeError):
+                age_hours = 0.0  # 無法解析則視為剛發生
+
+            # ── 線性衰減 ─────────────────────────────────────────────────────
+            decay_factor = max(MIN_DECAY, 1.0 - (age_hours / decay_hours) * 0.5)
+
+            effective_score = score * confidence * decay_factor
+            total_score += effective_score
+
+            logger.debug(
+                f"  event={event.get('event_type')} score={score:.2f} "
+                f"age={age_hours:.1f}h decay_hours={decay_hours:.0f} "
+                f"factor={decay_factor:.2f} effective={effective_score:.3f}"
+            )
+
         # 限制在 [-1, 1] 範圍
         total_score = max(-1.0, min(1.0, total_score))
-        
+
         logger.debug(f"📊 Event Score: {total_score:.3f} from {len(active_events)} active events")
         return total_score, active_events
     

@@ -331,8 +331,8 @@ def cmd_plan(args: argparse.Namespace) -> None:
     """
     每日 SOP 交易計劃命令
 
-    優先使用 TradingPlanController（10 步驟完整計劃），
-    若不可用則 fallback 至 SOPAutomationSystem（基礎版）。
+    僅使用 TradingPlanController（10 步驟完整計劃）。
+    若不可用或執行失敗，直接回報錯誤並停止，不做 legacy fallback。
 
     Example:
         python main.py plan
@@ -344,9 +344,7 @@ def cmd_plan(args: argparse.Namespace) -> None:
     print("  BioNeuronai Daily Trading Plan  (10-Step SOP)")
     print(f"{'='*60}\n")
 
-    report: Optional[dict] = None
-
-    # ── 優先：TradingPlanController（完整 10 步驟，async）────────────────────
+    # ── 單一路徑：TradingPlanController（完整 10 步驟，async）────────────────
     try:
         from bioneuronai.trading.plan_controller import TradingPlanController
 
@@ -360,25 +358,11 @@ def cmd_plan(args: argparse.Namespace) -> None:
         print("  [OK] 10 步驟計劃生成完畢")
 
     except ImportError as e:
-        logger.warning("TradingPlanController 不可用，切換至 SOPAutomation: %s", e)
+        logger.error("TradingPlanController 不可用: %s", e)
+        sys.exit(1)
     except Exception as exc:
-        logger.warning("TradingPlanController 執行失敗，切換至 SOPAutomation: %s", exc)
-
-    # ── Fallback：SOPAutomationSystem（同步版）───────────────────────────────
-    if report is None:
-        try:
-            from bioneuronai.trading.sop_automation import SOPAutomationSystem
-
-            sop = SOPAutomationSystem()
-            print("  [模式] SOPAutomationSystem (基礎版)\n")
-            report = sop.execute_daily_premarket_check()
-            print("  [OK] 市場分析完畢")
-        except ImportError as e:
-            logger.error("SOPAutomationSystem 也不可用: %s", e)
-            sys.exit(1)
-        except Exception as exc:
-            logger.error("計劃生成失敗: %s", exc)
-            sys.exit(1)
+        logger.error("TradingPlanController 執行失敗: %s", exc)
+        sys.exit(1)
 
     _print_plan_report(report)
 
@@ -583,7 +567,7 @@ def cmd_status(args: argparse.Namespace) -> None:  # noqa: ARG001
         ("bioneuronai.core.trading_engine", "TradingEngine", "TradingEngine"),
         ("bioneuronai.data.binance_futures", "BinanceFuturesConnector", "BinanceFutures"),
         ("bioneuronai.analysis", "CryptoNewsAnalyzer", "NewsAnalyzer"),
-        ("bioneuronai.trading.sop_automation", "SOPAutomationSystem", "SOPSystem"),
+        ("bioneuronai.analysis.daily_report", "SOPAutomationSystem", "SOPSystem"),
         ("bioneuronai.trading.plan_controller", "TradingPlanController", "PlanController"),
         ("bioneuronai.trading.pretrade_automation", "PreTradeCheckSystem", "PreTradeCheck"),
         ("backtest", "BacktestEngine", "BacktestEngine"),

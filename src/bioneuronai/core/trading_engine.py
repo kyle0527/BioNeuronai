@@ -829,23 +829,54 @@ class TradingEngine:
         Returns:
             True 如果可以交易，False 如果有新聞風險
         """
-        # RAG 檢查
-        if self.enable_rag_news_check and self.news_analyzer:
-            can_trade, reason = self.news_analyzer.should_trade(symbol)
-            if not can_trade:
-                logger.warning(f" RAG 新聞分析: {reason}")
-                return False
-            logger.info(f" RAG 新聞檢查通過: {reason}")
-        
-        # 一般新聞檢查
-        if self.enable_news_analysis and self.news_analyzer:
-            can_trade, reason = self.news_analyzer.should_trade(symbol)
-            if not can_trade:
-                logger.warning(f" : {reason}")
-                return False
-            logger.info(f" : {reason}")
-        
+        if not (self.enable_rag_news_check or self.enable_news_analysis):
+            return True
+
+        assessment = self._assess_major_news(symbol)
+        status = str(assessment.get("status", "ERROR"))
+        summary = str(assessment.get("summary", ""))
+        has_major_negative = bool(assessment.get("has_major_negative", False))
+
+        if status == "ERROR":
+            logger.error(f"新聞檢查失敗（阻擋交易）: {summary}")
+            return False
+
+        if status == "NO_DATA":
+            logger.warning(f"新聞檢查無資料（不中斷交易）: {summary}")
+            return True
+
+        if has_major_negative:
+            logger.warning(f"新聞風險警告（阻擋交易）: {summary}")
+            return False
+
+        logger.info(f"新聞檢查通過: {summary}")
         return True
+
+    def _assess_major_news(self, symbol: str) -> Dict[str, Any]:
+        """統一新聞評估入口（使用 PreTradeCheckSystem / RAG 單一路徑）"""
+        if not self.news_checker:
+            return {
+                "status": "ERROR",
+                "has_major_negative": False,
+                "summary": "PreTradeCheckSystem 不可用，無法評估新聞風險",
+            }
+
+        try:
+            if hasattr(self.news_checker, "_check_major_news"):
+                result = self.news_checker._check_major_news(symbol)  # type: ignore[attr-defined]
+                if isinstance(result, dict):
+                    return result
+            return {
+                "status": "ERROR",
+                "has_major_negative": False,
+                "summary": "PreTradeCheckSystem 新聞介面不可用",
+            }
+        except Exception as e:
+            return {
+                "status": "ERROR",
+                "has_major_negative": False,
+                "summary": f"新聞評估例外: {e}",
+            }
     
     def _get_account_balance(self) -> Optional[float]:
         """獲取賬戶餘額
@@ -953,7 +984,7 @@ class TradingEngine:
     
     def _show_news_analysis(self, symbol: str) -> None:
         """"""
-        if not self.news_analyzer:
+        if not self.news_checker:
             return
         
         print("\\n" + "=" * 60)
@@ -961,18 +992,22 @@ class TradingEngine:
         print("=" * 60)
         
         try:
-            summary: str = self.news_analyzer.get_quick_summary(symbol)
-            print(summary)
-            
-            can_trade, reason = self.news_analyzer.should_trade(symbol)
-            
+            assessment = self._assess_major_news(symbol)
+            status = str(assessment.get("status", "ERROR"))
+            has_major_negative = bool(assessment.get("has_major_negative", False))
+            summary = str(assessment.get("summary", ""))
+            print(f"📰 {symbol} 新聞檢查 [{status}]")
+            print(f"摘要: {summary}")
+
             print()
-            if can_trade:
-                print(" : ")
-                print(f"   {reason}")
+            if status == "ERROR":
+                print("❌ 新聞檢查失敗，建議暫停交易")
+            elif status == "NO_DATA":
+                print("⚪ 無相關新聞資料，維持中性判定")
+            elif has_major_negative:
+                print("⚠️ 偵測重大利空，建議暫停或降低倉位")
             else:
-                print("  : ")
-                print(f"   {reason}")
+                print("✅ 未偵測重大利空")
             
             print("=" * 60 + "\\n")
             
@@ -995,13 +1030,13 @@ class TradingEngine:
         Returns:
             str: 新聞摘要文本
         """
-        if not self.news_analyzer:
-            return " "
-        
         try:
-            return str(self.news_analyzer.get_quick_summary(symbol))
+            assessment = self._assess_major_news(symbol)
+            status = str(assessment.get("status", "ERROR"))
+            summary = str(assessment.get("summary", ""))
+            return f"[{status}] {summary}"
         except (AttributeError, ValueError) as e:
-            return f" : {e}"
+            return f"[ERROR] {e}"
     
     def set_news_analysis(self, enabled: bool) -> None:
         """"""
@@ -1027,27 +1062,30 @@ class TradingEngine:
         logger.info("⏸  ")
     
     def _check_breaking_news_before_start(self, symbol: str) -> None:
-        """開盤前突發新聞檢查（使用 news_analyzer）"""
+        """開盤前突發新聞檢查（使用 PreTradeCheckSystem / RAG）"""
         try:
             logger.info(f"\n{'='*70}")
             logger.info("📰 檢查突發新聞中...")
             logger.info(f"{'='*70}")
             
-            if not self.news_analyzer:
-                logger.warning("新聞分析器不可用，跳過新聞檢查")
-                return
-            
-            # 使用 news_analyzer 進行新聞檢查
-            can_trade, reason = self.news_analyzer.should_trade(symbol)
-            
-            if can_trade:
-                logger.info(f"✅ 新聞檢查通過: {reason}")
+            assessment = self._assess_major_news(symbol)
+            status = str(assessment.get("status", "ERROR"))
+            summary = str(assessment.get("summary", ""))
+            has_major_negative = bool(assessment.get("has_major_negative", False))
+
+            if status == "OK" and not has_major_negative:
+                logger.info(f"✅ 新聞檢查通過: {summary}")
+            elif status == "NO_DATA":
+                logger.warning(f"⚪ 新聞檢查無資料: {summary}")
             else:
                 logger.error(f"\n{'='*70}")
-                logger.error("⚠️ 新聞風險警告")
+                logger.error("⚠️ 新聞風險/系統警告")
                 logger.error(f"{'='*70}")
-                logger.error(f"原因: {reason}")
-                logger.error("\n建議: 等待新聞風險降低後再交易")
+                logger.error(f"原因: {summary}")
+                if status == "ERROR":
+                    logger.error("\n建議: 先排除新聞系統異常，再進行交易")
+                else:
+                    logger.error("\n建議: 等待新聞風險降低後再交易")
                 logger.error(f"{'='*70}\n")
                 
                 # 詢問是否繼續

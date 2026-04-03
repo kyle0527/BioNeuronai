@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import logging
 import json
+import hashlib
 from typing import List, Dict, Optional, Any, TYPE_CHECKING, Callable
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -237,6 +238,117 @@ class InternalKnowledgeBase:
             self._rebuild_index()
         
         return doc
+
+    def add_news_analysis(
+        self,
+        symbol: str,
+        analysis_result: Any,
+        hours: int = 24,
+        source: str = "CryptoNewsAnalyzer",
+        update_index: bool = True,
+    ) -> List[KnowledgeDocument]:
+        """
+        新聞分析結果專用入庫 API（B.3 核心缺口）
+
+        Args:
+            symbol: 交易對（如 BTCUSDT）
+            analysis_result: NewsAnalysisResult 兼容物件
+            hours: 分析時間範圍（小時）
+            source: 來源標識
+            update_index: 是否在結束後重建索引
+
+        Returns:
+            寫入/更新的文檔列表
+        """
+        articles = list(getattr(analysis_result, "articles", []) or [])
+        if not articles:
+            return []
+
+        docs: List[KnowledgeDocument] = []
+        now = datetime.now()
+        sentiment_score = float(getattr(analysis_result, "sentiment_score", 0.0) or 0.0)
+        key_events = list(getattr(analysis_result, "key_events", []) or [])
+
+        for article in articles:
+            title = str(getattr(article, "title", "") or "").strip()
+            if not title:
+                continue
+
+            article_source = str(getattr(article, "source", source) or source)
+            summary = str(getattr(article, "summary", "") or "").strip()
+            url = str(getattr(article, "url", "") or "").strip()
+            content = summary if summary else title
+
+            published_at = getattr(article, "published_at", now)
+            if isinstance(published_at, str):
+                try:
+                    published_at = datetime.fromisoformat(published_at)
+                except ValueError:
+                    published_at = now
+            if not isinstance(published_at, datetime):
+                published_at = now
+
+            doc_id = self._build_news_doc_id(
+                symbol=symbol,
+                title=title,
+                source=article_source,
+                published_at=published_at,
+                url=url,
+            )
+
+            metadata = {
+                "symbol": symbol,
+                "news_source": article_source,
+                "url": url,
+                "published_at": published_at.isoformat(),
+                "analysis_hours": hours,
+                "overall_sentiment_score": sentiment_score,
+                "article_sentiment": str(getattr(article, "sentiment", "neutral") or "neutral"),
+                "article_sentiment_score": float(getattr(article, "sentiment_score", sentiment_score) or sentiment_score),
+                "importance_score": float(getattr(article, "importance_score", 0.0) or 0.0),
+                "relevance_score": float(getattr(article, "relevance_score", 0.0) or 0.0),
+                "key_events": key_events,
+                "ingested_at": now.isoformat(),
+                "ingested_by": source,
+            }
+
+            tags = [
+                "news",
+                symbol.lower(),
+                article_source.lower().replace(" ", "_"),
+            ]
+            event_tag_candidates = [str(e).strip().lower().replace(" ", "_") for e in key_events if str(e).strip()]
+            tags.extend(event_tag_candidates[:3])
+            tags = list(dict.fromkeys(tags))  # 去重並保持順序
+
+            doc = self.add_document(
+                doc_id=doc_id,
+                title=title,
+                content=content,
+                doc_type=DocumentType.NEWS_ARCHIVE,
+                tags=tags,
+                metadata=metadata,
+                update_index=False,
+            )
+            docs.append(doc)
+
+        if update_index and docs:
+            self._rebuild_index()
+
+        return docs
+
+    def _build_news_doc_id(
+        self,
+        symbol: str,
+        title: str,
+        source: str,
+        published_at: datetime,
+        url: str,
+    ) -> str:
+        """建立穩定的新聞文檔 ID，避免重複入庫"""
+        raw = f"{symbol}|{title}|{source}|{published_at.isoformat()}|{url}"
+        digest = hashlib.md5(raw.encode("utf-8")).hexdigest()[:16]
+        return f"news_{symbol.lower()}_{digest}"
     
     def update_document(
         self,

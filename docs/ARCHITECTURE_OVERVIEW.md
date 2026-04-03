@@ -1,5 +1,5 @@
 # BioNeuronai 系統架構總覽
-> 更新日期: 2026-03-23
+> 更新日期: 2026-04-02
 > 依據: 實際程式入口、核心模組 import 關係、`tools/PROJECT_REPORT_20260322_221527.txt` 第 103-604 行目錄樹
 
 
@@ -154,10 +154,10 @@ flowchart TD
   - `plan_controller.py`: 10 步驟交易計劃總控
   - `pretrade_automation.py`: 進場前檢查
   - `market_analyzer.py`: 市場分析
-  - `strategy_selector.py`: 策略選擇
+  - `src/bioneuronai/strategies/selector/`: 策略選擇（主實作）
   - `pair_selector.py`: 交易對篩選
   - `risk_manager.py`: 交易流程用的風控封裝
-  - `sop_automation.py`: SOP 執行流程
+  - `src/bioneuronai/analysis/daily_report/__init__.py`: SOP 執行流程（主實作）
 
 這一層偏向「決策編排」與「流程控制」，不直接取代核心風控與模型。
 
@@ -205,7 +205,9 @@ flowchart TD
 - `src/rag/`
   - 正式 RAG 模組
   - 包含 `core/`, `internal/`, `services/`, `monitoring/`
-  - 與 `analysis.news`、`PreTradeCheckSystem` 整合
+  - **2026-04-02 完成 Analysis → RAG 入庫**：`CryptoNewsAnalyzer.analyze_news()` 執行後自動將結果寫入 `InternalKnowledgeBase`，唯一入口為 `rag.services.news_adapter.ingest_news_analysis_with_status()`
+  - `schemas/rag.py` 為 `RetrievalSource`、`RetrievalQuery`、`RetrievalResult`、`EventRule` 等 RAG 類型的 Single Source of Truth
+  - 與 `analysis.news`、`PreTradeCheckSystem` 整合（知識庫消費端尚在規劃中）
 
 - `src/nlp/`
   - 獨立 LLM / tokenizer / training 工具鏈
