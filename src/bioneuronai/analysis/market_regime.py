@@ -304,7 +304,29 @@ class MarketRegimeDetector:
         self.high_history[symbol].append(high)
         self.low_history[symbol].append(low)
         self.volume_history[symbol].append(volume)
-    
+
+    def bulk_update_data(
+        self,
+        symbol: str,
+        prices: list,
+        highs: list,
+        lows: list,
+        volumes: list
+    ):
+        """批量更新歷史數據（避免逐筆迴圈）"""
+        if symbol not in self.price_history:
+            self.price_history[symbol] = deque(maxlen=self.lookback_periods * 2)
+            self.high_history[symbol] = deque(maxlen=self.lookback_periods * 2)
+            self.low_history[symbol] = deque(maxlen=self.lookback_periods * 2)
+            self.volume_history[symbol] = deque(maxlen=self.lookback_periods * 2)
+            self.volatility_history[symbol] = deque(maxlen=500)
+            self.regime_history[symbol] = []
+
+        self.price_history[symbol].extend(prices)
+        self.high_history[symbol].extend(highs)
+        self.low_history[symbol].extend(lows)
+        self.volume_history[symbol].extend(volumes)
+
     def detect_regime(self, symbol: str) -> Optional[RegimeAnalysis]:
         """"""
         if symbol not in self.price_history:

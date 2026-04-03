@@ -1122,14 +1122,30 @@ class BreakoutTradingStrategy(BaseStrategy):
             return SignalStrength.WEAK
     
     def _update_price_tracking(
-        self, 
-        trade: TradeExecution, 
-        current_price: float, 
+        self,
+        trade: TradeExecution,
+        current_price: float,
         setup: TradeSetup
     ) -> None:
-        """更新價格追蹤 - 簡化實現"""
-        # 暫時跳過具體實現
-        pass
+        """更新價格追蹤"""
+        # 更新最高/最低價
+        if current_price > trade.highest_price_since_entry:
+            trade.highest_price_since_entry = current_price
+        if current_price < trade.lowest_price_since_entry:
+            trade.lowest_price_since_entry = current_price
+
+        # 更新 MFE / MAE
+        if setup.direction == 'long':
+            favorable = current_price - trade.actual_entry_price
+            adverse = trade.actual_entry_price - current_price
+        else:
+            favorable = trade.actual_entry_price - current_price
+            adverse = current_price - trade.actual_entry_price
+
+        if favorable > trade.max_favorable_excursion:
+            trade.max_favorable_excursion = favorable
+        if adverse > trade.max_adverse_excursion:
+            trade.max_adverse_excursion = adverse
     
     def _handle_breakeven_stop(
         self, 
@@ -1159,33 +1175,61 @@ class BreakoutTradingStrategy(BaseStrategy):
                     trade.trailing_stop_price = new_stop
     
     def _handle_take_profits(
-        self, 
-        mgmt: PositionManagement, 
-        setup: TradeSetup, 
+        self,
+        mgmt: PositionManagement,
+        setup: TradeSetup,
         current_price: float
     ) -> None:
-        """處理獲利了結 - 簡化實現"""
-        # 可以在這裡實現部分獲利邏輯
-        pass
+        """處理部分獲利了結"""
+        if setup.direction == 'long':
+            if not mgmt.tp1_filled and setup.take_profit_1 > 0 and current_price >= setup.take_profit_1:
+                mgmt.tp1_filled = True
+                mgmt.scaling_out_in_progress = True
+                logger.info(f"TP1 達到 [多頭]: {current_price:.4f} >= {setup.take_profit_1:.4f}")
+            if not mgmt.tp2_filled and setup.take_profit_2 > 0 and current_price >= setup.take_profit_2:
+                mgmt.tp2_filled = True
+                logger.info(f"TP2 達到 [多頭]: {current_price:.4f} >= {setup.take_profit_2:.4f}")
+            if not mgmt.tp3_filled and setup.take_profit_3 > 0 and current_price >= setup.take_profit_3:
+                mgmt.tp3_filled = True
+                logger.info(f"TP3 達到 [多頭]: {current_price:.4f} >= {setup.take_profit_3:.4f}")
+        else:
+            if not mgmt.tp1_filled and setup.take_profit_1 > 0 and current_price <= setup.take_profit_1:
+                mgmt.tp1_filled = True
+                mgmt.scaling_out_in_progress = True
+                logger.info(f"TP1 達到 [空頭]: {current_price:.4f} <= {setup.take_profit_1:.4f}")
+            if not mgmt.tp2_filled and setup.take_profit_2 > 0 and current_price <= setup.take_profit_2:
+                mgmt.tp2_filled = True
+                logger.info(f"TP2 達到 [空頭]: {current_price:.4f} <= {setup.take_profit_2:.4f}")
+            if not mgmt.tp3_filled and setup.take_profit_3 > 0 and current_price <= setup.take_profit_3:
+                mgmt.tp3_filled = True
+                logger.info(f"TP3 達到 [空頭]: {current_price:.4f} <= {setup.take_profit_3:.4f}")
     
     def _monitor_breakout_failure(
-        self, 
-        setup: TradeSetup, 
-        current_price: float, 
+        self,
+        setup: TradeSetup,
+        current_price: float,
         r_multiple: float
     ) -> None:
         """監控突破失效"""
-        # 如果突破失效，標記為高風險
+        breakout_level = setup.key_levels.get('breakout_level', setup.entry_price)
         if setup.direction == 'long':
-            breakout_level = setup.key_levels.get('breakout_level', setup.entry_price)
             if current_price < breakout_level * 0.995:  # 突破失效
-                # 突破失效的處理邏輯
-                pass
+                condition = f"突破位跌破: {current_price:.4f} < {breakout_level * 0.995:.4f}"
+                if condition not in setup.invalidation_conditions:
+                    setup.invalidation_conditions.append(condition)
+                    logger.warning(
+                        f"突破失效 [多頭]: 當前價 {current_price:.4f} 跌破突破位 "
+                        f"{breakout_level:.4f} 的 0.5%（R={r_multiple:.2f}）"
+                    )
         else:
-            breakout_level = setup.key_levels.get('breakout_level', setup.entry_price)
             if current_price > breakout_level * 1.005:  # 突破失效
-                # 突破失效的處理邏輯
-                pass
+                condition = f"突破位突破: {current_price:.4f} > {breakout_level * 1.005:.4f}"
+                if condition not in setup.invalidation_conditions:
+                    setup.invalidation_conditions.append(condition)
+                    logger.warning(
+                        f"突破失效 [空頭]: 當前價 {current_price:.4f} 突破突破位 "
+                        f"{breakout_level:.4f} 的 0.5%（R={r_multiple:.2f}）"
+                    )
 
 
 # 註冊策略
