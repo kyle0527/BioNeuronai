@@ -1,0 +1,33 @@
+[
+  {
+    "generation": 0,
+    "timestamp": "2026-04-05T08:25:21.262006",
+    "best_score": 0.2,
+    "avg_score": 0.19999999999999998,
+    "best_sharpe": 0.0,
+    "best_return": 0.0,
+    "top_3": [
+      {
+        "name": "trend_following_0",
+        "type": "trend_following",
+        "score": 0.2,
+        "sharpe": 0.0,
+        "return": 0.0
+      },
+      {
+        "name": "swing_trading_0",
+        "type": "swing_trading",
+        "score": 0.2,
+        "sharpe": 0.0,
+        "return": 0.0
+      },
+      {
+        "name": "mean_reversion_0",
+        "type": "mean_reversion",
+        "score": 0.2,
+        "sharpe": 0.0,
+        "return": 0.0
+      }
+    ]
+  }
+]

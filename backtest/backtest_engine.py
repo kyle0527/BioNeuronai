@@ -1,36 +1,31 @@
-"""
-Backtest Engine - 回測引擎主類
-==============================
+"""Replay backtest runner.
 
-整合所有組件，提供完整的回測功能
+This module runs a strategy callback on replayed historical data and records:
+- simulated account/equity changes
+- drawdown/equity series
+- runtime artifacts under backtest/runtime/
 
-主要功能：
-1. 與 TradingEngine 無縫對接
-2. 自動策略評估
-3. 詳細回測報告
-4. 性能分析和可視化
+It does not decide whether to trade.
+The strategy callback or upper project logic still decides that.
 """
 
 import logging
-from typing import Dict, List, Optional, Callable, Any
+from typing import Dict, List, Optional, Callable, Any, Union
 from datetime import datetime
 from dataclasses import dataclass, field
 import json
 
 from .mock_connector import MockBinanceConnector
-from .data_stream import KlineBar
+from .data_stream import DEFAULT_DATA_DIR, KlineBar
+from .runtime_store import ReplayRunRecorder
 
 logger = logging.getLogger(__name__)
-
-# 檔案常量
-DEFAULT_DATA_DIR = "data_downloads/binance_historical"
-
 
 @dataclass
 class BacktestConfig:
     """回測配置"""
     # 數據設置
-    data_dir: str = DEFAULT_DATA_DIR
+    data_dir: Union[str, Any] = DEFAULT_DATA_DIR
     symbol: str = "BTCUSDT"
     interval: str = "1m"
     start_date: Optional[str] = None
@@ -53,7 +48,7 @@ class BacktestConfig:
     
     def to_dict(self) -> Dict:
         return {
-            'data_dir': self.data_dir,
+            'data_dir': str(self.data_dir),
             'symbol': self.symbol,
             'interval': self.interval,
             'start_date': self.start_date,
@@ -105,8 +100,8 @@ class BacktestEngine:
     
     === 方法 1: 快速回測 ===
     
-    engine = BacktestEngine(
-        data_dir="data_downloads/binance_historical",
+        engine = BacktestEngine(
+        data_dir="backtest/data/binance_historical",
         symbol="BTCUSDT",
         start_date="2025-01-01",
         end_date="2025-06-30"
@@ -132,20 +127,21 @@ class BacktestEngine:
     trading_engine.connector = mock
     
     # 現在 TradingEngine 會在歷史數據上運行
-    # 它完全不知道這是回測！
+    # 它會透過 replay connector 讀取歷史資料與模擬執行結果
     """
     
     def __init__(
         self,
         config: Optional[BacktestConfig] = None,
         # 快捷參數
-        data_dir: str = DEFAULT_DATA_DIR,
+        data_dir: Union[str, Any] = DEFAULT_DATA_DIR,
         symbol: str = "BTCUSDT",
         interval: str = "1m",
         start_date: Optional[str] = None,
         end_date: Optional[str] = None,
         initial_balance: float = 10000.0,
         leverage: int = 1,
+        run_recorder: Optional[ReplayRunRecorder] = None,
     ):
         """
         初始化回測引擎
@@ -174,6 +170,7 @@ class BacktestEngine:
             )
         
         # 創建 Mock 連接器
+        self.run_recorder = run_recorder
         self.connector = MockBinanceConnector(
             data_dir=self.config.data_dir,
             symbol=self.config.symbol,
@@ -185,6 +182,7 @@ class BacktestEngine:
             maker_fee=self.config.maker_fee,
             taker_fee=self.config.taker_fee,
             slippage_rate=self.config.slippage_rate,
+            run_recorder=self.run_recorder,
         )
         
         # 回測記錄
@@ -200,6 +198,7 @@ class BacktestEngine:
         self,
         strategy: Callable[[KlineBar, MockBinanceConnector], None],
         progress_interval: int = 1000,
+        print_summary: bool = True,
     ) -> BacktestResult:
         """
         運行回測
@@ -267,7 +266,7 @@ class BacktestEngine:
         # 獲取統計
         stats = self.connector.account.get_stats()
         stats['total_bars'] = self._bar_count
-        stats['effective_bars'] = self._bar_count - self.config.warmup_bars
+        stats['effective_bars'] = max(0, self._bar_count - self.config.warmup_bars)
         
         # 計算額外統計
         stats.update(self._calculate_advanced_stats())
@@ -281,9 +280,21 @@ class BacktestEngine:
             drawdown_curve=self._drawdown_curve,
             timestamps=self._timestamps,
         )
+
+        if self.run_recorder:
+            self.run_recorder.save_account(
+                {
+                    "account_info": self.connector.account.get_account_info(),
+                    "stats": self.connector.account.get_stats(),
+                    "trades": [t.to_dict() for t in self.connector.account.trade_history],
+                }
+            )
+            self.run_recorder.save_result(result.to_dict())
+            self.run_recorder.save_runtime_state(self.connector.get_runtime_snapshot())
         
         # 打印摘要
-        self._print_summary(result)
+        if print_summary:
+            self._print_summary(result)
         
         return result
     
@@ -416,7 +427,7 @@ def quick_backtest(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
     initial_balance: float = 10000.0,
-    data_dir: str = DEFAULT_DATA_DIR,
+    data_dir: Union[str, Any] = DEFAULT_DATA_DIR,
 ) -> BacktestResult:
     """
     快速回測函數
@@ -450,7 +461,7 @@ def create_mock_connector(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
     initial_balance: float = 10000.0,
-    data_dir: str = DEFAULT_DATA_DIR,
+    data_dir: Union[str, Any] = DEFAULT_DATA_DIR,
 ) -> MockBinanceConnector:
     """
     快速創建 Mock 連接器
@@ -470,7 +481,7 @@ def create_mock_connector(
         # 創建 TradingEngine
         engine = TradingEngine()
         
-        # 替換連接器 - TradingEngine 完全不知道這是回測!
+        # 替換連接器，讓 TradingEngine 經由 replay connector 運作
         engine.connector = mock
     """
     return MockBinanceConnector(

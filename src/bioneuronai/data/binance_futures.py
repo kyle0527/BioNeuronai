@@ -32,6 +32,30 @@ class OrderResult:
     timestamp: Optional[datetime] = None
     error: str = ""  # 錯誤訊息
 
+    def get(self, key: str, default: Any = None) -> Any:
+        """兼容舊策略以 dict 方式讀取訂單結果。"""
+        key_map = {
+            "orderId": "order_id",
+            "avgPrice": "price",
+            "type": "order_type",
+        }
+        return getattr(self, key_map.get(key, key), default)
+
+    def to_dict(self) -> Dict[str, Any]:
+        """轉換為交易所風格字典格式。"""
+        return {
+            "symbol": self.symbol,
+            "side": self.side,
+            "type": self.order_type,
+            "quantity": self.quantity,
+            "price": self.price,
+            "avgPrice": self.price,
+            "status": self.status,
+            "orderId": self.order_id,
+            "timestamp": self.timestamp.isoformat() if self.timestamp else None,
+            "error": self.error,
+        }
+
 logger = logging.getLogger(__name__)
 
 
@@ -294,7 +318,8 @@ class BinanceFuturesConnector:
         quantity: float,
         price: Optional[float] = None,
         stop_loss: Optional[float] = None,
-        take_profit: Optional[float] = None
+        take_profit: Optional[float] = None,
+        **kwargs: Any,
     ) -> Optional[OrderResult]:
         """下單"""
         if not self.api_key or not self.api_secret:
@@ -310,12 +335,17 @@ class BinanceFuturesConnector:
                 "type": order_type,
                 "quantity": formatted_qty
             }
+
+            stop_price = kwargs.get("stop_price")
+            time_in_force = kwargs.get("time_in_force")
             
             if order_type == "LIMIT":
                 if price is None:
                     raise ValueError("LIMIT 訂單必須指定價格")
                 params['price'] = f"{price:.2f}"
-                params['timeInForce'] = 'GTC'
+                params['timeInForce'] = time_in_force or 'GTC'
+            elif stop_price is not None:
+                params["stopPrice"] = f"{float(stop_price):.2f}"
             
             result = self._make_request("POST", "/fapi/v1/order", params, signed=True)
             
@@ -324,8 +354,9 @@ class BinanceFuturesConnector:
                     order_id=str(result.get('orderId', '')),
                     symbol=symbol,
                     side=side,
+                    order_type=order_type,
                     quantity=quantity,
-                    price=price if price is not None else 0.0,
+                    price=float(result.get('avgPrice') or result.get('price') or price or 0.0),
                     status=result.get('status', 'UNKNOWN')
                 )
                 
@@ -345,6 +376,7 @@ class BinanceFuturesConnector:
                 order_id="",
                 symbol=symbol,
                 side=side,
+                order_type=order_type,
                 quantity=quantity,
                 price=price if price is not None else 0.0,
                 status="ERROR",

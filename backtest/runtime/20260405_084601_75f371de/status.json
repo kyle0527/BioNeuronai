@@ -1,0 +1,20 @@
+{
+  "run_id": "20260405_084601_75f371de",
+  "mode": "backtest",
+  "status": "completed",
+  "started_at": "2026-04-05T08:46:01.910914",
+  "completed_at": "2026-04-05T08:46:02.040177",
+  "config": {
+    "symbol": "ETHUSDT",
+    "interval": "1h",
+    "balance": 10000.0,
+    "start_date": "2025-12-22",
+    "end_date": "2025-12-23",
+    "warmup_bars": 10,
+    "data_dir": "C:\\D\\E\\BioNeuronai\\backtest\\data\\binance_historical"
+  },
+  "run_dir": "C:\\D\\E\\BioNeuronai\\backtest\\runtime\\20260405_084601_75f371de",
+  "orders_recorded": 3,
+  "fills_recorded": 3,
+  "error": null
+}

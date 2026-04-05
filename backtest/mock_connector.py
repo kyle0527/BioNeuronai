@@ -1,15 +1,8 @@
-"""
-Mock Binance Connector - 接口偽裝
-================================
+"""Replay-side connector.
 
-完全模擬 BinanceFuturesConnector 的所有方法接口
-讓 TradingEngine 無需修改任何代碼即可切換到回測模式
-
-設計原則：
-1. 接口完全一致：所有方法簽名與真實 Connector 相同
-2. 返回格式相同：數據結構模擬 Binance API 響應
-3. 狀態一致性：內部維護虛擬帳戶狀態
-4. 無縫切換：只需替換連接器實例
+This connector provides historical market data and accepts order intents from
+the project. It simulates fills and account state, but it does not decide
+whether an order should be sent in the first place.
 """
 
 import logging
@@ -18,42 +11,13 @@ import threading
 from pathlib import Path
 from typing import Dict, List, Optional, Callable, Any, Union, Generator
 from datetime import datetime
-from dataclasses import dataclass
 
-from .data_stream import HistoricalDataStream, KlineBar
+from .contracts import ExecutionReceipt, OrderIntent, ReplayRuntimeState
+from .data_stream import DEFAULT_DATA_DIR, HistoricalDataStream, KlineBar
+from .runtime_store import ReplayRunRecorder
 from .virtual_account import VirtualAccount, OrderStatus
-
-try:
-    from bioneuronai.trading_strategies import MarketData
-    from bioneuronai.data.binance_futures import OrderResult
-except ImportError:
-    # 備用定義
-    @dataclass
-    class MarketData:  # type: ignore[no-redef]
-        symbol: str
-        price: float
-        volume: float
-        timestamp: datetime
-        high: float
-        low: float
-        open: float
-        close: float
-        bid: float
-        ask: float
-        funding_rate: float = 0.0
-        open_interest: float = 0.0
-    
-    @dataclass
-    class OrderResult:  # type: ignore[no-redef]
-        symbol: str
-        side: str
-        order_type: str = "MARKET"
-        quantity: float = 0.0
-        price: float = 0.0
-        status: str = "UNKNOWN"
-        order_id: str = ""
-        timestamp: Optional[datetime] = None
-        error: str = ""
+from schemas.market import MarketData
+from bioneuronai.data.binance_futures import OrderResult
 
 logger = logging.getLogger(__name__)
 
@@ -71,7 +35,7 @@ class MockBinanceConnector:
     from backtest import MockBinanceConnector
     
     mock = MockBinanceConnector(
-        data_dir="data_downloads/binance_historical",
+        data_dir="backtest/data/binance_historical",
         symbol="BTCUSDT",
         start_date="2025-01-01",
         end_date="2025-06-30"
@@ -93,7 +57,7 @@ class MockBinanceConnector:
     
     def __init__(
         self,
-        data_dir: Union[str, Path] = "data_downloads/binance_historical",
+        data_dir: Union[str, Path] = DEFAULT_DATA_DIR,
         symbol: str = "BTCUSDT",
         interval: str = "1m",
         start_date: Optional[str] = None,
@@ -104,6 +68,7 @@ class MockBinanceConnector:
         taker_fee: float = 0.0004,
         slippage_rate: float = 0.0001,
         speed_multiplier: float = 0.0,  # 無延遲模式
+        run_recorder: Optional[ReplayRunRecorder] = None,
         **kwargs  # 偽裝用參數 (api_key, api_secret, testnet)
     ):
         """
@@ -158,6 +123,8 @@ class MockBinanceConnector:
         self._playback_thread: Optional[threading.Thread] = None
         self._current_bar: Optional[KlineBar] = None
         self._bar_generator: Optional[Generator[KlineBar, None, None]] = None  # 用於 next_tick()
+        self.run_recorder = run_recorder
+        self.runtime_state = ReplayRuntimeState()
         
         # 公開 account 為 virtual_account（兼容性）
         self.virtual_account = self.account
@@ -384,59 +351,100 @@ class MockBinanceConnector:
         quantity: float,
         price: Optional[float] = None,
         stop_loss: Optional[float] = None,
-        take_profit: Optional[float] = None
+        take_profit: Optional[float] = None,
+        **kwargs: Any,
     ) -> Optional[OrderResult]:
         """
         下單 - 完全模擬 BinanceFuturesConnector.place_order
         
         會觸發虛擬帳戶的訂單撮合邏輯
         """
+        stop_price = kwargs.get("stop_price")
+        effective_stop = stop_loss if stop_loss is not None else stop_price
+        intent = OrderIntent(
+            symbol=symbol,
+            side=side,
+            order_type=order_type,
+            quantity=quantity,
+            price=price,
+            stop_loss=effective_stop,
+            take_profit=take_profit,
+        )
+        receipt = self.submit_order(intent)
+        return OrderResult(
+            order_id=receipt.order_id,
+            symbol=symbol,
+            side=side,
+            order_type=order_type,
+            quantity=quantity,
+            price=receipt.avg_price if receipt.avg_price > 0 else (price or 0),
+            status=receipt.status,
+            timestamp=datetime.now(),
+            error=receipt.message,
+        )
+
+    def submit_order(self, intent: OrderIntent) -> ExecutionReceipt:
+        """接收專案送出的訂單意圖，僅模擬執行與回傳結果。"""
         try:
             # 更新當前價格
-            bar = self._get_current_bar(symbol)
+            bar = self._get_current_bar(intent.symbol)
             if bar:
-                self.account.update_price(symbol, bar.close)
+                self.account.update_price(intent.symbol, bar.close)
             
             # 下單
             order = self.account.place_order(
-                symbol=symbol,
-                side=side,
-                order_type=order_type,
-                quantity=quantity,
-                price=price,
+                symbol=intent.symbol,
+                side=intent.side,
+                order_type=intent.order_type,
+                quantity=intent.quantity,
+                price=intent.price,
+                stop_price=intent.stop_loss,
             )
             
-            # 處理止損止盈
-            if stop_loss and order.status == OrderStatus.FILLED:
-                self._place_stop_loss_order(symbol, side, quantity, stop_loss)
+            protective_types = {"MARKET", "LIMIT"}
+            if (
+                intent.stop_loss
+                and order.status == OrderStatus.FILLED
+                and intent.order_type.upper() in protective_types
+            ):
+                self._place_stop_loss_order(intent.symbol, intent.side, intent.quantity, intent.stop_loss)
             
-            if take_profit and order.status == OrderStatus.FILLED:
-                self._place_take_profit_order(symbol, side, quantity, take_profit)
-            
-            # 轉換為 OrderResult 格式
-            return OrderResult(
+            if (
+                intent.take_profit
+                and order.status == OrderStatus.FILLED
+                and intent.order_type.upper() in protective_types
+            ):
+                self._place_take_profit_order(intent.symbol, intent.side, intent.quantity, intent.take_profit)
+
+            receipt = ExecutionReceipt(
+                accepted=order.status != OrderStatus.REJECTED,
                 order_id=order.order_id,
-                symbol=symbol,
-                side=side,
-                order_type=order_type,
-                quantity=quantity,
-                price=order.filled_price if order.filled_price > 0 else (price or 0),
                 status=order.status.value,
-                timestamp=order.timestamp,
+                filled_qty=order.filled_quantity,
+                avg_price=order.filled_price if order.filled_price > 0 else (intent.price or 0),
+                raw=order.to_dict(),
             )
+            self.runtime_state.orders_received += 1
+            if receipt.accepted and receipt.filled_qty > 0:
+                self.runtime_state.fills_emitted += 1
+            self.runtime_state.last_updated_at = datetime.now()
+            if self.run_recorder:
+                self.run_recorder.record_order(intent, receipt)
+            return receipt
             
         except Exception as e:
             logger.error(f"❌ 模擬下單失敗: {e}")
-            return OrderResult(
+            receipt = ExecutionReceipt(
+                accepted=False,
                 order_id="",
-                symbol=symbol,
-                side=side,
-                order_type=order_type,
-                quantity=quantity,
-                price=price or 0,
                 status="ERROR",
-                error=str(e),
+                message=str(e),
             )
+            self.runtime_state.orders_received += 1
+            self.runtime_state.last_updated_at = datetime.now()
+            if self.run_recorder:
+                self.run_recorder.record_order(intent, receipt)
+            return receipt
     
     def _place_stop_loss_order(self, symbol: str, original_side: str, quantity: float, stop_price: float):
         """下止損單"""
@@ -584,6 +592,10 @@ class MockBinanceConnector:
             bar = next(self._bar_generator)
             self._current_bar = bar
             self.account.update_price(bar.symbol, bar.close)
+            self.runtime_state.current_bar_index = self.data_stream.state.current_index
+            self.runtime_state.current_open_time = bar.open_time
+            self.runtime_state.current_price = bar.close
+            self.runtime_state.last_updated_at = datetime.now()
             
             # 觸發 ticker 回調（如果有訂閱）
             if bar.symbol in self._ticker_callbacks:
@@ -604,6 +616,31 @@ class MockBinanceConnector:
         except StopIteration:
             logger.info("📺 歷史數據播放完畢")
             return False
+
+    def get_runtime_snapshot(self) -> Dict[str, Any]:
+        """回傳 replay 執行狀態，不包含原始歷史資料內容。"""
+        current, total, pct = self.data_stream.get_progress()
+        return {
+            "mode": self.runtime_state.mode,
+            "symbol": self.symbol,
+            "interval": self.interval,
+            "current_bar_index": self.runtime_state.current_bar_index,
+            "current_open_time": self.runtime_state.current_open_time,
+            "current_price": self.runtime_state.current_price,
+            "orders_received": self.runtime_state.orders_received,
+            "fills_emitted": self.runtime_state.fills_emitted,
+            "last_updated_at": self.runtime_state.last_updated_at.isoformat()
+            if self.runtime_state.last_updated_at
+            else None,
+            "progress": {
+                "current": current,
+                "total": total,
+                "percent": pct,
+            },
+            "account_stats": self.account.get_stats(),
+            "open_orders": len(self.account.open_orders),
+            "positions": len(self.account.positions),
+        }
     
     def step(self) -> Optional[KlineBar]:
         """

@@ -14,7 +14,7 @@ from typing import Dict, List, Optional, Tuple, Any
 from dataclasses import dataclass
 from pathlib import Path
 
-from bioneuronai.trading_strategies import MarketData
+from schemas.market import MarketData
 
 # 錯誤常量定義
 ERROR_MODULE_UNAVAILABLE = "MODULE_UNAVAILABLE"
@@ -192,7 +192,7 @@ class PreTradeCheckSystem:
         try:
             from .. import CryptoFuturesTrader, TradingSignal  # noqa: F401
             from ..analysis import CryptoNewsAnalyzer  # noqa: F401
-            from ..trading_strategies import StrategyFusion  # noqa: F401
+            from ..strategies import AIStrategyFusion  # noqa: F401
             self.modules_available = True
             logger.info("[OK] 交易模組導入成功")
         except ImportError as e:

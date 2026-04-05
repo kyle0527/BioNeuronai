@@ -9,7 +9,9 @@ import logging
 from datetime import datetime
 from typing import Dict, List, Optional, Any
 from pathlib import Path
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass
+
+import numpy as np
 
 from bioneuronai.analysis.news import CryptoNewsAnalyzer
 from bioneuronai.analysis.feature_engineering import MarketMicrostructure
@@ -21,12 +23,19 @@ from bioneuronai.core.inference_engine import SignalType
 from bioneuronai.data.binance_futures import OrderResult
 from bioneuronai.analysis.news import NewsAnalysisResult
 from schemas.enums import SignalType as TradeSignalType  # 交易信號的 BUY/SELL/HOLD 枚舉
+from schemas.market import MarketData
+from schemas.trading import TradingSignal
 
-# 核心模組導入 - 使用原始數據模型
-from ..trading_strategies import MarketData, TradingSignal, StrategyFusion
 from ..data import BinanceFuturesConnector
 from ..data.database_manager import get_database_manager, DatabaseManager
 from ..trading.risk_manager import RiskManager
+
+try:
+    from ..strategies.selector import StrategySelector
+    STRATEGY_SELECTOR_AVAILABLE = True
+except ImportError:
+    StrategySelector = None  # type: ignore[assignment,misc]
+    STRATEGY_SELECTOR_AVAILABLE = False
 
 # 位置數據模型（創建缺失的 Position 類別）
 @dataclass
@@ -118,14 +127,18 @@ class TradingEngine:
         self.connector = BinanceFuturesConnector(api_key, api_secret, testnet)
         self.risk_manager = RiskManager()  # RiskManager不需要參數
         
-        #  use_strategy_fusion
-        if use_strategy_fusion or strategy_type == "fusion":
-            self.strategy = StrategyFusion()
-            logger.info("[AI] Using AI Strategy Fusion System")
-        else:
-            # 目前僅支援 StrategyFusion；其他策略類型預留擴展
-            self.strategy = StrategyFusion()
-            logger.warning("[AI] Strategy type '%s' not yet supported, falling back to StrategyFusion", strategy_type)
+        # 正式策略主線：StrategySelector + AIStrategyFusion
+        if not STRATEGY_SELECTOR_AVAILABLE or StrategySelector is None:
+            raise ImportError("StrategySelector 不可用，無法初始化正式策略主線")
+
+        self.strategy = StrategySelector(
+            timeframe="1m",
+            enable_ai_fusion=use_strategy_fusion or strategy_type == "fusion",
+        )
+        logger.info(
+            "✅ 使用新策略主線: StrategySelector%s",
+            " + AI Fusion" if getattr(self.strategy, "ai_fusion_available", False) else "",
+        )
         
         # 
         self.auto_trade = False
@@ -464,42 +477,17 @@ class TradingEngine:
     def _process_market_data(self, data: Dict, symbol: str) -> Optional[TradingSignal]:
         """"""
         try:
-            # 使用已導入的 MarketData
-            StrategyMarketData = MarketData  # 來自頂部導入
-            
             current_price = float(data['c'])
-            
-            # 
-            market_data: MarketData = StrategyMarketData(
-                symbol=data['s'],
-                volume=float(data['v']),
-                timestamp=datetime.now(),
-                high=float(data['h']),
-                low=float(data['l']),
-                open=float(data['o']),
-                close=current_price,
-                bid=float(data['b']),
-                ask=float(data['a']),
-                funding_rate=0.0,
-                open_interest=0.0
+            klines = self._get_klines(symbol, interval="1m", limit=200)
+            if not klines or len(klines) < 20:
+                return None
+
+            final_signal = self.generate_trading_signal(
+                symbol=symbol,
+                current_price=current_price,
+                klines=klines,
+                display_ai=True,
             )
-            
-            # ========== AI  ==========
-            ai_signal: Optional[AITradingSignal] = None
-            if self.enable_ai_model and self.ai_model_loaded:
-                ai_signal = self.get_ai_prediction(symbol)
-                if ai_signal:
-                    self._display_ai_signal(ai_signal, current_price)
-            
-            # ==========  ==========
-            signal: Optional[TradingSignal] = None
-            if hasattr(self.strategy, 'analyze'):
-                signal = self.strategy.analyze(market_data)
-            elif hasattr(self.strategy, 'analyze_market'):
-                signal = self.strategy.analyze_market(market_data)
-            
-            # ==========  ==========
-            final_signal: Optional[TradingSignal] = self._fuse_signals(signal, ai_signal, symbol, current_price)
             
             if final_signal:
                 self.signals_history.append(final_signal)
@@ -511,6 +499,165 @@ class TradingEngine:
         except Exception as e:
             logger.error(f": {e}")
             return None
+
+    def generate_trading_signal(
+        self,
+        symbol: str,
+        current_price: float,
+        klines: List[Dict[str, Any]],
+        event_score: float = 0.0,
+        event_context: Optional[Any] = None,
+        display_ai: bool = False,
+    ) -> Optional[TradingSignal]:
+        """
+        產生正式交易信號。
+
+        統一 live / replay 使用同一條策略主線：
+        1. StrategySelector / AI Fusion 產生策略信號
+        2. 可用時再融合 AI inference signal
+        """
+        strategy_signal = self._generate_strategy_signal(
+            symbol=symbol,
+            current_price=current_price,
+            klines=klines,
+            event_score=event_score,
+            event_context=event_context,
+        )
+
+        ai_signal: Optional[AITradingSignal] = None
+        if self.enable_ai_model and self.ai_model_loaded and self.inference_engine:
+            try:
+                ai_signal = self.inference_engine.predict(
+                    symbol=symbol,
+                    current_price=current_price,
+                    klines=klines,
+                )
+                if ai_signal and display_ai:
+                    self._display_ai_signal(ai_signal, current_price)
+            except Exception as e:
+                logger.warning(f"AI 信號生成失敗: {e}")
+
+        return self._fuse_signals(strategy_signal, ai_signal, symbol, current_price)
+
+    def _generate_strategy_signal(
+        self,
+        symbol: str,
+        current_price: float,
+        klines: List[Dict[str, Any]],
+        event_score: float = 0.0,
+        event_context: Optional[Any] = None,
+    ) -> Optional[TradingSignal]:
+        """使用新策略主線生成可執行的 TradingSignal。"""
+        ohlcv_data = self._convert_klines_to_ohlcv(klines)
+        if ohlcv_data.size == 0 or len(ohlcv_data) < 20:
+            return None
+
+        payload = self.strategy.get_actionable_signal(  # type: ignore[union-attr]
+            ohlcv_data=ohlcv_data,
+            symbol=symbol,
+            event_score=event_score,
+            event_context=event_context,
+        )
+        if not payload or not payload.get("should_trade"):
+            return None
+
+        direction = str(payload.get("direction", "")).lower()
+        signal_type = self._direction_to_signal_type(direction)
+        if signal_type is None:
+            return None
+
+        entry_price = payload.get("entry_price") or current_price
+        take_profit = payload.get("take_profit")
+        stop_loss = payload.get("stop_loss")
+
+        target_price = None
+        if take_profit and self._is_valid_target_price(signal_type, float(entry_price), float(take_profit)):
+            target_price = float(take_profit)
+
+        stop_loss_value = None
+        if stop_loss and self._is_valid_stop_loss(signal_type, float(entry_price), float(stop_loss)):
+            stop_loss_value = float(stop_loss)
+
+        confidence = float(payload.get("confidence") or payload.get("setup_confidence") or 0.5)
+
+        return TradingSignal(
+            symbol=symbol,
+            signal_type=signal_type,
+            confidence=max(0.0, min(1.0, confidence)),
+            entry_price=float(entry_price),
+            target_price=target_price,
+            stop_loss=stop_loss_value,
+            take_profit=float(take_profit) if take_profit else None,
+            position_size=None,
+            strategy_name=str(payload.get("strategy_name", "strategy_selector")),
+            reason=(
+                f"新策略主線: {payload.get('strategy_name', 'strategy_selector')} | "
+                f"{payload.get('fusion_method', 'selector')}"
+            ),
+            metadata={
+                "source": "strategy_selector",
+                "direction": direction,
+                "contributing_strategies": payload.get("contributing_strategies", []),
+                "consensus_strength": payload.get("consensus_strength"),
+            },
+            timestamp=datetime.now(),
+        )
+
+    def _convert_klines_to_ohlcv(self, klines: List[Dict[str, Any]]) -> np.ndarray:
+        """將 K 線 dict 列表轉為 selector 需要的 OHLCV numpy array。"""
+        rows = []
+        for kline in klines:
+            try:
+                rows.append([
+                    float(kline.get("open_time", 0)),
+                    float(kline.get("open", kline.get("o", 0))),
+                    float(kline.get("high", kline.get("h", 0))),
+                    float(kline.get("low", kline.get("l", 0))),
+                    float(kline.get("close", kline.get("c", 0))),
+                    float(kline.get("volume", kline.get("v", 0))),
+                ])
+            except (TypeError, ValueError):
+                continue
+
+        if not rows:
+            return np.empty((0, 6))
+        return np.array(rows, dtype=float)
+
+    def _direction_to_signal_type(self, direction: str) -> Optional[TradeSignalType]:
+        """將策略方向轉為統一 SignalType。"""
+        mapping = {
+            "long": TradeSignalType.BUY,
+            "short": TradeSignalType.SELL,
+            "buy": TradeSignalType.BUY,
+            "sell": TradeSignalType.SELL,
+        }
+        return mapping.get(direction)
+
+    def _is_valid_stop_loss(
+        self,
+        signal_type: TradeSignalType,
+        entry_price: float,
+        stop_loss: float,
+    ) -> bool:
+        """驗證止損與方向一致。"""
+        if signal_type == TradeSignalType.BUY:
+            return stop_loss < entry_price
+        if signal_type == TradeSignalType.SELL:
+            return stop_loss > entry_price
+        return False
+
+    def _is_valid_target_price(
+        self,
+        signal_type: TradeSignalType,
+        entry_price: float,
+        target_price: float,
+    ) -> bool:
+        """驗證目標價與方向一致。"""
+        if signal_type == TradeSignalType.BUY:
+            return target_price > entry_price
+        if signal_type == TradeSignalType.SELL:
+            return target_price < entry_price
+        return False
     
     def _fuse_signals(
         self, 
@@ -548,6 +695,9 @@ class TradingEngine:
         symbol: str
     ) -> Optional[TradingSignal]:
         """創建僅含策略信號的交易信號"""
+        if isinstance(strategy_signal, TradingSignal):
+            return strategy_signal
+
         if not hasattr(strategy_signal, 'signal_type'):
             return None
         
@@ -604,13 +754,18 @@ class TradingEngine:
         )
         
         return TradingSignal(
-            signal_type=TradeSignalType(action.lower()),
             symbol=symbol,
+            signal_type=TradeSignalType(action.lower()),
             confidence=enhanced_confidence,
             entry_price=current_price,
             strategy_name='ai_strategy_fusion',
             reason=f"AI+ | AI: {ai_signal.reasoning}",
-            target_price=current_price,
+            target_price=(
+                ai_signal.suggested_take_profit
+                if ai_signal.suggested_take_profit > 0 and
+                self._is_valid_target_price(TradeSignalType(action.lower()), current_price, ai_signal.suggested_take_profit)
+                else getattr(strategy_signal, 'target_price', None)
+            ),
             stop_loss=ai_signal.suggested_stop_loss if ai_signal.suggested_stop_loss > 0 
                       else getattr(strategy_signal, 'stop_loss', None),
             take_profit=ai_signal.suggested_take_profit if ai_signal.suggested_take_profit > 0 
@@ -685,13 +840,18 @@ class TradingEngine:
         action: str = self._get_ai_action(ai_signal)
         
         return TradingSignal(
-            signal_type=TradeSignalType(action.lower()),
             symbol=symbol,
+            signal_type=TradeSignalType(action.lower()),
             confidence=ai_signal.confidence,
             entry_price=current_price,
             strategy_name='ai_inference',
             reason=f"AI推理: {ai_signal.reasoning}",
-            target_price=current_price,
+            target_price=(
+                ai_signal.suggested_take_profit
+                if ai_signal.suggested_take_profit > 0 and
+                self._is_valid_target_price(TradeSignalType(action.lower()), current_price, ai_signal.suggested_take_profit)
+                else None
+            ),
             stop_loss=ai_signal.suggested_stop_loss if ai_signal.suggested_stop_loss > 0 else None,
             take_profit=ai_signal.suggested_take_profit if ai_signal.suggested_take_profit > 0 else None,
             position_size=ai_signal.suggested_position_size or None,
@@ -809,13 +969,20 @@ class TradingEngine:
                 }
                 
                 self.risk_manager.record_trade(trade_info)
+                if hasattr(self.strategy, "record_trade_result"):
+                    self.strategy.record_trade_result(  # type: ignore[union-attr]
+                        str(getattr(signal, "strategy_name", "strategy_selector")),
+                        {
+                            "r_multiple": 0.0,
+                            "confidence": signal.confidence,
+                            "pnl": 0.0,
+                            "symbol": signal.symbol,
+                        },
+                    )
                 self._save_trade_to_file(trade_info)
                 
                 logger.info(f"  ID: {order_result.order_id}")
                 
-                # 
-                if hasattr(self.strategy, 'update_strategy_performance'):
-                    logger.info("")
             else:
                 logger.error(f" : {order_result.error if order_result else ''}")
                 
@@ -1174,6 +1341,8 @@ class TradingEngine:
     
     def get_strategy_report(self) -> Dict:
         """"""
+        if hasattr(self.strategy, 'get_performance_summary'):
+            return self.strategy.get_performance_summary()
         if hasattr(self.strategy, 'get_strategy_report'):
             return self.strategy.get_strategy_report()
         return {"message": ""}
@@ -1184,9 +1353,9 @@ class TradingEngine:
             # 
             history_data = []
             for signal in self.signals_history[-1000:]:
-                signal_dict = asdict(signal)
-                if hasattr(signal_dict.get('timestamp'), 'isoformat'):
-                    signal_dict['timestamp'] = signal_dict['timestamp'].isoformat()
+                signal_dict = signal.model_dump()
+                if hasattr(signal.timestamp, 'isoformat'):
+                    signal_dict['timestamp'] = signal.timestamp.isoformat()
                 history_data.append(signal_dict)
             
             signals_path: Path = self.data_dir / "signals_history.json"

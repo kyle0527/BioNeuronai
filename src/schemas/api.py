@@ -232,6 +232,7 @@ class BacktestRequest(BaseModel):
     start_date: Optional[str] = Field(default=None, description="起始日期 YYYY-MM-DD")
     end_date: Optional[str] = Field(default=None, description="結束日期 YYYY-MM-DD")
     balance: float = Field(default=10000.0, gt=0, description="初始資金")
+    warmup_bars: int = Field(default=100, ge=0, description="預熱 K 線數量")
 
 
 class SimulateRequest(BaseModel):

@@ -1,8 +1,8 @@
 # 策略模組 (Strategies)
 
 **路徑**: `src/bioneuronai/strategies/`  
-**版本**: v4.3.1
-**更新日期**: 2026-03-16
+**版本**: v4.4.1
+**更新日期**: 2026-04-05
 **架構層級**: Layer 2 — 策略層
 
 ---
@@ -24,16 +24,16 @@
 
 ## 🎯 模組概述
 
-策略模組是 BioNeuronai 的核心競爭力所在，實現了從基礎交易策略到 AI 融合再到遺傳演算法進化的三層策略體系。包含 **6 種基礎策略**、AI 融合系統、智能選擇器與完整的進化架構。
+策略模組是 BioNeuronai 的核心競爭力所在，實現了從基礎交易策略到 AI 融合再到策略競爭與優化的多層體系。包含 **6 種基礎策略**、AI 融合系統、智能選擇器與高階競爭框架。
 
 ### 模組職責
 - ✅ 6 種基礎交易策略（趨勢 / 波段 / 均值回歸 / 突破 / 方向變化 / 配對交易）
-- ✅ AI 策略融合（整合全部 6 種基礎策略，動態加權）
+- ✅ AI 策略融合（整合主要單資產策略，動態加權）
 - ✅ 智能策略選擇器（市場體制識別 → 策略推薦 / 詳細選擇）
-- ✅ 策略競技場（遺傳算法單策略優化，支援多進程並行）
-- ✅ 階段路由器（9 交易階段動態切換）
-- ✅ 組合優化器（全局多階段最優解）
-- ✅ 強化學習融合代理（PPO 自主學習，via stable-baselines3）
+- ✅ 策略競技場（遺傳算法單策略競爭，已改接正式 replay）
+- ⚠️ 階段路由器（9 交易階段動態切換，尚未接入正式主線）
+- ⚠️ 組合優化器（全局多階段最優解，已改接正式 replay，但仍未接入正式主線）
+- ⚠️ 強化學習融合代理（PPO 自主學習，研究型能力，未接正式主線）
 
 ---
 
@@ -92,7 +92,7 @@ src/bioneuronai/strategies/
    │  AIStrategyFusion    │   ← PPO RL Agent (rl_fusion_agent)
    │  (strategy_fusion)   │
    └──────────┬───────────┘
-              │  整合全部 6 種基礎策略
+              │  整合主要單資產基礎策略
    ┌──────────┼──────────────────────┐
    │          │            │         │
  ┌─┴──┐  ┌───┴──┐  ┌──────┴┐  ┌────┴────┐  ┌────┐  ┌────┐
@@ -113,6 +113,9 @@ src/bioneuronai/strategies/
 ### `base_strategy.py` — 策略抽象基類 (779 行)
 
 所有策略的 ABC 基類，定義統一接口與交易生命週期（analyze_market → entry → manage_position → exit → risk_control）。
+
+> 目前固定策略層最重要的已知問題在這裡：  
+> `run_iteration()` 內的 setup 驗證與 `total_position_size` 計算順序仍需調整，這會影響部分策略的實際出手率。
 
 **核心 Enum / dataclass**:
 - `StrategyState` · `SignalStrength` · `MarketCondition`
@@ -144,6 +147,8 @@ src/bioneuronai/strategies/
 
 **優勢**: 過濾短期噪音、自適應市場波動（θ 可動態調整）、比固定時框更早發現反轉
 
+**目前狀態補充**: 策略本體完整，但在現有 ETH replay 資料窗口上尚未驗證出穩定觸發。
+
 #### `pair_trading_strategy.py` — 配對交易策略 (統計套利)
 
 利用兩個具有長期協整關係的加密貨幣（如 BTC/ETH）之間對數價格比率的均值回歸特性進行統計套利。
@@ -159,19 +164,23 @@ src/bioneuronai/strategies/
 
 **資料輸入**: `ohlcv_data`（主資產）+ `additional_data['secondary_ohlcv']`（次要資產）
 
+**目前狀態補充**: 配對策略評估高度依賴次資產歷史資料。正式 replay 目前只有 `ETHUSDT` 主資料，尚不足以完成正式驗證。
+
 ---
 
 ## 🤖 策略融合
 
 ### `strategy_fusion.py` — AI 策略融合系統 (1,144 行)
 
-整合**全部 6 種基礎策略**的信號，動態加權融合輸出最終交易決策。依市場體制（MarketRegime）自動調整各策略權重。
+整合**主要單資產基礎策略**的信號，動態加權融合輸出最終交易決策。依市場體制（MarketRegime）自動調整各策略權重。
 
 **主要類**: `AIStrategyFusion`
 **dataclass**: `StrategyWeight` · `FusionSignal` · `MarketRegime`
 **Enum**: `FusionMethod`
 
-**整合策略**: `TrendFollowingStrategy` · `SwingTradingStrategy` · `MeanReversionStrategy` · `BreakoutTradingStrategy` · `DirectionChangeStrategy` · `PairTradingStrategy`
+**整合策略**: `TrendFollowingStrategy` · `SwingTradingStrategy` · `MeanReversionStrategy` · `BreakoutTradingStrategy` · `DirectionChangeStrategy`
+
+> `PairTradingStrategy` 雖然存在於策略層，但因需要 `secondary_ohlcv`，不適合直接塞進單資產融合主流程。
 
 **融合方法** (`FusionMethod`，5 種)：
 
@@ -262,9 +271,12 @@ selection = await selector.select_optimal_strategy(ohlcv_data)
 | `AVG_TRADE_RETURN` | 平均交易回報 |
 | `CONSISTENCY` | 一致性（月度正回報比例） |
 
-**特色**: 多進程並行回測（`ProcessPoolExecutor`）、參數網格搜索
+**特色**: 多進程並行評估（`ProcessPoolExecutor`）、參數隨機探索
 
-**整合所有 6 種基礎策略**: 可對 TrendFollowing、SwingTrading、MeanReversion、BreakoutTrading、DirectionChange、PairTrading 分別進行 GA 優化。
+**目前狀態**:
+- 已改用正式 replay 評估，不再使用隨機假績效
+- 可對 6 種基礎策略分別進行 GA 評估
+- 但固定策略層目前仍在調整，因此競爭結果已可信、但可辨識度仍有限
 
 ### PhaseRouter — 階段路由器 (`phase_router.py`, 948 行)
 
@@ -286,6 +298,11 @@ selection = await selector.select_optimal_strategy(ohlcv_data)
 | `HIGH_VOLATILITY` | 極端高波動 |
 | `LOW_VOLATILITY` | 極端低波動 |
 
+**目前狀態**:
+- 編排框架已存在
+- 尚未接入正式 `TradingEngine` 主線
+- 與目前 `TradeSetup` 資料模型仍有欄位對齊工作未完成
+
 ### PortfolioOptimizer — 組合優化器 (`portfolio_optimizer.py`, 591 行)
 
 整合 `PhaseRouter` + `StrategyArena`，以遺傳算法尋找全局最優多階段策略組合。
@@ -296,6 +313,11 @@ selection = await selector.select_optimal_strategy(ohlcv_data)
 `MAXIMIZE_RETURN` · `MAXIMIZE_SHARPE` · `MINIMIZE_DRAWDOWN` · `MAXIMIZE_CONSISTENCY`
 
 **基因編碼**: 各階段的「策略類型 + 策略權重 + 參數向量 + 切換閾值」拼接而成的扁平向量。
+
+**目前狀態**:
+- 已改用正式 replay 聚合各 phase gene 的結果
+- 仍未接入正式主交易主線
+- 實際效果仍受固定策略層可交易性限制
 
 ### RLFusionAgent — 強化學習融合代理 (`rl_fusion_agent.py`, 670 行)
 
@@ -310,7 +332,8 @@ gymnasium          # RL 環境框架
 stable-baselines3  # PPO 算法實現
 torch.nn           # 策略網絡
 ```
-> `SB3_AVAILABLE` 旗標控制，未安裝時降級為規則型融合，不影響核心運作。
+> `SB3_AVAILABLE` 旗標控制，未安裝時降級為規則型融合，不影響核心運作。  
+> 目前此模組仍屬研究型能力，未接正式主交易主線。
 
 ---
 
@@ -331,7 +354,7 @@ from bioneuronai.strategies import (
     DirectionChangeStrategy,   # DC 事件驅動策略 (2026-03-09)
     PairTradingStrategy,       # 統計套利配對策略 (2026-03-09)
 
-    # AI 融合（整合全部 6 種基礎策略）
+    # AI 融合（整合主要單資產基礎策略）
     AIStrategyFusion, FusionMethod, FusionSignal, MarketRegime,
 
     # 階段路由
@@ -363,9 +386,10 @@ from bioneuronai.strategies import (
 from bioneuronai.strategies import TrendFollowingStrategy
 
 strategy = TrendFollowingStrategy()
-setup = strategy.analyze(market_data)
-if setup.is_valid:
-    execution = strategy.generate_trade(setup)
+market_analysis = strategy.analyze_market(ohlcv_data, {"symbol": "ETHUSDT"})
+setup = strategy.evaluate_entry_conditions(market_analysis, ohlcv_data)
+if setup is not None:
+    print(setup.direction, setup.entry_price)
 ```
 
 ### DC 方向變化策略
@@ -381,12 +405,16 @@ print(f"DC 趨勢方向: {analysis.trend_direction}, OS 比率: {analysis.oversh
 ```python
 from bioneuronai.strategies import PairTradingStrategy
 
-pair = PairTradingStrategy(entry_z=2.0, exit_z=0.5)
-signal = pair.analyze(btc_ohlcv, additional_data={"secondary_ohlcv": eth_ohlcv})
-print(f"配對信號: {signal.direction}, Z-Score: {signal.z_score:.2f}")
+pair = PairTradingStrategy()
+analysis = pair.analyze_market(
+    btc_ohlcv,
+    additional_data={"symbol": "BTCUSDT", "secondary_ohlcv": eth_ohlcv},
+)
+setup = pair.evaluate_entry_conditions(analysis, btc_ohlcv)
+print(setup.direction if setup else "no setup")
 ```
 
-### AI 融合（整合全部 6 種策略）
+### AI 融合（整合主要單資產策略）
 ```python
 from bioneuronai.strategies import AIStrategyFusion, FusionMethod
 
@@ -408,9 +436,9 @@ print(f"推薦策略: {result.strategy_name}, 市場體制: {result.market_regim
 ```python
 from bioneuronai.strategies.strategy_arena import StrategyArena, ArenaConfig
 
-arena = StrategyArena(config=ArenaConfig(population_size=50))
-best = arena.run()  # 執行完整進化流程，回傳 StrategyCandidate
-print(f"最優候選: {best.strategy_name}, Sharpe: {best.metrics.get('sharpe_ratio', 0):.2f}")
+arena = StrategyArena(config=ArenaConfig(population_size=10, symbol="ETHUSDT", interval="1h"))
+best = arena.run()
+print(f"最優候選: {best.name}, Sharpe: {best.sharpe_ratio:.2f}, Trades: {best.total_trades}")
 ```
 
 ---

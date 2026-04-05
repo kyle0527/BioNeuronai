@@ -9,8 +9,10 @@ API Request / Response Models
 
 from schemas.api import (  # noqa: F401
     # Request models
+    BacktestRequest,
     NewsRequest,
     PreTradeRequest,
+    SimulateRequest,
     TradeStartRequest,
     BinanceValidateRequest,
     # Response / status models
@@ -22,6 +24,8 @@ from schemas.api import (  # noqa: F401
 __all__ = [
     "NewsRequest",
     "PreTradeRequest",
+    "BacktestRequest",
+    "SimulateRequest",
     "TradeStartRequest",
     "BinanceValidateRequest",
     "ApiResponse",

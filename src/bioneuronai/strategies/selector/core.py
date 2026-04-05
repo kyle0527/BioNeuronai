@@ -159,6 +159,7 @@ class StrategySelector:
         ohlcv_data: np.ndarray,
         account_balance: float = 10000.0,
         use_ai_fusion: bool = True,
+        symbol: Optional[str] = None,
         event_score: float = 0.0,
         event_context: Optional[Any] = None,
     ) -> StrategyRecommendation:
@@ -199,7 +200,7 @@ class StrategySelector:
         # 5. AI Fusion 整合
         if use_ai_fusion and self._ai_fusion:
             self._apply_ai_fusion(
-                recommendation, ohlcv_data, event_score, event_context
+                recommendation, ohlcv_data, symbol, event_score, event_context
             )
         
         # 6. 風險評估
@@ -265,6 +266,7 @@ class StrategySelector:
         self,
         recommendation: StrategyRecommendation,
         ohlcv_data: np.ndarray,
+        symbol: Optional[str],
         event_score: float,
         event_context: Optional[Any],
     ):
@@ -274,6 +276,7 @@ class StrategySelector:
         try:
             fusion_signal = self._ai_fusion.generate_fusion_signal(
                 ohlcv_data,
+                additional_data={"symbol": symbol} if symbol else None,
                 event_score=event_score,
                 event_context=event_context
             )
@@ -513,7 +516,11 @@ class StrategySelector:
     
     # ========== 策略信號 API (來自 v2) ==========
     
-    def get_strategy_signals(self, ohlcv_data: np.ndarray) -> Dict[str, Any]:
+    def get_strategy_signals(
+        self,
+        ohlcv_data: np.ndarray,
+        symbol: Optional[str] = None,
+    ) -> Dict[str, Any]:
         """
         獲取所有策略的信號 (來自 v2)
         
@@ -525,6 +532,8 @@ class StrategySelector:
         for name, strategy in self._strategies.items():
             try:
                 analysis = strategy.analyze_market(ohlcv_data)
+                if symbol and isinstance(analysis, dict):
+                    analysis.setdefault("symbol", symbol)
                 setup = strategy.evaluate_entry_conditions(analysis, ohlcv_data)
                 signals[name] = setup
             except Exception as e:
@@ -536,6 +545,7 @@ class StrategySelector:
     def get_ai_fusion_signal(
         self,
         ohlcv_data: np.ndarray,
+        symbol: Optional[str] = None,
         event_score: float = 0.0,
         event_context: Optional[Any] = None,
     ) -> Optional[Dict[str, Any]]:
@@ -556,11 +566,12 @@ class StrategySelector:
         try:
             signal = self._ai_fusion.generate_fusion_signal(
                 ohlcv_data,
+                additional_data={"symbol": symbol} if symbol else None,
                 event_score=event_score,
                 event_context=event_context
             )
-            
-            return {
+
+            payload = {
                 'should_trade': signal.should_trade,
                 'direction': signal.consensus_direction,
                 'confidence': signal.confidence_score,
@@ -569,9 +580,122 @@ class StrategySelector:
                 'has_conflict': signal.has_conflict,
                 'fusion_method': signal.fusion_method_used.value,
             }
+
+            if signal.selected_setup is not None:
+                payload.update(self._serialize_setup(signal.selected_setup, "ai_fusion"))
+
+            return payload
         except Exception as e:
             logger.error(f"AI Fusion 信號失敗: {e}")
             return None
+
+    def get_actionable_signal(
+        self,
+        ohlcv_data: np.ndarray,
+        symbol: Optional[str] = None,
+        event_score: float = 0.0,
+        event_context: Optional[Any] = None,
+    ) -> Optional[Dict[str, Any]]:
+        """
+        取得可直接交給執行層使用的策略信號摘要。
+
+        回傳內容仍是 selector 專屬字典，但已經包含：
+        - 是否應交易
+        - 方向 / 信心度
+        - 對應的 setup 價格資訊
+        - 來源策略名稱
+        """
+        if ohlcv_data.size == 0 or len(ohlcv_data) < 20:
+            return None
+
+        fusion_signal = self.get_ai_fusion_signal(
+            ohlcv_data,
+            symbol=symbol,
+            event_score=event_score,
+            event_context=event_context,
+        )
+        if fusion_signal and fusion_signal.get("should_trade"):
+            return fusion_signal
+
+        recommendation = self.recommend_strategy(
+            ohlcv_data,
+            use_ai_fusion=False,
+            symbol=symbol,
+            event_score=event_score,
+            event_context=event_context,
+        )
+        strategy_signals = self.get_strategy_signals(ohlcv_data, symbol=symbol)
+
+        preferred_names = []
+        primary_name = recommendation.primary_strategy.value
+        preferred_names.append(primary_name)
+        preferred_names.extend(
+            name
+            for name, _weight in sorted(
+                recommendation.strategy_weights.items(),
+                key=lambda item: item[1],
+                reverse=True,
+            )
+            if name != primary_name
+        )
+
+        for strategy_name in preferred_names:
+            setup = strategy_signals.get(strategy_name)
+            if setup is None:
+                continue
+
+            confidence = recommendation.strategy_weights.get(
+                strategy_name,
+                recommendation.primary_confidence,
+            )
+            payload = {
+                "should_trade": True,
+                "direction": setup.direction,
+                "confidence": max(0.35, min(0.95, float(confidence))),
+                "consensus_strength": max(0.35, min(0.95, float(confidence))),
+                "contributing_strategies": [strategy_name],
+                "has_conflict": False,
+                "fusion_method": "selector_recommendation",
+            }
+            payload.update(self._serialize_setup(setup, strategy_name))
+            return payload
+
+        return None
+
+    def _serialize_setup(self, setup: Any, strategy_name: str) -> Dict[str, Any]:
+        """將策略 setup 轉為可序列化摘要。"""
+        entry_price = float(getattr(setup, "entry_price", 0.0) or 0.0)
+        stop_loss = getattr(setup, "stop_loss", None)
+        take_profit = (
+            getattr(setup, "take_profit_1", None)
+            or getattr(setup, "take_profit", None)
+        )
+        signal_strength = getattr(setup, "signal_strength", None)
+        confidence = self._signal_strength_to_confidence(signal_strength)
+
+        return {
+            "strategy_name": strategy_name,
+            "entry_price": entry_price if entry_price > 0 else None,
+            "stop_loss": float(stop_loss) if stop_loss else None,
+            "take_profit": float(take_profit) if take_profit else None,
+            "position_size": getattr(setup, "total_position_size", None),
+            "setup_confidence": confidence,
+        }
+
+    def _signal_strength_to_confidence(self, signal_strength: Optional[Any]) -> float:
+        """將策略內部 SignalStrength 映射為 0-1 信心度。"""
+        if signal_strength is None:
+            return 0.5
+
+        value = getattr(signal_strength, "value", signal_strength)
+        mapping = {
+            1: 0.35,
+            2: 0.5,
+            3: 0.65,
+            4: 0.8,
+            5: 0.92,
+        }
+        return mapping.get(int(value), 0.5)
     
     # ========== 事件上下文 API ==========
     

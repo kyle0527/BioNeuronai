@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BioNeuronai Backtest UI</title>
+  <style>
+    :root { color-scheme: light; --bg:#f5f1e8; --panel:#fffdf8; --ink:#1f2a2e; --muted:#6b7478; --line:#d8d1c3; --accent:#155e63; }
+    body { margin:0; font-family: "Segoe UI", sans-serif; background: radial-gradient(circle at top, #fff8ec, var(--bg)); color:var(--ink); }
+    main { max-width: 1100px; margin: 0 auto; padding: 32px 20px 64px; }
+    h1 { margin:0 0 8px; font-size: 32px; }
+    p { color: var(--muted); }
+    .grid { display:grid; grid-template-columns: 320px 1fr; gap: 20px; margin-top: 24px; }
+    .panel { background: var(--panel); border:1px solid var(--line); border-radius: 16px; padding: 18px; box-shadow: 0 10px 30px rgba(0,0,0,0.04); }
+    label { display:block; margin: 12px 0 6px; font-size: 14px; color: var(--muted); }
+    input, button { width:100%; box-sizing:border-box; padding: 10px 12px; border-radius: 10px; border:1px solid var(--line); font: inherit; }
+    button { background: var(--accent); color:#fff; border:none; cursor:pointer; margin-top: 14px; }
+    button:hover { filter: brightness(1.05); }
+    table { width:100%; border-collapse: collapse; font-size: 14px; }
+    th, td { padding: 10px 8px; border-bottom:1px solid var(--line); text-align:left; }
+    code { background:#f3eee3; padding:2px 6px; border-radius:6px; }
+    .meta { margin-top: 10px; font-size: 13px; color: var(--muted); }
+    pre { overflow:auto; background:#f3eee3; padding:12px; border-radius: 10px; }
+    @media (max-width: 860px) { .grid { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Backtest Replay UI</h1>
+    <p>這個 UI 只做歷史資料檢視與 replay 載入驗證，方便確認 repo 內現有 Binance 歷史資料可直接使用。</p>
+    <div class="grid">
+      <section class="panel">
+        <h2>Replay Control</h2>
+        <label for="dataset">Dataset</label>
+        <input id="dataset" list="datasetOptions" placeholder="選擇或輸入 symbol|interval">
+        <datalist id="datasetOptions"></datalist>
+        <label for="symbol">Symbol</label>
+        <input id="symbol" value="ETHUSDT">
+        <label for="interval">Interval</label>
+        <input id="interval" value="1h">
+        <label for="start">Start Date</label>
+        <input id="start" value="" placeholder="YYYY-MM-DD">
+        <label for="end">End Date</label>
+        <input id="end" value="" placeholder="YYYY-MM-DD">
+        <label for="balance">Balance</label>
+        <input id="balance" value="10000">
+        <label for="warmup">Warmup Bars</label>
+        <input id="warmup" value="100">
+        <label for="bars">Bars</label>
+        <input id="bars" value="50">
+        <button id="inspect">Inspect Dataset</button>
+        <button id="simulate">Run Simulate</button>
+        <button id="backtest">Run Backtest</button>
+        <div class="meta">API: <code>/api/v1/backtest/catalog</code> / <code>/api/v1/backtest/inspect</code> / <code>/api/v1/backtest/simulate</code> / <code>/api/v1/backtest/run</code></div>
+        <pre id="inspectResult">等待查詢...</pre>
+      </section>
+      <section class="panel">
+        <h2>Catalog</h2>
+        <div class="meta" id="catalogMeta">載入中...</div>
+        <table>
+          <thead>
+            <tr><th>Symbol</th><th>Interval</th><th>Date Range</th><th>ZIP</th></tr>
+          </thead>
+          <tbody id="catalogBody"></tbody>
+        </table>
+      </section>
+    </div>
+    <section class="panel" style="margin-top:20px;">
+      <h2>Recent Runs</h2>
+      <div class="meta" id="runsMeta">載入中...</div>
+      <table>
+        <thead>
+          <tr><th>Run ID</th><th>Mode</th><th>Symbol</th><th>Interval</th><th>Status</th></tr>
+        </thead>
+        <tbody id="runsBody"></tbody>
+      </table>
+    </section>
+  </main>
+  <script>
+    function currentForm() {
+      return {
+        symbol: document.getElementById('symbol').value,
+        interval: document.getElementById('interval').value,
+        start_date: document.getElementById('start').value || null,
+        end_date: document.getElementById('end').value || null,
+        balance: Number(document.getElementById('balance').value || 0),
+        warmup_bars: Number(document.getElementById('warmup').value || 0),
+        bars: Number(document.getElementById('bars').value || 0),
+      };
+    }
+
+    async function loadCatalog() {
+      const res = await fetch('/api/v1/backtest/catalog');
+      const payload = await res.json();
+      const body = document.getElementById('catalogBody');
+      const datalist = document.getElementById('datasetOptions');
+      body.innerHTML = '';
+      datalist.innerHTML = '';
+      if (!payload.success) {
+        document.getElementById('catalogMeta').textContent = payload.message;
+        return;
+      }
+      const data = payload.data || {};
+      document.getElementById('catalogMeta').textContent =
+        `Root: ${data.root || 'N/A'} | Datasets: ${data.dataset_count || 0}`;
+      for (const item of (data.datasets || [])) {
+        const option = document.createElement('option');
+        option.value = `${item.symbol}|${item.interval}`;
+        datalist.appendChild(option);
+        const row = document.createElement('tr');
+        row.innerHTML = `<td>${item.symbol}</td><td>${item.interval}</td><td>${item.start_date || 'N/A'} ~ ${item.end_date || 'N/A'}</td><td>${item.zip_count}</td>`;
+        row.style.cursor = 'pointer';
+        row.addEventListener('click', () => {
+          document.getElementById('dataset').value = `${item.symbol}|${item.interval}`;
+          document.getElementById('symbol').value = item.symbol;
+          document.getElementById('interval').value = item.interval;
+          document.getElementById('start').value = item.start_date || '';
+          document.getElementById('end').value = item.end_date || '';
+        });
+        body.appendChild(row);
+      }
+    }
+
+    async function loadRuns() {
+      const res = await fetch('/api/v1/backtest/runs?limit=10');
+      const payload = await res.json();
+      const body = document.getElementById('runsBody');
+      body.innerHTML = '';
+      if (!payload.success) {
+        document.getElementById('runsMeta').textContent = payload.message;
+        return;
+      }
+      const data = payload.data || {};
+      document.getElementById('runsMeta').textContent =
+        `Runtime: ${data.runtime_root || 'N/A'} | Runs: ${data.run_count || 0}`;
+      for (const item of (data.runs || [])) {
+        const row = document.createElement('tr');
+        row.innerHTML = `<td>${item.run_id || 'N/A'}</td><td>${item.mode || 'N/A'}</td><td>${item.symbol || 'N/A'}</td><td>${item.interval || 'N/A'}</td><td>${item.status || 'N/A'}</td>`;
+        row.style.cursor = 'pointer';
+        row.addEventListener('click', async () => {
+          const detail = await fetch(`/api/v1/backtest/runs/${item.run_id}`);
+          const detailPayload = await detail.json();
+          document.getElementById('inspectResult').textContent = JSON.stringify(detailPayload, null, 2);
+        });
+        body.appendChild(row);
+      }
+    }
+
+    async function inspectDataset() {
+      const { symbol, interval, start_date, end_date } = currentForm();
+      const query = new URLSearchParams({ symbol, interval });
+      if (start_date) query.set('start_date', start_date);
+      if (end_date) query.set('end_date', end_date);
+      const res = await fetch(`/api/v1/backtest/inspect?${query.toString()}`);
+      const payload = await res.json();
+      document.getElementById('inspectResult').textContent = JSON.stringify(payload, null, 2);
+    }
+
+    async function runReplay(url) {
+      const payload = currentForm();
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      document.getElementById('inspectResult').textContent = JSON.stringify(data, null, 2);
+      loadRuns();
+    }
+
+    document.getElementById('dataset').addEventListener('change', (event) => {
+      const value = event.target.value || '';
+      const parts = value.split('|');
+      if (parts.length === 2) {
+        document.getElementById('symbol').value = parts[0];
+        document.getElementById('interval').value = parts[1];
+      }
+    });
+    document.getElementById('inspect').addEventListener('click', inspectDataset);
+    document.getElementById('simulate').addEventListener('click', () => runReplay('/api/v1/backtest/simulate'));
+    document.getElementById('backtest').addEventListener('click', () => runReplay('/api/v1/backtest/run'));
+    loadCatalog();
+    loadRuns();
+  </script>
+</body>
+</html>

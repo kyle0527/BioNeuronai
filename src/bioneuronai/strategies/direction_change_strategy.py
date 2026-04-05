@@ -298,13 +298,15 @@ class DirectionChangeStrategy(BaseStrategy):
         self.state = StrategyState.IDLE
         self._last_analysis_time = datetime.now()
 
-        return self._build_analysis_result(analysis, current_price, atr)
+        symbol = (additional_data or {}).get("symbol")
+        return self._build_analysis_result(analysis, current_price, atr, symbol)
 
     def _build_analysis_result(
         self,
         analysis: DCStrategyAnalysis,
         current_price: float,
         atr: float,
+        symbol: Optional[str] = None,
     ) -> Dict[str, Any]:
         """組裝分析結果字典"""
         if analysis.current_dc_direction == 'up':
@@ -322,6 +324,7 @@ class DirectionChangeStrategy(BaseStrategy):
 
         consecutive = max(analysis.consecutive_up_dc, analysis.consecutive_down_dc)
         return {
+            'symbol': symbol,
             'market_condition': market_condition,
             'trend_direction': analysis.current_dc_direction,
             'trend_strength': analysis.dc_trend_strength,
@@ -416,8 +419,12 @@ class DirectionChangeStrategy(BaseStrategy):
 
         confirmations = consecutive + (1 if os_ret > 0.4 else 0)
 
+        symbol = market_analysis.get('symbol')
+        if not symbol:
+            raise ValueError("市場分析必須包含 'symbol' 字段，不再支持預設幣種")
+
         return TradeSetup(
-            symbol="BTCUSDT",
+            symbol=symbol,
             direction=trade_direction,
             entry_price=current_price,
             stop_loss=stop_loss,

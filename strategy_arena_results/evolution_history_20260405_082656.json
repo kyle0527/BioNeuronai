@@ -1,0 +1,33 @@
+[
+  {
+    "generation": 0,
+    "timestamp": "2026-04-05T08:26:56.537509",
+    "best_score": Infinity,
+    "avg_score": Infinity,
+    "best_sharpe": 0.0,
+    "best_return": 0.0,
+    "top_3": [
+      {
+        "name": "trend_following_0",
+        "type": "trend_following",
+        "score": Infinity,
+        "sharpe": 0.0,
+        "return": 0.0
+      },
+      {
+        "name": "swing_trading_0",
+        "type": "swing_trading",
+        "score": Infinity,
+        "sharpe": 0.0,
+        "return": 0.0
+      },
+      {
+        "name": "mean_reversion_0",
+        "type": "mean_reversion",
+        "score": Infinity,
+        "sharpe": 0.0,
+        "return": 0.0
+      }
+    ]
+  }
+]

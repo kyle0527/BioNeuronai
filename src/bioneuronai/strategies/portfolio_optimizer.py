@@ -42,7 +42,7 @@ import numpy as np
 import copy
 
 from .phase_router import TradingPhase
-from .strategy_arena import ArenaConfig
+from .strategy_arena import ArenaConfig, StrategyArena, StrategyCandidate
 
 logger = logging.getLogger(__name__)
 
@@ -144,6 +144,14 @@ class StrategyPortfolioChromosome:
         objective: OptimizationObjective = OptimizationObjective.BALANCED
     ) -> float:
         """計算適應度"""
+        total_trades = int((self.backtest_result or {}).get('total_trades', 0))
+        if total_trades <= 0:
+            self.fitness = 0.0
+            return self.fitness
+
+        if self.backtest_result and self.backtest_result.get('error'):
+            self.fitness = 0.0
+            return self.fitness
         
         if objective == OptimizationObjective.MAXIMIZE_RETURN:
             fitness = self.total_return
@@ -166,8 +174,8 @@ class StrategyPortfolioChromosome:
                 self.consistency * 0.15 +
                 (self.profit_factor - 1.0) * 0.15
             )
-        
-        self.fitness = max(0, fitness)  # 確保非負
+        activity_factor = min(1.0, total_trades / 10.0)
+        self.fitness = max(0, fitness) * activity_factor  # 確保非負，並避免零交易策略獲高分
         return self.fitness
     
     def crossover(self, other: 'StrategyPortfolioChromosome', rng: Optional[np.random.Generator] = None) -> 'StrategyPortfolioChromosome':
@@ -266,9 +274,11 @@ class StrategyPortfolioOptimizer:
         self.population: List[StrategyPortfolioChromosome] = []
         self.history: List[Dict] = []
         self.best_chromosome: Optional[StrategyPortfolioChromosome] = None
-                # 創建隨機數生成器
+        self.backtest_config = config.backtest_config or ArenaConfig()
+        self.arena_adapter = StrategyArena(self.backtest_config)
+        # 創建隨機數生成器
         self.rng = np.random.default_rng(config.random_seed)
-                # 創建輸出目錄
+        # 創建輸出目錄
         Path(config.output_dir).mkdir(parents=True, exist_ok=True)
         
         logger.info("🧬 策略組合優化器已初始化")
@@ -280,7 +290,14 @@ class StrategyPortfolioOptimizer:
         """初始化種群"""
         population = []
         
-        strategy_types = ['trend_following', 'swing_trading', 'mean_reversion', 'breakout_trading']
+        strategy_types = [
+            'trend_following',
+            'swing_trading',
+            'mean_reversion',
+            'breakout_trading',
+            'direction_change',
+            'pair_trading',
+        ]
         
         # 關鍵階段（優先優化）
         key_phases = [
@@ -301,6 +318,7 @@ class StrategyPortfolioOptimizer:
                 gene = StrategyGene(
                     phase=phase,
                     strategy_type=strategy_type,
+                    parameters=self.arena_adapter._generate_random_parameters(strategy_type),
                     strategy_weight=float(self.rng.uniform(0.5, 1.0)),
                     position_size_multiplier=float(self.rng.uniform(0.5, 1.5)),
                     risk_multiplier=float(self.rng.uniform(0.8, 1.5)),
@@ -340,14 +358,7 @@ class StrategyPortfolioOptimizer:
     def _evaluate_chromosome(self, chromosome: StrategyPortfolioChromosome):
         """評估單個染色體（運行回測）"""
         try:
-            # NOTE: 實際使用時需要整合真實的回測引擎
-            # 這裡需要：
-            # 1. 根據染色體配置創建 PhaseRouter
-            # 2. 運行完整回測
-            # 3. 提取性能指標
-            
-            # 暫時使用模擬結果
-            result = self._simulate_backtest()
+            result = self._run_replay_backtest(chromosome)
             
             chromosome.total_return = result['total_return']
             chromosome.sharpe_ratio = result['sharpe_ratio']
@@ -361,16 +372,83 @@ class StrategyPortfolioOptimizer:
             logger.error(f"評估失敗: {e}")
             chromosome.fitness = -999.0
     
-    def _simulate_backtest(self) -> Dict[str, Any]:
-        """模擬回測結果（臨時）"""
-        return {
-            'total_return': float(self.rng.uniform(-0.1, 0.6)),
-            'sharpe_ratio': float(self.rng.uniform(-0.5, 3.5)),
-            'max_drawdown': float(self.rng.uniform(-0.4, -0.05)),
-            'win_rate': float(self.rng.uniform(0.4, 0.7)),
-            'profit_factor': float(self.rng.uniform(0.8, 3.5)),
-            'consistency': float(self.rng.uniform(0.4, 0.9)),
+    def _run_replay_backtest(self, chromosome: StrategyPortfolioChromosome) -> Dict[str, Any]:
+        """使用正式 replay 為每個 phase 基因評估後聚合結果。"""
+        from backtest.service import run_strategy_instance_backtest
+
+        phase_results: Dict[str, Dict[str, Any]] = {}
+        total_weight = 0.0
+        metrics = {
+            'total_return': 0.0,
+            'sharpe_ratio': 0.0,
+            'max_drawdown': 0.0,
+            'win_rate': 0.0,
+            'profit_factor': 0.0,
+            'consistency': 0.0,
+            'total_trades': 0.0,
         }
+
+        for phase, gene in chromosome.genes.items():
+            candidate = StrategyCandidate(
+                name=f"{phase.value}_{gene.strategy_type}",
+                strategy_type=gene.strategy_type,
+                parameters=gene.parameters.copy(),
+            )
+            strategy = self.arena_adapter._create_strategy(candidate)
+            result = run_strategy_instance_backtest(
+                strategy,
+                symbol=self.backtest_config.symbol,
+                interval=self.backtest_config.interval,
+                balance=self.backtest_config.initial_balance,
+                start_date=self.backtest_config.start_date,
+                end_date=self.backtest_config.end_date,
+                data_dir=self.backtest_config.data_dir,
+                warmup_bars=self.backtest_config.warmup_bars,
+            )
+            phase_results[phase.value] = result
+
+            weight = max(0.05, gene.strategy_weight)
+            weight *= max(0.1, gene.position_size_multiplier)
+            weight *= max(0.1, gene.risk_multiplier)
+            total_weight += weight
+
+            metrics['total_return'] += self._safe_metric(result.get('total_return', 0.0)) * weight
+            metrics['sharpe_ratio'] += self._safe_metric(result.get('sharpe_ratio', 0.0)) * weight
+            metrics['max_drawdown'] += self._safe_metric(result.get('max_drawdown', 0.0)) * weight
+            metrics['win_rate'] += self._safe_metric(result.get('win_rate', 0.0)) * weight
+            metrics['profit_factor'] += self._safe_metric(result.get('profit_factor', 0.0)) * weight
+            metrics['consistency'] += self._estimate_consistency(result) * weight
+            metrics['total_trades'] += float(result.get('total_trades', result.get('trade_count', 0)))
+
+        if total_weight <= 0:
+            raise RuntimeError("染色體未產生可評估的 phase 權重")
+
+        aggregated = {
+            key: value / total_weight
+            for key, value in metrics.items()
+            if key != 'total_trades'
+        }
+        aggregated['total_trades'] = int(metrics['total_trades'])
+        aggregated['phase_results'] = phase_results
+        aggregated['phase_count'] = len(phase_results)
+        return aggregated
+
+    def _estimate_consistency(self, result: Dict[str, Any]) -> float:
+        """以 replay 輸出估算一致性分數。"""
+        win_rate = self._safe_metric(result.get('win_rate', 0.0))
+        profit_factor = max(0.0, self._safe_metric(result.get('profit_factor', 0.0)))
+        normalized_pf = min(profit_factor / 2.5, 1.0)
+        return float((win_rate * 0.6) + (normalized_pf * 0.4))
+
+    def _safe_metric(self, value: Any) -> float:
+        """將 replay 指標轉成可比較的有限值。"""
+        try:
+            numeric = float(value)
+        except (TypeError, ValueError):
+            return 0.0
+        if not np.isfinite(numeric):
+            return 0.0
+        return numeric
     
     def rank_and_select(self) -> List[StrategyPortfolioChromosome]:
         """排名並選擇"""

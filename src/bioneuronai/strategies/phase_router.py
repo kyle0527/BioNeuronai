@@ -658,7 +658,32 @@ class TradingPhaseRouter:
         
         # 最後的保障
         return list(self.strategies.values())[0]
-    
+
+    def _infer_hold_or_exit(
+        self,
+        current_phase: TradingPhase,
+        market_data: Dict[str, Any],
+    ) -> TradeActionPhase:
+        """推斷持倉應 HOLD 或 EXIT。
+
+        EXIT conditions (any one sufficient):
+        - Phase is MARKET_CLOSE or LATE_SESSION (session risk)
+        - holding_hours > 80 % of max_holding_hours (time-based stop)
+        - unrealized_r_multiple < -1.0 (adverse move exceeds 1 R)
+        """
+        holding_hours: float = market_data.get('holding_hours', 0)
+        unrealized_r: float = market_data.get('unrealized_r_multiple', 0.0)
+        max_hours: float = market_data.get('max_holding_hours', 72)
+
+        exit_phases = (TradingPhase.MARKET_CLOSE, TradingPhase.LATE_SESSION)
+        if (
+            current_phase in exit_phases
+            or holding_hours > max_hours * 0.8
+            or unrealized_r < -1.0
+        ):
+            return TradeActionPhase.EXIT
+        return TradeActionPhase.HOLD
+
     def route_trading_decision(
         self,
         current_time: datetime,
@@ -705,9 +730,7 @@ class TradingPhaseRouter:
             if not has_position:
                 action_phase = TradeActionPhase.ENTRY
             else:
-                # 這裡可以根據持倉時間等因素決定是 HOLD 還是 EXIT
-                # 簡化：有持倉時預設為 HOLD
-                action_phase = TradeActionPhase.HOLD
+                action_phase = self._infer_hold_or_exit(current_phase, market_data)
         
         # 4. 獲取階段配置和策略（AI 選擇最優策略）
         config = self.phase_configs[current_phase]

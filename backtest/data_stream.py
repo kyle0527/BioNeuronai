@@ -1,14 +1,11 @@
-"""
-Historical Data Stream - 歷史數據串流生成器
-==========================================
+"""Historical replay data stream.
 
-時光機核心：將歷史數據 (CSV/Parquet) 變成即時串流
+Responsibilities:
+- load historical Binance data from the replay data root
+- expose bars in strict time order
+- prevent look-ahead access to future bars
 
-功能：
-1. 使用 yield 生成器逐筆/逐根吐出數據
-2. 嚴格防偷看 (No Look-ahead Bias)：T 時間點絕對看不到 T+1 數據
-3. 支持多種數據格式 (ZIP/CSV/Parquet)
-4. 支持可調速度播放
+This module is a data source. It does not contain strategy logic.
 """
 
 import pandas as pd
@@ -20,7 +17,11 @@ from datetime import datetime, timedelta
 from dataclasses import dataclass
 import time
 
+from .paths import BACKTEST_DATA_DIR, candidate_data_roots
+
 logger = logging.getLogger(__name__)
+
+DEFAULT_DATA_DIR = BACKTEST_DATA_DIR
 
 
 @dataclass
@@ -95,6 +96,20 @@ class StreamState:
     start_time: Optional[float] = None
 
 
+def resolve_data_dir(data_dir: Optional[Union[str, Path]] = None) -> Path:
+    """解析回放資料根目錄，優先使用 backtest/ 內資料，再回退到既有專案資料。"""
+    candidates = candidate_data_roots(data_dir)
+
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate.resolve()
+
+    raise FileNotFoundError(
+        "找不到歷史資料根目錄。已嘗試:\n" +
+        "\n".join(f"  - {candidate}" for candidate in candidates)
+    )
+
+
 class HistoricalDataStream:
     """
     歷史數據串流生成器
@@ -106,7 +121,7 @@ class HistoricalDataStream:
     
     使用方式：
         stream = HistoricalDataStream(
-            data_dir="data_downloads/binance_historical",
+            data_dir="backtest/data/binance_historical",
             symbol="BTCUSDT",
             interval="1m",
             start_date="2025-01-01",
@@ -130,7 +145,7 @@ class HistoricalDataStream:
     
     def __init__(
         self,
-        data_dir: Union[str, Path],
+        data_dir: Union[str, Path] = DEFAULT_DATA_DIR,
         symbol: str = "BTCUSDT",
         interval: str = "1m",
         start_date: Optional[str] = None,
@@ -150,7 +165,7 @@ class HistoricalDataStream:
             speed_multiplier: 播放速度倍數 (0=無延遲, 1=實時, 10=10倍速)
             preload: 是否預載入所有數據到內存
         """
-        self.data_dir = Path(data_dir)
+        self.data_dir = resolve_data_dir(data_dir)
         self.symbol = symbol.upper()
         self.interval = interval
         self.start_date = start_date
@@ -206,16 +221,27 @@ class HistoricalDataStream:
         
         for path in possible_paths:
             if path.exists():
-                # 檢查是否有子目錄（某些版本的數據）
-                subdirs = list(path.glob("*_*"))
-                if subdirs:
-                    return subdirs[0]
                 return path
         
         raise FileNotFoundError(
             "找不到數據目錄。已嘗試:\n" + 
             "\n".join(f"  - {p}" for p in possible_paths)
         )
+
+    def _iter_zip_files(self, data_path: Path) -> List[Path]:
+        """列出 interval 目錄底下所有可讀取的 zip，支援分段子資料夾。"""
+        direct = sorted(
+            path for path in data_path.glob("*.zip")
+            if "CHECKSUM" not in path.name
+        )
+        if direct:
+            return direct
+
+        nested = sorted(
+            path for path in data_path.rglob("*.zip")
+            if "CHECKSUM" not in path.name
+        )
+        return nested
     
     def load_data(self) -> pd.DataFrame:
         """
@@ -238,8 +264,8 @@ class HistoricalDataStream:
         
         all_dfs = []
         
-        # 載入 ZIP 文件
-        zip_files = sorted(data_path.glob("*.zip"))
+        # 載入 ZIP 文件（支援 interval 目錄下再分日期區段子資料夾）
+        zip_files = self._iter_zip_files(data_path)
         
         for zip_file in zip_files:
             if "CHECKSUM" in zip_file.name:
@@ -297,9 +323,11 @@ class HistoricalDataStream:
     
     def _read_kline_zip(self, zip_file: Path) -> pd.DataFrame:
         """從 ZIP 文件讀取 K線數據"""
-        csv_name = zip_file.stem + ".csv"
-        
         with zipfile.ZipFile(zip_file) as z:
+            csv_candidates = [name for name in z.namelist() if name.endswith(".csv")]
+            if not csv_candidates:
+                raise FileNotFoundError(f"{zip_file.name} 內沒有 CSV")
+            csv_name = csv_candidates[0]
             with z.open(csv_name) as f:
                 # CSV 有表頭，使用 header=0 跳過第一行
                 df = pd.read_csv(f, header=0, names=self.KLINE_COLUMNS)
@@ -563,7 +591,7 @@ def create_stream(
     interval: str = "1m",
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
-    data_dir: str = "data_downloads/binance_historical"
+    data_dir: Union[str, Path] = DEFAULT_DATA_DIR
 ) -> HistoricalDataStream:
     """
     快速創建數據串流

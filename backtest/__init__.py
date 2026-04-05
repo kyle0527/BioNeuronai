@@ -1,36 +1,33 @@
-"""
-Backtest Module - 回測引擎模組
-=============================
+"""Replay/backtest domain exports.
 
-時光機機制：將歷史數據變成即時串流，讓 AI 以為是真實交易
+`backtest/` is the project's formal replay runtime:
+- historical market data loading
+- simulated execution and account state
+- runtime artifact persistence
 
-核心組件：
-- MockBinanceConnector: 完全模擬 BinanceFuturesConnector 的接口
-- HistoricalDataStream: 歷史數據串流生成器 (防偷看機制)
-- VirtualAccount: 虛擬帳戶狀態仿真
-- BacktestEngine: 回測引擎主類
-
-使用方式：
-    from backtest import MockBinanceConnector
-    
-    # 用 MockBinanceConnector 替換真實連接器，無需修改 TradingEngine
-    mock_connector = MockBinanceConnector(
-        data_dir="data_downloads/binance_historical",
-        symbol="BTCUSDT",
-        start_date="2025-01-01",
-        end_date="2025-12-31"
-    )
+It does not decide whether to trade.
+Trading decisions still belong to the project's strategy layer.
 """
 
 __version__ = "1.0.0"
 
+from .contracts import ExecutionReceipt, OrderIntent, ReplayRuntimeState
 from .mock_connector import MockBinanceConnector
-from .data_stream import HistoricalDataStream, KlineBar
+from .data_stream import DEFAULT_DATA_DIR, HistoricalDataStream, KlineBar, resolve_data_dir
+from .paths import BACKTEST_DATA_DIR, DATA_ROOT, DOCS_ROOT, RUNTIME_ROOT, UI_ROOT, VENDOR_ROOT, ensure_backtest_dirs
 from .virtual_account import VirtualAccount
 from .backtest_engine import BacktestEngine, BacktestConfig, quick_backtest, create_mock_connector
+from .catalog import get_catalog
+from .runtime_store import ReplayRunRecorder, list_runs, load_run
+from .service import get_runtime_run, list_runtime_runs, run_backtest_summary, run_simulation_summary
+from .web import load_backtest_ui_html
 
 __all__ = [
+    "OrderIntent",
+    "ExecutionReceipt",
+    "ReplayRuntimeState",
     "MockBinanceConnector",
+    "DEFAULT_DATA_DIR",
     "HistoricalDataStream",
     "KlineBar",
     "VirtualAccount",
@@ -38,4 +35,21 @@ __all__ = [
     "BacktestConfig",
     "quick_backtest",
     "create_mock_connector",
+    "resolve_data_dir",
+    "get_catalog",
+    "ReplayRunRecorder",
+    "list_runs",
+    "load_run",
+    "run_backtest_summary",
+    "run_simulation_summary",
+    "list_runtime_runs",
+    "get_runtime_run",
+    "BACKTEST_DATA_DIR",
+    "DATA_ROOT",
+    "DOCS_ROOT",
+    "UI_ROOT",
+    "RUNTIME_ROOT",
+    "VENDOR_ROOT",
+    "ensure_backtest_dirs",
+    "load_backtest_ui_html",
 ]

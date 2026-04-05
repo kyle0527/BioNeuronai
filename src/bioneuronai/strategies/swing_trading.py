@@ -32,6 +32,13 @@ from datetime import datetime, timedelta
 from dataclasses import dataclass, field
 import uuid
 
+try:
+    import talib
+    TALIB_AVAILABLE = True
+except ImportError:
+    talib = None  # type: ignore[assignment]
+    TALIB_AVAILABLE = False
+
 from .base_strategy import (
     BaseStrategy,
     TradeSetup,
@@ -205,6 +212,10 @@ class SwingTradingStrategy(BaseStrategy):
         n: int = len(close)
         if n < period + 1:
             return cast(np.ndarray, np.full(n, 50.0))
+
+        if TALIB_AVAILABLE and talib is not None:
+            rsi = talib.RSI(close.astype(np.float64), timeperiod=period)
+            return cast(np.ndarray, np.nan_to_num(rsi, nan=50.0))
         
         deltas: np.ndarray[Tuple[Any], np.dtype[Any]] = np.diff(close)
         gains: np.ndarray[Tuple[Any], np.dtype[Any]] = np.where(deltas > 0, deltas, 0)
@@ -222,7 +233,13 @@ class SwingTradingStrategy(BaseStrategy):
             avg_gain[i] = (avg_gain[i-1] * (period - 1) + gains[i-1]) / period
             avg_loss[i] = (avg_loss[i-1] * (period - 1) + losses[i-1]) / period
         
-        rs: np.ndarray[Tuple[Any], np.dtype[Any]] = np.where(avg_loss != 0, avg_gain / avg_loss, 100)
+        with np.errstate(divide='ignore', invalid='ignore'):
+            rs: np.ndarray[Tuple[Any], np.dtype[Any]] = np.divide(
+                avg_gain,
+                avg_loss,
+                out=np.full(n, 100.0, dtype=np.float64),
+                where=avg_loss != 0,
+            )
         rsi: np.ndarray[Tuple[Any], np.dtype[np.float64]] = 100 - (100 / (1 + rs))
         rsi[:period] = 50
         
@@ -403,6 +420,7 @@ class SwingTradingStrategy(BaseStrategy):
         self._last_analysis_time = datetime.now()
         
         return {
+            'symbol': additional_data.get('symbol') if additional_data else None,
             'market_condition': market_condition,
             'trend_direction': trend_direction,
             'trend_strength': 50,
@@ -812,7 +830,7 @@ class SwingTradingStrategy(BaseStrategy):
             ],
         )
         
-        logger.info(
+        logger.debug(
             f": "
             f"{direction.upper()} @ {current_price:.2f}, "
             f": {confirmations}, : {signal_strength.name}"

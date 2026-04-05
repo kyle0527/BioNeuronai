@@ -25,6 +25,11 @@
 - 精確交易成本計算（手續費 + 滑點 + 資金費率）
 - 滾動窗口 Walk-Forward 測試（防止過擬合）
 
+目前定位：
+- `backtesting/` 是研究型分析工具箱
+- 專案正式的 replay / mock exchange 主路徑以根目錄的 `backtest/` 為主
+- 若要讓上層模組無感切換真實 / 模擬資料源，請優先使用 `backtest/`
+
 ---
 
 ## 與 backtest/ 的區別

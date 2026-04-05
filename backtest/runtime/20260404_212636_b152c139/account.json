@@ -1,0 +1,57 @@
+{
+  "account_info": {
+    "totalWalletBalance": "9999.987915511307",
+    "availableBalance": "9969.776693778771",
+    "totalUnrealizedProfit": "0.0",
+    "totalMarginBalance": "9999.987915511307",
+    "assets": [
+      {
+        "asset": "USDT",
+        "walletBalance": "9999.987915511307",
+        "availableBalance": "9969.776693778771",
+        "unrealizedProfit": "0.0",
+        "marginBalance": "9999.987915511307"
+      }
+    ],
+    "positions": [
+      {
+        "symbol": "ETHUSDT",
+        "positionSide": "LONG",
+        "positionAmt": "0.01",
+        "entryPrice": "3021.1221732535346",
+        "markPrice": "3021.1221732535346",
+        "unRealizedProfit": "0.0",
+        "leverage": "1",
+        "isolatedMargin": "30.211221732535346",
+        "liquidationPrice": "0.0"
+      }
+    ]
+  },
+  "stats": {
+    "initial_balance": 10000,
+    "current_balance": 9999.987915511307,
+    "total_equity": 9999.987915511307,
+    "total_return": -0.0001208448869329004,
+    "total_trades": 1,
+    "winning_trades": 0,
+    "losing_trades": 0,
+    "win_rate": 0.0,
+    "total_commission": 0.012084488693014138,
+    "total_realized_pnl": 0.0,
+    "max_drawdown": 0.0001208448869329004,
+    "peak_balance": 10000
+  },
+  "trades": [
+    {
+      "tradeId": "88078F1E",
+      "orderId": "D5EF74F5",
+      "symbol": "ETHUSDT",
+      "side": "BUY",
+      "price": "3021.1221732535346",
+      "qty": "0.01",
+      "commission": "0.012084488693014138",
+      "realizedPnl": "0.0",
+      "time": 1775309196886
+    }
+  ]
+}

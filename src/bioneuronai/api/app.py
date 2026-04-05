@@ -19,6 +19,7 @@ from typing import Any, Dict
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
 
 # ── 路徑設定 ──────────────────────────────────────────────────────────────────
 PROJECT_ROOT = Path(__file__).parent.parent.parent.parent
@@ -31,10 +32,12 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from bioneuronai.api.models import (  # noqa: E402
     ApiResponse,
+    BacktestRequest,
     BinanceValidateRequest,
     ModuleStatus,
     NewsRequest,
     PreTradeRequest,
+    SimulateRequest,
     StatusResponse,
     TradeStartRequest,
 )
@@ -54,7 +57,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="BioNeuronai API",
     description="AI-driven cryptocurrency futures trading system REST API",
-    version="4.1.0",
+    version="4.4.1",
     lifespan=lifespan,
 )
 
@@ -74,7 +77,7 @@ app.add_middleware(
 
 @app.get("/", tags=["root"])
 async def root():
-    return {"service": "BioNeuronai API", "version": "4.1.0", "docs": "/docs"}
+    return {"service": "BioNeuronai API", "version": "4.4.1", "docs": "/docs", "backtest_ui": "/backtest/ui"}
 
 
 # ── Status ────────────────────────────────────────────────────────────────────
@@ -186,6 +189,129 @@ async def analyze_news(req: NewsRequest):
         return ApiResponse(success=True, message="新聞分析完成", data=data)
     except Exception as exc:
         return ApiResponse(success=False, message=f"新聞分析失敗: {exc}")
+
+
+# ── Backtest Replay ──────────────────────────────────────────────────────────
+
+
+@app.get("/api/v1/backtest/catalog", response_model=ApiResponse, tags=["backtest"])
+async def get_backtest_catalog(symbol: str | None = None, interval: str | None = None):
+    """列出可用的歷史回放資料。"""
+    try:
+        from backtest import get_catalog
+
+        data = await asyncio.to_thread(get_catalog, None, symbol, interval)
+        return ApiResponse(success=True, message="歷史資料掃描完成", data=data)
+    except Exception as exc:
+        return ApiResponse(success=False, message=f"歷史資料掃描失敗: {exc}")
+
+
+@app.get("/api/v1/backtest/inspect", response_model=ApiResponse, tags=["backtest"])
+async def inspect_backtest_dataset(
+    symbol: str = "ETHUSDT",
+    interval: str = "1h",
+    start_date: str | None = None,
+    end_date: str | None = None,
+):
+    """檢視指定資料集是否可被 replay 層載入。"""
+    try:
+        from backtest import HistoricalDataStream
+
+        stream = await asyncio.to_thread(
+            HistoricalDataStream,
+            None,
+            symbol,
+            interval,
+            start_date,
+            end_date,
+            0.0,
+            True,
+        )
+        frame = stream.load_data()
+        payload = {
+            "resolved_root": str(stream.data_dir),
+            "symbol": symbol,
+            "interval": interval,
+            "bars": len(frame),
+            "start_open_time": int(frame["open_time"].iloc[0]),
+            "end_open_time": int(frame["open_time"].iloc[-1]),
+        }
+        return ApiResponse(success=True, message="資料載入成功", data=payload)
+    except Exception as exc:
+        return ApiResponse(success=False, message=f"資料載入失敗: {exc}")
+
+
+@app.post("/api/v1/backtest/simulate", response_model=ApiResponse, tags=["backtest"])
+async def run_backtest_simulation(req: SimulateRequest):
+    """執行 replay simulate。"""
+    try:
+        from backtest import run_simulation_summary
+
+        data = await asyncio.to_thread(
+            run_simulation_summary,
+            req.symbol,
+            req.interval,
+            req.balance,
+            req.bars,
+            req.start_date,
+            req.end_date,
+        )
+        return ApiResponse(success=True, message="simulate 完成", data=data)
+    except Exception as exc:
+        return ApiResponse(success=False, message=f"simulate 失敗: {exc}")
+
+
+@app.post("/api/v1/backtest/run", response_model=ApiResponse, tags=["backtest"])
+async def run_backtest(req: BacktestRequest):
+    """執行 replay backtest。"""
+    try:
+        from backtest import run_backtest_summary
+
+        data = await asyncio.to_thread(
+            run_backtest_summary,
+            req.symbol,
+            req.interval,
+            req.balance,
+            req.start_date,
+            req.end_date,
+            None,
+            req.warmup_bars,
+        )
+        return ApiResponse(success=True, message="backtest 完成", data=data)
+    except Exception as exc:
+        return ApiResponse(success=False, message=f"backtest 失敗: {exc}")
+
+
+@app.get("/api/v1/backtest/runs", response_model=ApiResponse, tags=["backtest"])
+async def get_backtest_runs(limit: int = 10):
+    """列出 replay runtime runs。"""
+    try:
+        from backtest import list_runtime_runs
+
+        data = await asyncio.to_thread(list_runtime_runs, limit)
+        return ApiResponse(success=True, message="replay runs 讀取完成", data=data)
+    except Exception as exc:
+        return ApiResponse(success=False, message=f"replay runs 讀取失敗: {exc}")
+
+
+@app.get("/api/v1/backtest/runs/{run_id}", response_model=ApiResponse, tags=["backtest"])
+async def get_backtest_run(run_id: str):
+    """讀取指定 replay runtime run。"""
+    try:
+        from backtest import get_runtime_run
+
+        data = await asyncio.to_thread(get_runtime_run, run_id)
+        return ApiResponse(success=True, message="replay run 讀取完成", data=data)
+    except Exception as exc:
+        return ApiResponse(success=False, message=f"replay run 讀取失敗: {exc}")
+
+
+@app.get("/backtest/ui", response_class=HTMLResponse, tags=["backtest"])
+async def backtest_ui():
+    """最小可用 backtest UI。"""
+    from backtest import load_backtest_ui_html
+
+    return HTMLResponse(load_backtest_ui_html())
 
 
 # ── PreTrade ──────────────────────────────────────────────────────────────────

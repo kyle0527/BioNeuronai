@@ -14,7 +14,7 @@ BioNeuronai - AI
 - risk_management: 
 """
 
-__version__ = "4.1.0"
+__version__ = "4.4.1"
 __author__ = "BioNeuronai Team"
 
 import logging  # noqa: E402 (imports after sys.path setup are intentional)
@@ -58,9 +58,11 @@ except (ImportError, AttributeError) as _torch_err:
         " 執行 pip install torch 以啟用 AI 功能。"
     )
 
-from .trading_strategies import MarketData, TradingSignal, StrategyFusion  # noqa: E402
+from schemas.market import MarketData  # noqa: E402
+from schemas.trading import TradingSignal  # noqa: E402
 from .data import BinanceFuturesConnector, ExchangeRateService  # noqa: E402
 from .risk_management import RiskManager, RiskParameters  # noqa: E402
+from .strategies import AIStrategyFusion  # noqa: E402
 
 #  ()
 imported_strategy_gene: Any = None
@@ -176,8 +178,8 @@ __all__ = [
     "RiskManager",
     "RiskParameters",
     
-    # 
-    "StrategyFusion",
+    # 策略融合
+    "AIStrategyFusion",
     
     #  RL Meta-Agent ()
     "RLMetaAgent",

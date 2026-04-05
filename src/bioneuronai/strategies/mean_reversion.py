@@ -32,6 +32,13 @@ from datetime import datetime, timedelta
 from dataclasses import dataclass
 import uuid
 
+try:
+    import talib
+    TALIB_AVAILABLE = True
+except ImportError:
+    talib = None  # type: ignore[assignment]
+    TALIB_AVAILABLE = False
+
 from .base_strategy import (
     BaseStrategy,
     TradeSetup,
@@ -232,6 +239,10 @@ class MeanReversionStrategy(BaseStrategy):
         n: int = len(close)
         if n < period + 1:
             return cast(np.ndarray, np.full(n, 50.0))
+
+        if TALIB_AVAILABLE and talib is not None:
+            rsi = talib.RSI(close.astype(np.float64), timeperiod=period)
+            return cast(np.ndarray, np.nan_to_num(rsi, nan=50.0))
         
         deltas: np.ndarray = np.diff(close)
         gains: np.ndarray = np.where(deltas > 0, deltas, 0)
@@ -247,7 +258,13 @@ class MeanReversionStrategy(BaseStrategy):
             avg_gain[i] = (avg_gain[i - 1] * (period - 1) + gains[i - 1]) / period
             avg_loss[i] = (avg_loss[i - 1] * (period - 1) + losses[i - 1]) / period
         
-        rs: np.ndarray = np.where(avg_loss != 0, avg_gain / avg_loss, 100)
+        with np.errstate(divide='ignore', invalid='ignore'):
+            rs: np.ndarray = np.divide(
+                avg_gain,
+                avg_loss,
+                out=np.full(n, 100.0, dtype=np.float64),
+                where=avg_loss != 0,
+            )
         rsi: np.ndarray = 100 - (100 / (1 + rs))
         rsi[:period] = 50
         
@@ -430,6 +447,7 @@ class MeanReversionStrategy(BaseStrategy):
         self._last_analysis_time = datetime.now()
         
         return {
+            'symbol': additional_data.get('symbol') if additional_data else None,
             'current_price': current_price,
             'mean_reversion_analysis': analysis,
             'market_condition': market_condition,
@@ -598,9 +616,52 @@ class MeanReversionStrategy(BaseStrategy):
         market_analysis: Dict[str, Any],
         ohlcv_data: np.ndarray,
     ) -> Optional[TradeSetup]:
-        """評估均值回歸進場條件"""
-        # 暫時返回None，等待完整實現
-        return None
+        """評估均值回歸進場條件
+
+        使用 analyze_market() 產出的 MeanReversionAnalysis 執行多頭/空頭評估，
+        需達到 self.required_confirmations 才建立 TradeSetup。
+        """
+        analysis, current_price = self._extract_mean_reversion_data(market_analysis)
+        if analysis is None or current_price is None:
+            return None
+
+        # 排除趨勢市場：強趨勢下均值回歸容易被追殺
+        market_condition = market_analysis.get('market_condition')
+        if market_condition in (MarketCondition.STRONG_UPTREND, MarketCondition.STRONG_DOWNTREND):
+            logger.debug("均值回歸：強趨勢市場，跳過進場評估")
+            return None
+
+        long_conditions, long_confirmations = self._evaluate_long_opportunities(analysis)
+        short_conditions, short_confirmations = self._evaluate_short_opportunities(analysis)
+
+        direction, entry_conditions, confirmations = self._determine_trading_direction(
+            long_conditions, long_confirmations,
+            short_conditions, short_confirmations,
+        )
+
+        if direction is None:
+            return None
+
+        stop_loss, tp1, tp2, tp3 = self._calculate_mean_reversion_levels(
+            direction, current_price, analysis
+        )
+
+        # 確保 R:R 達到最低要求
+        risk = abs(current_price - stop_loss)
+        reward = abs(tp1 - current_price)
+        if risk <= 0 or reward / risk < self.risk_params.min_risk_reward_ratio:
+            logger.debug(
+                f"均值回歸：R:R 不足 ({reward/risk:.2f} < {self.risk_params.min_risk_reward_ratio})"
+            )
+            return None
+
+        signal_strength = self._determine_mr_signal_strength(confirmations, analysis)
+
+        return self._create_mean_reversion_setup(
+            market_analysis, direction, current_price,
+            entry_conditions, confirmations,
+            stop_loss, tp1, tp2, tp3, signal_strength, analysis,
+        )
 
     def _generate_mr_summary(
         self,
@@ -896,7 +957,7 @@ class MeanReversionStrategy(BaseStrategy):
             ],
         )
         
-        logger.info(
+        logger.debug(
             f": "
             f"{direction.upper()} @ {current_price:.2f}, "
             f"Z={analysis.z_score:.2f}, : {confirmations}"

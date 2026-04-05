@@ -1,0 +1,79 @@
+{
+  "account_info": {
+    "totalWalletBalance": "10000.356326401705",
+    "availableBalance": "9852.191826401706",
+    "totalUnrealizedProfit": "-1.8096583740305279",
+    "totalMarginBalance": "9998.546668027675",
+    "assets": [
+      {
+        "asset": "USDT",
+        "walletBalance": "10000.356326401705",
+        "availableBalance": "9852.191826401706",
+        "unrealizedProfit": "-1.8096583740305279",
+        "marginBalance": "9998.546668027675"
+      }
+    ],
+    "positions": [
+      {
+        "symbol": "ETHUSDT",
+        "positionSide": "SHORT",
+        "positionAmt": "-0.05",
+        "entryPrice": "2927.0968325193894",
+        "markPrice": "2963.29",
+        "unRealizedProfit": "-1.8096583740305279",
+        "leverage": "1",
+        "isolatedMargin": "146.35484162596947",
+        "liquidationPrice": "0.0"
+      }
+    ]
+  },
+  "stats": {
+    "initial_balance": 10000.0,
+    "current_balance": 10000.356326401705,
+    "total_equity": 9998.546668027675,
+    "total_return": -0.014533319723250315,
+    "total_trades": 3,
+    "winning_trades": 1,
+    "losing_trades": 0,
+    "win_rate": 33.33333333333333,
+    "total_commission": 0.17541311414482305,
+    "total_realized_pnl": 0.5317395158508135,
+    "max_drawdown": 0.0005853950803188418,
+    "peak_balance": 10000.414868338356
+  },
+  "trades": [
+    {
+      "tradeId": "AD498DA8",
+      "orderId": "70633B35",
+      "symbol": "ETHUSDT",
+      "side": "BUY",
+      "price": "2916.462042202373",
+      "qty": "0.05",
+      "commission": "0.05832924084404747",
+      "realizedPnl": "0.0",
+      "time": 1775318653158
+    },
+    {
+      "tradeId": "D8A3B424",
+      "orderId": "4A322545",
+      "symbol": "ETHUSDT",
+      "side": "SELL",
+      "price": "2927.0968325193894",
+      "qty": "0.05",
+      "commission": "0.05854193665038779",
+      "realizedPnl": "0.5317395158508135",
+      "time": 1775318653165
+    },
+    {
+      "tradeId": "7B6B1EAD",
+      "orderId": "F53A3C66",
+      "symbol": "ETHUSDT",
+      "side": "SELL",
+      "price": "2927.0968325193894",
+      "qty": "0.05",
+      "commission": "0.05854193665038779",
+      "realizedPnl": "0.0",
+      "time": 1775318653166
+    }
+  ]
+}

@@ -44,7 +44,7 @@ class MarketData(BaseModel):
     
     @property
     def price(self) -> float:
-        """當前市場價（等同於收盤價，向後兼容 trading_strategies.MarketData）"""
+        """當前市場價（等同於收盤價，供 ticker/connector 相容使用）"""
         return self.close
     
     @field_validator("high")

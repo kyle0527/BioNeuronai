@@ -42,7 +42,6 @@ from .base_strategy import (
 from .breakout_trading import BreakoutTradingStrategy
 from .direction_change_strategy import DirectionChangeStrategy
 from .mean_reversion import MeanReversionStrategy
-from .pair_trading_strategy import PairTradingStrategy
 from .swing_trading import SwingTradingStrategy
 from .trend_following import TrendFollowingStrategy
 
@@ -140,13 +139,14 @@ class AIStrategyFusion:
         self.enable_learning = enable_learning
         
         # 策略實例
+        # 注意：PairTradingStrategy 需要 additional_data['secondary_ohlcv']，
+        # 不適合單資產融合流程，請透過 PairTradingStrategy 獨立呼叫。
         self.strategies: Dict[str, BaseStrategy] = {
             'trend_following': TrendFollowingStrategy(timeframe),
             'swing_trading': SwingTradingStrategy(timeframe),
             'mean_reversion': MeanReversionStrategy(timeframe),
             'breakout': BreakoutTradingStrategy(timeframe),
             'direction_change': DirectionChangeStrategy(timeframe),
-            'pair_trading': PairTradingStrategy(timeframe),
         }
 
         # 各策略的市場環境適配性（必須在 _initialize_weights 之前設置）
@@ -173,10 +173,6 @@ class AIStrategyFusion:
                 'best': [MarketCondition.UPTREND, MarketCondition.DOWNTREND,
                          MarketCondition.STRONG_UPTREND, MarketCondition.STRONG_DOWNTREND],
                 'worst': [MarketCondition.HIGH_VOLATILITY],
-            },
-            'pair_trading': {
-                'best': [MarketCondition.SIDEWAYS, MarketCondition.LOW_VOLATILITY],
-                'worst': [MarketCondition.STRONG_UPTREND, MarketCondition.STRONG_DOWNTREND],
             },
         }
         
@@ -644,6 +640,8 @@ class AIStrategyFusion:
             try:
                 # 市場分析
                 analysis = strategy.analyze_market(ohlcv_data, additional_data)
+                if isinstance(analysis, dict) and additional_data and additional_data.get("symbol"):
+                    analysis.setdefault("symbol", additional_data["symbol"])
                 market_analyses[name] = analysis
                 
                 # 入場條件評估

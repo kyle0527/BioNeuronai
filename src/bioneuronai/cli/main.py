@@ -45,229 +45,47 @@ logger = logging.getLogger(__name__)
 # ══════════════════════════════════════════════════════════════════════════════
 
 
-def cmd_backtest(args: argparse.Namespace) -> None:
-    """
-    歷史回測命令
-
-    使用 BacktestEngine + MockBinanceConnector 對 AI 推論引擎進行回測。
-    需要 binance_historical/ 目錄中的歷史 K 線數據。
-
-    Example:
-        python main.py backtest --symbol ETHUSDT --interval 1h
-    """
+def cmd_backtest_data(args: argparse.Namespace) -> None:
+    """列出 repo 內可用的歷史回放資料。"""
     print(f"\n{'='*60}")
-    print(f"  BioNeuronai Backtest  {args.symbol} / {args.interval}")
-    print(f"{'='*60}")
-
-    try:
-        from backtest import BacktestEngine, KlineBar, MockBinanceConnector
-        from bioneuronai.core.trading_engine import TradingEngine
-    except ImportError as e:
-        logger.error("回測模組載入失敗: %s", e)
-        logger.error("確認 backtest/ 目錄存在且 TradingEngine 可用")
-        sys.exit(1)
-
-    engine_holder: dict = {}
-
-    def ai_strategy(bar: "KlineBar", connector: "MockBinanceConnector") -> None:
-        """AI 推論策略 - 每根 K 線呼叫一次"""
-        if "engine" not in engine_holder:
-            return
-
-        trading_engine: TradingEngine = engine_holder["engine"]
-        symbol = bar.symbol
-        current_price = bar.close
-
-        klines = connector.data_stream.get_klines_until_now(100)
-        if not klines or len(klines) < 20:
-            return
-
-        if not (trading_engine.inference_engine and trading_engine.ai_model_loaded):
-            return
-
-        try:
-            signal = trading_engine.inference_engine.predict(
-                symbol=symbol,
-                current_price=current_price,
-                klines=klines,
-            )
-            sig_str = signal.signal_type.value
-            conf = signal.confidence
-            bar_idx = connector.data_stream.state.current_index
-
-            print(
-                f"  Bar{bar_idx:4d} | ${current_price:>9.2f} | {sig_str:<15} | {conf:.1%}",
-                end="",
-            )
-
-            account = connector.get_account_info() or {}
-            pos = next(
-                (
-                    p
-                    for p in account["positions"]
-                    if p["symbol"] == symbol and abs(p["positionAmt"]) > 0
-                ),
-                None,
-            )
-
-            if "long" in sig_str and (not pos or float(pos["positionAmt"]) <= 0):
-                if pos and float(pos["positionAmt"]) < 0:
-                    connector.place_order(symbol, "BUY", "MARKET", abs(float(pos["positionAmt"])))
-                connector.place_order(symbol, "BUY", "MARKET", 0.05)
-                print(" -> LONG")
-            elif "short" in sig_str and (not pos or float(pos["positionAmt"]) >= 0):
-                if pos and float(pos["positionAmt"]) > 0:
-                    connector.place_order(symbol, "SELL", "MARKET", float(pos["positionAmt"]))
-                connector.place_order(symbol, "SELL", "MARKET", 0.05)
-                print(" -> SHORT")
-            else:
-                print()
-
-        except Exception as exc:
-            logger.warning("AI 推論失敗: %s", exc)
-
-    # 建立 TradingEngine（載入 AI 模型）
-    print("\n[1/2] 初始化 TradingEngine ...")
-    try:
-        te = TradingEngine(testnet=True)
-        engine_holder["engine"] = te
-        print("      TradingEngine OK")
-    except Exception as exc:
-        logger.warning("TradingEngine 初始化失敗，以無 AI 模式執行: %s", exc)
-
-    # 建立並執行回測
-    print(f"[2/2] 啟動回測  {args.symbol} {args.interval} ...")
-    try:
-        backtest_engine = BacktestEngine(
-            symbol=args.symbol,
-            interval=args.interval,
-            start_date=args.start_date,
-            end_date=getattr(args, "end_date", None),
-            initial_balance=args.balance,
-        )
-        result = backtest_engine.run(ai_strategy)
-        _print_backtest_result(result)
-    except FileNotFoundError:
-        logger.error(
-            "找不到 %s / %s 的歷史數據，請先執行 tools/data_download/ 下載",
-            args.symbol,
-            args.interval,
-        )
-        sys.exit(1)
-
-
-def _print_backtest_result(result: object) -> None:
-    """顯示回測結果摘要"""
-    print(f"\n{'='*60}")
-    print("  回測結果")
-    print(f"{'='*60}")
-    for attr in ("total_return", "sharpe_ratio", "max_drawdown", "win_rate", "total_trades"):
-        value = getattr(result, attr, None)
-        if value is not None:
-            label = {
-                "total_return": "總報酬率",
-                "sharpe_ratio": "夏普比率",
-                "max_drawdown": "最大回撤",
-                "win_rate": "勝率",
-                "total_trades": "總交易次數",
-            }.get(attr, attr)
-            if isinstance(value, float):
-                print(f"  {label:12}: {value:.4f}")
-            else:
-                print(f"  {label:12}: {value}")
+    print("  BioNeuronai Backtest Data Catalog")
     print(f"{'='*60}\n")
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-
-
-def cmd_simulate(args: argparse.Namespace) -> None:
-    """
-    紙交易模擬命令
-
-    使用 MockBinanceConnector.next_tick() 逐 K 線推進，不產生真實訂單。
-    需要 binance_historical/ 目錄中的歷史 K 線數據。
-
-    Example:
-        python main.py simulate --symbol BTCUSDT --interval 15m --bars 300
-    """
-    print(f"\n{'='*60}")
-    print(f"  BioNeuronai Simulate  {args.symbol} / {args.interval}")
-    print(f"{'='*60}")
-
     try:
-        from backtest import MockBinanceConnector
-        from bioneuronai.core.trading_engine import TradingEngine
-    except ImportError as e:
-        logger.error("模擬模組載入失敗: %s", e)
+        from backtest import get_catalog
+    except ImportError as exc:
+        logger.error("backtest catalog 載入失敗: %s", exc)
         sys.exit(1)
 
-    print(f"\n  初始資金   : ${args.balance:,.2f}")
-    print(f"  模擬 K 線數: {args.bars}")
-    print(f"  交易對     : {args.symbol}  週期: {args.interval}\n")
-
     try:
-        te = TradingEngine(testnet=True)
-        print("  TradingEngine 已初始化")
-    except Exception as exc:
-        logger.warning("TradingEngine 初始化失敗（無 AI 模式）: %s", exc)
-        te = None
-
-    try:
-        mock = MockBinanceConnector(
-            symbol=args.symbol,
-            interval=args.interval,
-            initial_balance=args.balance,
-            start_date=getattr(args, "start_date", None),
-            end_date=getattr(args, "end_date", None),
+        catalog = get_catalog(
+            data_dir=getattr(args, "data_dir", None),
+            symbol=getattr(args, "symbol", None),
+            interval=getattr(args, "interval", None),
         )
     except Exception as exc:
-        logger.error("MockBinanceConnector 初始化失敗: %s", exc)
+        logger.error("歷史資料掃描失敗: %s", exc)
         sys.exit(1)
 
-    bar_count = 0
-    print(f"  模擬執行中 ... (限制 {args.bars} 根 K 線)\n")
+    if getattr(args, "json", False):
+        print(json.dumps(catalog, ensure_ascii=False, indent=2))
+        return
 
-    # 使用 next_tick() 逐根推進（MockBinanceConnector 的正確接口）
-    while mock.next_tick() and bar_count < args.bars:
-        bar = mock._current_bar
-        if bar is None:
-            continue
+    print(f"  資料根目錄: {catalog['root']}")
+    print(f"  可用資料組: {catalog['dataset_count']}\n")
 
-        bar_count += 1
+    datasets = catalog.get("datasets", [])
+    if not datasets:
+        print("  找不到任何可用歷史資料。\n")
+        return
 
-        if te and te.inference_engine and te.ai_model_loaded:
-            try:
-                klines = mock.data_stream.get_klines_until_now(50)
-                signal = te.inference_engine.predict(
-                    symbol=bar.symbol,
-                    current_price=bar.close,
-                    klines=klines,
-                )
-                if bar_count % 20 == 0:
-                    print(
-                        f"  [{bar_count:4d}] ${bar.close:>9.2f}"
-                        f"  {signal.signal_type.value:<15}"
-                        f"  conf={signal.confidence:.1%}"
-                    )
-            except Exception:
-                if bar_count % 20 == 0:
-                    print(f"  [{bar_count:4d}] ${bar.close:>9.2f}  (AI 推論失敗)")
-        elif bar_count % 20 == 0:
-            print(f"  [{bar_count:4d}] ${bar.close:>9.2f}  (無 AI 模型)")
-
-    acct = mock.get_account_info() or {}
-    final_balance = float(acct.get("totalWalletBalance", args.balance))
-    pnl = final_balance - args.balance
-    stats = mock.virtual_account.get_stats() if hasattr(mock, "virtual_account") else {}
-    print(f"\n  {'─'*50}")
-    print(f"  最終餘額  : ${final_balance:,.2f}")
-    print(f"  PnL       : {pnl:+,.2f} USDT")
-    if stats:
-        print(f"  總報酬率  : {stats.get('total_return', 0):.2f}%")
-        print(f"  總交易次數: {stats.get('total_trades', 0)}")
-        print(f"  勝率      : {stats.get('win_rate', 0):.1f}%")
-    print(f"  {'─'*50}\n")
+    for item in datasets:
+        print(
+            f"  - {item['symbol']:<10} {item['interval']:<6}"
+            f"  {item.get('start_date') or 'N/A'} ~ {item.get('end_date') or 'N/A'}"
+            f"  | zip={item['zip_count']}"
+        )
+    print()
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -516,8 +334,12 @@ def cmd_evolve(args: argparse.Namespace) -> None:
     try:
         config = ArenaConfig(
             symbol=args.symbol,
+            interval=args.interval,
+            start_date=args.start_date,
+            end_date=args.end_date,
             population_size=args.population,
             max_generations=args.generations,
+            warmup_bars=args.warmup_bars,
         )
         arena = StrategyArena(config)
         best = arena.run()
@@ -596,6 +418,150 @@ def cmd_status(args: argparse.Namespace) -> None:  # noqa: ARG001
     print(f"{'='*60}\n")
 
 
+def _print_backtest_summary(summary: dict) -> None:
+    """顯示 replay service 回傳的回測摘要。"""
+    print(f"\n{'='*60}")
+    print("  回測結果")
+    print(f"{'='*60}")
+    stats = summary.get("stats", {})
+    for attr in ("total_return", "sharpe_ratio", "max_drawdown", "win_rate", "total_trades"):
+        value = stats.get(attr)
+        if value is not None:
+            label = {
+                "total_return": "總報酬率",
+                "sharpe_ratio": "夏普比率",
+                "max_drawdown": "最大回撤",
+                "win_rate": "勝率",
+                "total_trades": "總交易次數",
+            }.get(attr, attr)
+            if isinstance(value, float):
+                print(f"  {label:12}: {value:.4f}")
+            else:
+                print(f"  {label:12}: {value}")
+
+
+def cmd_backtest(args: argparse.Namespace) -> None:
+    """正式 replay backtest CLI，保存 runtime artifacts。"""
+    print(f"\n{'='*60}")
+    print(f"  BioNeuronai Backtest  {args.symbol} / {args.interval}")
+    print(f"{'='*60}")
+
+    try:
+        from backtest import run_backtest_summary
+
+        result = run_backtest_summary(
+            symbol=args.symbol,
+            interval=args.interval,
+            balance=args.balance,
+            start_date=args.start_date,
+            end_date=getattr(args, "end_date", None),
+            data_dir=getattr(args, "data_dir", None),
+            warmup_bars=args.warmup_bars,
+        )
+    except FileNotFoundError:
+        logger.error(
+            "找不到 %s / %s 的歷史數據，請先執行 tools/data_download/ 下載",
+            args.symbol,
+            args.interval,
+        )
+        sys.exit(1)
+    except Exception as exc:
+        logger.error("回測執行失敗: %s", exc)
+        sys.exit(1)
+
+    _print_backtest_summary(result)
+    print(f"  Run ID      : {result['run_id']}")
+    print(f"  Runtime Dir : {result['run_dir']}")
+    print(f"{'='*60}\n")
+
+
+def cmd_simulate(args: argparse.Namespace) -> None:
+    """正式 replay simulate CLI，保存 runtime artifacts。"""
+    print(f"\n{'='*60}")
+    print(f"  BioNeuronai Simulate  {args.symbol} / {args.interval}")
+    print(f"{'='*60}")
+    print(f"\n  初始資金   : ${args.balance:,.2f}")
+    print(f"  模擬 K 線數: {args.bars}")
+    print(f"  交易對     : {args.symbol}  週期: {args.interval}\n")
+
+    try:
+        from backtest import run_simulation_summary
+
+        result = run_simulation_summary(
+            symbol=args.symbol,
+            interval=args.interval,
+            balance=args.balance,
+            bars=args.bars,
+            start_date=getattr(args, "start_date", None),
+            end_date=getattr(args, "end_date", None),
+            data_dir=getattr(args, "data_dir", None),
+        )
+    except Exception as exc:
+        logger.error("模擬執行失敗: %s", exc)
+        sys.exit(1)
+
+    final_balance = float(result.get("final_balance", args.balance))
+    pnl = final_balance - args.balance
+    stats = result.get("stats", {})
+    print(f"\n  {'─'*50}")
+    print(f"  最終餘額  : ${final_balance:,.2f}")
+    print(f"  PnL       : {pnl:+,.2f} USDT")
+    print(f"  總報酬率  : {stats.get('total_return', 0):.2f}%")
+    print(f"  總交易次數: {stats.get('total_trades', 0)}")
+    print(f"  勝率      : {stats.get('win_rate', 0):.1f}%")
+    print(f"  Run ID    : {result['run_id']}")
+    print(f"  Runtime   : {result['run_dir']}")
+    print(f"  {'─'*50}\n")
+
+
+def cmd_backtest_runs(args: argparse.Namespace) -> None:
+    """列出或檢視 replay runtime runs。"""
+    try:
+        from backtest import get_runtime_run, list_runtime_runs
+
+        if getattr(args, "run_id", None):
+            payload = get_runtime_run(args.run_id)
+        else:
+            payload = list_runtime_runs(limit=args.limit)
+    except Exception as exc:
+        logger.error("讀取 replay runs 失敗: %s", exc)
+        sys.exit(1)
+
+    if getattr(args, "json", False):
+        print(json.dumps(payload, indent=2, ensure_ascii=False))
+        return
+
+    if getattr(args, "run_id", None):
+        summary = payload.get("summary", {})
+        print(f"\n{'='*60}")
+        print(f"  Replay Run  {args.run_id}")
+        print(f"{'='*60}")
+        print(f"  模式       : {summary.get('mode', 'N/A')}")
+        print(f"  狀態       : {summary.get('status', 'N/A')}")
+        print(f"  交易對     : {summary.get('symbol', 'N/A')} / {summary.get('interval', 'N/A')}")
+        print(f"  Runtime    : {payload.get('run_dir', 'N/A')}")
+        print(f"  Orders     : {len(payload.get('orders', []))}")
+        stats = summary.get("stats", {})
+        if stats:
+            print(f"  總報酬率  : {stats.get('total_return', 0):.2f}%")
+            print(f"  總交易次數: {stats.get('total_trades', 0)}")
+        print(f"{'='*60}\n")
+        return
+
+    print(f"\n{'='*60}")
+    print("  Replay Runtime Runs")
+    print(f"{'='*60}")
+    for item in payload.get("runs", []):
+        print(
+            f"  {item.get('run_id', 'N/A')}  "
+            f"{item.get('mode', 'N/A'):9}  "
+            f"{item.get('symbol', 'N/A'):10}  "
+            f"{item.get('interval', 'N/A'):4}  "
+            f"{item.get('status', 'N/A')}"
+        )
+    print(f"{'='*60}\n")
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # CLI 路由（argparse）
 # ══════════════════════════════════════════════════════════════════════════════
@@ -611,6 +577,7 @@ def _build_parser() -> argparse.ArgumentParser:
 命令範例:
   python main.py backtest  --symbol ETHUSDT --interval 1h --start-date 2025-01-01
   python main.py simulate  --symbol BTCUSDT --interval 15m --balance 50000 --bars 300
+  python main.py backtest-data --symbol ETHUSDT --interval 1h
   python main.py trade     --testnet
   python main.py plan      --output daily_plan.json
   python main.py news      --symbol BTCUSDT --max-items 5
@@ -634,6 +601,10 @@ def _build_parser() -> argparse.ArgumentParser:
                     help="結束日期  (預設: 最新可用)")
     bp.add_argument("--balance", type=float, default=10000.0, metavar="AMOUNT",
                     help="初始資金  (預設: 10000)")
+    bp.add_argument("--warmup-bars", type=int, default=100, metavar="N",
+                    help="預熱 K 線數量  (預設: 100)")
+    bp.add_argument("--data-dir", default=None, dest="data_dir", metavar="PATH",
+                    help="歷史資料根目錄  (預設: 自動尋找 repo 內資料)")
     bp.set_defaults(func=cmd_backtest)
 
     # ── simulate ──────────────────────────────────────────────────────────────
@@ -650,7 +621,31 @@ def _build_parser() -> argparse.ArgumentParser:
                     help="起始日期  (可選)")
     sp.add_argument("--end-date", default=None, dest="end_date", metavar="YYYY-MM-DD",
                     help="結束日期  (可選)")
+    sp.add_argument("--data-dir", default=None, dest="data_dir", metavar="PATH",
+                    help="歷史資料根目錄  (預設: 自動尋找 repo 內資料)")
     sp.set_defaults(func=cmd_simulate)
+
+    # ── backtest-data ────────────────────────────────────────────────────────
+    bdp = subparsers.add_parser("backtest-data", help="列出可用歷史回放資料")
+    bdp.add_argument("--symbol", default=None, metavar="SYMBOL",
+                     help="只顯示指定交易對")
+    bdp.add_argument("--interval", default=None, metavar="INTERVAL",
+                     help="只顯示指定週期")
+    bdp.add_argument("--data-dir", default=None, dest="data_dir", metavar="PATH",
+                     help="歷史資料根目錄  (預設: 自動尋找 repo 內資料)")
+    bdp.add_argument("--json", action="store_true",
+                     help="以 JSON 輸出")
+    bdp.set_defaults(func=cmd_backtest_data)
+
+    # ── backtest-runs ────────────────────────────────────────────────────────
+    brp = subparsers.add_parser("backtest-runs", help="列出或檢視 replay runtime runs")
+    brp.add_argument("--limit", type=int, default=10, metavar="N",
+                     help="列出最近 N 筆 runs  (預設: 10)")
+    brp.add_argument("--run-id", default=None, metavar="RUN_ID",
+                     help="查看指定 run 的詳細資料")
+    brp.add_argument("--json", action="store_true",
+                     help="以 JSON 輸出")
+    brp.set_defaults(func=cmd_backtest_runs)
 
     # ── trade ─────────────────────────────────────────────────────────────────
     tp = subparsers.add_parser("trade", help="實盤 / 測試網交易")
@@ -688,12 +683,20 @@ def _build_parser() -> argparse.ArgumentParser:
 
     # ── evolve ────────────────────────────────────────────────────────────────
     ep = subparsers.add_parser("evolve", help="遺傳演算法策略競技場（找出最優策略組合）")
-    ep.add_argument("--symbol", default="BTCUSDT", metavar="SYMBOL",
+    ep.add_argument("--symbol", default="ETHUSDT", metavar="SYMBOL",
                     help="交易對  (預設: BTCUSDT)")
+    ep.add_argument("--interval", default="1h", metavar="INTERVAL",
+                    help="K 線週期  (預設: 1h)")
+    ep.add_argument("--start-date", default=None, metavar="YYYY-MM-DD",
+                    help="開始日期  (可選)")
+    ep.add_argument("--end-date", default=None, metavar="YYYY-MM-DD",
+                    help="結束日期  (可選)")
     ep.add_argument("--generations", type=int, default=10, metavar="N",
                     help="最大演化代數  (預設: 10)")
     ep.add_argument("--population", type=int, default=20, metavar="N",
                     help="每代種群數量  (預設: 20)")
+    ep.add_argument("--warmup-bars", type=int, default=10, metavar="N",
+                    help="策略評估預熱 K 線數量  (預設: 10)")
     ep.add_argument("--output", default=None, metavar="FILE",
                     help="輸出最優策略至 JSON 檔案  (可選)")
     ep.set_defaults(func=cmd_evolve)

@@ -219,7 +219,11 @@ class PairTradingStrategy(BaseStrategy):
         secondary_ohlcv = (additional_data or {}).get('secondary_ohlcv')
         if secondary_ohlcv is None or len(secondary_ohlcv) < self.lookback_period:
             self.state = StrategyState.IDLE
-            return self._no_pair_data_result(current_price, atr)
+            return self._no_pair_data_result(
+                current_price,
+                atr,
+                (additional_data or {}).get('symbol'),
+            )
 
         secondary_close = secondary_ohlcv[:, 4]
         analysis = PairAnalysis()
@@ -255,6 +259,7 @@ class PairTradingStrategy(BaseStrategy):
             market_condition = MarketCondition.SIDEWAYS
 
         return {
+            'symbol': (additional_data or {}).get('symbol'),
             'market_condition': market_condition,
             'trend_direction': 'long' if analysis.z_score < 0 else 'short',
             'trend_strength': min(100.0, abs_z / max(self.entry_z_threshold, 0.01) * 50.0),
@@ -274,9 +279,15 @@ class PairTradingStrategy(BaseStrategy):
             ),
         }
 
-    def _no_pair_data_result(self, current_price: float, atr: float) -> Dict[str, Any]:
+    def _no_pair_data_result(
+        self,
+        current_price: float,
+        atr: float,
+        symbol: Optional[str] = None,
+    ) -> Dict[str, Any]:
         """缺少次要資產數據時的默認返回"""
         return {
+            'symbol': symbol,
             'market_condition': MarketCondition.SIDEWAYS,
             'trend_direction': 'neutral',
             'trend_strength': 0.0,
@@ -358,8 +369,12 @@ class PairTradingStrategy(BaseStrategy):
         else:
             signal_strength = SignalStrength.WEAK
 
+        symbol = market_analysis.get('symbol')
+        if not symbol:
+            raise ValueError("市場分析必須包含 'symbol' 字段，不再支持預設幣種")
+
         return TradeSetup(
-            symbol="BTCUSDT",
+            symbol=symbol,
             direction=direction,
             entry_price=current_price,
             stop_loss=stop_loss,

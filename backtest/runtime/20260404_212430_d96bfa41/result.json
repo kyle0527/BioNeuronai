@@ -1,0 +1,35 @@
+{
+  "config": {
+    "data_dir": "C:\\D\\E\\BioNeuronai\\backtest\\data\\binance_historical",
+    "symbol": "ETHUSDT",
+    "interval": "1h",
+    "start_date": "2025-12-22",
+    "end_date": "2025-12-23",
+    "initial_balance": 10000.0,
+    "leverage": 1,
+    "maker_fee": 0.0002,
+    "taker_fee": 0.0004,
+    "slippage_rate": 0.0001,
+    "warmup_bars": 100
+  },
+  "stats": {
+    "initial_balance": 10000.0,
+    "current_balance": 10000.0,
+    "total_equity": 10000.0,
+    "total_return": 0.0,
+    "total_trades": 0,
+    "winning_trades": 0,
+    "losing_trades": 0,
+    "win_rate": 0,
+    "total_commission": 0.0,
+    "total_realized_pnl": 0.0,
+    "max_drawdown": 0.0,
+    "peak_balance": 10000.0,
+    "total_bars": 48,
+    "effective_bars": 0
+  },
+  "equity_curve": [],
+  "trades": [],
+  "drawdown_curve": [],
+  "timestamps": []
+}

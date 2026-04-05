@@ -1,0 +1,33 @@
+{
+  "account_info": {
+    "totalWalletBalance": "10000.0",
+    "availableBalance": "10000.0",
+    "totalUnrealizedProfit": "0",
+    "totalMarginBalance": "10000.0",
+    "assets": [
+      {
+        "asset": "USDT",
+        "walletBalance": "10000.0",
+        "availableBalance": "10000.0",
+        "unrealizedProfit": "0",
+        "marginBalance": "10000.0"
+      }
+    ],
+    "positions": []
+  },
+  "stats": {
+    "initial_balance": 10000.0,
+    "current_balance": 10000.0,
+    "total_equity": 10000.0,
+    "total_return": 0.0,
+    "total_trades": 0,
+    "winning_trades": 0,
+    "losing_trades": 0,
+    "win_rate": 0,
+    "total_commission": 0.0,
+    "total_realized_pnl": 0.0,
+    "max_drawdown": 0.0,
+    "peak_balance": 10000.0
+  },
+  "trades": []
+}

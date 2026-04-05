@@ -24,6 +24,7 @@
 import logging
 import json
 import uuid
+import inspect
 from pathlib import Path
 from datetime import datetime
 from typing import Dict, List, Optional, Any, cast
@@ -86,6 +87,14 @@ class StrategyCandidate:
     
     def calculate_score(self, weights: Dict[str, float]) -> float:
         """計算綜合評分"""
+        if self.total_trades <= 0:
+            self.score = 0.0
+            return self.score
+
+        if self.backtest_result and self.backtest_result.get('error'):
+            self.score = 0.0
+            return self.score
+
         score = 0.0
         
         # 標準化各指標（避免量綱差異）
@@ -111,21 +120,23 @@ class StrategyCandidate:
         
         if weights.get('consistency', 0) > 0:
             score += self.consistency * weights['consistency']
-        
-        self.score = score
-        return score
+
+        activity_factor = min(1.0, self.total_trades / 5.0)
+        self.score = score * activity_factor
+        return self.score
 
 
 @dataclass
 class ArenaConfig:
     """競技場配置"""
     # 回測設置
-    data_dir: str = "data_downloads/binance_historical"
-    symbol: str = "BTCUSDT"
+    data_dir: str = "backtest/data/binance_historical"
+    symbol: str = "ETHUSDT"
     interval: str = "1h"
     start_date: Optional[str] = None
     end_date: Optional[str] = None
     initial_balance: float = 10000.0
+    warmup_bars: int = 10
     
     # 競爭設置
     population_size: int = 20  # 每代策略數量
@@ -178,6 +189,7 @@ class StrategyArena:
         logger.info(f"   - 種群數量: {config.population_size}")
         logger.info(f"   - 存活率: {config.survival_rate * 100:.0f}%")
         logger.info(f"   - 最大代數: {config.max_generations}")
+        logger.info(f"   - 預熱 K 線: {config.warmup_bars}")
         if config.random_seed is not None:
             logger.info(f"   - 隨機種子: {config.random_seed} (可重現)")
     
@@ -234,40 +246,41 @@ class StrategyArena:
         
         if strategy_type == 'trend_following':
             trend_params: Dict[str, Any] = {
-                'fast_period': int(self.rng.integers(5, 20)),
-                'slow_period': int(self.rng.integers(20, 100)),
-                'atr_multiplier': float(self.rng.uniform(1.0, 3.0)),
-                'min_trend_strength': float(self.rng.uniform(0.3, 0.7)),
+                'ema_fast': int(self.rng.integers(10, 34)),
+                'ema_medium': int(self.rng.integers(34, 89)),
+                'ema_slow': int(self.rng.integers(120, 260)),
+                'min_adx_for_trend': int(self.rng.integers(18, 35)),
             }
             base_params.update(trend_params)
         
         elif strategy_type == 'swing_trading':
             swing_params: Dict[str, Any] = {
-                'swing_period': int(self.rng.integers(10, 50)),
-                'strength_threshold': float(self.rng.uniform(0.4, 0.8)),
-                'risk_reward_ratio': float(self.rng.uniform(1.5, 3.5)),
+                'swing_lookback': int(self.rng.integers(3, 9)),
+                'rsi_period': int(self.rng.integers(10, 21)),
+                'required_confirmations': int(self.rng.integers(2, 5)),
             }
             base_params.update(swing_params)
         
         elif strategy_type == 'mean_reversion':
             mean_params: Dict[str, Any] = {
-                'lookback_period': int(self.rng.integers(20, 100)),
-                'std_multiplier': float(self.rng.uniform(1.5, 3.0)),
-                'mean_period': int(self.rng.integers(10, 50)),
+                'bb_period': int(self.rng.integers(14, 40)),
+                'bb_std_dev': float(self.rng.uniform(1.5, 3.0)),
+                'z_lookback': int(self.rng.integers(14, 40)),
             }
             base_params.update(mean_params)
         
         elif strategy_type == 'breakout_trading':
             breakout_params: Dict[str, Any] = {
-                'breakout_period': int(self.rng.integers(10, 50)),
-                'volume_multiplier': float(self.rng.uniform(1.2, 2.5)),
-                'retest_bars': int(self.rng.integers(2, 10)),
+                'range_lookback': int(self.rng.integers(10, 35)),
+                'breakout_threshold': float(self.rng.uniform(0.3, 1.0)),
+                'volume_threshold': float(self.rng.uniform(1.1, 2.5)),
             }
             base_params.update(breakout_params)
 
         elif strategy_type == 'direction_change':
             dc_params: Dict[str, Any] = {
                 'dc_threshold': float(self.rng.uniform(0.003, 0.015)),  # 0.3% - 1.5%
+                'min_consecutive_dc': int(self.rng.integers(2, 5)),
             }
             base_params.update(dc_params)
 
@@ -296,7 +309,8 @@ class StrategyArena:
         
         for i, candidate in enumerate(self.population):
             logger.info(f"   [{i+1}/{len(self.population)}] 評估 {candidate.name}...")
-            self._run_backtest(candidate)
+            result = self._run_backtest(candidate)
+            self._apply_backtest_result(candidate, result)
             candidate.calculate_score(self.config.score_weights)
         
         return self.population
@@ -314,7 +328,8 @@ class StrategyArena:
             for i, future in enumerate(as_completed(futures)):
                 candidate = futures[future]
                 try:
-                    future.result()
+                    result = future.result()
+                    self._apply_backtest_result(candidate, result)
                     candidate.calculate_score(self.config.score_weights)
                     logger.info(f"   ✅ [{i+1}/{len(self.population)}] {candidate.name} 完成")
                 except Exception as e:
@@ -322,26 +337,67 @@ class StrategyArena:
         
         return self.population
     
-    def _run_backtest(self, candidate: StrategyCandidate) -> None:
+    def _run_backtest(self, candidate: StrategyCandidate) -> Dict[str, Any]:
         """為單個候選策略運行回測"""
         try:
-            result = self._simulate_backtest_result()
-            
-            # 更新候選者指標
-            candidate.total_return = result.get('total_return', 0.0)
-            candidate.sharpe_ratio = result.get('sharpe_ratio', 0.0)
-            candidate.sortino_ratio = result.get('sortino_ratio', 0.0)
-            candidate.max_drawdown = result.get('max_drawdown', 0.0)
-            candidate.win_rate = result.get('win_rate', 0.5)
-            candidate.profit_factor = result.get('profit_factor', 1.0)
-            candidate.total_trades = result.get('total_trades', 0)
-            candidate.consistency = result.get('consistency', 0.5)
-            candidate.backtest_result = result
-            
+            from backtest.service import run_strategy_instance_backtest
+
+            strategy = self._create_strategy(candidate)
+            return run_strategy_instance_backtest(
+                strategy,
+                symbol=self.config.symbol,
+                interval=self.config.interval,
+                balance=self.config.initial_balance,
+                start_date=self.config.start_date,
+                end_date=self.config.end_date,
+                data_dir=self.config.data_dir,
+                warmup_bars=self.config.warmup_bars,
+            )
         except Exception as e:
             logger.error(f"回測失敗 {candidate.name}: {e}")
-            # 設置失敗的預設值
-            candidate.score = -999.0
+            return {
+                'total_return': 0.0,
+                'sharpe_ratio': 0.0,
+                'sortino_ratio': 0.0,
+                'max_drawdown': 1.0,
+                'win_rate': 0.0,
+                'profit_factor': 0.0,
+                'total_trades': 0,
+                'consistency': 0.0,
+                'error': str(e),
+            }
+
+    def _apply_backtest_result(self, candidate: StrategyCandidate, result: Dict[str, Any]) -> None:
+        """將正式 replay 結果套用到候選策略。"""
+        candidate.total_return = self._safe_metric(result.get('total_return', 0.0))
+        candidate.sharpe_ratio = self._safe_metric(result.get('sharpe_ratio', 0.0))
+        candidate.sortino_ratio = self._safe_metric(result.get('sortino_ratio', 0.0))
+        candidate.max_drawdown = self._safe_metric(result.get('max_drawdown', 0.0))
+        candidate.win_rate = self._safe_metric(result.get('win_rate', 0.0))
+        candidate.profit_factor = self._safe_metric(result.get('profit_factor', 0.0))
+        candidate.total_trades = int(result.get('total_trades', result.get('trade_count', 0)))
+        candidate.avg_trade_return = (
+            candidate.total_return / candidate.total_trades if candidate.total_trades > 0 else 0.0
+        )
+        candidate.consistency = self._calculate_consistency(result)
+        candidate.backtest_result = result
+
+    def _safe_metric(self, value: Any) -> float:
+        """將 replay 指標轉成可比較的有限值。"""
+        try:
+            numeric = float(value)
+        except (TypeError, ValueError):
+            return 0.0
+        if not np.isfinite(numeric):
+            return 0.0
+        return numeric
+
+    def _calculate_consistency(self, result: Dict[str, Any]) -> float:
+        """以勝率與獲利因子估計一致性。"""
+        win_rate = self._safe_metric(result.get('win_rate', 0.0))
+        profit_factor = max(0.0, self._safe_metric(result.get('profit_factor', 0.0)))
+        normalized_pf = min(profit_factor / 2.5, 1.0)
+        return float((win_rate * 0.6) + (normalized_pf * 0.4))
     
     def _create_strategy(self, candidate: StrategyCandidate) -> BaseStrategy:
         """根據候選者配置創建策略實例"""
@@ -358,21 +414,38 @@ class StrategyArena:
         if not strategy_class:
             raise ValueError(f"未知策略類型: {candidate.strategy_type}")
         
-        # 創建實例（傳入參數）
-        return cast(BaseStrategy, strategy_class(**candidate.parameters))
-    
-    def _simulate_backtest_result(self) -> Dict[str, Any]:
-        """模擬回測結果（臨時，實際應從真實回測獲取）"""
-        return {
-            'total_return': float(self.rng.uniform(-0.2, 0.5)),
-            'sharpe_ratio': float(self.rng.uniform(-1.0, 3.0)),
-            'sortino_ratio': float(self.rng.uniform(-1.0, 4.0)),
-            'max_drawdown': float(self.rng.uniform(-0.5, -0.05)),
-            'win_rate': float(self.rng.uniform(0.3, 0.7)),
-            'profit_factor': float(self.rng.uniform(0.5, 3.0)),
-            'total_trades': int(self.rng.integers(20, 200)),
-            'consistency': float(self.rng.uniform(0.3, 0.8)),
+        params = dict(candidate.parameters)
+        init_sig = inspect.signature(strategy_class.__init__)
+        init_kwargs = {
+            key: value
+            for key, value in params.items()
+            if key in init_sig.parameters
         }
+        strategy = cast(BaseStrategy, strategy_class(**init_kwargs))
+
+        if candidate.strategy_type == 'trend_following':
+            strategy.ema_periods = {
+                'fast': int(params.get('ema_fast', strategy.ema_periods['fast'])),
+                'medium': int(params.get('ema_medium', strategy.ema_periods['medium'])),
+                'slow': int(params.get('ema_slow', strategy.ema_periods['slow'])),
+            }
+            strategy.min_adx_for_trend = int(params.get('min_adx_for_trend', strategy.min_adx_for_trend))
+        elif candidate.strategy_type == 'swing_trading':
+            strategy.swing_lookback = int(params.get('swing_lookback', strategy.swing_lookback))
+            strategy.rsi_period = int(params.get('rsi_period', strategy.rsi_period))
+            strategy.required_confirmations = int(params.get('required_confirmations', strategy.required_confirmations))
+        elif candidate.strategy_type == 'mean_reversion':
+            strategy.bb_period = int(params.get('bb_period', strategy.bb_period))
+            strategy.bb_std_dev = float(params.get('bb_std_dev', strategy.bb_std_dev))
+            strategy.z_lookback = int(params.get('z_lookback', strategy.z_lookback))
+        elif candidate.strategy_type == 'breakout_trading':
+            strategy.range_lookback = int(params.get('range_lookback', strategy.range_lookback))
+            strategy.breakout_threshold = float(params.get('breakout_threshold', strategy.breakout_threshold))
+            strategy.volume_threshold = float(params.get('volume_threshold', strategy.volume_threshold))
+        elif candidate.strategy_type == 'direction_change':
+            strategy.min_consecutive_dc = int(params.get('min_consecutive_dc', strategy.min_consecutive_dc))
+
+        return strategy
     
     def rank_and_select(self) -> List[StrategyCandidate]:
         """排名並選擇優勝者"""
@@ -612,7 +685,7 @@ def demo():
     
     # 配置競技場
     config = ArenaConfig(
-        symbol="BTCUSDT",
+        symbol="ETHUSDT",
         interval="1h",
         start_date="2024-01-01",
         end_date="2024-12-31",

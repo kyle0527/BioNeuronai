@@ -197,62 +197,57 @@ class StrategyPerformance:
     winning_trades: int = 0
     losing_trades: int = 0
     breakeven_trades: int = 0
-    
+
     total_profit: float = 0.0
     total_loss: float = 0.0
     largest_win: float = 0.0
     largest_loss: float = 0.0
-    
+
     average_win: float = 0.0
     average_loss: float = 0.0
     win_rate: float = 0.0
     profit_factor: float = 0.0
-    
+
     average_r_multiple: float = 0.0
     expectancy: float = 0.0
-    
+
     max_drawdown: float = 0.0
     max_consecutive_wins: int = 0
     max_consecutive_losses: int = 0
-    current_streak: int = 0  # ==
-    
+    current_streak: int = 0
+
     average_holding_time: timedelta = field(default_factory=timedelta)
     trades_today: int = 0
     daily_pnl: float = 0.0
-    
-    def update(self, trade: TradeExecution):
-        """"""
+
+    # 內部累計欄位（不對外展示，用於增量計算）
+    _total_r_sum: float = field(default=0.0, repr=False)
+    _total_holding_seconds: float = field(default=0.0, repr=False)
+    _peak_net_pnl: float = field(default=0.0, repr=False)
+    _last_trade_date: str = field(default="", repr=False)  # "YYYY-MM-DD"
+
+    def update(self, trade: 'TradeExecution') -> None:
+        """每筆交易完成後呼叫，更新所有績效欄位。"""
         self.total_trades += 1
-        
         pnl = trade.realized_pnl
+
+        # ── PnL / 勝敗統計 ──────────────────────────────────────────
         if pnl > 0:
             self.winning_trades += 1
             self.total_profit += pnl
             self.largest_win = max(self.largest_win, pnl)
-            if self.current_streak >= 0:
-                self.current_streak += 1
-            else:
-                self.current_streak = 1
-            self.max_consecutive_wins = max(
-                self.max_consecutive_wins, 
-                self.current_streak
-            )
+            self.current_streak = self.current_streak + 1 if self.current_streak >= 0 else 1
+            self.max_consecutive_wins = max(self.max_consecutive_wins, self.current_streak)
         elif pnl < 0:
             self.losing_trades += 1
             self.total_loss += abs(pnl)
             self.largest_loss = max(self.largest_loss, abs(pnl))
-            if self.current_streak <= 0:
-                self.current_streak -= 1
-            else:
-                self.current_streak = -1
-            self.max_consecutive_losses = max(
-                self.max_consecutive_losses, 
-                abs(self.current_streak)
-            )
+            self.current_streak = self.current_streak - 1 if self.current_streak <= 0 else -1
+            self.max_consecutive_losses = max(self.max_consecutive_losses, abs(self.current_streak))
         else:
             self.breakeven_trades += 1
-        
-        # 
+
+        # ── 衍生統計 ────────────────────────────────────────────────
         if self.winning_trades > 0:
             self.average_win = self.total_profit / self.winning_trades
         if self.losing_trades > 0:
@@ -261,12 +256,38 @@ class StrategyPerformance:
             self.win_rate = self.winning_trades / self.total_trades
         if self.total_loss > 0:
             self.profit_factor = self.total_profit / self.total_loss
-        
-        #  = ( × ) - ( × )
         self.expectancy = (
-            self.win_rate * self.average_win - 
-            (1 - self.win_rate) * self.average_loss
+            self.win_rate * self.average_win
+            - (1 - self.win_rate) * self.average_loss
         )
+
+        # ── R 倍數（累計均值）────────────────────────────────────────
+        r = trade.calculate_r_multiple()
+        self._total_r_sum += r
+        self.average_r_multiple = self._total_r_sum / self.total_trades
+
+        # ── 平均持倉時間 ─────────────────────────────────────────────
+        if trade.holding_duration.total_seconds() > 0:
+            self._total_holding_seconds += trade.holding_duration.total_seconds()
+            self.average_holding_time = timedelta(
+                seconds=self._total_holding_seconds / self.total_trades
+            )
+
+        # ── 每日統計（日期變更時重置）────────────────────────────────
+        today = datetime.now().strftime("%Y-%m-%d")
+        if today != self._last_trade_date:
+            self.trades_today = 0
+            self.daily_pnl = 0.0
+            self._last_trade_date = today
+        self.trades_today += 1
+        self.daily_pnl += pnl
+
+        # ── Max Drawdown（以累計淨 PnL 峰值計算）────────────────────
+        net_pnl = self.total_profit - self.total_loss
+        self._peak_net_pnl = max(self._peak_net_pnl, net_pnl)
+        if self._peak_net_pnl > 0:
+            drawdown = (self._peak_net_pnl - net_pnl) / self._peak_net_pnl
+            self.max_drawdown = max(self.max_drawdown, drawdown)
 
 
 class BaseStrategy(ABC):

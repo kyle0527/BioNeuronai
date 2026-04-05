@@ -322,6 +322,7 @@ class TrendFollowingStrategy(BaseStrategy):
         self._last_analysis_time = datetime.now()
         
         return {
+            'symbol': additional_data.get('symbol') if additional_data else None,
             'market_condition': market_condition,
             'trend_direction': trend.primary_trend,
             'trend_strength': trend.primary_trend_strength,
@@ -784,7 +785,7 @@ class TrendFollowingStrategy(BaseStrategy):
             ],
         )
         
-        logger.info(
+        logger.debug(
             f": "
             f"{direction.upper()} @ {current_price:.2f}, "
             f": {confirmations}, : {signal_strength.name}"

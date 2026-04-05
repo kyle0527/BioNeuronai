@@ -530,6 +530,7 @@ class BreakoutTradingStrategy(BaseStrategy):
         self._last_analysis_time = datetime.now()
         
         return {
+            'symbol': additional_data.get('symbol') if additional_data else None,
             'market_condition': market_condition,
             'trend_direction': direction if breakout_detected else 'neutral',
             'trend_strength': strength,
@@ -1017,9 +1018,9 @@ class BreakoutTradingStrategy(BaseStrategy):
             return False
     
     def _check_false_breakout_history(
-        self, 
-        ohlcv_data: np.ndarray, 
-        ra: BreakoutAnalysis, 
+        self,
+        ohlcv_data: np.ndarray,
+        ra: RangeAnalysis,
         direction: str
     ) -> bool:
         """檢查假突破歷史"""
@@ -1035,15 +1036,15 @@ class BreakoutTradingStrategy(BaseStrategy):
         
         if direction == 'long':
             # 檢查是否曾經突破後回落
-            return bool(recent_high > ra.resistance_level and current_price < ra.resistance_level * 0.99)
+            return bool(recent_high > ra.range_high and current_price < ra.range_high * 0.99)
         else:
             # 檢查是否曾經跌破後反彈
-            return bool(recent_low < ra.support_level and current_price > ra.support_level * 1.01)
+            return bool(recent_low < ra.range_low and current_price > ra.range_low * 1.01)
     
     def _collect_entry_confirmations(
         self, 
         analysis: Dict[str, Any], 
-        ra: BreakoutAnalysis, 
+        _ra: RangeAnalysis,
         direction: str
     ) -> Tuple[int, List[str]]:
         """收集進場確認條件"""
@@ -1081,22 +1082,22 @@ class BreakoutTradingStrategy(BaseStrategy):
     def _calculate_price_levels(
         self, 
         current_price: float, 
-        ra: BreakoutAnalysis, 
+        ra: RangeAnalysis, 
         direction: str
     ) -> Dict[str, float]:
         """計算價格水準"""
         if direction == 'long':
-            stop_loss = ra.support_level * 0.99
+            stop_loss = ra.range_low * 0.99
             tp1 = current_price * 1.02
             tp2 = current_price * 1.04
             tp3 = current_price * 1.06
-            breakout_level = ra.resistance_level
+            breakout_level = ra.range_high
         else:
-            stop_loss = ra.resistance_level * 1.01
+            stop_loss = ra.range_high * 1.01
             tp1 = current_price * 0.98
             tp2 = current_price * 0.96
             tp3 = current_price * 0.94
-            breakout_level = ra.support_level
+            breakout_level = ra.range_low
         
         return {
             'stop_loss': stop_loss,

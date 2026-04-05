@@ -1,8 +1,8 @@
 # Core 核心模組
 
 **路徑**: `src/bioneuronai/core/`  
-**版本**: v4.1  
-**更新日期**: 2026-02-15  
+**版本**: v4.4.1  
+**更新日期**: 2026-04-05  
 **架構層級**: Layer 1 — 核心引擎層
 
 ---
@@ -56,13 +56,13 @@ src/bioneuronai/core/
 **主要類**: `TradingEngine` · `Position` (dataclass)
 
 **核心能力**:
-- 多策略融合信號接收與執行
+- 策略選擇 (`StrategySelector`) 與融合 (`AIStrategyFusion`) 信號接收與執行
 - 實時市場數據處理（K 線、訂單簿）
 - 自動風險管理（止損 / 止盈 / 爆倉防護）
 - 新聞情緒即時整合（`CryptoNewsAnalyzer`）
 - 市場微結構分析（`MarketMicrostructure`）
 
-**整合組件**: `StrategyFusion` · `BinanceFuturesConnector` · `DatabaseManager` · `RiskManager` · `RegimeAnalysis`
+**整合組件**: `StrategySelector` · `AIStrategyFusion` · `BinanceFuturesConnector` · `DatabaseManager` · `RiskManager` · `RegimeAnalysis`
 
 ---
 
@@ -93,7 +93,7 @@ src/bioneuronai/core/
 
 ### 3. SelfImprovementSystem — 基因演算法進化系統 (943 行)
 
-以遺傳演算法實現的策略「養蠱場」，使策略能自適應進化。
+以遺傳演算法實現的策略「養蠱場」，負責核心層的自我改進能力。
 
 **主要類**: `SelfImprovementSystem` · `StrategyGene` (dataclass)
 
@@ -108,6 +108,9 @@ src/bioneuronai/core/
 | 多樣性 | 維持基因多樣性，防止早熟收斂 |
 
 **進化目標**: 最大化 Sharpe Ratio · 最小化 Max Drawdown · 穩定勝率
+
+> 補充：策略層的 `StrategyArena` / `StrategyPortfolioOptimizer` 現在已改接正式 replay。  
+> Core 內的 `SelfImprovementSystem` 仍屬獨立自我改進子系統，不等同於策略層的正式競爭主線。
 
 ---
 
@@ -147,7 +150,7 @@ from bioneuronai.core import (
 | 模組 | 用途 |
 |------|------|
 | `data` | `BinanceFuturesConnector` · `DatabaseManager` |
-| `strategies` | `StrategyFusion` · 各策略類 |
+| `strategies` | `StrategySelector` · `AIStrategyFusion` · 各策略類 |
 | `analysis` | `CryptoNewsAnalyzer` · `MarketMicrostructure` · `RegimeAnalysis` |
 | `risk_management` | `RiskManager` · `RiskParameters` |
 | `schemas` | 數據模型定義 |
@@ -242,6 +245,6 @@ TRADING_CONFIG = {
 
 ---
 
-**最後更新**: 2026 年 2 月 15 日
+**最後更新**: 2026 年 4 月 5 日
 
 > 📖 上層目錄：[src/bioneuronai/README.md](../README.md)

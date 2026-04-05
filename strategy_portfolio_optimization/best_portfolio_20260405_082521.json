@@ -1,0 +1,50 @@
+{
+  "id": "a3349104",
+  "generation": 0,
+  "fitness": 0.05000000000000002,
+  "total_return": 0.0,
+  "sharpe_ratio": 0.0,
+  "max_drawdown": 0.0,
+  "genes": {
+    "market_open": {
+      "strategy_type": "trend_following",
+      "strategy_weight": 0.7194392198760262,
+      "position_size_multiplier": 1.3585979199113825,
+      "risk_multiplier": 1.2881576203415548,
+      "entry_threshold": 0.3376709391550598,
+      "exit_threshold": 0.4926867054910268
+    },
+    "early_session": {
+      "strategy_type": "direction_change",
+      "strategy_weight": 0.8805698509951765,
+      "position_size_multiplier": 1.2860643052769538,
+      "risk_multiplier": 0.8896795428728821,
+      "entry_threshold": 0.4801543751582268,
+      "exit_threshold": 0.3112394072697744
+    },
+    "mid_session": {
+      "strategy_type": "swing_trading",
+      "strategy_weight": 0.8219325600403322,
+      "position_size_multiplier": 1.32276161327083,
+      "risk_multiplier": 1.1103899391791319,
+      "entry_threshold": 0.3908954887139107,
+      "exit_threshold": 0.36637543610475043
+    },
+    "late_session": {
+      "strategy_type": "pair_trading",
+      "strategy_weight": 0.5319086280520877,
+      "position_size_multiplier": 1.3276311719925822,
+      "risk_multiplier": 1.2421650793854453,
+      "entry_threshold": 0.6032350960341495,
+      "exit_threshold": 0.3063577904389605
+    },
+    "market_close": {
+      "strategy_type": "trend_following",
+      "strategy_weight": 0.9465605606610988,
+      "position_size_multiplier": 1.278383497073762,
+      "risk_multiplier": 0.9362470954963773,
+      "entry_threshold": 0.4866884014908136,
+      "exit_threshold": 0.21314112973616864
+    }
+  }
+}
