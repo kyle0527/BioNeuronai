@@ -628,7 +628,7 @@ class BreakoutTradingStrategy(BaseStrategy):
         
         # 收集所有確認條件
         confirmations, entry_conditions = self._collect_entry_confirmations(
-            analysis, ra, direction
+            market_analysis, direction
         )
         
         # 檢查最低確認要求
@@ -1043,31 +1043,44 @@ class BreakoutTradingStrategy(BaseStrategy):
     
     def _collect_entry_confirmations(
         self, 
-        analysis: Dict[str, Any], 
-        _ra: RangeAnalysis,
+        analysis: Any,
         direction: str
     ) -> Tuple[int, List[str]]:
         """收集進場確認條件"""
         confirmations = 0
         conditions = []
         
+        # Ensure we can access properties correctly based on whether it is a dict or BreakoutAnalysis object
+        trend_direction = 'neutral'
+        if isinstance(analysis, dict):
+            breakout_analysis = analysis.get('breakout_analysis', BreakoutAnalysis())
+            trend_direction = analysis.get('trend_direction', 'neutral')
+        else:
+            breakout_analysis = analysis
+
+        ra = breakout_analysis.range_analysis
+
+        # 突破強度確認 (since we don't have volume_spike on BreakoutAnalysis)
+        if ra.breakout_strength > 0.5:
+            confirmations += 1
+            conditions.append("突破強度確認")
+
         # 成交量確認
-        if ra.volume_spike:
-            confirmations += 2
+        if breakout_analysis.volume_breakout:
+            confirmations += 1
             conditions.append("成交量放大確認")
         
         # 動量確認
-        if ra.momentum_strength > 0.5:
+        if breakout_analysis.momentum_confirming:
             confirmations += 1
-            conditions.append("動量強勁")
+            conditions.append("動量確認")
         
-        # 波動性突破
-        if ra.volatility_spike:
+        # 波動性擴大
+        if breakout_analysis.volatility_expanding:
             confirmations += 1
-            conditions.append("波動性突破")
+            conditions.append("波動性擴大")
         
         # 趨勢一致性
-        trend_direction = analysis.get('trend_direction', 'neutral')
         if (direction == 'long' and trend_direction == 'up') or \
            (direction == 'short' and trend_direction == 'down'):
             confirmations += 1
