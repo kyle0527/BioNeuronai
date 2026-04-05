@@ -102,7 +102,7 @@ class DirectionChangeStrategy(BaseStrategy):
     def __init__(
         self,
         timeframe: str = "1h",
-        dc_threshold: float = 0.005,     # 0.5%
+        dc_threshold: float = 0.003,     # 0.3%
         risk_params: Optional[RiskParameters] = None,
     ):
         super().__init__(
@@ -117,9 +117,9 @@ class DirectionChangeStrategy(BaseStrategy):
             ),
         )
         self.dc_threshold = dc_threshold
-        self.min_consecutive_dc = 2
-        self.os_entry_min_retracement = 0.30   # OS 最少回撤 30%
-        self.os_entry_max_retracement = 0.80   # OS 超過 80% 視為趨勢可能反轉
+        self.min_consecutive_dc = 1
+        self.os_entry_min_retracement = 0.15   # OS 最少回撤 15%
+        self.os_entry_max_retracement = 0.85   # OS 超過 85% 視為趨勢可能反轉
         self.lookback_bars = 200
         self.required_confirmations = 3
         self.atr_period = 14

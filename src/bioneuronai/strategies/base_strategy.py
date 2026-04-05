@@ -746,18 +746,18 @@ class BaseStrategy(ABC):
                 setup = self.evaluate_entry_conditions(market_analysis, ohlcv_data)
                 
                 if setup:
+                    # First calculate position size
+                    setup.total_position_size = self.calculate_position_size(
+                        account_balance,
+                        setup.entry_price,
+                        setup.stop_loss,
+                        risk_check['position_size_multiplier']
+                    )
+
                     # 
                     is_valid, messages = self.validate_setup(setup)
                     
                     if is_valid:
-                        # 
-                        setup.total_position_size = self.calculate_position_size(
-                            account_balance,
-                            setup.entry_price,
-                            setup.stop_loss,
-                            risk_check['position_size_multiplier']
-                        )
-                        
                         # 
                         new_trade: Optional[TradeExecution] = self.execute_entry(setup, connector)
                         if new_trade:
