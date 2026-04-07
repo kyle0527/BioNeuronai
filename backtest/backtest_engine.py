@@ -202,101 +202,116 @@ class BacktestEngine:
     ) -> BacktestResult:
         """
         運行回測
-        
+
         Args:
             strategy: 策略函數，接收 (bar, connector)
             progress_interval: 進度報告間隔 (每 N 根 K線)
-            
+
         Returns:
             BacktestResult: 回測結果
         """
+        self._log_run_header()
+        self._reset_state()
+
+        peak_equity = self.config.initial_balance
+        for bar in self.connector.data_stream.stream_bars():
+            self._bar_count += 1
+            self.connector.update_market_price(bar.symbol, bar.close, high=bar.high, low=bar.low)
+            self.connector._current_bar = bar
+
+            if self._bar_count < self.config.warmup_bars:
+                continue
+            if not self._warmup_complete:
+                self._warmup_complete = True
+                logger.info(f"✅ 預熱完成，開始交易 ({self._bar_count} 根)")
+
+            self._run_strategy(strategy, bar)
+            peak_equity = self._record_bar(bar, peak_equity, progress_interval)
+
+        stats = self._build_stats()
+        result = BacktestResult(
+            config=self.config,
+            stats=stats,
+            equity_curve=self._equity_curve,
+            trades=self.connector.get_trade_history_snapshot(),
+            drawdown_curve=self._drawdown_curve,
+            timestamps=self._timestamps,
+        )
+        self._persist_result(result)
+        if print_summary:
+            self._print_summary(result)
+        return result
+
+    # ── run() 的私有輔助方法 ────────────────────────────────────────────────────
+
+    def _log_run_header(self) -> None:
         logger.info("=" * 60)
         logger.info("🚀 開始回測")
-        logger.info("=" * 60)
         logger.info(f"交易對: {self.config.symbol}")
         logger.info(f"時間區間: {self.config.start_date} ~ {self.config.end_date}")
         logger.info(f"初始餘額: {self.config.initial_balance:,.2f} USDT")
         logger.info(f"預熱期: {self.config.warmup_bars} 根 K線")
         logger.info("=" * 60)
-        
+
+    def _reset_state(self) -> None:
+        """重置每次 run() 的狀態，並清空 InferenceEngine 特徵視窗。"""
         self._bar_count = 0
         self._warmup_complete = False
-        peak_equity = self.config.initial_balance
-        
-        for bar in self.connector.data_stream.stream_bars():
-            self._bar_count += 1
-            
-            # 更新帳戶價格
-            self.connector.account.update_price(bar.symbol, bar.close)
-            self.connector._current_bar = bar
-            
-            # 預熱期
-            if self._bar_count < self.config.warmup_bars:
-                continue
-            elif not self._warmup_complete:
-                self._warmup_complete = True
-                logger.info(f"✅ 預熱完成，開始交易 ({self._bar_count} 根)")
-            
-            # 執行策略
+        self._equity_curve = []
+        self._drawdown_curve = []
+        self._timestamps = []
+        # 清空 TinyLLM 滾動特徵視窗，避免跨 episode 汙染
+        ie = getattr(self, "_inference_engine", None)
+        if ie is not None:
             try:
-                strategy(bar, self.connector)
-            except Exception as e:
-                logger.error(f"策略執行錯誤: {e}")
-            
-            # 記錄權益曲線
-            equity = self.connector.account.get_total_equity()
-            self._equity_curve.append(equity)
-            self._timestamps.append(datetime.fromtimestamp(bar.close_time / 1000))
-            
-            # 計算回撤
-            if equity > peak_equity:
-                peak_equity = equity
-            drawdown = (peak_equity - equity) / peak_equity if peak_equity > 0 else 0
-            self._drawdown_curve.append(drawdown)
-            
-            # 進度報告
-            if self._bar_count % progress_interval == 0:
-                current, total, pct = self.connector.data_stream.get_progress()
-                logger.info(
-                    f"📊 進度: {pct:.1f}% ({current:,}/{total:,}) | "
-                    f"權益: {equity:,.2f} | "
-                    f"回撤: {drawdown*100:.2f}%"
-                )
-        
-        # 獲取統計
-        stats = self.connector.account.get_stats()
+                ie.reset_buffer()
+            except Exception:
+                pass
+
+    def _run_strategy(
+        self,
+        strategy: Callable[[KlineBar, MockBinanceConnector], None],
+        bar: KlineBar,
+    ) -> None:
+        try:
+            strategy(bar, self.connector)
+        except Exception as e:
+            logger.error(f"策略執行錯誤: {e}")
+
+    def _record_bar(self, bar: KlineBar, peak_equity: float, progress_interval: int) -> float:
+        """記錄權益/回撤，返回更新後的 peak_equity。"""
+        equity = self.connector.get_total_equity()
+        self._equity_curve.append(equity)
+        self._timestamps.append(datetime.fromtimestamp(bar.close_time / 1000))
+        peak_equity = max(peak_equity, equity)
+        drawdown = (peak_equity - equity) / peak_equity if peak_equity > 0 else 0.0
+        self._drawdown_curve.append(drawdown)
+        if self._bar_count % progress_interval == 0:
+            current, total, pct = self.connector.data_stream.get_progress()
+            logger.info(
+                f"📊 進度: {pct:.1f}% ({current:,}/{total:,}) | "
+                f"權益: {equity:,.2f} | 回撤: {drawdown*100:.2f}%"
+            )
+        return peak_equity
+
+    def _build_stats(self) -> Dict[str, Any]:
+        stats = self.connector.get_stats()
         stats['total_bars'] = self._bar_count
         stats['effective_bars'] = max(0, self._bar_count - self.config.warmup_bars)
-        
-        # 計算額外統計
         stats.update(self._calculate_advanced_stats())
-        
-        # 創建結果
-        result = BacktestResult(
-            config=self.config,
-            stats=stats,
-            equity_curve=self._equity_curve,
-            trades=[t.to_dict() for t in self.connector.account.trade_history],
-            drawdown_curve=self._drawdown_curve,
-            timestamps=self._timestamps,
-        )
+        return stats
 
-        if self.run_recorder:
-            self.run_recorder.save_account(
-                {
-                    "account_info": self.connector.account.get_account_info(),
-                    "stats": self.connector.account.get_stats(),
-                    "trades": [t.to_dict() for t in self.connector.account.trade_history],
-                }
-            )
-            self.run_recorder.save_result(result.to_dict())
-            self.run_recorder.save_runtime_state(self.connector.get_runtime_snapshot())
-        
-        # 打印摘要
-        if print_summary:
-            self._print_summary(result)
-        
-        return result
+    def _persist_result(self, result: BacktestResult) -> None:
+        if not self.run_recorder:
+            return
+        self.run_recorder.save_account({
+            "account_info": self.connector.get_account_info(),
+            "account_snapshot": self.connector.get_account_snapshot(),
+            "stats": self.connector.get_stats(),
+            "trades": self.connector.get_trade_history_snapshot(),
+        })
+        self.run_recorder.save_result(result.to_dict())
+        self.run_recorder.save_runtime_state(self.connector.get_runtime_snapshot())
     
     def _calculate_advanced_stats(self) -> Dict[str, Any]:
         """計算進階統計指標"""
@@ -323,15 +338,15 @@ class BacktestEngine:
         # 最大連續虧損
         max_consecutive_losses = 0
         current_losses = 0
-        for trade in self.connector.account.trade_history:
-            if trade.realized_pnl < 0:
+        trades = self.connector.get_trade_history_snapshot()
+        for trade in trades:
+            if float(trade.get('realizedPnl', 0.0)) < 0:
                 current_losses += 1
                 max_consecutive_losses = max(max_consecutive_losses, current_losses)
             else:
                 current_losses = 0
         
         # 平均持倉時間 (簡化計算)
-        trades = self.connector.account.trade_history
         avg_trade_duration = len(self._equity_curve) / max(len(trades), 1) if trades else 0
         
         return {
@@ -348,11 +363,12 @@ class BacktestEngine:
         gross_profit: float = 0.0
         gross_loss: float = 0.0
         
-        for trade in self.connector.account.trade_history:
-            if trade.realized_pnl > 0:
-                gross_profit += trade.realized_pnl
+        for trade in self.connector.get_trade_history_snapshot():
+            realized_pnl = float(trade.get('realizedPnl', 0.0))
+            if realized_pnl > 0:
+                gross_profit += realized_pnl
             else:
-                gross_loss += abs(trade.realized_pnl)
+                gross_loss += abs(realized_pnl)
         
         return round(gross_profit / gross_loss, 2) if gross_loss > 0 else float('inf')
     
@@ -406,7 +422,7 @@ class BacktestEngine:
     
     def reset(self):
         """重置回測引擎"""
-        self.connector.account.reset()
+        self.connector.reset_account()
         self.connector.data_stream.reset()
         self._equity_curve.clear()
         self._drawdown_curve.clear()

@@ -460,9 +460,14 @@ class BreakoutTradingStrategy(BaseStrategy):
         # 
         analysis = BreakoutAnalysis()
         
+        # 使用當前 K 線之前的區間作為突破基準，避免拿自己和自己比較。
+        range_source_high = high[:-1] if len(high) > self.range_lookback else high
+        range_source_low = low[:-1] if len(low) > self.range_lookback else low
+        range_source_close = close[:-1] if len(close) > self.range_lookback else close
+
         # 1. 
         range_analysis = self._identify_range(
-            high, low, close, self.range_lookback
+            range_source_high, range_source_low, range_source_close, self.range_lookback
         )
         analysis.range_analysis = range_analysis
         
@@ -526,7 +531,7 @@ class BreakoutTradingStrategy(BaseStrategy):
         else:
             market_condition = MarketCondition.SIDEWAYS  # 
         
-        self.state = StrategyState.IDLE
+        self._finalize_analysis_state()
         self._last_analysis_time = datetime.now()
         
         return {
@@ -668,7 +673,7 @@ class BreakoutTradingStrategy(BaseStrategy):
             entry_price=current_price,
             entry_conditions=entry_conditions,
             entry_confirmations=confirmations,
-            required_confirmations=self.required_confirmations,
+            required_confirmations=self.min_confirmations,
             stop_loss=stop_loss,
             take_profit_1=tp1,
             take_profit_2=tp2,
@@ -722,6 +727,9 @@ class BreakoutTradingStrategy(BaseStrategy):
                 trade_id=trade_id,
                 setup=setup,
             )
+            if setup.total_position_size <= 0:
+                logger.warning(f"⚠️ 突破策略忽略無效進場數量: {setup.total_position_size}")
+                return None
             
             if connector is None:
                 logger.info(f": {trade_id}")
@@ -755,6 +763,8 @@ class BreakoutTradingStrategy(BaseStrategy):
                         'time': datetime.now().isoformat(),
                         'type': 'market',
                     })
+                else:
+                    return None
             
             execution.highest_price_since_entry = execution.actual_entry_price
             execution.lowest_price_since_entry = execution.actual_entry_price
@@ -1123,12 +1133,12 @@ class BreakoutTradingStrategy(BaseStrategy):
     def _determine_signal_strength(
         self, 
         confirmations: int, 
-        ra: BreakoutAnalysis
+        breakout_strength: float
     ) -> SignalStrength:
         """確定信號強度"""
-        if confirmations >= 4 and ra.breakout_strength > 0.8:
+        if confirmations >= 4 and breakout_strength > 0.8:
             return SignalStrength.VERY_STRONG
-        elif confirmations >= 3 and ra.breakout_strength > 0.6:
+        elif confirmations >= 3 and breakout_strength > 0.6:
             return SignalStrength.STRONG
         elif confirmations >= 2:
             return SignalStrength.MODERATE

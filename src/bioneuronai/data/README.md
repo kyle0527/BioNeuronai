@@ -1,7 +1,7 @@
 # 數據基礎設施模組 (Data Infrastructure)
 
 **路徑**: `src/bioneuronai/data/`  
-**版本**: v4.3.2
+**版本**: v2.1
 **更新日期**: 2026-03-29  
 **架構層級**: Layer 0 — 基礎設施層
 

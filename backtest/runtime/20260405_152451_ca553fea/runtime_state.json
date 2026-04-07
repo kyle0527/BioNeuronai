@@ -1,0 +1,41 @@
+{
+  "mode": "replay",
+  "symbol": "ETHUSDT",
+  "interval": "1h",
+  "current_bar_index": 0,
+  "current_open_time": null,
+  "current_price": null,
+  "orders_received": 3,
+  "fills_emitted": 3,
+  "last_updated_at": "2026-04-05T15:24:52.213905",
+  "progress": {
+    "current": 47,
+    "total": 48,
+    "percent": 97.91666666666666
+  },
+  "account_stats": {
+    "initial_balance": 10000.0,
+    "current_balance": 9997.205750847157,
+    "total_equity": 9995.396092473127,
+    "total_return": -0.04603907526872718,
+    "total_trades": 3,
+    "winning_trades": 0,
+    "losing_trades": 1,
+    "win_rate": 0.0,
+    "total_commission": 0.17667284047611032,
+    "total_realized_pnl": -2.6175763123673508,
+    "max_drawdown": 0.027942491528428946,
+    "peak_balance": 10000.0
+  },
+  "open_orders": 0,
+  "positions": 1,
+  "account_snapshot": {
+    "balance": 9997.205750847157,
+    "available_balance": 9849.041250847158,
+    "total_equity": 9995.396092473127,
+    "unrealized_pnl": -1.8096583740305279,
+    "used_margin": 146.35484162596947,
+    "open_orders_count": 0,
+    "positions_count": 1
+  }
+}

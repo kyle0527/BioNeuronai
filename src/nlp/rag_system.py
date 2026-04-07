@@ -466,60 +466,41 @@ class RAGSystem:
 
 
 def create_rag_system(
-    model_path: str = "model/tiny_llm_en_zh_trained",
+    model_path: str = "model/my_100m_model.pth",
     device: Optional[str] = None
 ) -> RAGSystem:
     """創建 RAG 系統的便捷函數"""
     import sys
     from pathlib import Path
-    
+
     # 添加路徑
     sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-    
-    from nlp.tiny_llm import TinyLLM, TinyLLMConfig
+
+    from nlp.tiny_llm import load_llm
     from nlp.bilingual_tokenizer import BilingualTokenizer
-    
+
     # 設備
     if device is None:
         device = "cuda" if torch.cuda.is_available() else "cpu"
-    
+
     print("\n🚀 創建 RAG 系統...")
     print(f"   模型路徑: {model_path}")
     print(f"   設備: {device}")
-    
-    # 載入模型
-    model_path_obj = Path(model_path)
-    
-    # 載入配置
-    with open(model_path_obj / "config.json", 'r') as f:
-        config_dict = json.load(f)
-    
-    config = TinyLLMConfig(
-        vocab_size=config_dict["vocab_size"],
-        max_seq_length=config_dict["max_position_embeddings"],
-        embed_dim=config_dict["hidden_size"],
-        num_heads=config_dict["num_attention_heads"],
-        num_layers=config_dict["num_hidden_layers"],
-    )
-    
-    # 載入模型
-    model = TinyLLM(config)
-    weights = torch.load(
-        model_path_obj / "pytorch_model.bin",
-        map_location=device
-    )
-    model.load_state_dict(weights)
-    model.to(device)
+
+    # 載入模型（新格式：單一 .pth 檔案）
+    model, checkpoint = load_llm(model_path, device=device)
     model.eval()
-    
+    embed_dim = model.config.embed_dim
+
     # 載入分詞器
-    tokenizer = BilingualTokenizer.load(str(model_path_obj / "tokenizer.pkl"))
-    
+    tok_path = Path(__file__).parent.parent.parent / "model" / "tokenizer" / "vocab.json"
+    tokenizer = BilingualTokenizer.load(str(tok_path))
+
     # 創建 RAG 系統
     rag_system = RAGSystem(
         model=model,
         tokenizer=tokenizer,
-        embed_dim=384,
+        embed_dim=embed_dim,
         device=device
     )
     

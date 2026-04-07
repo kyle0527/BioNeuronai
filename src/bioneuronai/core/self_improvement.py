@@ -757,7 +757,10 @@ class PopulationManager:
     def _reset_connector(self, connector: Any) -> None:
         """重置 connector 到起始狀態"""
         connector.data_stream.state.current_index = 0
-        connector.virtual_account.reset()
+        if hasattr(connector, "reset_account"):
+            connector.reset_account()
+        else:
+            connector.virtual_account.reset()
     
     def _run_backtest_loop(self, connector: Any, gene: StrategyGene) -> List[Dict]:
         """運行回測主循環"""
@@ -788,7 +791,7 @@ class PopulationManager:
     def _build_result(self, connector: Any, gene: StrategyGene, start_time: float) -> BacktestResult:
         """構建回測結果"""
         import time
-        stats = connector.virtual_account.get_stats()
+        stats = connector.get_stats() if hasattr(connector, "get_stats") else connector.virtual_account.get_stats()
         elapsed = time.time() - start_time
         
         logger.info(f"      ✅ 完成: 交易{stats['total_trades']}筆 | 回報{stats['total_return']:.2f}% | 勝率{stats['win_rate']:.1f}% | 用時{elapsed:.2f}s")

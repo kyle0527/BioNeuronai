@@ -1,6 +1,6 @@
 # BioNeuronai 數據存儲與整合方案
-> **版本**: v2.1.0  
-> **更新日期**: 2026-01-22
+> **版本**: v2.1  
+> **更新日期**: 2026-04-06
 
 
 ## 📑 目錄
@@ -16,68 +16,25 @@
 
 ---
 
-## �📊 Risk Manager 模組整合狀態
+## 📊 風控與數據整合狀態
 
-### ✅ 已整合模組
+> ⚠️ **v2.1 架構注意**：舊版 `trading/risk_manager.py` (`RiskManager` 類別) 已於 v2.1 中刪除。
+> 風控現由 `src/bioneuronai/risk_management/` 中的 `RiskParameters` / `PositionSizing` 等資料結構負責，
+> 並由 `TradingEngine` 直接調用，不再依賴獨立的 RiskManager 物件。
 
-#### 1. **TradingEngine** (核心交易引擎)
-**文件**: `src/bioneuronai/core/trading_engine.py`
+### ✅ 當前風控整合點
 
-**整合點**:
+#### **TradingEngine** (`src/bioneuronai/core/trading_engine.py`)
 
-```python
-# 初始化
-self.risk_manager = RiskManager()  # Line 111
+風控相關整合：
+- `risk_management/` 中的 `RiskParameters` 在初始化時載入
+- 倉位大小計算透過 `risk_management/` 的 sizing 工具完成
+- 停損/停利由策略層 (`strategies/`) 與 phase router 控制
 
-# 使用場景
-├── start_monitoring()          # 監控啟動時更新初始餘額
-│   └── risk_manager.update_balance(initial_balance)  # Line 394
-│
-├── _handle_trading_signal()    # 信號處理前檢查
-│   └── risk_manager.check_can_trade(confidence, balance)  # Line 627
-│
-├── execute_trade()             # 執行交易後記錄
-│   └── risk_manager.record_trade(trade_info)  # Line 718
-│
-└── get_system_status()         # 系統狀態查詢
-    └── risk_manager.get_risk_statistics()  # Line 940, 957, 1002
-```
+#### **PlanController** (`src/bioneuronai/planning/plan_controller.py`)
 
-**數據流向**:
-```
-Account Balance (Binance API)
-    ↓
-risk_manager.update_balance()
-    ↓
-[峰值追蹤 + 回撤計算]
-    ↓
-Trading Signal
-    ↓
-risk_manager.check_can_trade()  ← 6項檢查
-    ↓
-[通過] → execute_trade()
-    ↓
-risk_manager.record_trade()
-    ↓
-[交易歷史 + 統計更新]
-```
-
-#### 2. **PlanController** (計劃控制器)
-**文件**: `src/bioneuronai/trading/plan_controller.py`
-
-**整合點**:
-
-```python
-# 初始化
-self.risk_manager = RiskManager()  # Line 43
-
-# 使用場景
-├── calculate_position_size()    # 倉位計算
-│   └── risk_manager.calculate_position_size(...)  # Line 428
-│
-└── get_risk_parameters()        # 獲取風險參數
-    └── risk_manager.risk_parameters[risk_level]  # Line 391
-```
+- 高階規劃時從 `risk_management/` 取得風險閾值
+- 盤前檢查 (`pretrade_automation.py`) 進行進場前三重確認
 
 ---
 

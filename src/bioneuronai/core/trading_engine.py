@@ -28,7 +28,7 @@ from schemas.trading import TradingSignal
 
 from ..data import BinanceFuturesConnector
 from ..data.database_manager import get_database_manager, DatabaseManager
-from ..trading.risk_manager import RiskManager
+from ..risk_management import RiskManager
 
 try:
     from ..strategies.selector import StrategySelector
@@ -64,7 +64,7 @@ except ImportError:
 
 #  RAG 模組 - 使用 PreTradeCheckSystem 替代
 try:
-    from ..trading.pretrade_automation import PreTradeCheckSystem
+    from ..planning.pretrade_automation import PreTradeCheckSystem
     RAG_NEWS_CHECKER_AVAILABLE = True
     PreTradeNewsChecker = PreTradeCheckSystem  # 別名兼容
 except ImportError:
@@ -659,34 +659,71 @@ class TradingEngine:
             return target_price < entry_price
         return False
     
+    # ------------------------------------------------------------------
+    # 多模態動態融合權重 (strategy, ai_inference, news)
+    # 三者加總 = 1.0，依市場 regime 自動切換
+    # 設計原則：
+    #   - 技術策略為主力（可解釋、regime 特化）
+    #   - AI 推論為輔助（已內建 1024 維多模態特徵）
+    #   - 新聞情緒為過濾層（調整信心，非獨立方向信號）
+    # ------------------------------------------------------------------
+    _MODAL_WEIGHTS: Dict[str, Dict[str, float]] = {
+        "strong_trend":    {"strategy": 0.70, "ai": 0.25, "news": 0.05},
+        "ranging":         {"strategy": 0.50, "ai": 0.40, "news": 0.10},
+        "high_volatility": {"strategy": 0.45, "ai": 0.40, "news": 0.15},
+        "news_event":      {"strategy": 0.35, "ai": 0.35, "news": 0.30},
+        "default":         {"strategy": 0.60, "ai": 0.30, "news": 0.10},
+    }
+
+    def _get_modal_weights(self, market_regime: str) -> Dict[str, float]:
+        """依 AI 模型回報的 market_regime 字串選擇對應權重組。"""
+        regime = (market_regime or "").lower()
+        if any(k in regime for k in ("strong", "trend", "bull", "bear")):
+            return self._MODAL_WEIGHTS["strong_trend"]
+        if any(k in regime for k in ("rang", "chop", "sideways", "consolidat")):
+            return self._MODAL_WEIGHTS["ranging"]
+        if any(k in regime for k in ("volat", "spike", "extreme")):
+            return self._MODAL_WEIGHTS["high_volatility"]
+        if any(k in regime for k in ("news", "event", "announcement")):
+            return self._MODAL_WEIGHTS["news_event"]
+        return self._MODAL_WEIGHTS["default"]
+
+    def _get_news_modal_score(self, symbol: str) -> float:
+        """將新聞情緒分數（-1~1）正規化為模態信心值（0~1）。
+        無新聞分析器或分析失敗時返回 0.5（中性，不影響加權）。
+        """
+        if not self.news_analyzer:
+            return 0.5
+        try:
+            result = self.news_analyzer.analyze_news(symbol, hours=4)
+            return max(0.0, min(1.0, (result.sentiment_score + 1.0) / 2.0))
+        except Exception:
+            return 0.5
+
     def _fuse_signals(
-        self, 
-        strategy_signal, 
+        self,
+        strategy_signal,
         ai_signal: Optional["AITradingSignal"],
         symbol: str,
         current_price: float
     ) -> Optional[TradingSignal]:
-        """ AI  - 重構降低複雜度
-        
-        複雜度降低策略：Early Return + Extract Method
-        
-        :
-        1. 
-        2. 
-        3. 
-        """
+        """三模態信號融合：策略（主）+ AI 推論（輔）+ 新聞情緒（過濾）"""
         # Early Return: 僅有 AI 信號
         if ai_signal and not strategy_signal:
             return self._convert_ai_signal_to_trading_signal(ai_signal, symbol, current_price)
-        
+
         # Early Return: 僅有策略信號
         if strategy_signal and not ai_signal:
             return self._create_strategy_only_signal(strategy_signal, symbol)
-        
-        # 雙信號融合
+
+        # 三模態融合
         if ai_signal and strategy_signal and hasattr(strategy_signal, 'action'):
-            return self._fuse_both_signals(ai_signal, strategy_signal, symbol, current_price)
-        
+            weights = self._get_modal_weights(getattr(ai_signal, 'market_regime', ''))
+            news_score = self._get_news_modal_score(symbol)
+            return self._fuse_both_signals(
+                ai_signal, strategy_signal, symbol, current_price, weights, news_score
+            )
+
         return None
     
     def _create_strategy_only_signal(
@@ -722,21 +759,25 @@ class TradingEngine:
         ai_signal: "AITradingSignal",
         strategy_signal,
         symbol: str,
-        current_price: float
+        current_price: float,
+        weights: Dict[str, float],
+        news_score: float,
     ) -> Optional[TradingSignal]:
-        """融合 AI 和策略信號"""
+        """三模態加權融合：一致時增強信心，衝突時以加權信心裁決。"""
         ai_action: str = self._get_ai_action(ai_signal)
         strategy_action = strategy_signal.action
-        
-        # 一致性信號 → 增強置信度
+
+        # 一致信號 → 三模態加權增強信心
         if ai_action == strategy_action and ai_action != "HOLD":
             return self._create_enhanced_signal(
-                ai_signal, strategy_signal, symbol, current_price, ai_action
+                ai_signal, strategy_signal, symbol, current_price,
+                ai_action, weights, news_score
             )
-        
-        # 不一致 → 選擇置信度較高者
+
+        # 衝突信號 → 加權信心裁決
         return self._resolve_conflicting_signals(
-            ai_signal, strategy_signal, symbol, current_price, ai_action, strategy_action
+            ai_signal, strategy_signal, symbol, current_price,
+            ai_action, strategy_action, weights, news_score
         )
     
     def _create_enhanced_signal(
@@ -745,13 +786,22 @@ class TradingEngine:
         strategy_signal,
         symbol: str,
         current_price: float,
-        action: str
+        action: str,
+        weights: Dict[str, float],
+        news_score: float,
     ) -> TradingSignal:
-        """創建增強的融合信號"""
-        enhanced_confidence: float = min(
-            0.95,
-            (ai_signal.confidence + getattr(strategy_signal, 'confidence', 0.5)) / 2 + 0.1
+        """三模態一致時，以加權信心公式增強融合信號。
+        加權信心 = strategy_conf * w_strategy + ai_conf * w_ai + news_score * w_news
+        """
+        strat_conf: float = getattr(strategy_signal, 'confidence', 0.5)
+        ai_conf: float = ai_signal.confidence
+        weighted_confidence: float = (
+            strat_conf  * weights["strategy"]
+            + ai_conf   * weights["ai"]
+            + news_score * weights["news"]
         )
+        # 一致信號給予小幅加成，上限 0.95
+        enhanced_confidence: float = min(0.95, weighted_confidence + 0.05)
         
         return TradingSignal(
             symbol=symbol,
@@ -783,34 +833,41 @@ class TradingEngine:
         symbol: str,
         current_price: float,
         ai_action: str,
-        strategy_action: str
+        strategy_action: str,
+        weights: Dict[str, float],
+        news_score: float,
     ) -> Optional[TradingSignal]:
-        """解決衝突信號 (選擇置信度較高者)"""
+        """衝突信號裁決：計算各模態加權信心，選擇較高者。
+        加權信心 = signal_conf * 該模態權重 + news_score * news 權重
+        """
         ai_conf: float = ai_signal.confidence
-        strat_conf: Any = getattr(strategy_signal, 'confidence', 0.5)
-        
-        # AI 置信度更高
-        if ai_conf > strat_conf and ai_action != "HOLD":
+        strat_conf: float = getattr(strategy_signal, 'confidence', 0.5)
+
+        weighted_ai: float   = ai_conf    * weights["ai"]   + news_score * weights["news"]
+        weighted_strat: float = strat_conf * weights["strategy"] + news_score * weights["news"]
+
+        # AI 加權信心較高
+        if weighted_ai > weighted_strat and ai_action != "HOLD":
             return self._convert_ai_signal_to_trading_signal(ai_signal, symbol, current_price)
-        
-        # 策略置信度更高
+
+        # 策略加權信心較高
         if strategy_action != "HOLD":
             return TradingSignal(
                 signal_type=strategy_signal.signal_type,
                 symbol=symbol,
-                confidence=strat_conf,
+                confidence=min(0.95, weighted_strat),
                 entry_price=getattr(strategy_signal, 'entry_price', getattr(strategy_signal, 'target_price', current_price)),
                 strategy_name=getattr(strategy_signal, 'strategy_name', 'strategy_override'),
-                reason=f"策略信號 (AI: {ai_action} {ai_conf:.1%})",
+                reason=f"策略信號勝出 (加權: {weighted_strat:.2f} vs AI: {weighted_ai:.2f})",
                 target_price=getattr(strategy_signal, 'target_price', None),
                 stop_loss=getattr(strategy_signal, 'stop_loss', None),
                 take_profit=getattr(strategy_signal, 'take_profit', None),
                 position_size=getattr(strategy_signal, 'position_size', None),
                 indicators=getattr(strategy_signal, 'indicators', None),
-                metadata={"source": "strategy_override"},
+                metadata={"source": "strategy_override", "modal_weights": weights},
                 timestamp=datetime.now()
             )
-        
+
         return None
     
     def _get_ai_action(self, ai_signal: "AITradingSignal") -> str:

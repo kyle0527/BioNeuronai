@@ -29,48 +29,59 @@ class TrainingConfig:
     max_epochs: int = 10
     learning_rate: float = 3e-4
     weight_decay: float = 0.01
-    
+
     # 學習率調度
     warmup_steps: int = 500
     lr_scheduler_type: str = "cosine"  # "cosine", "linear", "constant"
-    
+
     # 混合精度訓練
     use_amp: bool = True  # 自動混合精度
-    
+
     # 梯度裁剪
     max_grad_norm: float = 1.0
-    
+
     # 評估和保存
     eval_steps: int = 500
     save_steps: int = 1000
     logging_steps: int = 100
-    
+
     # 設備
     device: str = "cuda" if torch.cuda.is_available() else "cpu"
-    
+
     # 輸出
     output_dir: str = "./output"
-    
+
+    # ── 多任務設定 ──────────────────────────────────────────────────────────────
+    # 啟用後，每個 global_step 交替執行語言任務與訊號任務
+    multitask: bool = False
+    # 兩種 loss 的加權比例：total_loss = lm_loss + signal_loss_weight * signal_loss
+    signal_loss_weight: float = 0.5
+    # 序列長度（訊號任務：最近幾步 K 線特徵組成一個序列）
+    signal_seq_len: int = 16
+
     def to_dict(self) -> Dict:
         """轉換為字典"""
         return asdict(self)
 
 
 class Trainer:
-    """高級訓練器"""
-    
+    """高級訓練器（支援純語言模式與多任務模式）"""
+
     def __init__(
         self,
         model: TinyLLM,
         train_config: TrainingConfig,
         train_dataloader,
-        eval_dataloader=None
+        eval_dataloader=None,
+        signal_dataloader=None,       # 多任務模式：訊號任務的資料加載器
     ):
         self.model = model
         self.config = train_config
         self.train_dataloader = train_dataloader
         self.eval_dataloader = eval_dataloader
-        
+        self.signal_dataloader = signal_dataloader
+        self._signal_iter = None      # 用於循環取 signal batch
+
         # 移動模型到設備
         self.device = torch.device(train_config.device)
         self.model = self.model.to(self.device)
@@ -97,6 +108,8 @@ class Trainer:
         # 訓練歷史
         self.train_history: Dict[str, list[float]] = {
             'train_loss': [],
+            'lm_loss': [],
+            'signal_loss': [],
             'eval_loss': [],
             'learning_rate': [],
             'epoch': [],
@@ -176,87 +189,137 @@ class Trainer:
         self._save_checkpoint("final_model")
         self._save_training_history()
     
+    def _next_signal_batch(self):
+        """從 signal_dataloader 循環取下一個 batch（無限迭代）"""
+        if self._signal_iter is None:
+            self._signal_iter = iter(self.signal_dataloader)
+        try:
+            return next(self._signal_iter)
+        except StopIteration:
+            self._signal_iter = iter(self.signal_dataloader)
+            return next(self._signal_iter)
+
+    def _compute_signal_loss(
+        self, features: "torch.Tensor", signal_labels: "torch.Tensor"
+    ) -> "torch.Tensor":
+        """
+        訊號任務 MSE Loss。
+        features:      (B, T, 1024) — 時序特徵序列
+        signal_labels: (B, 512)     — SignalInterpreter 輸出格式的標籤
+        """
+        signal_output = self.model.forward_signal(features)   # (B, 512)
+        return nn.functional.mse_loss(signal_output, signal_labels)
+
     def _train_epoch(self):
         """訓練一個 epoch"""
         self.model.train()
         total_loss = 0.0
+        total_lm_loss = 0.0
+        total_signal_loss = 0.0
         num_batches = 0
-        
+
+        multitask = self.config.multitask and self.signal_dataloader is not None
+
         self.optimizer.zero_grad()
-        
+
         for batch_idx, batch in enumerate(self.train_dataloader):
-            # 移動數據到設備
+            # ── 語言任務 ────────────────────────────────────────────────────────
             input_ids = batch['input_ids'].to(self.device)
             labels = batch['labels'].to(self.device) if 'labels' in batch else input_ids
-            
-            # 混合精度訓練
+
             if self.config.use_amp:
                 with autocast():
                     logits = self.model(input_ids)
-                    loss = self._compute_loss(logits, labels)
-                    loss = loss / self.config.gradient_accumulation_steps
-                
-                assert self.scaler is not None, "Scaler should not be None when use_amp is True"
-                self.scaler.scale(loss).backward()
+                    lm_loss = self._compute_loss(logits, labels)
             else:
                 logits = self.model(input_ids)
-                loss = self._compute_loss(logits, labels)
-                loss = loss / self.config.gradient_accumulation_steps
-                loss.backward()
-            
-            total_loss += loss.item() * self.config.gradient_accumulation_steps
+                lm_loss = self._compute_loss(logits, labels)
+
+            # ── 訊號任務（多任務模式）──────────────────────────────────────────
+            signal_loss_val = 0.0
+            if multitask:
+                sig_batch = self._next_signal_batch()
+                feat_seq = sig_batch['feature_seq'].to(self.device)    # (B, T, 1024)
+                sig_labels = sig_batch['signal_labels'].to(self.device) # (B, 512)
+                if self.config.use_amp:
+                    with autocast():
+                        sig_loss = self._compute_signal_loss(feat_seq, sig_labels)
+                else:
+                    sig_loss = self._compute_signal_loss(feat_seq, sig_labels)
+                signal_loss_val = sig_loss.item()
+                combined_loss = (lm_loss + self.config.signal_loss_weight * sig_loss)
+            else:
+                combined_loss = lm_loss
+
+            combined_loss = combined_loss / self.config.gradient_accumulation_steps
+
+            if self.config.use_amp:
+                assert self.scaler is not None
+                self.scaler.scale(combined_loss).backward()
+            else:
+                combined_loss.backward()
+
+            total_loss += combined_loss.item() * self.config.gradient_accumulation_steps
+            total_lm_loss += lm_loss.item()
+            total_signal_loss += signal_loss_val
             num_batches += 1
-            
-            # 梯度累積
+
+            # ── 梯度累積 & 優化器步進 ──────────────────────────────────────────
             if (batch_idx + 1) % self.config.gradient_accumulation_steps == 0:
-                # 梯度裁剪
                 if self.config.max_grad_norm > 0:
                     if self.config.use_amp:
                         assert self.scaler is not None
                         self.scaler.unscale_(self.optimizer)
                     torch.nn.utils.clip_grad_norm_(
-                        self.model.parameters(),
-                        self.config.max_grad_norm
+                        self.model.parameters(), self.config.max_grad_norm
                     )
-                
-                # 優化器步進
+
                 if self.config.use_amp:
                     assert self.scaler is not None
                     self.scaler.step(self.optimizer)
                     self.scaler.update()
                 else:
                     self.optimizer.step()
-                
-                # Warmup 或 正常調度
+
                 if self.global_step < self.config.warmup_steps:
                     lr = self._warmup_lr(self.global_step)
                     for param_group in self.optimizer.param_groups:
                         param_group['lr'] = lr
                 else:
                     self.scheduler.step()
-                
+
                 self.optimizer.zero_grad()
                 self.global_step += 1
-                
-                # 記錄
+
+                # ── 記錄 ──────────────────────────────────────────────────────
                 if self.global_step % self.config.logging_steps == 0:
                     avg_loss = total_loss / num_batches
+                    avg_lm = total_lm_loss / num_batches
+                    avg_sig = total_signal_loss / num_batches
                     current_lr = self.optimizer.param_groups[0]['lr']
-                    
-                    print(f"Epoch {self.current_epoch + 1} | "
-                          f"Step {self.global_step} | "
-                          f"Loss: {avg_loss:.4f} | "
-                          f"LR: {current_lr:.2e}")
-                    
+
+                    if multitask:
+                        print(
+                            f"Epoch {self.current_epoch + 1} | Step {self.global_step} | "
+                            f"Loss: {avg_loss:.4f} (LM: {avg_lm:.4f}, Sig: {avg_sig:.4f}) | "
+                            f"LR: {current_lr:.2e}"
+                        )
+                    else:
+                        print(
+                            f"Epoch {self.current_epoch + 1} | Step {self.global_step} | "
+                            f"Loss: {avg_loss:.4f} | LR: {current_lr:.2e}"
+                        )
+
                     self.train_history['train_loss'].append(avg_loss)
+                    self.train_history['lm_loss'].append(avg_lm)
+                    self.train_history['signal_loss'].append(avg_sig)
                     self.train_history['learning_rate'].append(current_lr)
                     self.train_history['step'].append(self.global_step)
                     self.train_history['epoch'].append(self.current_epoch)
-                    
-                    total_loss = 0.0
+
+                    total_loss = total_lm_loss = total_signal_loss = 0.0
                     num_batches = 0
-                
-                # 保存檢查點
+
                 if self.global_step % self.config.save_steps == 0:
                     self._save_checkpoint(f"checkpoint-{self.global_step}")
     
@@ -420,15 +483,14 @@ def main():
     print("=" * 60)
     
     # 載入或創建 tokenizer
-    tokenizer_path = Path("model/tiny_llm_en_zh_trained/tokenizer.pkl")
-    
+    tokenizer_path = Path("model/tokenizer/vocab.json")
+
     if tokenizer_path.exists():
         print(f"\n📖 載入 tokenizer: {tokenizer_path}")
         tokenizer = BilingualTokenizer.load(str(tokenizer_path))
     else:
-        print("\n⚠️  未找到 tokenizer，請先運行 train_with_ai_teacher.py")
-        print("   或使用以下命令創建 tokenizer：")
-        print("   python training/train_with_ai_teacher.py")
+        print("\n⚠️  未找到 tokenizer，請先執行 build_vocab.py：")
+        print("   python -m nlp.training.build_vocab")
         return
     
     # 創建模型配置（與已訓練模型相同）

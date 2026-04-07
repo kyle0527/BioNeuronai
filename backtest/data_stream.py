@@ -447,6 +447,48 @@ class HistoricalDataStream:
         # 只返回已經「發生」的數據
         recent = self._history_window[-limit:] if limit < len(self._history_window) else self._history_window
         return [bar.to_dict() for bar in recent]
+
+    def get_klines_until_time(
+        self,
+        target_open_time: int,
+        limit: int = 500,
+    ) -> List[Dict[str, Any]]:
+        """
+        取得指定時間點以前的歷史 K 線。
+
+        這個方法用於多交易對 replay：主交易對正在某個時間點回放時，
+        次資產只能讀到同一時間點以前的資料。
+        """
+        if not self._data_loaded:
+            self.load_data()
+
+        if self._data is None:
+            return []
+
+        eligible = self._data[self._data["open_time"] <= target_open_time]
+        if eligible.empty:
+            return []
+
+        recent = eligible.tail(limit)
+        bars: List[Dict[str, Any]] = []
+        for _, row in recent.iterrows():
+            bar = KlineBar(
+                symbol=self.symbol,
+                interval=self.interval,
+                open_time=int(row["open_time"]),
+                open=float(row["open"]),
+                high=float(row["high"]),
+                low=float(row["low"]),
+                close=float(row["close"]),
+                volume=float(row["volume"]),
+                close_time=int(row["close_time"]),
+                quote_volume=float(row["quote_volume"]),
+                trades=int(row["trades"]),
+                taker_buy_base=float(row["taker_buy_base"]),
+                taker_buy_quote=float(row["taker_buy_quote"]),
+            )
+            bars.append(bar.to_dict())
+        return bars
     
     def get_klines_list_format(self, limit: int = 500) -> List[List]:
         """
@@ -459,12 +501,64 @@ class HistoricalDataStream:
         
         recent = self._history_window[-limit:] if limit < len(self._history_window) else self._history_window
         return [bar.to_list() for bar in recent]
+
+    def get_klines_list_until_time(
+        self,
+        target_open_time: int,
+        limit: int = 500,
+    ) -> List[List]:
+        """
+        取得指定時間點以前的 K 線，格式與 Binance API 相同。
+        """
+        bars = self.get_klines_until_time(target_open_time, limit=limit)
+        return [
+            [
+                bar["open_time"],
+                str(bar["open"]),
+                str(bar["high"]),
+                str(bar["low"]),
+                str(bar["close"]),
+                str(bar["volume"]),
+                bar["close_time"],
+                str(bar["quote_volume"]),
+                bar["trades"],
+                str(bar["taker_buy_base"]),
+                str(bar["taker_buy_quote"]),
+                "0",
+            ]
+            for bar in bars
+        ]
     
     def get_current_bar(self) -> Optional[KlineBar]:
         """獲取當前 K線"""
         if self._history_window:
             return self._history_window[-1]
         return None
+
+    def get_bar_at_or_before_time(self, target_open_time: int) -> Optional[KlineBar]:
+        """
+        取得指定時間點以前最新的一根 K 線。
+        """
+        bars = self.get_klines_until_time(target_open_time, limit=1)
+        if not bars:
+            return None
+
+        row = bars[-1]
+        return KlineBar(
+            symbol=self.symbol,
+            interval=self.interval,
+            open_time=int(row["open_time"]),
+            open=float(row["open"]),
+            high=float(row["high"]),
+            low=float(row["low"]),
+            close=float(row["close"]),
+            volume=float(row["volume"]),
+            close_time=int(row["close_time"]),
+            quote_volume=float(row["quote_volume"]),
+            trades=int(row["trades"]),
+            taker_buy_base=float(row["taker_buy_base"]),
+            taker_buy_quote=float(row["taker_buy_quote"]),
+        )
     
     def get_current_price(self) -> float:
         """獲取當前價格 (最新 K線的 close)"""

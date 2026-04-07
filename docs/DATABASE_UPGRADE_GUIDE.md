@@ -1,5 +1,5 @@
 # 數據庫系統升級指南
-> **版本**: v1.0  
+> **版本**: v2.1  
 > **更新日期**: 2026-01-22  
 > **模組**: `src.bioneuronai.data.database_manager`
 

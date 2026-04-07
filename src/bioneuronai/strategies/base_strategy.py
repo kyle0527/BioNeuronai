@@ -316,6 +316,14 @@ class BaseStrategy(ABC):
         
         self._last_analysis_time: Optional[datetime] = None
         self._cooldown_until: Optional[datetime] = None
+
+    def _finalize_analysis_state(self) -> None:
+        """分析結束後同步狀態，避免持倉中被誤重置為 idle。"""
+        self.state = (
+            StrategyState.POSITION_OPEN
+            if self.active_trades
+            else StrategyState.IDLE
+        )
         
     # ========================
     # 1. 
@@ -420,6 +428,34 @@ class BaseStrategy(ABC):
             is_valid = False
         
         return is_valid, messages
+
+    def _entry_side_for_setup(self, setup: TradeSetup) -> str:
+        """將策略方向轉成訂單方向。"""
+        return "BUY" if setup.direction == "long" else "SELL"
+
+    def _check_connector_entry_conflict(
+        self,
+        setup: TradeSetup,
+        connector: Any,
+    ) -> Tuple[bool, str]:
+        """檢查 connector 層是否已有待成交進場單或既有持倉。"""
+        if connector is None:
+            return False, ""
+
+        side = self._entry_side_for_setup(setup)
+
+        try:
+            if hasattr(connector, "has_pending_entry_order"):
+                if bool(connector.has_pending_entry_order(setup.symbol, side=side)):
+                    return True, f"已有待成交進場單: {setup.symbol} {side}"
+
+            if hasattr(connector, "has_open_position"):
+                if bool(connector.has_open_position(setup.symbol)):
+                    return True, f"已有持倉: {setup.symbol}"
+        except Exception as exc:
+            logger.warning("檢查 connector 進場衝突時失敗: %s", exc)
+
+        return False, ""
     
     # ========================
     # 3. 
@@ -758,6 +794,14 @@ class BaseStrategy(ABC):
                     is_valid, messages = self.validate_setup(setup)
                     
                     if is_valid:
+                        has_conflict, conflict_reason = self._check_connector_entry_conflict(
+                            setup,
+                            connector,
+                        )
+                        if has_conflict:
+                            result['signals'].append(conflict_reason)
+                            return result
+
                         # 
                         new_trade: Optional[TradeExecution] = self.execute_entry(setup, connector)
                         if new_trade:

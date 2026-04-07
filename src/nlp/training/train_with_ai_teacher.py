@@ -19,7 +19,7 @@ from typing import Any
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from nlp.tiny_llm import TinyLLM, TinyLLMConfig
+from nlp.tiny_llm import TinyLLM, TinyLLMConfig, load_llm, save_llm
 from nlp.bilingual_tokenizer import BilingualTokenizer
 
 
@@ -305,8 +305,8 @@ def check_if_already_trained(data_hash, epochs, learning_rate, batch_size):
 
 
 def train_with_ai_teacher(
-    model_dir: str = "model/tiny_llm_en_zh",
-    output_dir: str = "model/tiny_llm_en_zh_trained",
+    model_dir: str = "model/my_100m_model.pth",
+    output_dir: str = "model/tiny_llm_finetuned.pth",
     epochs: int = 10,
     batch_size: int = 4,
     learning_rate: float = 5e-5,
@@ -360,28 +360,12 @@ def train_with_ai_teacher(
     
     # 1. 載入模型和 tokenizer
     print("\n1️⃣ 載入學生模型...")
-    
-    model_path = Path(model_dir)
-    with open(model_path / "config.json", 'r') as f:
-        config_dict = json.load(f)
-    
-    config = TinyLLMConfig(
-        vocab_size=config_dict["vocab_size"],
-        max_seq_length=config_dict["max_position_embeddings"],
-        embed_dim=config_dict["hidden_size"],
-        num_heads=config_dict["num_attention_heads"],
-        num_layers=config_dict["num_hidden_layers"],
-        ffn_dim=config_dict["intermediate_size"],
-        dropout=config_dict["hidden_dropout_prob"],
-        attention_dropout=config_dict["attention_probs_dropout_prob"],
-    )
-    
-    model = TinyLLM(config)
-    weights = torch.load(model_path / "pytorch_model.bin", map_location='cpu')
-    model.load_state_dict(weights)
+
+    model, _ = load_llm(model_dir, device="cpu")
     model.train()
-    
-    tokenizer = BilingualTokenizer.load(str(model_path / "tokenizer.pkl"))
+
+    tok_path = Path(__file__).parent.parent.parent / "model" / "tokenizer" / "vocab.json"
+    tokenizer = BilingualTokenizer.load(str(tok_path))
     
     print(f"✅ 學生模型: {model.count_parameters():,} 參數")
     
@@ -457,27 +441,15 @@ def train_with_ai_teacher(
         
         print(f"Epoch {epoch+1} - Loss: {avg_loss:.4f}, Perplexity: {perplexity:.2f}")
     
-    # 5. 保存訓練後的模型
+    # 5. 保存訓練後的模型（新格式：單一 .pth 檔案）
     print("\n5️⃣ 保存訓練後的模型...")
-    output_path = Path(output_dir)
-    output_path.mkdir(parents=True, exist_ok=True)
-    
-    # 保存權重
-    torch.save(model.state_dict(), output_path / "pytorch_model.bin")
-    
-    # 複製其他檔案
-    import shutil
-    for file in ["config.json", "tokenizer.pkl", "tokenizer_config.json", 
-                 "vocab.json", "special_tokens_map.json", "README.md"]:
-        src = model_path / file
-        if src.exists():
-            shutil.copy(src, output_path / file)
-    
-    # 保存訓練歷史
-    with open(output_path / "training_history.json", 'w') as f:
-        json.dump(history, f, indent=2)
-    
-    print(f"✅ 模型已保存到: {output_path}")
+    save_llm(model, output_dir, metadata={
+        "base_model": model_dir,
+        "training_script": "train_with_ai_teacher.py",
+        "epochs": epochs,
+        "final_loss": history['losses'][-1],
+    })
+    print(f"✅ 模型已保存到: {output_dir}")
     
     # 6. 測試訓練後的模型
     print("\n6️⃣ 測試訓練後的模型...")
@@ -603,8 +575,8 @@ if __name__ == "__main__":
     
     # 訓練
     train_with_ai_teacher(
-        model_dir="model/tiny_llm_en_zh",
-        output_dir="model/tiny_llm_en_zh_trained",
+        model_dir="model/my_100m_model.pth",
+        output_dir="model/tiny_llm_finetuned.pth",
         epochs=20,  # 訓練 20 輪
         batch_size=4,
         learning_rate=5e-5,

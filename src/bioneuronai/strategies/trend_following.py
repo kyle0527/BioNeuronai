@@ -318,7 +318,7 @@ class TrendFollowingStrategy(BaseStrategy):
         # 計算關鍵水準
         key_levels = self._calculate_key_levels(price_data, indicators)
         
-        self.state = StrategyState.IDLE
+        self._finalize_analysis_state()
         self._last_analysis_time = datetime.now()
         
         return {
@@ -822,6 +822,9 @@ class TrendFollowingStrategy(BaseStrategy):
             
             # 
             portion_size = setup.total_position_size / setup.entry_portions
+            if portion_size <= 0:
+                logger.warning(f"⚠️ 趨勢策略忽略無效進場數量: {portion_size}")
+                return None
             
             # 
             if connector is None:
@@ -872,6 +875,8 @@ class TrendFollowingStrategy(BaseStrategy):
                     )
                     
                     logger.info(f": {stop_order.get('orderId')}")
+                else:
+                    return None
             
             execution.highest_price_since_entry = execution.actual_entry_price
             execution.lowest_price_since_entry = execution.actual_entry_price

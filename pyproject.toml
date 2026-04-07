@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "bioneuronai"
-version = "4.4.1"
+version = "2.1"
 description = "AI-driven cryptocurrency futures trading system with genetic algorithm strategy evolution"
 readme = "README.md"
 authors = [
@@ -37,6 +37,7 @@ dependencies = [
     "fastapi>=0.111.0",
     "uvicorn[standard]>=0.30.0",
     "schedule>=1.2.0",
+    "scikit-learn>=1.3.0",
 ]
 
 [project.optional-dependencies]
@@ -52,6 +53,8 @@ dev = [
 visualization = [
     "matplotlib>=3.7.0",
     "plotly>=5.14.0",
+    "jupyter>=1.0.0",
+    "notebook>=7.0.0",
 ]
 notifications = [
     "python-telegram-bot>=20.0",

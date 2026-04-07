@@ -74,7 +74,6 @@ src/bioneuronai/strategies/selector/
 ├── __init__.py
 ├── core.py
 ├── evaluator.py
-├── evaluator_new.py
 ├── configs.py
 └── types.py
 ```
@@ -121,16 +120,6 @@ src/bioneuronai/strategies/selector/
 - `calculate_volatility()`
 - `score_strategies()`
 - 單一策略評分與篩選
-
-### `evaluator_new.py`
-
-保留中的替代評估器版本。  
-目前存在，但 **`core.py` 沒有導入它作為主評估器**。
-
-因此就目前工作樹來看：
-
-- `evaluator.py` 是主路徑
-- `evaluator_new.py` 是候選 / 保留 / 重構中的替代實作
 
 ### `configs.py`
 
@@ -416,17 +405,12 @@ async select_optimal_strategy(
 - `configs.py`
 - `types.py`
 
-### 非主路徑 / 保留實作
+目前 selector 只有一套正式評估器：
 
-- `evaluator_new.py`
-
-就目前工作樹而言：
-
-- `evaluator_new.py` 存在
-- 但 `__init__.py` 匯出的是 `MarketEvaluator` from `evaluator.py`
+- `__init__.py` 匯出的是 `evaluator.py` 的 `MarketEvaluator`
 - `core.py` 也直接 `from .evaluator import MarketEvaluator`
 
-因此目前 README 與後續分析都應以 `evaluator.py` 為準，而不是假設 `evaluator_new.py` 已接到主流程。
+因此目前 README 與後續分析都應以 `evaluator.py` 為準。
 
 ---
 
@@ -553,21 +537,16 @@ recommendation = get_recommended_strategy(
 
 1. `configs.py` 有 10 種模板，但 `_strategies` 目前只實例化 4 種真實策略類。
 
-2. `evaluator_new.py` 目前不是主流程的一部分，若後續要切換，需同步更新：
-   - `core.py`
-   - `__init__.py`
-   - 對應 README 與上層文件
+2. `event_context` 目前型別仍以 `Any` / 可選導入處理，邊界沒有完全收緊。
 
-3. `event_context` 目前型別仍以 `Any` / 可選導入處理，邊界沒有完全收緊。
-
-4. selector 目前同時承擔：
+3. selector 目前同時承擔：
    - 市場體制識別
    - 策略模板管理
    - AI Fusion 整合
    - 績效摘要  
    功能偏多，後續若再擴充，需注意不要讓 `core.py` 繼續膨脹。
 
-5. 舊版 `trading/strategy_selector.py` 已移除，閱讀或維護時以 `strategies/selector/` 為唯一實作來源。
+4. 舊版 `trading/strategy_selector.py` 已移除，閱讀或維護時以 `strategies/selector/` 為唯一實作來源。
 
 ---
 

@@ -218,7 +218,7 @@ class PairTradingStrategy(BaseStrategy):
 
         secondary_ohlcv = (additional_data or {}).get('secondary_ohlcv')
         if secondary_ohlcv is None or len(secondary_ohlcv) < self.lookback_period:
-            self.state = StrategyState.IDLE
+            self._finalize_analysis_state()
             return self._no_pair_data_result(
                 current_price,
                 atr,
@@ -249,7 +249,7 @@ class PairTradingStrategy(BaseStrategy):
         if len(recent_z) > 0:
             analysis.cointegration_score = float(np.mean(np.abs(recent_z) < 3.0))
 
-        self.state = StrategyState.IDLE
+        self._finalize_analysis_state()
         self._last_analysis_time = datetime.now()
 
         abs_z = abs(analysis.z_score)
@@ -411,19 +411,61 @@ class PairTradingStrategy(BaseStrategy):
     ) -> Optional[TradeExecution]:
         """執行配對交易入場"""
         try:
+            portion_size = setup.total_position_size
+            if portion_size <= 0:
+                logger.warning(f"[配對交易] 忽略無效進場數量: {portion_size}")
+                return None
+
             execution = TradeExecution(
                 trade_id=f"PT_{uuid.uuid4().hex[:8]}",
                 setup=setup,
                 actual_entry_price=setup.entry_price,
                 entry_time=datetime.now(),
-                current_position_size=setup.total_position_size,
+                current_position_size=portion_size,
                 average_entry_price=setup.entry_price,
                 highest_price_since_entry=setup.entry_price,
                 lowest_price_since_entry=setup.entry_price,
             )
+
+            if connector is None:
+                execution.entry_fills.append(
+                    {
+                        'price': setup.entry_price,
+                        'size': portion_size,
+                        'time': datetime.now().isoformat(),
+                        'type': 'market',
+                    }
+                )
+            else:
+                order_result = connector.place_order(
+                    symbol=setup.symbol,
+                    side='BUY' if setup.direction == 'long' else 'SELL',
+                    order_type='MARKET',
+                    quantity=portion_size,
+                )
+                if order_result.get('status') not in ['FILLED', 'PARTIALLY_FILLED']:
+                    return None
+
+                fill_price = float(order_result.get('avgPrice', setup.entry_price))
+                execution.actual_entry_price = fill_price
+                execution.entry_slippage = abs(fill_price - setup.entry_price)
+                execution.current_position_size = portion_size
+                execution.average_entry_price = fill_price
+                execution.highest_price_since_entry = fill_price
+                execution.lowest_price_since_entry = fill_price
+                execution.entry_fills.append(
+                    {
+                        'order_id': order_result.get('orderId'),
+                        'price': fill_price,
+                        'size': portion_size,
+                        'time': datetime.now().isoformat(),
+                        'type': 'market',
+                    }
+                )
+
             self.state = StrategyState.POSITION_OPEN
             logger.info(
-                f"[配對交易] 入場: {setup.direction.upper()} @ {setup.entry_price:.2f}, "
+                f"[配對交易] 入場: {setup.direction.upper()} @ {execution.actual_entry_price:.2f}, "
                 f"Z={setup.key_levels.get('z_score', 0):.2f}, "
                 f"SL: {setup.stop_loss:.2f}"
             )
@@ -546,19 +588,74 @@ class PairTradingStrategy(BaseStrategy):
     ) -> bool:
         """執行配對交易出場"""
         try:
-            trade.exit_reason = reason
-            trade.exit_time = datetime.now()
-            self.state = StrategyState.IDLE
-            self.performance.update(trade)
-            self.trade_history.append(trade)
-            logger.info(
-                f"[配對交易] 出場: {reason}, "
-                f"R倍數: {trade.calculate_r_multiple():.2f}"
-            )
-            if "止損" in reason:
-                self._cooldown_until = datetime.now() + timedelta(
-                    hours=self.risk_params.cooldown_after_loss
+            exit_size = trade.current_position_size * exit_portion
+            if exit_size <= 0:
+                logger.warning(f"[配對交易] 忽略無效出場數量: {exit_size}")
+                return False
+
+            if connector is None:
+                fill_price = trade.average_exit_price or trade.setup.entry_price
+                if trade.setup.direction == 'long':
+                    pnl = (fill_price - trade.average_entry_price) * exit_size
+                else:
+                    pnl = (trade.average_entry_price - fill_price) * exit_size
+                trade.average_exit_price = fill_price
+                trade.realized_pnl += pnl
+                trade.current_position_size -= exit_size
+                trade.exit_fills.append(
+                    {
+                        'price': fill_price,
+                        'size': exit_size,
+                        'time': datetime.now().isoformat(),
+                        'reason': reason,
+                    }
                 )
+            else:
+                order_result = connector.place_order(
+                    symbol=trade.setup.symbol,
+                    side='SELL' if trade.setup.direction == 'long' else 'BUY',
+                    order_type='MARKET',
+                    quantity=exit_size,
+                    reduce_only=True,
+                )
+                if order_result.get('status') not in ['FILLED', 'PARTIALLY_FILLED']:
+                    return False
+
+                fill_price = float(order_result.get('avgPrice', 0))
+                trade.average_exit_price = fill_price
+                if trade.setup.direction == 'long':
+                    pnl = (fill_price - trade.average_entry_price) * exit_size
+                else:
+                    pnl = (trade.average_entry_price - fill_price) * exit_size
+
+                trade.realized_pnl += pnl
+                trade.current_position_size -= exit_size
+                trade.exit_fills.append(
+                    {
+                        'order_id': order_result.get('orderId'),
+                        'price': fill_price,
+                        'size': exit_size,
+                        'time': datetime.now().isoformat(),
+                        'reason': reason,
+                    }
+                )
+
+            if trade.current_position_size <= 0:
+                trade.exit_reason = reason
+                trade.exit_time = datetime.now()
+                trade.holding_duration = trade.exit_time - trade.entry_time
+                self.state = StrategyState.IDLE
+                self.performance.update(trade)
+                self.trade_history.append(trade)
+                logger.info(
+                    f"[配對交易] 出場: {reason}, "
+                    f"PnL: {trade.realized_pnl:.2f}, "
+                    f"R倍數: {trade.calculate_r_multiple():.2f}"
+                )
+                if "止損" in reason:
+                    self._cooldown_until = datetime.now() + timedelta(
+                        hours=self.risk_params.cooldown_after_loss
+                    )
             return True
         except Exception as e:
             logger.error(f"[配對交易] 出場失敗: {e}")

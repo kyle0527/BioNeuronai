@@ -1,0 +1,372 @@
+================================================================================
+BioNeuronai 專案程式碼樹狀架構圖（終極整合版 - 含中文檔名說明）
+================================================================================
+生成日期: 2026年04月06日 07:35:27
+專案路徑: C:\D\E\BioNeuronai
+
+📊 程式碼統計
+────────────────────────────────────────────────────────────────────────────────
+總檔案數: 178
+總程式碼行數: 65689
+
+💻 語言分布:
+   • .py: 177 檔案, 65508 行 (99.7%)
+   • .html: 1 檔案, 181 行 (0.3%)
+
+🔧 排除項目
+────────────────────────────────────────────────────────────────────────────────
+已排除：
+• 虛擬環境: .venv, venv, env
+• 快取: __pycache__, .mypy_cache, .ruff_cache
+• 建置產物: dist, build, target, bin, obj
+• 文件: .md, .txt
+• 配置檔: .json, .yaml, .toml, .ini
+• 腳本: .ps1, .sh, .bat
+
+💡 說明
+────────────────────────────────────────────────────────────────────────────────
+「行」(Line) = 程式碼的一行，以換行符號 (\n) 結束
+「字」(Character) = 單一字元（含中文、英文、符號）
+「檔案數」= 符合條件的程式碼檔案總數
+「程式碼行數」= 所有程式碼檔案的總行數（包含空行和註解）
+
+🎨 差異標記說明
+────────────────────────────────────────────────────────────────────────────────
+[+] = 🟢 新增的檔案或目錄（綠色顯示於終端機）
+[-] = 🔴 已刪除的檔案或目錄（紅色顯示於終端機）
+    = ⚪ 保持不變（白色顯示於終端機）
+
+🌏 中文檔名說明
+────────────────────────────────────────────────────────────────────────────────
+每個檔案名稱後面會自動添加中文說明，格式：檔案名 # 中文說明
+• 根據檔案名稱和目錄結構智慧推測功能
+• 涵蓋 Python、Go、Rust、TypeScript 等多語言
+• 包含 AIVA 專案特定的模組和功能說明
+
+注意：文字檔案輸出含 [+]/[-] 標記和中文說明
+終端機執行時會顯示對應顏色但不含 [+]/[-] 標記
+下一版本更新時，[-] 項目將被移除，[+] 項目將變為不變（空格）
+
+================================================================================
+程式碼結構樹狀圖（含中文檔名說明）
+================================================================================
+
+BioNeuronai
+    ├─archived
+    │   ├─docs_v3
+    │   ├─jules_session
+    │   │   └─jules_session_integration
+    │   │       ├─pretrade_check_data
+    │   │       ├─sop_automation_data
+    │   │       ├─trading_data
+    │   │       └─simulate_trading_environment.py
+    │   ├─old_data
+    │   │   ├─test_predictions
+    │   │   ├─tradetrain_src
+    │   │   │   └─trading_data
+    │   │   │       └─backups
+    │   │   └─training_trading_data
+    │   ├─old_docs
+    │   ├─old_scripts
+    │   │   ├─check_db.py
+    │   │   ├─debug_strategy_signals.py
+    │   │   ├─migrate_to_database.py
+    │   │   ├─run_ai_trading.py
+    │   │   ├─run_backtest_demo.py
+    │   │   ├─simulate_trading_environment_optimized.py
+    │   │   ├─test_ai_with_history.py
+    │   │   ├─test_all_strategies.py
+    │   │   ├─test_backtest_system.py
+    │   │   ├─test_integration.py
+    │   │   ├─use_backtest_mode.py
+    │   │   ├─use_crypto_trader.py
+    │   │   ├─use_model_evolving.py
+    │   │   ├─use_model.py
+    │   │   ├─use_rag.py
+    │   │   ├─use_trading_engine_v2.py
+    │   │   ├─validate_real_backtest.py
+    │   │   └─validate_strategy_evolution.py
+    │   ├─reports
+    │   ├─reports_20260215
+    │   ├─core.py
+    │   ├─hundred_million_net.py
+    │   └─pytorch_100m_model.py
+    ├─backtest
+    │   ├─data
+    │   │   └─binance_historical
+    │   │       └─data
+    │   │           └─futures
+    │   │               └─um
+    │   │                   └─daily
+    │   │                       └─klines
+    │   │                           ├─BTCUSDT
+    │   │                           │   ├─15m
+    │   │                           │   ├─1h
+    │   │                           │   ├─1m
+    │   │                           │   └─5m
+    │   │                           └─ETHUSDT
+    │   │                               ├─15m
+    │   │                               ├─1h
+    │   │                               ├─1m
+    │   │                               └─5m
+    │   ├─docs
+    │   │   └─legacy_historical
+    │   ├─runtime
+    │   │   ├─20260404_212430_37b78603
+    │   │   ├─20260404_212430_d96bfa41
+    │   │   ├─20260404_212636_b152c139
+    │   │   ├─20260404_212812_1c2f4e95
+    │   │   ├─20260404_223732_21132061
+    │   │   ├─20260404_223732_9aeacfb6
+    │   │   ├─20260404_223848_09791539
+    │   │   ├─20260404_223848_1f9da80e
+    │   │   ├─20260404_223921_3b06a2dc
+    │   │   ├─20260404_223951_cae6f02d
+    │   │   ├─20260404_224901_f7b630cd
+    │   │   ├─20260404_225028_a2816205
+    │   │   ├─20260405_000413_9ea1b069
+    │   │   ├─20260405_081034_08e989d6
+    │   │   ├─20260405_084601_75f371de
+    │   │   ├─20260405_132854_15093eeb
+    │   │   ├─20260405_140241_d52b3823
+    │   │   ├─20260405_150539_c84e470a
+    │   │   ├─20260405_150909_6c8b3c7c
+    │   │   ├─20260405_152054_e6b503a9
+    │   │   ├─20260405_152322_301fe104
+    │   │   ├─20260405_152451_ca553fea
+    │   │   └─20260405_193613_0df4e2e9
+    │   ├─ui
+    │   │   └─index.html
+    │   ├─vendor
+    │   ├─__init__.py
+    │   ├─backtest_engine.py
+    │   ├─catalog.py
+    │   ├─contracts.py
+    │   ├─data_stream.py
+    │   ├─mock_connector.py
+    │   ├─paths.py
+    │   ├─runtime_store.py
+    │   ├─service.py
+    │   └─web.py
+    ├─backtesting
+    │   ├─__init__.py
+    │   ├─cost_calculator.py
+    │   ├─historical_backtest.py
+    │   └─walk_forward.py
+    ├─config
+    │   ├─keywords
+    │   ├─__init__.py
+    │   ├─trading_config.py
+    │   └─trading_costs.py
+    ├─data
+    │   ├─bioneuronai
+    │   │   ├─evolution
+    │   │   ├─planning
+    │   │   │   └─pretrade
+    │   │   ├─trading
+    │   │   │   ├─engine
+    │   │   │   │   └─backups
+    │   │   │   ├─pretrade
+    │   │   │   ├─runtime
+    │   │   │   │   └─backups
+    │   │   │   └─sop
+    │   │   └─validation
+    │   │       ├─arena
+    │   │       └─optimizer
+    │   ├─nlp
+    │   ├─rag
+    │   │   ├─knowledge_base
+    │   │   └─news
+    │   └─temp
+    │       ├─rl_models_test
+    │       ├─rl_test
+    │       ├─strategy_arena_test
+    │       └─strategy_portfolio_test
+    ├─data_downloads
+    ├─docs
+    │   ├─archive_v2_1
+    │   ├─image
+    │   │   └─PROJECT_HANDOVER_MAP
+    │   └─tech
+    ├─evolution_data
+    ├─model
+    │   ├─tiny_llm_en_zh
+    │   └─tiny_llm_en_zh_trained
+    ├─news_predictions
+    ├─rl_models
+    ├─sop_automation_data
+    ├─src
+    │   ├─bioneuronai
+    │   │   ├─analysis
+    │   │   │   ├─daily_report
+    │   │   │   │   ├─__init__.py
+    │   │   │   │   ├─market_data.py
+    │   │   │   │   ├─models.py
+    │   │   │   │   ├─news_sentiment.py
+    │   │   │   │   ├─report_generator.py
+    │   │   │   │   ├─risk_manager.py
+    │   │   │   │   └─strategy_planner.py
+    │   │   │   ├─image
+    │   │   │   │   └─README
+    │   │   │   ├─keywords
+    │   │   │   │   ├─__init__.py
+    │   │   │   │   ├─learner.py
+    │   │   │   │   ├─loader.py
+    │   │   │   │   ├─manager.py
+    │   │   │   │   ├─models.py
+    │   │   │   │   └─static_utils.py
+    │   │   │   ├─news
+    │   │   │   │   ├─__init__.py
+    │   │   │   │   ├─analyzer.py
+    │   │   │   │   ├─evaluator.py
+    │   │   │   │   ├─models.py
+    │   │   │   │   └─prediction_loop.py
+    │   │   │   ├─__init__.py
+    │   │   │   ├─__main__.py
+    │   │   │   ├─feature_engineering.py
+    │   │   │   └─market_regime.py
+    │   │   ├─api
+    │   │   │   ├─__init__.py
+    │   │   │   ├─app.py
+    │   │   │   └─models.py
+    │   │   ├─cli
+    │   │   │   ├─__init__.py
+    │   │   │   └─main.py
+    │   │   ├─core
+    │   │   │   ├─__init__.py
+    │   │   │   ├─inference_engine.py
+    │   │   │   ├─self_improvement.py
+    │   │   │   └─trading_engine.py
+    │   │   ├─data
+    │   │   │   ├─image
+    │   │   │   │   └─USAGE_GUIDE
+    │   │   │   ├─__init__.py
+    │   │   │   ├─binance_futures.py
+    │   │   │   ├─database_manager.py
+    │   │   │   ├─database.py
+    │   │   │   ├─exchange_rate_service.py
+    │   │   │   └─web_data_fetcher.py
+    │   │   ├─planning
+    │   │   │   ├─__init__.py
+    │   │   │   ├─market_analyzer.py
+    │   │   │   ├─pair_selector.py
+    │   │   │   ├─plan_controller.py
+    │   │   │   └─pretrade_automation.py
+    │   │   ├─risk_management
+    │   │   │   ├─__init__.py
+    │   │   │   └─position_manager.py
+    │   │   ├─strategies
+    │   │   │   ├─selector
+    │   │   │   │   ├─__init__.py
+    │   │   │   │   ├─configs.py
+    │   │   │   │   ├─core.py
+    │   │   │   │   ├─evaluator.py
+    │   │   │   │   └─types.py
+    │   │   │   ├─__init__.py
+    │   │   │   ├─base_strategy.py
+    │   │   │   ├─breakout_trading.py
+    │   │   │   ├─direction_change_strategy.py
+    │   │   │   ├─mean_reversion.py
+    │   │   │   ├─pair_trading_strategy.py
+    │   │   │   ├─phase_router.py
+    │   │   │   ├─portfolio_optimizer.py
+    │   │   │   ├─rl_fusion_agent.py
+    │   │   │   ├─strategy_arena.py
+    │   │   │   ├─strategy_fusion.py
+    │   │   │   ├─swing_trading.py
+    │   │   │   └─trend_following.py
+    │   │   ├─trading
+    │   │   │   ├─__init__.py
+    │   │   │   └─virtual_account.py
+    │   │   ├─__init__.py
+    │   │   ├─_paths.py
+    │   │   └─historical_data_loader.py
+    │   ├─data
+    │   │   └─bioneuronai
+    │   │       └─rag
+    │   │           └─internal
+    │   ├─nlp
+    │   │   ├─tools
+    │   │   │   └─create_model_package.py
+    │   │   ├─training
+    │   │   │   ├─__init__.py
+    │   │   │   ├─advanced_trainer.py
+    │   │   │   ├─auto_evolve.py
+    │   │   │   ├─data_manager.py
+    │   │   │   ├─trading_dialogue_data.py
+    │   │   │   ├─train_with_ai_teacher.py
+    │   │   │   └─view_training_history.py
+    │   │   ├─__init__.py
+    │   │   ├─bilingual_tokenizer.py
+    │   │   ├─bpe_tokenizer.py
+    │   │   ├─chat_engine.py
+    │   │   ├─generation_utils.py
+    │   │   ├─hallucination_detection.py
+    │   │   ├─honest_generation.py
+    │   │   ├─inference_utils.py
+    │   │   ├─lora.py
+    │   │   ├─model_export.py
+    │   │   ├─quantization.py
+    │   │   ├─rag_system.py
+    │   │   ├─tiny_llm.py
+    │   │   └─uncertainty_quantification.py
+    │   ├─rag
+    │   │   ├─core
+    │   │   │   ├─__init__.py
+    │   │   │   ├─embeddings.py
+    │   │   │   └─retriever.py
+    │   │   ├─internal
+    │   │   │   ├─__init__.py
+    │   │   │   ├─faiss_index.py
+    │   │   │   └─knowledge_base.py
+    │   │   ├─monitoring
+    │   │   │   └─__init__.py
+    │   │   ├─services
+    │   │   │   ├─__init__.py
+    │   │   │   └─news_adapter.py
+    │   │   └─__init__.py
+    │   ├─schemas
+    │   │   ├─__init__.py
+    │   │   ├─alerts.py
+    │   │   ├─api.py
+    │   │   ├─backtesting.py
+    │   │   ├─commands.py
+    │   │   ├─database.py
+    │   │   ├─enums.py
+    │   │   ├─events.py
+    │   │   ├─external_data.py
+    │   │   ├─market.py
+    │   │   ├─ml_models.py
+    │   │   ├─orders.py
+    │   │   ├─portfolio.py
+    │   │   ├─positions.py
+    │   │   ├─rag.py
+    │   │   ├─risk.py
+    │   │   ├─strategy.py
+    │   │   ├─trading.py
+    │   │   └─types.py
+    │   └─__init__.py
+    ├─strategy_arena_results
+    ├─strategy_portfolio_optimization
+    ├─tools
+    │   ├─data_download
+    │   │   ├─data_feeder.py
+    │   │   ├─download_example.py
+    │   │   ├─download-aggTrade.py
+    │   │   ├─download-futures-indexPriceKlines.py
+    │   │   ├─download-futures-markPriceKlines.py
+    │   │   ├─download-futures-premiumIndexKlines.py
+    │   │   ├─download-kline.py
+    │   │   ├─download-trade.py
+    │   │   ├─enums.py
+    │   │   ├─mock_api.py
+    │   │   ├─run_backtest.py
+    │   │   └─utility.py
+    │   ├─ai_trade_nexttick.py
+    │   ├─demo_strategy_evolution.py
+    │   ├─quick_start_optimized.py
+    │   ├─simulate_trading_environment.py
+    │   ├─split_keywords.py
+    │   └─upgrade_keywords.py
+    ├─trading_plan_data
+    └─main.py

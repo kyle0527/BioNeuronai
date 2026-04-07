@@ -164,7 +164,7 @@ def cmd_plan(args: argparse.Namespace) -> None:
 
     # ── 單一路徑：TradingPlanController（完整 10 步驟，async）────────────────
     try:
-        from bioneuronai.trading.plan_controller import TradingPlanController
+        from bioneuronai.planning.plan_controller import TradingPlanController
 
         controller = TradingPlanController()
         print("  [模式] TradingPlanController (10-Step)\n")
@@ -258,7 +258,7 @@ def cmd_pretrade(args: argparse.Namespace) -> None:
     print(f"{'='*60}\n")
 
     try:
-        from bioneuronai.trading.pretrade_automation import PreTradeCheckSystem
+        from bioneuronai.planning.pretrade_automation import PreTradeCheckSystem
     except ImportError as e:
         logger.error("PreTradeCheckSystem 載入失敗: %s", e)
         sys.exit(1)
@@ -390,8 +390,8 @@ def cmd_status(args: argparse.Namespace) -> None:  # noqa: ARG001
         ("bioneuronai.data.binance_futures", "BinanceFuturesConnector", "BinanceFutures"),
         ("bioneuronai.analysis", "CryptoNewsAnalyzer", "NewsAnalyzer"),
         ("bioneuronai.analysis.daily_report", "SOPAutomationSystem", "SOPSystem"),
-        ("bioneuronai.trading.plan_controller", "TradingPlanController", "PlanController"),
-        ("bioneuronai.trading.pretrade_automation", "PreTradeCheckSystem", "PreTradeCheck"),
+        ("bioneuronai.planning.plan_controller", "TradingPlanController", "PlanController"),
+        ("bioneuronai.planning.pretrade_automation", "PreTradeCheckSystem", "PreTradeCheck"),
         ("backtest", "BacktestEngine", "BacktestEngine"),
     ]
 
@@ -416,6 +416,105 @@ def cmd_status(args: argparse.Namespace) -> None:  # noqa: ARG001
 
     print(f"\n  {'系統正常' if all_ok else '部分模組不可用（詳見上方）'}")
     print(f"{'='*60}\n")
+
+
+def cmd_chat(args: argparse.Namespace) -> None:
+    """
+    雙語對話指令：與 BioNeuronai AI 交易助理互動。
+
+    支援繁體中文與英文，可即時注入市場資料。
+    輸入 'exit' 或 'quit' 或按 Ctrl+C 結束。
+
+    Example:
+        python main.py chat
+        python main.py chat --symbol BTCUSDT --language zh
+    """
+    import sys
+
+    try:
+        from nlp.chat_engine import create_chat_engine, MarketContext
+    except ImportError:
+        print("[錯誤] 無法載入對話引擎，請確認 PyTorch 已安裝且模型存在於 model/ 目錄。")
+        print("[Error] Cannot load chat engine. Ensure PyTorch is installed and model exists in model/.")
+        sys.exit(1)
+
+    symbol: str = getattr(args, "symbol", "") or ""
+    language: str = getattr(args, "language", "auto") or "auto"
+
+    print(f"\n{'='*60}")
+    print("  BioNeuronai AI 交易助理 / Trading Assistant")
+    print(f"  語言模式 / Language: {language}  |  交易對 / Symbol: {symbol or '未設定'}")
+    print("  輸入 exit 或 quit 結束 / Type exit or quit to stop")
+    print(f"{'='*60}\n")
+
+    engine = create_chat_engine(language=language)
+    if engine is None:
+        print("[警告] 模型未載入，使用規則型回應模式。")
+        print("[Warning] Model not loaded. Using rule-based fallback.\n")
+
+    # 無模型時的簡單規則回退
+    if engine is None:
+        _chat_fallback(symbol)
+        return
+
+    while True:
+        try:
+            user_input = input("You: ").strip()
+        except (EOFError, KeyboardInterrupt):
+            print("\n再見！/ Goodbye!")
+            break
+
+        if user_input.lower() in ("exit", "quit", "bye", "q"):
+            print("再見！/ Goodbye!")
+            break
+        if not user_input:
+            continue
+
+        # 市場上下文（若有指定 symbol）
+        market_ctx = None
+        if symbol:
+            market_ctx = MarketContext(symbol=symbol)
+
+        response = engine.chat(user_input, market_ctx)
+        print(f"\nAI: {response.text}")
+        if response.confidence < 0.5:
+            print(f"    [信心值較低: {response.confidence:.0%}，建議再次確認]")
+        print()
+
+
+def _chat_fallback(_symbol: str) -> None:
+    """無模型時的簡單問答回退（基於 trading_dialogue_data 關鍵字匹配）"""
+    try:
+        from nlp.training.trading_dialogue_data import ALL_TRADING_DATA
+        qa_map = {item["input"]: item["output"] for item in ALL_TRADING_DATA}
+    except ImportError:
+        qa_map = {}
+
+    print("[規則模式] / [Rule-based mode]\n")
+    while True:
+        try:
+            user_input = input("You: ").strip()
+        except (EOFError, KeyboardInterrupt):
+            print("\n再見！/ Goodbye!")
+            break
+        if user_input.lower() in ("exit", "quit", "bye", "q"):
+            print("再見！/ Goodbye!")
+            break
+        if not user_input:
+            continue
+
+        # 簡單關鍵字匹配
+        best_match = None
+        for question in qa_map:
+            if any(kw in user_input for kw in question.split("？")[0].split("?")[0].split()):
+                best_match = qa_map[question]
+                break
+
+        if best_match:
+            print(f"\nAI: {best_match}\n")
+        else:
+            print("\nAI: 抱歉，我目前無法回答這個問題。請安裝完整模型以獲得更好的回答。\n"
+                  "    Sorry, I cannot answer that question. Please install the full model.\n")
 
 
 def _print_backtest_summary(summary: dict) -> None:
@@ -704,6 +803,14 @@ def _build_parser() -> argparse.ArgumentParser:
     # ── status ────────────────────────────────────────────────────────────────
     statp = subparsers.add_parser("status", help="系統健康狀態檢查")
     statp.set_defaults(func=cmd_status)
+
+    # ── chat ──────────────────────────────────────────────────────────────────
+    chp = subparsers.add_parser("chat", help="與 AI 交易助理對話（中文 / English）")
+    chp.add_argument("--symbol", default="", metavar="SYMBOL",
+                     help="交易對（可選，如 BTCUSDT），提供時自動注入即時市場資料")
+    chp.add_argument("--language", default="auto", choices=["auto", "zh", "en"],
+                     help="回應語言：auto（自動偵測）| zh（繁體中文）| en（英文）  （預設: auto）")
+    chp.set_defaults(func=cmd_chat)
 
     return parser
 

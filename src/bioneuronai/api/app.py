@@ -41,6 +41,7 @@ from bioneuronai.api.models import (  # noqa: E402
     StatusResponse,
     TradeStartRequest,
 )
+from schemas.api import ChatRequest, ChatResponse  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
@@ -57,7 +58,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="BioNeuronai API",
     description="AI-driven cryptocurrency futures trading system REST API",
-    version="4.4.1",
+    version="2.1",
     lifespan=lifespan,
 )
 
@@ -77,7 +78,7 @@ app.add_middleware(
 
 @app.get("/", tags=["root"])
 async def root():
-    return {"service": "BioNeuronai API", "version": "4.4.1", "docs": "/docs", "backtest_ui": "/backtest/ui"}
+    return {"service": "BioNeuronai API", "version": "2.1", "docs": "/docs", "backtest_ui": "/backtest/ui"}
 
 
 # ── Status ────────────────────────────────────────────────────────────────────
@@ -91,7 +92,7 @@ async def get_status():
         ("bioneuronai.data.binance_futures", "BinanceFuturesConnector", "BinanceFutures"),
         ("bioneuronai.analysis", "CryptoNewsAnalyzer", "NewsAnalyzer"),
         ("bioneuronai.analysis.daily_report", "SOPAutomationSystem", "SOPSystem"),
-        ("bioneuronai.trading.pretrade_automation", "PreTradeCheckSystem", "PreTradeCheck"),
+        ("bioneuronai.planning.pretrade_automation", "PreTradeCheckSystem", "PreTradeCheck"),
     ]
 
     modules = []
@@ -321,7 +322,7 @@ async def backtest_ui():
 async def pretrade_check(req: PreTradeRequest):
     """進場前檢查"""
     try:
-        from bioneuronai.trading.pretrade_automation import PreTradeCheckSystem
+        from bioneuronai.planning.pretrade_automation import PreTradeCheckSystem
 
         checker = PreTradeCheckSystem()
         result = await asyncio.to_thread(
@@ -399,6 +400,108 @@ async def stop_trade():
 
     _trade_engine = None
     return ApiResponse(success=True, message="交易監控已停止")
+
+
+# ── Chat ─────────────────────────────────────────────────────────────────────
+
+# 每個 conversation_id 對應一個 ChatEngine 實例（多輪記憶）
+_chat_engines: Dict[str, Any] = {}
+_default_chat_engine: Any = None
+
+
+def _get_chat_engine(conversation_id: str, language: str = "auto") -> Any:
+    """取得或建立對應 conversation_id 的 ChatEngine。"""
+    global _default_chat_engine
+    if conversation_id not in _chat_engines:
+        if _default_chat_engine is None:
+            try:
+                from nlp.chat_engine import create_chat_engine
+                _default_chat_engine = create_chat_engine(language=language)
+            except Exception as e:
+                logger.warning(f"[Chat] ChatEngine 初始化失敗: {e}")
+                return None
+        # 共用同一個引擎（若需要隔離多用戶，可改為每個 ID 建立獨立實例）
+        _chat_engines[conversation_id] = _default_chat_engine
+    return _chat_engines.get(conversation_id)
+
+
+@app.post("/api/v1/chat", response_model=ChatResponse, tags=["chat"])
+async def chat(req: ChatRequest):
+    """
+    雙語對話端點（繁體中文 / English）。
+
+    - 自動偵測使用者語言，依語言回應
+    - 傳入 symbol（如 BTCUSDT）時自動注入即時市場資料
+    - 傳入相同 conversation_id 可維持多輪對話記憶
+    """
+    import time
+    import uuid
+    t0 = time.time()
+
+    conv_id = req.conversation_id or str(uuid.uuid4())
+
+    engine = _get_chat_engine(conv_id, req.language)
+    if engine is None:
+        return ChatResponse(
+            success=False,
+            text="對話引擎未初始化，請確認模型已訓練並存放至 model/ 目錄。"
+                 " (Chat engine not initialized. Please ensure the model is trained and placed in model/.)",
+            language=req.language if req.language != "auto" else "zh",
+            conversation_id=conv_id,
+        )
+
+    # 若有 language 設定，更新引擎語言
+    if req.language != "auto":
+        engine.set_language(req.language)
+
+    # 建立市場上下文（若有 symbol）
+    market_ctx = None
+    if req.symbol:
+        try:
+            from nlp.chat_engine import MarketContext
+
+            ctx = MarketContext(symbol=req.symbol)
+            # 嘗試從全域 trade engine 取即時價格（可選）
+            if _trade_engine is not None and hasattr(_trade_engine, "_get_current_price"):
+                price = await asyncio.to_thread(_trade_engine._get_current_price, req.symbol)
+                if price:
+                    ctx.current_price = float(price)
+            market_ctx = ctx
+        except Exception as e:
+            logger.debug(f"[Chat] 市場上下文取得失敗（不影響對話）: {e}")
+
+    # 執行對話（在執行緒中避免阻塞事件迴圈）
+    try:
+        response = await asyncio.to_thread(engine.chat, req.message, market_ctx)
+        latency = (time.time() - t0) * 1000
+        return ChatResponse(
+            success=True,
+            text=response.text,
+            language=response.language,
+            confidence=response.confidence,
+            market_context_used=response.market_context_used,
+            stopped_reason=response.stopped_reason,
+            latency_ms=latency,
+            conversation_id=conv_id,
+        )
+    except Exception as exc:
+        logger.error(f"[Chat] 對話生成失敗: {exc}")
+        return ChatResponse(
+            success=False,
+            text=f"生成失敗：{exc}",
+            language="zh",
+            conversation_id=conv_id,
+        )
+
+
+@app.delete("/api/v1/chat/{conversation_id}", response_model=ApiResponse, tags=["chat"])
+async def reset_chat(conversation_id: str):
+    """清除指定 conversation_id 的對話歷史"""
+    engine = _chat_engines.get(conversation_id)
+    if engine:
+        engine.reset()
+        return ApiResponse(success=True, message=f"對話歷史已清除 [{conversation_id}]")
+    return ApiResponse(success=False, message="找不到該對話 ID")
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────

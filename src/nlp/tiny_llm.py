@@ -37,18 +37,28 @@ class GenerationConfig:
 
 
 class TinyLLMConfig:
-    """小型 LLM 配置"""
-    
+    """小型 LLM 配置
+
+    支援雙模態（文字生成 + 交易訊號預測）：
+    - use_numeric_mode=False（預設）：純文字 GPT 模式
+    - use_numeric_mode=True：啟用數值輸入路徑，一份權重可同時處理自然語言與交易訊號
+    """
+
     def __init__(
         self,
-        vocab_size: int = 50257,  # GPT-2 詞彙大小
-        max_seq_length: int = 512,  # 最大序列長度
-        embed_dim: int = 768,  # 嵌入維度
-        num_heads: int = 12,  # 注意力頭數
-        num_layers: int = 12,  # Transformer 層數
-        ffn_dim: int = 3072,  # FFN 中間維度
+        vocab_size: int = 50257,       # GPT-2 詞彙大小
+        max_seq_length: int = 512,      # 最大序列長度
+        embed_dim: int = 768,           # 嵌入維度
+        num_heads: int = 12,            # 注意力頭數
+        num_layers: int = 12,           # Transformer 層數
+        ffn_dim: int = 3072,            # FFN 中間維度
         dropout: float = 0.1,
         attention_dropout: float = 0.1,
+        # ── 多模態擴展 ──────────────────────────────────────────────────────────
+        use_numeric_mode: bool = False, # 啟用數值輸入路徑（交易訊號模式）
+        numeric_input_dim: int = 1024,  # FeaturePipeline 輸出維度
+        signal_output_dim: int = 512,   # 訊號輸出維度（與 SignalInterpreter 預設相同）
+        numeric_seq_len: int = 16,      # 序列長度：預設最近 16 根 K 線（1 = 向下相容舊單步模式）
     ):
         self.vocab_size = vocab_size
         self.max_seq_length = max_seq_length
@@ -58,10 +68,14 @@ class TinyLLMConfig:
         self.ffn_dim = ffn_dim
         self.dropout = dropout
         self.attention_dropout = attention_dropout
-    
+        self.use_numeric_mode = use_numeric_mode
+        self.numeric_input_dim = numeric_input_dim
+        self.signal_output_dim = signal_output_dim
+        self.numeric_seq_len = numeric_seq_len
+
     def to_dict(self) -> Dict:
         return self.__dict__
-    
+
     @classmethod
     def from_dict(cls, config_dict: Dict) -> 'TinyLLMConfig':
         return cls(**config_dict)
@@ -199,30 +213,42 @@ class TinyLLM(nn.Module):
     def __init__(self, config: TinyLLMConfig):
         super().__init__()
         self.config = config
-        
-        # Token 嵌入
+
+        # ── 文字路徑 ────────────────────────────────────────────────────────────
         self.token_embedding = nn.Embedding(config.vocab_size, config.embed_dim)
-        
-        # 位置編碼
         self.position_embedding = nn.Embedding(config.max_seq_length, config.embed_dim)
-        
-        # Transformer 層
+
+        # ── 共用 Transformer 主幹 ────────────────────────────────────────────────
         self.blocks = nn.ModuleList([
             TransformerBlock(config) for _ in range(config.num_layers)
         ])
-        
-        # 最終 Layer Norm
         self.ln_f = nn.LayerNorm(config.embed_dim)
-        
-        # 輸出頭（語言模型頭）
+
+        # ── 文字輸出頭（與 token_embedding 共享權重） ─────────────────────────────
         self.lm_head = nn.Linear(config.embed_dim, config.vocab_size, bias=False)
-        
-        # 權重共享：token embedding 和 lm_head 共享權重
         self.lm_head.weight = self.token_embedding.weight
-        
+
+        # ── 數值輸入路徑（交易訊號模式，use_numeric_mode=True 時啟用）─────────────
+        if config.use_numeric_mode:
+            # 兩層投影：1024 → 中間維度(embed_dim*2) → embed_dim
+            # 第一層壓縮並非線性變換，讓模型能學習特徵間的交互關係；
+            # 第二層對齊 Transformer embedding 空間。
+            # 中間維度 = embed_dim * 2 = 1536，與 FFN 規模相近但不過大。
+            _mid = config.embed_dim * 2   # 1536
+            self.numeric_proj = nn.Sequential(
+                nn.Linear(config.numeric_input_dim, _mid),  # 1024 → 1536
+                nn.GELU(),                                   # 非線性：學習特徵交互
+                nn.LayerNorm(_mid),                          # 穩定梯度
+                nn.Linear(_mid, config.embed_dim),           # 1536 → 768
+                nn.LayerNorm(config.embed_dim),              # 對齊 embedding 空間尺度
+            )
+            # 訊號輸出頭（signal_output_dim=512 時與 SignalInterpreter 完全相容）
+            self.signal_head = nn.Linear(config.embed_dim, config.signal_output_dim, bias=True)
+        else:
+            self.numeric_proj = None  # type: ignore[assignment]
+            self.signal_head = None   # type: ignore[assignment]
+
         self.dropout = nn.Dropout(config.dropout)
-        
-        # 初始化權重
         self._init_weights()
     
     def _init_weights(self):
@@ -433,6 +459,79 @@ class TinyLLM(nn.Module):
         """計算可訓練參數數量"""
         return sum(p.numel() for p in self.parameters() if p.requires_grad)
 
+    # ── 交易訊號路徑（數值輸入模式） ─────────────────────────────────────────────
+
+    def forward_signal(self, numeric_features: torch.Tensor) -> torch.Tensor:
+        """
+        交易訊號預測路徑（支援單步與多步序列輸入）。
+
+        將 1~T 個時間步的 1024 維特徵投影至 embedding 空間，
+        作為 T 個「時序 token」送入 Transformer，
+        取最後一個時間步的輸出通過 signal_head 產生訊號預測。
+
+        Args:
+            numeric_features:
+                (B, 1024)      — 單步向下相容模式，自動 unsqueeze 為 (B, 1, 1024)
+                (B, T, 1024)   — 推薦：T 個時間步的特徵序列（例如最近 16 根 K 線）
+                                 Transformer Attention 在 T 維度上真正發揮序列建模能力
+
+        Returns:
+            signal_output: (B, signal_output_dim)
+                           signal_output_dim=512 時可直接傳入 SignalInterpreter；
+                           signal_output_dim=7  時可直接 argmax 取得 SignalType
+        """
+        if self.numeric_proj is None or self.signal_head is None:
+            raise RuntimeError(
+                "forward_signal() 需要 use_numeric_mode=True，"
+                "請在 TinyLLMConfig 中設定 use_numeric_mode=True"
+            )
+
+        # 統一格式為 (B, T, 1024)
+        if numeric_features.dim() == 2:
+            numeric_features = numeric_features.unsqueeze(1)     # (B, 1, D_in) 向下相容
+
+        device = numeric_features.device
+        batch_size, seq_len, _ = numeric_features.shape
+
+        # 1. 每個時間步的特徵投影至 embed_dim
+        feat_embeds = self.numeric_proj(numeric_features)         # (B, T, D)
+
+        # 2. 加上位置 embedding（位置 0..T-1）
+        positions = torch.arange(seq_len, device=device).unsqueeze(0)  # (1, T)
+        feat_embeds = self.dropout(feat_embeds + self.position_embedding(positions))
+
+        # 3. 通過共用 Transformer 主幹（T > 1 時 Attention 真正作用於時序上下文）
+        x = feat_embeds
+        if seq_len > 1:
+            # 使用因果遮罩：每個時間步只能看到自己及之前的步驟
+            causal_mask = self._create_causal_mask(seq_len, device)
+        else:
+            causal_mask = None
+        for block in self.blocks:
+            x = block(x, mask=causal_mask, use_cache=False)       # type: ignore[arg-type]
+
+        x = self.ln_f(x)                                          # (B, T, D)
+
+        # 4. 取最後一個時間步的輸出（代表「看完 T 根 K 線後的判斷」）
+        signal_output = self.signal_head(x[:, -1, :])             # (B, signal_output_dim)
+        return signal_output
+
+    def predict_signal(self, numeric_features: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+        """
+        便捷推論介面（eval 模式，不追蹤梯度）。
+
+        Returns:
+            signal_output:  (batch_size, signal_output_dim)  — 原始輸出（含 embed）
+            probabilities:  (batch_size, signal_output_dim)  — 對 signal_output 套 sigmoid 的機率
+                            若 signal_output_dim=7，可 argmax 取類別；
+                            若 signal_output_dim=512，可傳入 SignalInterpreter。
+        """
+        self.eval()
+        with torch.no_grad():
+            output = self.forward_signal(numeric_features)
+            probs = torch.sigmoid(output)
+        return output, probs
+
 
 def create_tiny_llm(
     vocab_size: int = 50257,
@@ -589,7 +688,7 @@ if __name__ == "__main__":
     
     # 保存模型
     print("\n💾 保存模型...")
-    save_llm(model, "model/tiny_llm_100m.pth", metadata={
+    save_llm(model, "model/my_100m_model.pth", metadata={
         "name": "我的專屬小型LLM",
         "version": "1.0.0",
         "description": "基於 Transformer 的小型大語言模型",

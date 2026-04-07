@@ -122,20 +122,33 @@ class BilingualTokenizer:
         sorted_words = sorted(word_counts.items(), key=lambda x: x[1], reverse=True)
         return [word for word, _ in sorted_words]
     
-    def encode(self, text: str, add_special_tokens: bool = True) -> List[int]:
+    def encode(
+        self,
+        text: str,
+        add_special_tokens: bool = True,
+        max_length: Optional[int] = None,
+        truncation: bool = False,
+    ) -> List[int]:
         """編碼文本為 token IDs"""
         tokens = self._tokenize(text)
         ids = []
-        
+
         if add_special_tokens:
             ids.append(self.bos_token_id)
-        
+
         for token in tokens:
             ids.append(self.vocab.get(token, self.unk_token_id))
-        
+
         if add_special_tokens:
             ids.append(self.eos_token_id)
-        
+
+        if truncation and max_length is not None and len(ids) > max_length:
+            # 截斷時保留 EOS（若有）
+            if add_special_tokens:
+                ids = ids[:max_length - 1] + [self.eos_token_id]
+            else:
+                ids = ids[:max_length]
+
         return ids
     
     def decode(self, ids: List[int], skip_special_tokens: bool = True) -> str:

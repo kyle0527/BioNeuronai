@@ -50,7 +50,7 @@ RUN pip install --upgrade pip --no-cache-dir \
 FROM python:3.11-slim AS runtime
 
 LABEL maintainer="BioNeuronAI Team" \
-      version="4.3.0" \
+      version="2.1" \
       description="AI-driven cryptocurrency futures trading system"
 
 # Runtime system libs required by ta-lib shared object

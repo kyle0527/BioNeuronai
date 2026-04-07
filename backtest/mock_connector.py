@@ -15,8 +15,9 @@ from datetime import datetime
 from .contracts import ExecutionReceipt, OrderIntent, ReplayRuntimeState
 from .data_stream import DEFAULT_DATA_DIR, HistoricalDataStream, KlineBar
 from .runtime_store import ReplayRunRecorder
-from .virtual_account import VirtualAccount, OrderStatus
+from bioneuronai.trading import VirtualAccount
 from schemas.market import MarketData
+from schemas.enums import OrderStatus
 from bioneuronai.data.binance_futures import OrderResult
 
 logger = logging.getLogger(__name__)
@@ -239,6 +240,13 @@ class MockBinanceConnector:
         
         # 否則獲取對應的數據流
         stream = self._get_stream(symbol, interval)
+        if stream is self.data_stream:
+            return stream.get_klines_list_format(limit=limit)
+
+        current_bar = self._current_bar
+        if current_bar is not None:
+            return stream.get_klines_list_until_time(current_bar.open_time, limit=limit)
+
         return stream.get_klines_list_format(limit=limit)
     
     def get_order_book(self, symbol: str, limit: int = 100) -> Optional[Dict]:
@@ -311,6 +319,32 @@ class MockBinanceConnector:
         獲取帳戶信息 - 返回虛擬帳戶數據
         """
         return self.account.get_account_info()
+
+    def update_market_price(
+        self,
+        symbol: str,
+        price: float,
+        high: Optional[float] = None,
+        low: Optional[float] = None,
+    ) -> None:
+        """更新交易模組中的市場價格。"""
+        self.account.update_price(symbol, price, high=high, low=low)
+
+    def get_total_equity(self) -> float:
+        """回傳目前總權益。"""
+        return self.account.get_total_equity()
+
+    def get_stats(self) -> Dict[str, Any]:
+        """回傳帳戶統計摘要。"""
+        return self.account.get_stats()
+
+    def get_trade_history_snapshot(self) -> List[Dict[str, Any]]:
+        """回傳交易紀錄快照。"""
+        return [trade.to_dict() for trade in self.account.trade_history]
+
+    def reset_account(self) -> None:
+        """重置交易模組帳戶狀態。"""
+        self.account.reset()
     
     def get_exchange_info(self, symbol: str) -> Optional[Dict]:
         """
@@ -361,14 +395,20 @@ class MockBinanceConnector:
         """
         stop_price = kwargs.get("stop_price")
         effective_stop = stop_loss if stop_loss is not None else stop_price
+        reduce_only = bool(kwargs.get("reduce_only", False))
+        time_in_force = kwargs.get("time_in_force")
         intent = OrderIntent(
             symbol=symbol,
             side=side,
             order_type=order_type,
             quantity=quantity,
             price=price,
+            reduce_only=reduce_only,
             stop_loss=effective_stop,
             take_profit=take_profit,
+            metadata={
+                "time_in_force": time_in_force,
+            },
         )
         receipt = self.submit_order(intent)
         return OrderResult(
@@ -386,10 +426,20 @@ class MockBinanceConnector:
     def submit_order(self, intent: OrderIntent) -> ExecutionReceipt:
         """接收專案送出的訂單意圖，僅模擬執行與回傳結果。"""
         try:
+            if intent.quantity <= 0:
+                raise ValueError(f"invalid order quantity: {intent.quantity}")
+
+            time_in_force = intent.metadata.get("time_in_force")
+
             # 更新當前價格
             bar = self._get_current_bar(intent.symbol)
             if bar:
-                self.account.update_price(intent.symbol, bar.close)
+                self.account.update_price(
+                    intent.symbol,
+                    bar.close,
+                    high=bar.high,
+                    low=bar.low,
+                )
             
             # 下單
             order = self.account.place_order(
@@ -399,6 +449,8 @@ class MockBinanceConnector:
                 quantity=intent.quantity,
                 price=intent.price,
                 stop_price=intent.stop_loss,
+                reduce_only=intent.reduce_only,
+                time_in_force=time_in_force,
             )
             
             protective_types = {"MARKET", "LIMIT"}
@@ -455,6 +507,7 @@ class MockBinanceConnector:
             order_type="STOP_MARKET",
             quantity=quantity,
             stop_price=stop_price,
+            reduce_only=True,
         )
         logger.info(f"🛡️ 止損單已設置: {stop_price:.2f}")
     
@@ -467,6 +520,7 @@ class MockBinanceConnector:
             order_type="TAKE_PROFIT_MARKET",
             quantity=quantity,
             stop_price=take_profit_price,
+            reduce_only=True,
         )
         logger.info(f"🎯 止盈單已設置: {take_profit_price:.2f}")
     
@@ -532,7 +586,12 @@ class MockBinanceConnector:
                 self._current_bar = bar
                 
                 # 更新帳戶價格
-                self.account.update_price(bar.symbol, bar.close)
+                self.account.update_price(
+                    bar.symbol,
+                    bar.close,
+                    high=bar.high,
+                    low=bar.low,
+                )
                 
                 # 觸發 ticker 回調
                 if bar.symbol in self._ticker_callbacks:
@@ -591,7 +650,12 @@ class MockBinanceConnector:
             
             bar = next(self._bar_generator)
             self._current_bar = bar
-            self.account.update_price(bar.symbol, bar.close)
+            self.account.update_price(
+                bar.symbol,
+                bar.close,
+                high=bar.high,
+                low=bar.low,
+            )
             self.runtime_state.current_bar_index = self.data_stream.state.current_index
             self.runtime_state.current_open_time = bar.open_time
             self.runtime_state.current_price = bar.close
@@ -620,6 +684,7 @@ class MockBinanceConnector:
     def get_runtime_snapshot(self) -> Dict[str, Any]:
         """回傳 replay 執行狀態，不包含原始歷史資料內容。"""
         current, total, pct = self.data_stream.get_progress()
+        account_snapshot = self.account.get_account_snapshot()
         return {
             "mode": self.runtime_state.mode,
             "symbol": self.symbol,
@@ -638,9 +703,39 @@ class MockBinanceConnector:
                 "percent": pct,
             },
             "account_stats": self.account.get_stats(),
-            "open_orders": len(self.account.open_orders),
-            "positions": len(self.account.positions),
+            "open_orders": account_snapshot["open_orders_count"],
+            "positions": account_snapshot["positions_count"],
+            "account_snapshot": account_snapshot,
         }
+
+    def get_account_snapshot(self) -> Dict[str, Any]:
+        """回傳 trading 層使用的帳戶狀態快照。"""
+        return self.account.get_account_snapshot()
+
+    def get_position_snapshot(self, symbol: str) -> Optional[Dict[str, Any]]:
+        """回傳指定交易對的倉位快照。"""
+        return self.account.get_position_snapshot(symbol)
+
+    def get_open_orders_snapshot(
+        self,
+        symbol: Optional[str] = None,
+        side: Optional[str] = None,
+        reduce_only: Optional[bool] = None,
+    ) -> List[Dict[str, Any]]:
+        """回傳未成交掛單快照。"""
+        return self.account.get_open_orders_snapshot(
+            symbol=symbol,
+            side=side,
+            reduce_only=reduce_only,
+        )
+
+    def has_open_position(self, symbol: str) -> bool:
+        """是否存在非零倉位。"""
+        return self.account.has_open_position(symbol)
+
+    def has_pending_entry_order(self, symbol: str, side: Optional[str] = None) -> bool:
+        """是否存在未成交的開倉掛單。"""
+        return self.account.has_pending_entry_order(symbol, side=side)
     
     def step(self) -> Optional[KlineBar]:
         """
@@ -674,7 +769,12 @@ class MockBinanceConnector:
         for bar in self.data_stream.stream_bars():
             # 更新狀態
             self._current_bar = bar
-            self.account.update_price(bar.symbol, bar.close)
+            self.account.update_price(
+                bar.symbol,
+                bar.close,
+                high=bar.high,
+                low=bar.low,
+            )
             
             # 調用策略處理
             on_bar(bar, self)
@@ -727,7 +827,12 @@ class MockBinanceConnector:
         """獲取當前 K線"""
         if self._current_bar and self._current_bar.symbol == symbol:
             return self._current_bar
-        
+
+        if self._current_bar is not None:
+            stream = self._get_stream(symbol, self.interval)
+            if stream is not self.data_stream:
+                return stream.get_bar_at_or_before_time(self._current_bar.open_time)
+
         return self.data_stream.get_current_bar()
     
     def _get_stream(self, symbol: str, interval: str) -> HistoricalDataStream:
@@ -735,9 +840,7 @@ class MockBinanceConnector:
         key = f"{symbol}_{interval}"
         
         if key not in self._streams:
-            # 如果是主交易對但不同間隔，需要創建新的流
-            if symbol == self.symbol:
-                # 使用相同的數據目錄
+            try:
                 self._streams[key] = HistoricalDataStream(
                     data_dir=self.data_stream.data_dir,
                     symbol=symbol,
@@ -745,7 +848,7 @@ class MockBinanceConnector:
                     start_date=self.data_stream.start_date,
                     end_date=self.data_stream.end_date,
                 )
-            else:
+            except FileNotFoundError:
                 logger.warning(f"未知交易對 {symbol}，返回主流")
                 return self.data_stream
         

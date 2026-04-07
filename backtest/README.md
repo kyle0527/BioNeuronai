@@ -60,7 +60,6 @@ backtest/
 ├── paths.py
 ├── runtime_store.py
 ├── service.py
-├── virtual_account.py
 ├── web.py
 ├── data/
 │   ├── README.md
@@ -110,19 +109,22 @@ backtest/
 
 1. `data_stream.py` 讀取歷史資料
 2. `MockBinanceConnector` 將目前 bar 與模擬帳戶狀態提供給上層
-3. 上層策略 / 交易流程自行決定是否送出訂單
-4. replay 層接收訂單後模擬執行
-5. `runtime_store.py` 保存整次 run 的結果
+3. 帳戶 / 訂單 / 倉位狀態目前由 `src/bioneuronai/trading/virtual_account.py` 維護
+4. 上層策略 / 交易流程自行決定是否送出訂單
+5. replay 層接收訂單後模擬執行
+6. `runtime_store.py` 保存整次 run 的結果
 
 ## 現況提醒
 
 - 目前正式資料集中可辨識的是 `ETHUSDT` 的多個 interval
 - `backtest/` 現在除了評估正式 `TradingEngine` 主線，也可被高階策略競爭層拿來評估單一策略實例
 - `StrategyArena` 與 `StrategyPortfolioOptimizer` 已改成使用正式 replay，而不是隨機假績效
+- 訂單 / 帳戶狀態的第一層事實來源已移到 `src/bioneuronai/trading/virtual_account.py`
+- `backtest/` 已開始透過 connector/query API 讀取帳戶快照，而不是只直接存取 `VirtualAccount` 內部欄位
 - 目前固定策略層仍有真實限制：
-  - `TrendFollowing` / `SwingTrading` / `MeanReversion` 已可產生 setup，但存在共同的 setup 驗證順序問題
-  - `PairTrading` 需要次資產歷史資料，現有正式資料根目錄尚未補齊
-  - `BreakoutTrading` / `DirectionChange` 在目前 ETH 歷史資料窗口上尚未驗證出穩定觸發
+  - `TrendFollowing` / `SwingTrading` 已可交易，但仍待進一步收斂 pending order 與策略狀態同步
+  - `PairTrading` 次資產資料已補齊，目前可正式 replay
+  - `BreakoutTrading` / `DirectionChange` 已可正式 replay，不再是純 0 trade
 - 如果某次 backtest 沒有交易，不代表 replay 壞掉；代表那次測試裡上層策略沒有送出下單請求，或固定策略本身仍待調整
 - 短資料區間時，請注意 `warmup_bars`
 

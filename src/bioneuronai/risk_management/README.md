@@ -1,7 +1,7 @@
 # 風險管理模組 (Risk Management)
 
 **路徑**: `src/bioneuronai/risk_management/`  
-**版本**: v4.1  
+**版本**: v2.1  
 **更新日期**: 2026-02-15  
 **架構層級**: Layer 1 — 核心引擎層（風險控制）
 

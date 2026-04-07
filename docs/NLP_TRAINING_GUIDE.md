@@ -22,9 +22,12 @@
 
 ```
 src/nlp/training/
-├── advanced_trainer.py           # ⭐ 高級訓練器（推薦）
-├── train_with_ai_teacher.py      # AI 教師知識蒸餾訓練
-├── auto_evolve.py                # 自動進化訓練
+├── unified_trainer.py            # ⭐ 統一訓練入口（推薦，語言+訊號多任務）
+├── advanced_trainer.py           # 底層 Trainer 類別（由 unified_trainer 呼叫）
+├── build_vocab.py                # 詞彙建立腳本（訓練前必須先執行）
+├── trading_dialogue_data.py      # 語言任務訓練語料（QA 對）
+├── train_with_ai_teacher.py      # AI 教師知識蒸餾訓練（補充用）
+├── auto_evolve.py                # 增量進化訓練（補充用）
 ├── data_manager.py               # 訓練數據管理
 ├── view_training_history.py      # 查看訓練歷史
 └── training_log.json             # 訓練日誌
@@ -178,25 +181,49 @@ python view_training_history.py
 
 ## 🚀 快速開始訓練
 
-### 方案 A：從零開始訓練（使用 AI 教師）
+### 方案 A（推薦）：統一訓練入口
+
+`unified_trainer.py` 是目前的正式訓練入口，同時訓練語言對話與交易訊號兩個任務，使用同一份 TinyLLM 權重。
 
 ```bash
-# 1. 切換到訓練目錄
-cd src/nlp/training
+# 步驟 0：建立詞彙（首次訓練必做，約 10 秒）
+python -m nlp.training.build_vocab
 
-# 2. 執行 AI 教師訓練（推薦新手）
-python train_with_ai_teacher.py
+# 步驟 1：語言任務預熱（讓 backbone 先學語言結構）
+python -m nlp.training.unified_trainer --lm-only --epochs 20
 
-# 3. 查看訓練結果
-python view_training_history.py
+# 步驟 2（可選）：產生訊號訓練資料（需要有歷史 K 線）
+python -m bioneuronai.cli.main collect-signal-data --symbol BTCUSDT --interval 1h
+
+# 步驟 3：多任務精調（語言 + 訊號同時優化）
+python -m nlp.training.unified_trainer \
+    --signal-data data/signal_history.jsonl --epochs 10
+
+# 輸出：model/my_100m_model.pth（InferenceEngine 與 ChatEngine 共用）
 ```
 
-**優點：**
-- 無需準備訓練數據
-- AI 自動生成高質量訓練樣本
-- 適合快速驗證
+**完整 CLI 參數：**
+```bash
+python -m nlp.training.unified_trainer --help
+  --lm-only          只訓練語言任務
+  --sig-only         只訓練訊號任務
+  --epochs N         訓練輪數（預設 10）
+  --batch N          批次大小（預設 8）
+  --lr FLOAT         學習率（預設 3e-4）
+  --signal-data PATH 訊號 JSONL 路徑（不指定則用合成資料）
+  --no-save          不覆寫 model/my_100m_model.pth
+```
 
-### 方案 B：使用自定義數據訓練（進階）
+### 方案 B：使用 AI 教師知識蒸餾（補充用）
+
+```bash
+cd src/nlp/training
+python train_with_ai_teacher.py
+```
+
+**優點：** 無需準備訓練數據；AI 自動生成高品質樣本；適合快速驗證語言能力
+
+### 方案 C：使用自定義數據訓練（進階）
 
 ```python
 # train_custom.py
@@ -256,7 +283,7 @@ trainer = Trainer(
 trainer.train()
 ```
 
-### 方案 C：增量訓練（基於已有模型）
+### 方案 D：增量訓練（基於已有模型）
 
 ```bash
 # 1. 準備新的訓練數據
@@ -267,17 +294,22 @@ cd src/nlp/training
 python -c "
 from auto_evolve import auto_evolve_training
 auto_evolve_training(
-    model_path='../models/tiny_llm_en_zh_trained',
+    model_path='model/my_100m_model.pth',
     evolution_data_file='../../evolution_data/new_data.json',
-    output_path='../models/tiny_llm_evolved_v2'
+    output_path='model/my_100m_model_evolved.pth'
 )
 "
 
 # 3. 測試進化模型
 python -c "
-from src.nlp.tiny_llm import TinyLLM
-model = TinyLLM.from_pretrained('../models/tiny_llm_evolved_v2')
-print(model.generate('你好，'))
+import torch
+from nlp.tiny_llm import TinyLLM, TinyLLMConfig
+cfg = TinyLLMConfig(use_numeric_mode=True)
+model = TinyLLM(cfg)
+state = torch.load('model/my_100m_model.pth', map_location='cpu', weights_only=True)
+model.load_state_dict(state, strict=False)
+model.eval()
+print('模型載入成功')
 "
 ```
 
@@ -443,9 +475,15 @@ print(f"總訓練次數: {len(log['training_history'])}")
 
 ```python
 # 測試生成質量
-from src.nlp.tiny_llm import TinyLLM
+import torch
+from nlp.tiny_llm import TinyLLM, TinyLLMConfig
+from nlp.bilingual_tokenizer import BilingualTokenizer
 
-model = TinyLLM.from_pretrained("models/my_model")
+cfg = TinyLLMConfig(use_numeric_mode=True)
+model = TinyLLM(cfg)
+state = torch.load("model/my_100m_model.pth", map_location="cpu", weights_only=True)
+model.load_state_dict(state, strict=False)
+model.eval()
 
 test_prompts = [
     "什麼是趨勢？",
@@ -462,8 +500,8 @@ for prompt in test_prompts:
 ## 🔗 相關資源
 
 ### 模型文件位置
-- **基礎模型**: `model/tiny_llm_en_zh/`
-- **訓練後模型**: `model/tiny_llm_en_zh_trained/`
+- **模型權重**: `model/my_100m_model.pth`（TinyLLM，InferenceEngine 與 ChatEngine 共用）
+- **分詞器詞彙**: `model/tokenizer/vocab.json`（由 `build_vocab.py` 產生）
 
 ### 工具腳本
 - **模型導出**: `src/nlp/model_export.py`
@@ -500,26 +538,21 @@ for prompt in test_prompts:
 
 ### Q: 如何在交易系統中使用訓練的模型？
 **A:**
-參考 `src/rag/` 模組，整合 NLP 模型到 RAG 系統中：
+訓練完成後，`model/my_100m_model.pth` 會被兩個系統自動載入：
+
+- **交易訊號推論**：`InferenceEngine` 在 `trading_engine.py` 啟動時自動載入，透過 16 步滾動視窗輸出 512 維訊號向量
+- **自然語言對話**：`ChatEngine` 在 CLI `chat` 指令或 API `/api/v1/chat` 呼叫時自動載入
+
+手動驗證：
 ```python
-from rag import create_unified_retriever
-from rag.core.embeddings import EmbeddingService
-from rag.internal.knowledge_base import InternalKnowledgeBase
+from nlp.chat_engine import create_chat_engine
 
-# 初始化 RAG 組件
-embedding_service = EmbeddingService()
-kb = InternalKnowledgeBase(embedding_service)
-
-# 創建檢索器
-retriever = create_unified_retriever(
-    embedding_service=embedding_service,
-    knowledge_base=kb
-)
-
-# 使用 RAG 檢索交易策略
-results = retriever.retrieve("當前市場適合用什麼策略？")
-for result in results:
-    print(result.content)
+engine = create_chat_engine(language="zh")
+if engine:
+    response = engine.chat("BTC 現在適合做多嗎？")
+    print(response.text)
+else:
+    print("模型未載入，請先訓練或確認 model/my_100m_model.pth 存在")
 ```
 
 ## 📞 技術支援
@@ -532,6 +565,6 @@ for result in results:
 
 ---
 
-**最後更新**: 2026-03-20
-**版本**: v2.2.0
+**最後更新**: 2026-04-07
+**版本**: v2.2
 **維護者**: BioNeuronAI Team

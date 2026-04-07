@@ -4,7 +4,7 @@
 [![Pydantic v2](https://img.shields.io/badge/pydantic-v2-green.svg)](https://docs.pydantic.dev/)
 [![Type Checked](https://img.shields.io/badge/type_checked-mypy-blue.svg)](http://mypy-lang.org/)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
-[![Schema Version](https://img.shields.io/badge/schema_version-2.3.0-orange.svg)]()
+[![Schema Version](https://img.shields.io/badge/schema_version-2.1-orange.svg)]()
 
 > **✅ 系統狀態**: 100% 功能完整，零錯誤零警告，Pydantic v2 完全兼容，專為幣安期貨交易設計  
 > **🔄 最後更新**: 2026年3月29日  
@@ -39,7 +39,7 @@
 - ✅ **集中定義**: 所有枚舉、類型、常數在此統一定義
 - ✅ **禁止重複**: 其他模組只能導入，不可重新定義
 - ✅ **一致性保證**: 確保整個系統使用相同的數據結構
-- ✅ **版本控制**: SCHEMA_VERSION = "2.3.0"，與系統版本同步
+- ✅ **版本控制**: SCHEMA_VERSION = "2.1"，與系統版本同步
 
 ### 🔧 企業級品質標準
 - ✅ **零錯誤零警告**: 通過 SonarQube 品質檢查，達到生產環境標準
@@ -74,7 +74,7 @@
 
 ```
 schemas/
-├── __init__.py          # 統一導入入口 (v2.3.0 完整導出)
+├── __init__.py          # 統一導入入口 (v2.1 完整導出)
 ├── types.py             # 🆕 可重用類型定義和版本控制
 ├── enums.py             # 核心枚舉定義 (30 個標準枚舉 + 7 個新增)
 ├── events.py            # 🆕 Event Sourcing 事件模型
@@ -167,7 +167,7 @@ schemas/
 
 ```python
 from schemas.types import (
-    SCHEMA_VERSION,        # "2.3.0" - 系統版本
+    SCHEMA_VERSION,        # "2.1" - 系統版本
     PositiveDecimal,       # 正數 Decimal 類型
     Percentage,            # 百分比 (0-100)
     Leverage,              # 槓桿 (1-125)
@@ -413,7 +413,7 @@ from schemas import (
 )
 
 # 檢查版本
-print(f"Schema 版本: {SCHEMA_VERSION}")  # "2.3.0"
+print(f"Schema 版本: {SCHEMA_VERSION}")  # "2.1"
 
 # 建立交易事件
 event = TradeEvent(
@@ -454,7 +454,7 @@ alert_rule = AlertRule(
 
 #### 版本和類型 (types.py)
 ```python
-SCHEMA_VERSION,        # "2.3.0"
+SCHEMA_VERSION,        # "2.1"
 PositiveDecimal, Percentage, Leverage, RSIValue,
 BinanceSymbol, USDTSymbol, Price, Quantity, PnL
 ```
@@ -587,7 +587,7 @@ def get_suitable_strategies(regime: MarketRegime) -> list[StrategyType]:
 - ➕ **新增 5 個核心模組**: `types.py`, `events.py`, `backtesting.py`, `ml_models.py`, `alerts.py`
 - ➕ **新增 7 個枚舉**: TradeEventType (25個值), BacktestStatus, PredictionType, ModelStatus, AlertSeverity, AlertType, NotificationChannel
 - ➕ **新增 23+ 個模型**: Event Sourcing (7), ML (6), Backtesting (5), Alerts (5)
-- ➕ **版本控制**: SCHEMA_VERSION = "2.3.0", 與系統版本同步
+- ➕ **版本控制**: SCHEMA_VERSION = "2.1", 與系統版本同步
 - ➕ **可重用類型**: PositiveDecimal, Percentage, Leverage, RSIValue, BinanceSymbol 等
 - 🔧 **增強驗證**: TradingSignal 新增 4 個商務邏輯驗證器
 - ✨ **企業級品質**: 通過 SonarQube 檢查，零錯誤零警告
@@ -634,7 +634,7 @@ def get_suitable_strategies(regime: MarketRegime) -> list[StrategyType]:
 
 ---
 
-*最後更新: 2026年2月15日 | 版本: v2.3.0 | 作者: BioNeuronAI Team*
+*最後更新: 2026年4月5日 | 版本: v2.1 | 作者: BioNeuronAI Team*
 
 ---
 

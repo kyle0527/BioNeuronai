@@ -14,7 +14,7 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from nlp.tiny_llm import TinyLLM, TinyLLMConfig
+from nlp.tiny_llm import TinyLLM, TinyLLMConfig, load_llm
 from nlp.bilingual_tokenizer import BilingualTokenizer
 from torch.utils.data import Dataset, DataLoader
 import torch.optim as optim
@@ -60,7 +60,7 @@ class EvolutionDataset(Dataset):
 
 
 def auto_evolve_training(
-    model_path: str = "./model/tiny_llm_en_zh_trained",
+    model_path: str = "./model/my_100m_model.pth",
     evolution_data_file: str = "./evolution_data/new_training_data.json",
     output_path: str = "./model/tiny_llm_evolved",
     num_epochs: int = 3,
@@ -90,26 +90,18 @@ def auto_evolve_training(
         print("   請先使用 use_model_evolving.py 收集反饋數據\n")
         return
     
-    # 載入基礎模型
+    # 載入基礎模型（新格式：單一 .pth 檔案）
     print("\n📦 載入基礎模型...")
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    
-    with open(Path(model_path) / "config.json", 'r') as f:
-        config_dict = json.load(f)
-    
-    config = TinyLLMConfig(**config_dict)
-    model = TinyLLM(config).to(device)
-    
-    # 載入權重
-    weights_file = Path(model_path) / "pytorch_model.bin"
-    if weights_file.exists():
-        model.load_state_dict(torch.load(weights_file, map_location=device))
-        print("   ✅ 已載入基礎權重")
-    
+
+    model, _ = load_llm(model_path, device=device)
+    model.train()
+    print("   ✅ 已載入基礎權重")
+
     # 載入分詞器
-    vocab_file = Path(model_path) / "vocab.json"
-    if vocab_file.exists():
-        tokenizer = BilingualTokenizer.load(str(model_path))
+    tok_file = Path(__file__).parent.parent.parent / "model" / "tokenizer" / "vocab.json"
+    if tok_file.exists():
+        tokenizer = BilingualTokenizer.load(str(tok_file))
     else:
         tokenizer = BilingualTokenizer()
     
@@ -213,7 +205,7 @@ if __name__ == "__main__":
     import argparse
     
     parser = argparse.ArgumentParser(description="AI 自動進化訓練")
-    parser.add_argument("--model", default="./model/tiny_llm_en_zh_trained", help="基礎模型路徑")
+    parser.add_argument("--model", default="./model/my_100m_model.pth", help="基礎模型路徑")
     parser.add_argument("--data", default="./evolution_data/new_training_data.json", help="進化數據路徑")
     parser.add_argument("--output", default="./model/tiny_llm_evolved", help="輸出路徑")
     parser.add_argument("--epochs", type=int, default=3, help="訓練輪數")

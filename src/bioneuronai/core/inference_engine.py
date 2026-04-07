@@ -178,28 +178,25 @@ class ModelLoader:
         checkpoint = torch.load(model_path, map_location=self.device, weights_only=True)
         load_time = time.time() - start_time
         
-        # 
+        # 統一使用 TinyLLM 多模態架構（use_numeric_mode=True）
+        # 一份權重同時支援：交易訊號預測（forward_signal）與自然語言對話（generate）
         if model_class is None:
-            # 
             import sys
-            archived_path = str(self.model_dir.parent / "archived")
-            if archived_path not in sys.path:
-                sys.path.insert(0, archived_path)
-            from pytorch_100m_model import HundredMillionModel  # type: ignore
-            model_class = HundredMillionModel
-        
+            src_path = str(self.model_dir.parent / "src")
+            if src_path not in sys.path:
+                sys.path.insert(0, src_path)
+            from nlp.tiny_llm import TinyLLM, TinyLLMConfig  # type: ignore
+            model_class = TinyLLM
+
         if model_kwargs is None:
-            # 
-            #  dropout=0.1
             model_kwargs = {
-                "input_dim": 1024,
-                "hidden_dims": [8192, 8192, 4096],
-                "output_dim": 512,
-                "dropout": 0.1,  # 
-                "use_layer_norm": True
+                "config": TinyLLMConfig(  # type: ignore[name-defined]
+                    use_numeric_mode=True,
+                    numeric_input_dim=1024,
+                    signal_output_dim=512,   # 與 SignalInterpreter 相容
+                )
             }
-        
-        # model_class  None
+
         assert model_class is not None, "model_class must be provided or loaded"
         model = model_class(**model_kwargs)
         model.load_state_dict(checkpoint)
@@ -827,12 +824,24 @@ class Predictor:
         """
         model = self.model_loader.get_model(model_name)
         
-        #  Tensor
-        input_tensor = torch.from_numpy(features).float().unsqueeze(0).to(self.device)
-        
-        # 
+        # 轉換為 Tensor
+        # features 形狀可能是 (1024,) 或 (T, 1024)；統一加 batch 維度
+        feat_tensor = torch.from_numpy(features).float()
+        if feat_tensor.dim() == 1:
+            # 單步 (1024,) → (1, 1, 1024)
+            input_tensor = feat_tensor.unsqueeze(0).unsqueeze(0).to(self.device)
+        else:
+            # 多步 (T, 1024) → (1, T, 1024)
+            input_tensor = feat_tensor.unsqueeze(0).to(self.device)
+
+        # 執行推論：優先使用 TinyLLM 的 forward_signal 路徑
         start_time = time.perf_counter()
-        output = model(input_tensor)
+        if hasattr(model, "forward_signal"):
+            output = model.forward_signal(input_tensor)           # type: ignore[union-attr]
+        else:
+            # 舊版 MLP 模型向下相容：降為單步 (1, 1024)
+            input_tensor = input_tensor[:, -1, :] if input_tensor.dim() == 3 else input_tensor
+            output = model(input_tensor)
         latency_ms = (time.perf_counter() - start_time) * 1000
         
         # 
@@ -1087,6 +1096,9 @@ class InferenceEngine:
         signal = engine.predict(symbol, price, klines, ...)
     """
     
+    # 滾動視窗長度：與 TinyLLMConfig.numeric_seq_len 保持一致
+    _SEQ_LEN: int = 16
+
     def __init__(
         self,
         model_dir: Optional[Path] = None,
@@ -1094,20 +1106,25 @@ class InferenceEngine:
         warmup: bool = True
     ):
         """
-        
+
         Args:
-            model_dir: 
-            min_confidence: 
-            warmup: 
+            model_dir:
+            min_confidence:
+            warmup:
         """
         self.model_loader = ModelLoader(model_dir)
         self.feature_pipeline = FeaturePipeline()
         self.predictor: Optional[Predictor] = None
         self.signal_interpreter = SignalInterpreter(min_confidence)
-        
+
+        # 滾動特徵視窗：保存最近 _SEQ_LEN 步的 1024 維特徵
+        # 使用 deque 以 O(1) 效率維護視窗
+        from collections import deque
+        self._feature_buffer: Any = deque(maxlen=self._SEQ_LEN)
+
         self._warmup_on_load = warmup
         self._is_ready = False
-        
+
         logger.info("InferenceEngine ")
     
     def load_model(
@@ -1161,7 +1178,7 @@ class InferenceEngine:
         if not self._is_ready:
             raise RuntimeError(" load_model()")
         
-        # 1. 
+        # 1. 提取當前時間步的 1024 維特徵
         features = self.feature_pipeline.build_features(
             current_price=current_price,
             klines=klines,
@@ -1171,13 +1188,21 @@ class InferenceEngine:
             liquidation_heatmap=liquidation_heatmap,
             regime_analysis=regime_analysis
         )
-        
-        # 2. 
+
+        # 2. 更新滾動視窗，構建 (T, 1024) 序列
+        self._feature_buffer.append(features)
+        seq = list(self._feature_buffer)          # T 個 ndarray，T ≤ _SEQ_LEN
+        # 若視窗未滿，用第一幀補齊（pad-left with first frame）
+        while len(seq) < self._SEQ_LEN:
+            seq.insert(0, seq[0])
+        feature_seq = np.stack(seq, axis=0)       # (T, 1024)
+
+        # 3. 推論
         if self.predictor is None:
             raise RuntimeError("Predictor ")
-        output, latency_ms = self.predictor.predict(features)
-        
-        # 3. 
+        output, latency_ms = self.predictor.predict(feature_seq)
+
+        # 4. 解析訊號
         signal = self.signal_interpreter.interpret(
             symbol=symbol,
             current_price=current_price,
@@ -1185,9 +1210,14 @@ class InferenceEngine:
             latency_ms=latency_ms,
             regime_analysis=regime_analysis
         )
-        
+
         return signal
     
+    def reset_buffer(self) -> None:
+        """清空滾動特徵視窗（回測切換 episode 或重新開始時呼叫）"""
+        self._feature_buffer.clear()
+        logger.debug("[InferenceEngine] feature buffer reset")
+
     def predict_batch(
         self,
         requests: List[Dict[str, Any]]

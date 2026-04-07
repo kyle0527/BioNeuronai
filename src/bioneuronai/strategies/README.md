@@ -1,7 +1,7 @@
 # 策略模組 (Strategies)
 
 **路徑**: `src/bioneuronai/strategies/`  
-**版本**: v4.4.1
+**版本**: v2.1
 **更新日期**: 2026-04-05
 **架構層級**: Layer 2 — 策略層
 
@@ -60,8 +60,7 @@ src/bioneuronai/strategies/
 └── selector/                      # 策略選擇子模組
     ├── __init__.py                # 子模組入口
     ├── core.py                    # 選擇器核心
-    ├── evaluator.py               # 目前主路徑市場評估器
-    ├── evaluator_new.py           # 保留中的替代評估器
+    ├── evaluator.py               # 正式市場評估器
     ├── configs.py                 # 策略配置模板
     ├── types.py                   # 型別定義
     └── README.md                  # 子模組詳細說明
@@ -219,7 +218,7 @@ class MarketRegime:
 
 1. `selector/` 負責「市場體制 → 策略推薦 / 詳細選擇」，不是基礎策略本身。
 2. 目前主路徑是 `core.py + evaluator.py + configs.py + types.py`。
-3. `evaluator_new.py` 目前存在，但不是主流程依賴。
+3. `evaluator.py` 是 selector 正式主路徑的市場評估器。
 4. 這個子模組已取代較舊的 `trading/strategy_selector.py` 系列，且已被 `plan_controller.py` 實際使用。
 
 ### 對外主要接口
@@ -242,7 +241,7 @@ selection = await selector.select_optimal_strategy(ohlcv_data)
 - `types.py` 的模組專屬型別細節
 - `configs.py` 10 種模板的完整說明
 - `core.py` 的資料流與方法分工
-- `evaluator.py` / `evaluator_new.py` 的主從關係
+- `evaluator.py` 的正式主路徑角色
 - selector 與 `schemas/` 的精確邊界
 
 這樣可以避免上下兩層文件重複，並降低後續維護成本。

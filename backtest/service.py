@@ -6,7 +6,10 @@ They do not replace the project's strategy logic.
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional, Union
+import json
+from collections import deque
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
 
@@ -127,7 +130,7 @@ def run_strategy_instance_backtest(
         strategy.run_iteration(
             ohlcv_data=ohlcv,
             current_price=bar.close,
-            account_balance=float(connector.account.get_total_equity()),
+            account_balance=float(connector.get_total_equity()),
             connector=connector,
             additional_data=additional_data,
         )
@@ -212,7 +215,9 @@ def run_simulation_summary(
                     pass
 
         account = mock.get_account_info() or {}
-        stats = mock.virtual_account.get_stats()
+        account_snapshot = mock.get_account_snapshot()
+        stats = mock.get_stats()
+        trade_history = mock.get_trade_history_snapshot()
         summary = {
             "mode": "simulate",
             "resolved_root": str(resolved_root),
@@ -228,13 +233,15 @@ def run_simulation_summary(
             "signals_emitted": signals_emitted,
             "signal_counts": signal_counts,
             "final_balance": float(account.get("totalWalletBalance", balance)),
+            "available_balance": float(account_snapshot.get("available_balance", balance)),
             "stats": stats,
         }
         recorder.save_account(
             {
                 "account_info": account,
+                "account_snapshot": account_snapshot,
                 "stats": stats,
-                "trades": [trade.to_dict() for trade in mock.virtual_account.trade_history],
+                "trades": trade_history,
             }
         )
         recorder.save_runtime_state(mock.get_runtime_snapshot())
@@ -298,32 +305,25 @@ def run_backtest_summary(
             return
         action = signal.action.upper()
 
-        account = connector.get_account_info() or {}
-        pos = next(
-            (
-                p
-                for p in account["positions"]
-                if p["symbol"] == bar.symbol and abs(float(p["positionAmt"])) > 0
-            ),
-            None,
-        )
+        position = connector.get_position_snapshot(bar.symbol)
+        position_amt = float(position["positionAmt"]) if position else 0.0
 
-        if action == "BUY" and (not pos or float(pos["positionAmt"]) <= 0):
-            if pos and float(pos["positionAmt"]) < 0:
+        if action == "BUY" and position_amt <= 0:
+            if position_amt < 0:
                 connector.place_order(
                     bar.symbol,
                     "BUY",
                     "MARKET",
-                    abs(float(pos["positionAmt"])),
+                    abs(position_amt),
                 )
             connector.place_order(bar.symbol, "BUY", "MARKET", 0.05)
-        elif action == "SELL" and (not pos or float(pos["positionAmt"]) >= 0):
-            if pos and float(pos["positionAmt"]) > 0:
+        elif action == "SELL" and position_amt >= 0:
+            if position_amt > 0:
                 connector.place_order(
                     bar.symbol,
                     "SELL",
                     "MARKET",
-                    float(pos["positionAmt"]),
+                    position_amt,
                 )
             connector.place_order(bar.symbol, "SELL", "MARKET", 0.05)
 
@@ -377,6 +377,133 @@ def run_backtest_summary(
 def list_runtime_runs(limit: int = 20) -> Dict[str, Any]:
     """列出 replay runtime runs。"""
     return list_runs(limit=limit)
+
+
+# ============================================================================
+# 訓練資料收集：輸出 signal_history.jsonl 供 unified_trainer 使用
+# ============================================================================
+
+def _try_load_inference_engine() -> Optional[Any]:
+    """嘗試載入 InferenceEngine；失敗時返回 None（signal 欄位將填零）。"""
+    try:
+        from bioneuronai.core.inference_engine import InferenceEngine
+        ie = InferenceEngine()
+        ie.load_model()
+        return ie
+    except Exception:
+        return None
+
+
+def _infer_signal(ie: Optional[Any], buf: deque) -> List[float]:
+    """用 InferenceEngine 推算 signal 向量；失敗或 ie 為 None 時返回零向量。"""
+    if ie is None:
+        return [0.0] * 512
+    try:
+        feat_seq = np.stack(list(buf), axis=0)        # (seq_len, 1024)
+        signal_output, _ = ie.predictor.predict(feat_seq)
+        return signal_output.tolist()
+    except Exception:
+        return [0.0] * 512
+
+
+def _extract_features(feature_pipeline: Any, bar: Any, connector: Any) -> Optional[List]:
+    """提取當前 bar 的 1024 維特徵；資料不足或出錯時返回 None。"""
+    klines = connector.data_stream.get_klines_until_now(300)
+    if len(klines) < 30:
+        return None
+    try:
+        return feature_pipeline.build_features(
+            current_price=bar.close,
+            klines=klines,
+        ).tolist()
+    except Exception:
+        return None
+
+
+def collect_signal_training_data(
+    symbol: str = "BTCUSDT",
+    interval: str = "1h",
+    balance: float = 10000.0,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    data_dir: Optional[Union[str, Any]] = DEFAULT_DATA_DIR,
+    warmup_bars: int = 100,
+    seq_len: int = 16,
+    output_path: Optional[Union[str, Path]] = None,
+    max_samples: int = 50000,
+) -> Dict[str, Any]:
+    """
+    運行回測並收集 (feature_seq, signal_output) 對，輸出為 JSONL 格式。
+
+    每行格式：
+    {
+        "features": [[f0...f1023], ...(共 seq_len 行)],   # shape (seq_len, 1024)
+        "signal":   [s0, s1, ..., s511]                   # shape (512,)
+    }
+
+    輸出檔案預設位置：data/signal_history.jsonl
+    可直接作為 unified_trainer.py --signal-data 的輸入。
+
+    Args:
+        seq_len:      每個樣本包含幾個時間步（對應 TinyLLMConfig.numeric_seq_len=16）
+        output_path:  JSONL 輸出路徑（None 則用 data/signal_history.jsonl）
+        max_samples:  最多收集幾筆（避免過大）
+
+    Returns:
+        {"samples_collected": N, "output_path": "..."}
+    """
+    import sys
+    _root = Path(__file__).resolve().parents[1]
+    for p in [str(_root / "src"), str(_root)]:
+        if p not in sys.path:
+            sys.path.insert(0, p)
+
+    try:
+        from bioneuronai.core.inference_engine import FeaturePipeline
+    except Exception as exc:
+        return {"error": f"InferenceEngine 不可用: {exc}", "samples_collected": 0}
+
+    resolved_root = resolve_data_dir(data_dir)
+    dest = Path(output_path) if output_path else (_root / "data" / "signal_history.jsonl")
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.write_text("", encoding="utf-8")   # 清空舊檔案
+
+    feature_pipeline = FeaturePipeline()
+    ie = _try_load_inference_engine()
+    buf: deque = deque(maxlen=seq_len)
+    samples_collected = 0
+
+    def _collect_callback(bar: Any, connector: Any) -> None:
+        nonlocal samples_collected
+        if samples_collected >= max_samples:
+            return
+        feats = _extract_features(feature_pipeline, bar, connector)
+        if feats is None:
+            return
+        buf.append(feats)
+        if len(buf) < seq_len:
+            return
+        record = {"features": list(buf), "signal": _infer_signal(ie, buf)}
+        with open(dest, "a", encoding="utf-8") as f:
+            f.write(json.dumps(record, ensure_ascii=False) + "\n")
+        samples_collected += 1
+
+    engine = BacktestEngine(
+        data_dir=resolved_root,
+        symbol=symbol,
+        interval=interval,
+        start_date=start_date,
+        end_date=end_date,
+        initial_balance=balance,
+    )
+    engine.config.warmup_bars = warmup_bars
+    engine.run(_collect_callback, print_summary=False)
+
+    return {
+        "samples_collected": samples_collected,
+        "output_path": str(dest),
+        "seq_len": seq_len,
+    }
 
 
 def get_runtime_run(run_id: str) -> Dict[str, Any]:

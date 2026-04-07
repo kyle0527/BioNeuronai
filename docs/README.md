@@ -1,88 +1,96 @@
 # docs/ — 文檔索引
-> **更新日期**: 2026-02-15
+> **更新日期**: 2026-04-06
 
 ---
 
 ## 📑 目錄
 
-1. 快速開始
-2. 交易系統文檔
-3. 數據與存儲
-4. 策略系統
-5. 開發指南
-6. 技術文檔
-7. 項目管理
+1. 🎯 核心指南 (必讀)
+2. 🗄️ 數據與存儲
+3. 🧠 策略與 RAG 系統
+4. 🛠️ 開發與治理
+5. 📚 歸檔文件
+6. 項目管理
 
 ---
 
-## 快速開始
+## 🎯 核心指南 (必讀)
 
 | 文檔 | 說明 |
 |------|------|
-| [QUICKSTART_V2.1.md](QUICKSTART_V2.1.md) | v2.1 快速開始指南 |
-| [BIONEURONAI_MASTER_MANUAL.md](BIONEURONAI_MASTER_MANUAL.md) | 系統主操作手冊 |
-| [BINANCE_TESTNET_STEP_BY_STEP.md](BINANCE_TESTNET_STEP_BY_STEP.md) | 幣安測試網教學 |
+| [BIONEURONAI_MASTER_MANUAL.md](BIONEURONAI_MASTER_MANUAL.md) | ⭐️ 系統主守則：開發與導覽的單一入口 |
+| [QUICKSTART_V2.1.md](QUICKSTART_V2.1.md) | v2.1 快速開始指南 (Docker + 環境變數) |
+| [OPERATION_MANUAL.md](OPERATION_MANUAL.md) | v2.1 連線、排程與 CLI 實際操作手冊 |
+| [ARCHITECTURE_OVERVIEW.md](ARCHITECTURE_OVERVIEW.md) | 系統整體架構總覽 (資料流與模組分工) |
+| [PROJECT_HANDOVER_MAP.md](PROJECT_HANDOVER_MAP.md) | 模組依賴圖與開發接手地圖 |
+| [SRC_DIRECTORY_ANALYSIS.md](SRC_DIRECTORY_ANALYSIS.md) | `src/` 目錄結構分析 |
+| [BACKTEST_SYSTEM_GUIDE.md](BACKTEST_SYSTEM_GUIDE.md) | 回測系統使用準則 |
 
 ---
 
-## 交易系統文檔
+## 🗄️ 數據與存儲
 
 | 文檔 | 說明 |
 |------|------|
-| [RISK_MANAGEMENT_MANUAL.md](RISK_MANAGEMENT_MANUAL.md) | 風險管理完整手冊 |
-| [TRADING_COSTS_GUIDE.md](TRADING_COSTS_GUIDE.md) | 交易成本（手續費 + 滑點）指南 |
-| [TRADING_PLAN_10_STEPS.md](TRADING_PLAN_10_STEPS.md) | 10 步交易計劃 |
-| [DAILY_REPORT_CHECKLIST.md](DAILY_REPORT_CHECKLIST.md) | 每日報告檢查清單 |
+| [DATA_STORAGE_AND_RETRIEVAL_STRATEGY.md](DATA_STORAGE_AND_RETRIEVAL_STRATEGY.md) | 數據庫讀寫與資料流策略 |
+| [DATA_STORAGE_INTEGRATION.md](DATA_STORAGE_INTEGRATION.md) | 數據庫整合邏輯 |
+| [DATABASE_UPGRADE_GUIDE.md](DATABASE_UPGRADE_GUIDE.md) | SQLite 遷移與版本升級指南 |
+| [BACKTEST_DATA_SOURCE.md](BACKTEST_DATA_SOURCE.md) | 歷史回測數據來源 |
 
 ---
 
-## 數據與存儲
+## 🧠 策略與 RAG 系統
 
 | 文檔 | 說明 |
 |------|------|
-| [DATA_SOURCES_GUIDE.md](DATA_SOURCES_GUIDE.md) | 數據來源指南 |
-| [DATA_STORAGE_AND_RETRIEVAL_STRATEGY.md](DATA_STORAGE_AND_RETRIEVAL_STRATEGY.md) | 數據存取策略 |
-| [DATA_STORAGE_INTEGRATION.md](DATA_STORAGE_INTEGRATION.md) | 數據存儲整合方案 |
-| [DATABASE_UPGRADE_GUIDE.md](DATABASE_UPGRADE_GUIDE.md) | 資料庫升級指南 |
-| [BACKTEST_DATA_SOURCE.md](BACKTEST_DATA_SOURCE.md) | 回測數據來源 |
-| [BACKTEST_SYSTEM_GUIDE.md](BACKTEST_SYSTEM_GUIDE.md) | 回測系統指南 |
+| [RAG_TECHNICAL_MANUAL.md](RAG_TECHNICAL_MANUAL.md) | 檢索增強生成 (RAG) 模組技術手冊 |
+| [STRATEGY_COMPETITION_REMEDIATION_PLAN.md](STRATEGY_COMPETITION_REMEDIATION_PLAN.md) | 策略競技場與路由修復計畫 |
+| [EVOLUTION_SYSTEM_PLAN.md](EVOLUTION_SYSTEM_PLAN.md) | AI 策略自動進化框架 (草案) |
+| [KNOWHOW_ANALYSIS.md](KNOWHOW_ANALYSIS.md) | 核心交易交易邏輯與知識庫分析 |
+| [NLP_TRAINING_GUIDE.md](NLP_TRAINING_GUIDE.md) | NLP 自然語言處理訓練與微調計畫 |
+| [tech/TINYLLM_MODEL_GUIDE.md](tech/TINYLLM_MODEL_GUIDE.md) | TinyLLM 雙模態模型參數、架構與系統整合詳解 |
 
 ---
 
-## 策略系統
+## 🛠️ 開發與治理
 
 | 文檔 | 說明 |
 |------|------|
-| [STRATEGIES_QUICK_REFERENCE.md](STRATEGIES_QUICK_REFERENCE.md) | 策略快速參考表 |
-| [STRATEGY_EVOLUTION_GUIDE.md](STRATEGY_EVOLUTION_GUIDE.md) | 策略進化指南 |
-| [STRATEGY_EVOLUTION_WEB_INTEGRATION_PLAN.md](STRATEGY_EVOLUTION_WEB_INTEGRATION_PLAN.md) | 策略進化 Web 整合計劃 |
-| [EVOLUTION_SYSTEM_PLAN.md](EVOLUTION_SYSTEM_PLAN.md) | 進化系統計劃 |
-| [STRATEGY_COMPETITION_REMEDIATION_PLAN.md](STRATEGY_COMPETITION_REMEDIATION_PLAN.md) | 策略競爭整修現況、後續步驟與驗收標準 |
+| [API_INTEGRATION_BASELINE.md](API_INTEGRATION_BASELINE.md) | FastAPI 介面整合作業基準 |
+| [DOCUMENTATION_GOVERNANCE_PLAN.md](DOCUMENTATION_GOVERNANCE_PLAN.md) | 文件治理與清理規範 (核心守則) |
+| [DEVELOPMENT_TOOLS.md](DEVELOPMENT_TOOLS.md) | 目錄產生等 PowerShell 開發腳本說明 |
+| [TECH_DEBT_AND_ROADMAP.md](TECH_DEBT_AND_ROADMAP.md) | 技術債盤點與未來路線圖 |
+| [ANALYSIS_VERIFICATION_REPORT_20260324.md](ANALYSIS_VERIFICATION_REPORT_20260324.md) | 第三方驗證與整合報告 |
 
 ---
 
-## 開發指南
+## 📚 歸檔文件
+
+以下文件由於依賴舊版 `trading_plan_system`、舊 `crypto_trader.py` 互動腳本、或其他不存在的模組路徑，已經退役並封存於 `archived/docs_v2_1_legacy/` 目錄下供歷史考古。
 
 | 文檔 | 說明 |
 |------|------|
-| [CODE_FIX_GUIDE.md](CODE_FIX_GUIDE.md) | 程式碼修復指南 |
-| [DEVELOPMENT_TOOLS.md](DEVELOPMENT_TOOLS.md) | 開發工具說明 |
-| [NLP_TRAINING_GUIDE.md](NLP_TRAINING_GUIDE.md) | NLP 訓練指南 |
-| [RAG_TECHNICAL_MANUAL.md](RAG_TECHNICAL_MANUAL.md) | RAG 技術手冊 |
-| [MANUAL_IMPLEMENTATION_STATUS.md](MANUAL_IMPLEMENTATION_STATUS.md) | 手冊實作狀態 |
-
----
-
-## 技術文檔
-
-| 子目錄 / 文檔 | 說明 |
-|---------------|------|
-| [tech/](tech/README.md) | 技術文檔索引（架構手冊等） |
-| [ARCHITECTURE_OVERVIEW.md](ARCHITECTURE_OVERVIEW.md) | 依實際入口與模組依賴整理的系統總體架構 |
-| [PROJECT_HANDOVER_MAP.md](PROJECT_HANDOVER_MAP.md) | 接手開發用依賴圖、資料流與核心/舊版檔案地圖 |
-| [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md) | 專案結構說明 |
-| [SRC_DIRECTORY_ANALYSIS.md](SRC_DIRECTORY_ANALYSIS.md) | src/ 目錄分析 |
-| [KNOWHOW_ANALYSIS.md](KNOWHOW_ANALYSIS.md) | 核心 Know-How 概念分析 |
+| [../archived/docs_v2_1_legacy/BIONEURONAI_MASTER_MANUAL.legacy_20260405.md](../archived/docs_v2_1_legacy/BIONEURONAI_MASTER_MANUAL.legacy_20260405.md) | v2.1 收斂前舊版主手冊 |
+| [../archived/docs_v2_1_legacy/MANUAL_IMPLEMENTATION_STATUS.legacy_20260405.md](../archived/docs_v2_1_legacy/MANUAL_IMPLEMENTATION_STATUS.legacy_20260405.md) | v2.1 收斂前舊版手冊實作狀態 |
+| [../archived/docs_v2_1_legacy/FEATURE_STATUS.legacy_20260405.md](../archived/docs_v2_1_legacy/FEATURE_STATUS.legacy_20260405.md) | v2.1 收斂前舊版功能狀態總覽 |
+| [../archived/docs_v2_1_legacy/ARCHITECTURE_OVERVIEW.legacy_20260406.md](../archived/docs_v2_1_legacy/ARCHITECTURE_OVERVIEW.legacy_20260406.md) | v2.1 收斂前舊版架構總覽 |
+| [../archived/docs_v2_1_legacy/SRC_DIRECTORY_ANALYSIS.legacy_20260406.md](../archived/docs_v2_1_legacy/SRC_DIRECTORY_ANALYSIS.legacy_20260406.md) | v2.1 收斂前舊版 src 目錄分析 |
+| [../archived/docs_v2_1_legacy/PROJECT_HANDOVER_MAP.legacy_20260406.md](../archived/docs_v2_1_legacy/PROJECT_HANDOVER_MAP.legacy_20260406.md) | v2.1 收斂前舊版接手地圖 |
+| [../archived/docs_v2_1_legacy/OPERATION_MANUAL.legacy_20260406.md](../archived/docs_v2_1_legacy/OPERATION_MANUAL.legacy_20260406.md) | v2.1 收斂前舊版操作手冊 |
+| [../archived/docs_v2_1_legacy/QUICKSTART_V2.1.legacy_20260406.md](../archived/docs_v2_1_legacy/QUICKSTART_V2.1.legacy_20260406.md) | v2.1 收斂前含有舊版 API 幻覺的快速開始指南 |
+| [../archived/docs_v2_1_legacy/BACKTEST_SYSTEM_GUIDE.legacy_20260406.md](../archived/docs_v2_1_legacy/BACKTEST_SYSTEM_GUIDE.legacy_20260406.md) | v2.1 收斂前舊版回測系統指南 |
+| [../archived/docs_v2_1_legacy/DAILY_REPORT_CHECKLIST.legacy_20260406.md](../archived/docs_v2_1_legacy/DAILY_REPORT_CHECKLIST.legacy_20260406.md) | 舊版 `daily_market_report.py` 之純 To-Do 確認清單 |
+| [../archived/docs_v2_1_legacy/DATA_SOURCES_GUIDE.legacy_20260406.md](../archived/docs_v2_1_legacy/DATA_SOURCES_GUIDE.legacy_20260406.md) | 舊版外部數據 API 調用指南 (充斥舊版 `market_scanner.py` 位址) |
+| [../archived/docs_v2_1_legacy/PROJECT_STRUCTURE.legacy_20260406.md](../archived/docs_v2_1_legacy/PROJECT_STRUCTURE.legacy_20260406.md) | 舊版存在多處執行檔幻覺的目錄結構總覽 |
+| [../archived/docs_v2_1_legacy/TRADING_PLAN_10_STEPS.legacy_20260406.md](../archived/docs_v2_1_legacy/TRADING_PLAN_10_STEPS.legacy_20260406.md) | 舊版交易計畫架構 (引用不存在的 `trading_plan/` 路徑) |
+| [../archived/docs_v2_1_legacy/TRADING_COSTS_GUIDE.legacy_20260406.md](../archived/docs_v2_1_legacy/TRADING_COSTS_GUIDE.legacy_20260406.md) | 舊版交易成本計算器規劃文件 |
+| [../archived/docs_v2_1_legacy/BINANCE_TESTNET_STEP_BY_STEP.legacy_20260406.md](../archived/docs_v2_1_legacy/BINANCE_TESTNET_STEP_BY_STEP.legacy_20260406.md) | 舊版測試網教學 (基於互動式選單 CLI) |
+| [../archived/docs_v2_1_legacy/STRATEGIES_QUICK_REFERENCE.legacy_20260406.md](../archived/docs_v2_1_legacy/STRATEGIES_QUICK_REFERENCE.legacy_20260406.md) | 舊版三策略參考 (基於過時啟動腳本) |
+| [../archived/docs_v2_1_legacy/CODE_FIX_GUIDE.legacy_20260406.md](../archived/docs_v2_1_legacy/CODE_FIX_GUIDE.legacy_20260406.md) | 舊版代碼維護規範 (存在舊版腳本驗證幻覺) |
+| [../archived/docs_v2_1_legacy/STRATEGY_EVOLUTION_GUIDE.legacy_20260406.md](../archived/docs_v2_1_legacy/STRATEGY_EVOLUTION_GUIDE.legacy_20260406.md) | 舊版進化系統指南 (引用 `trading/risk_manager.py`) |
+| [../archived/docs_v2_1_legacy/STRATEGY_EVOLUTION_WEB_INTEGRATION_PLAN.legacy_20260406.md](../archived/docs_v2_1_legacy/STRATEGY_EVOLUTION_WEB_INTEGRATION_PLAN.legacy_20260406.md) | 舊版 Web 整合計畫 (未實作/過期) |
+| [../archived/docs_v2_1_legacy/ANALYSIS_RAG_INTEGRATION_IMPROVEMENT_PLAN.legacy_20260406.md](../archived/docs_v2_1_legacy/ANALYSIS_RAG_INTEGRATION_IMPROVEMENT_PLAN.legacy_20260406.md) | 舊版 RAG 整合計畫 (與當前架構脫節) |
+| [../archived/docs_v2_1_legacy/RISK_MANAGEMENT_MANUAL.legacy_20260406.md](../archived/docs_v2_1_legacy/RISK_MANAGEMENT_MANUAL.legacy_20260406.md) | 舊版風險管理手冊 (引用不存在的 `risk_management/` 目錄) |
 
 ---
 

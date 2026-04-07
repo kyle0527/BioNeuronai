@@ -14,7 +14,7 @@ BioNeuronai - AI
 - risk_management: 
 """
 
-__version__ = "4.4.1"
+__version__ = "2.1"
 __author__ = "BioNeuronai Team"
 
 import logging  # noqa: E402 (imports after sys.path setup are intentional)
@@ -114,13 +114,12 @@ NewsPrediction: Any = imported_news_prediction
 NewsPredictionLoop: Any = imported_news_prediction_loop
 
 # 
-from .trading import (  # noqa: E402
+from .planning import (  # noqa: E402
     TradingPlanController,
     MarketAnalyzer,
-    StrategySelector,
     PairSelector
 )
-# : SOPAutomationSystem, PreTradeCheckSystem, TradingPlanGenerator
+# : SOPAutomationSystem, PreTradeCheckSystem
 
 #  RL Meta-Agent ()
 imported_rl_meta_agent: Any = None

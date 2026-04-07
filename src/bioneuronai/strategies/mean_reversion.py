@@ -32,12 +32,6 @@ from datetime import datetime, timedelta
 from dataclasses import dataclass
 import uuid
 
-try:
-    import talib
-    TALIB_AVAILABLE = True
-except ImportError:
-    talib = None  # type: ignore[assignment]
-    TALIB_AVAILABLE = False
 
 from .base_strategy import (
     BaseStrategy,
@@ -240,10 +234,6 @@ class MeanReversionStrategy(BaseStrategy):
         if n < period + 1:
             return cast(np.ndarray, np.full(n, 50.0))
 
-        if TALIB_AVAILABLE and talib is not None:
-            rsi = talib.RSI(close.astype(np.float64), timeperiod=period)
-            return cast(np.ndarray, np.nan_to_num(rsi, nan=50.0))
-        
         deltas: np.ndarray = np.diff(close)
         gains: np.ndarray = np.where(deltas > 0, deltas, 0)
         losses: np.ndarray = np.where(deltas < 0, -deltas, 0)
@@ -443,7 +433,7 @@ class MeanReversionStrategy(BaseStrategy):
         market_condition = self._determine_market_condition(analysis)
         volatility_level = self._determine_volatility_level(analysis)
         
-        self.state = StrategyState.IDLE
+        self._finalize_analysis_state()
         self._last_analysis_time = datetime.now()
         
         return {
@@ -985,6 +975,9 @@ class MeanReversionStrategy(BaseStrategy):
             
             # 
             portion_size: float = setup.total_position_size / setup.entry_portions
+            if portion_size <= 0:
+                logger.warning(f"⚠️ 均值回歸策略忽略無效進場數量: {portion_size}")
+                return None
             
             if connector is None:
                 logger.info(f": {trade_id}")
@@ -1025,6 +1018,8 @@ class MeanReversionStrategy(BaseStrategy):
                         'time': datetime.now().isoformat(),
                         'type': 'limit',
                     })
+                else:
+                    return None
             
             execution.highest_price_since_entry = execution.actual_entry_price
             execution.lowest_price_since_entry = execution.actual_entry_price

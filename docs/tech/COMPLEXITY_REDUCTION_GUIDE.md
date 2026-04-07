@@ -883,7 +883,7 @@ diff before.txt after.txt
 
 ---
 
-**文檔版本**: 1.0  
+**文檔版本**: 2.1  
 **最後更新**: 2024-12-14  
 **適用範圍**: Python 3.8+  
 **維護者**: AIVA Development Team

@@ -1,7 +1,7 @@
 # BioNeuronAI — 核心 Know-How 分析
 > **建立日期**: 2026-03-01  
-> **版本**: v1.0  
-> **適用版本**: BioNeuronAI v4.1
+> **版本**: v2.1  
+> **適用版本**: BioNeuronAI v2.1
 
 ## 📑 目錄
 

@@ -302,3 +302,32 @@ class JobStatus(BaseModel):
     result: Optional[Dict[str, Any]] = None
     error: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.now)
+
+
+class ChatMessage(BaseModel):
+    """單條對話訊息"""
+    role: str = Field(description="user | assistant | system")
+    content: str
+
+
+class ChatRequest(BaseModel):
+    """對話請求"""
+    message: str = Field(description="使用者訊息（中文或英文）")
+    language: str = Field(default="auto", description="回應語言：auto | zh | en")
+    symbol: Optional[str] = Field(default=None, description="交易對（選填），如 BTCUSDT，提供時自動注入即時市場資料")
+    conversation_id: Optional[str] = Field(default=None, description="對話 ID，用於維持多輪對話（同 session 傳相同 ID）")
+    history: Optional[List[ChatMessage]] = Field(default=None, description="前端傳入的對話歷史（選填，優先使用 conversation_id）")
+    stream: bool = Field(default=False, description="是否啟用串流輸出（Server-Sent Events）")
+
+
+class ChatResponse(BaseModel):
+    """對話回應"""
+    success: bool = True
+    text: str = Field(description="AI 回應文字")
+    language: str = Field(description="回應語言：zh | en | mixed")
+    confidence: float = Field(default=1.0, description="模型信心值 0–1")
+    market_context_used: bool = Field(default=False, description="是否注入了即時市場資料")
+    stopped_reason: str = Field(default="", description="提前停止原因：'' | low_confidence | hallucination_detected | max_tokens")
+    latency_ms: float = Field(default=0.0, description="生成耗時（毫秒）")
+    conversation_id: Optional[str] = Field(default=None, description="對話 ID，供下一輪使用")
+    timestamp: datetime = Field(default_factory=datetime.now)

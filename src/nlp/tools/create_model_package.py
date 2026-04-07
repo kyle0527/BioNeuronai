@@ -233,7 +233,7 @@ def create_special_tokens_map(tokenizer: BilingualTokenizer, save_dir: Path) -> 
 
 
 def create_complete_model_package(
-    model_dir: str = "model/tiny_llm_en_zh",
+    model_dir: str = "model/exported_package",
     from_checkpoint: Optional[str] = None
 ) -> None:
     """創建完整的模型包
@@ -317,7 +317,7 @@ def create_complete_model_package(
     # 10. 創建元數據
     print("\n🔟 創庺元數據...")
     metadata = {
-        "model_name": "tiny_llm_en_zh",
+        "model_name": "bioneuronai_tinyllm",
         "version": "1.0.0",
         "created_at": "2026-01-19",
         "description": "英中雙語小型語言模型",
@@ -360,8 +360,8 @@ def create_complete_model_package(
 
 
 if __name__ == "__main__":
-    # 創建完整模型包
+    # 創建完整模型包（從當前主模型導出 HuggingFace 格式）
     create_complete_model_package(
-        model_dir="model/tiny_llm_en_zh",
-        from_checkpoint="model/tiny_llm_100m.pth"  # 使用現有權重
+        model_dir="model/exported_package",
+        from_checkpoint="model/my_100m_model.pth"
     )

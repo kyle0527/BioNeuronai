@@ -1,5 +1,48 @@
 # 更新日誌
 
+## [v2.2] - 2026-04-07
+
+### 🧠 TinyLLM 雙模態架構重設計 + 訓練系統整合
+
+#### TinyLLM 雙模態（語言 + 訊號共用一份 GPT 權重）
+- **重大重設計**：以 GPT 架構的 `TinyLLM` 全面取代舊 MLP `HundredMillionModel`
+- **雙任務路徑**：
+  - `forward_signal(B, T, 1024)` → signal_head → `(B, 512)` 交易訊號向量
+  - `forward(input_ids)` → lm_head（共享 token_embedding）→ 語言生成
+- **numeric_proj 加深**：1 層升為 2 層（`Linear(1024→1536)+GELU+LN → Linear(1536→768)+LN`）；GELU 非線性特徵交互，總參數 ~111.6M
+- **16 步滾動視窗**：`InferenceEngine._feature_buffer = deque(maxlen=16)`；每次推論輸入 `(16, 1024)` 序列，Transformer Attention 實際跨時間步運算
+- **回測隔離**：`BacktestEngine._reset_state()` 在每個 episode 開始時呼叫 `reset_buffer()`
+
+#### ChatEngine 整合修復
+- 修正 `create_chat_engine()` tokenizer 路徑：目錄 → `model/tokenizer/vocab.json`
+- 修正 `BilingualTokenizer.encode()` 新增 `max_length` / `truncation` 參數
+- 修正 `_stream_generate()` 中 `eos_id` 雙重間接查找 bug（永遠返回 None）
+
+#### 訓練系統整合
+- **新增** `src/nlp/training/unified_trainer.py`：語言任務 + 訊號任務多任務訓練入口，輸出 `model/my_100m_model.pth`
+- **新增** `src/nlp/training/build_vocab.py`：從 `ALL_TRADING_DATA` 建立詞彙並存至 `model/tokenizer/vocab.json`
+- `unified_trainer.build_model()` 無詞彙時自動呼叫 `_build_and_save_vocab()` 建立
+- **新增** `backtest/service.py::collect_signal_training_data()`：回測 replay 輸出 `data/signal_history.jsonl`
+
+#### BacktestEngine 重構
+- `run()` 認知複雜度從 18 降至 <15（提取 6 個 helper 方法）
+- `advanced_trainer.py` 新增 `multitask` 模式，`total_loss = lm_loss + 0.5 × signal_loss`
+
+#### 文件更新
+- 新增 `docs/tech/TINYLLM_MODEL_GUIDE.md`（架構圖、參數表、訓練策略）
+- 修正 `NLP_TRAINING_GUIDE.md`（移除舊 `tiny_llm_en_zh/` 路徑、`from_pretrained()` 幻覺 API）
+- 修正 `BACKTEST_SYSTEM_GUIDE.md`（正確的 BacktestEngine 同步 callback API）
+- 更新 `ARCHITECTURE_OVERVIEW.md`（加入 ChatEngine 節點、TinyLLM 說明）
+
+#### 🚀 訓練前必執行步驟
+```bash
+python -m nlp.training.build_vocab           # 建立詞彙
+python -m nlp.training.unified_trainer --lm-only --epochs 20   # 語言預熱
+python -m nlp.training.unified_trainer --signal-data data/signal_history.jsonl --epochs 10  # 多任務精調
+```
+
+---
+
 ## [v4.4] - 2026-03-18
 
 ### 🐳 Docker 部署 + FastAPI REST API + RAG 快取修復
@@ -282,28 +325,33 @@ BINANCE_API_KEY=xxx BINANCE_API_SECRET=yyy docker compose --profile trade up tra
 
 ## 下一步計劃
 
-### 短期 (1-2週)
-- [ ] 下載歷史數據 (BTCUSDT 2年) — 填入 `data_downloads/binance_historical/`
-- [ ] 補充 `schedule>=1.2.0` 至 `pyproject.toml` 依賴
-- [ ] 連接 `CryptoNewsAnalyzer` 至 `market_analyzer.py:906`（移除 `news_sentiment=0.0` 硬編碼）
+### 短期（訓練啟動前）
+- [ ] 擴充語言訓練資料 `trading_dialogue_data.py` 至 500+ 組 QA（目前 31 組）
+- [ ] 下載歷史數據（BTCUSDT 2年）— 填入 `data_downloads/binance_historical/`
+- [ ] 執行 `collect-signal-data` 產生真實訊號標籤（目前僅合成資料）
+- [ ] 執行首次完整訓練（語言預熱 → 訊號對齊 → 多任務精調）
+- [ ] 連接 `CryptoNewsAnalyzer` 至 `market_analyzer.py`（移除 `news_sentiment=0.0` 硬編碼）
 
-### 中期 (3-4週)
-- [ ] 實現 DC 算法
-- [ ] 開發 DRL 策略 (PPO)
+### 中期
 - [ ] SOP 回測驗證（啟用 `_perform_plan_backtest()`）
-- [ ] StrategyArena / TradingPhaseRouter / RLFusionAgent 整合至 CLI
-
-### 長期 (2-3月)
-- [ ] 真實回測引擎（BacktestEngine + 歷史數據完整整合）
+- [ ] StrategyArena / TradingPhaseRouter 整合至 CLI
 - [ ] Walk-Forward 測試框架
-- [ ] 實盤測試 (小資金)
+- [ ] TinyLLM 擴展至 300M+（考慮 Cross-Attention 市場–語言融合）
+
+### 長期
+- [ ] DRL 策略（PPO）
+- [ ] 實盤測試（小資金）
 
 ### ✅ 已完成
-- ✅ RAG 快取偵測（v4.4，efdd454）
-- ✅ Docker 部署基礎建設（v4.4，29ded9d）
-- ✅ FastAPI REST API 伺服器（v4.4，de8aafe）
+- ✅ TinyLLM 雙模態架構重設計（v2.2）
+- ✅ 16 步滾動推論視窗 + reset_buffer（v2.2）
+- ✅ ChatEngine 完整整合（v2.2）
+- ✅ 訓練系統整合（unified_trainer + build_vocab，v2.2）
+- ✅ BacktestEngine 重構（認知複雜度 <15，v2.2）
+- ✅ RAG 快取偵測（v4.4）
+- ✅ Docker 部署基礎建設（v4.4）
+- ✅ FastAPI REST API 伺服器（v4.4）
 - ✅ WebDataFetcher 類 + 市場情緒分析器（v4.0）
-- ✅ 生產環境部署容器化（v4.4）
 
 ---
 
@@ -338,7 +386,7 @@ BINANCE_API_KEY=xxx BINANCE_API_SECRET=yyy docker compose --profile trade up tra
 
 ---
 
-**最後更新**: 2026年3月18日
-**版本**: v4.4 - Docker + FastAPI 部署版本
+**最後更新**: 2026年4月7日
+**版本**: v2.2 - TinyLLM 雙模態 + 訓練系統整合版
 
-🎉 **Docker 容器化完成！系統可透過 REST API 或 CLI 雙模式運行！** 🎉
+🎉 **TinyLLM 架構整合完成！一份 GPT 權重，同時服務交易訊號預測與雙語對話！** 🎉

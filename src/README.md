@@ -92,7 +92,7 @@ BioNeuronai 的主體模組，實現完整的加密貨幣量化交易系統。
 | 枚舉定義 | 37 個 |
 | Pydantic 模型 | 75+ 個 |
 | 自訂型別 | 23 個 |
-| Schema 版本 | 2.3.0 |
+| Schema 版本 | 2.1 |
 
 📖 [詳細文檔](schemas/README.md)
 

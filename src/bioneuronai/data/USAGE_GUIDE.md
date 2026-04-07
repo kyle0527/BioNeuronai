@@ -1,7 +1,7 @@
 # Data 模組使用手冊
 
 **路徑**: `src/bioneuronai/data/`  
-**版本**: v4.3.1  
+**版本**: v2.1  
 **更新日期**: 2026-03-16
 
 本手冊說明如何正確使用 `bioneuronai.data` 模組中的每一個元件。  
@@ -789,4 +789,4 @@ import os; os.remove('data/test_verify.db')
 
 ---
 
-*本手冊最後更新: 2026-03-16 | BioNeuronAI v4.3.1*
+*本手冊最後更新: 2026-03-16 | BioNeuronAI v2.1*

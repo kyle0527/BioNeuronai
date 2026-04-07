@@ -26,11 +26,12 @@ from pydantic import (
 # 版本控制
 # =============================================================================
 
-SCHEMA_VERSION = "2.3.0"
+SCHEMA_VERSION = "2.1"
 """
 Schema 版本號，遵循語義化版本控制 (SemVer)
 
 版本歷史:
+- 2.1 (2026-04-05): 將目前對外 schema 版本收斂為 2.1
 - 2.3.0 (2026-02-14): 新增 types.py, events.py, backtesting.py, ml_models.py, alerts.py
 - 2.0.0 (2026-01-25): 新增事件系統、市場分析 enums
 - 1.0.0 (2025-01-22): 初始版本

@@ -295,7 +295,7 @@ class DirectionChangeStrategy(BaseStrategy):
 
         analysis.dc_volatility = atr / current_price * 100.0 if current_price > 0 else 0.0
 
-        self.state = StrategyState.IDLE
+        self._finalize_analysis_state()
         self._last_analysis_time = datetime.now()
 
         symbol = (additional_data or {}).get("symbol")
@@ -417,7 +417,15 @@ class DirectionChangeStrategy(BaseStrategy):
         else:
             signal_strength = SignalStrength.WEAK
 
-        confirmations = consecutive + (1 if os_ret > 0.4 else 0)
+        confirmations = 0
+        if consecutive >= self.min_consecutive_dc:
+            confirmations += 1
+        if dc_analysis.in_overshoot:
+            confirmations += 1
+        if self.os_entry_min_retracement <= os_ret <= self.os_entry_max_retracement:
+            confirmations += 1
+        if dc_analysis.dc_trend_strength >= 50.0:
+            confirmations += 1
 
         symbol = market_analysis.get('symbol')
         if not symbol:
@@ -460,19 +468,61 @@ class DirectionChangeStrategy(BaseStrategy):
     ) -> Optional[TradeExecution]:
         """執行入場"""
         try:
+            portion_size = setup.total_position_size
+            if portion_size <= 0:
+                logger.warning(f"[DC策略] 忽略無效進場數量: {portion_size}")
+                return None
+
             execution = TradeExecution(
                 trade_id=f"DC_{uuid.uuid4().hex[:8]}",
                 setup=setup,
                 actual_entry_price=setup.entry_price,
                 entry_time=datetime.now(),
-                current_position_size=setup.total_position_size,
+                current_position_size=portion_size,
                 average_entry_price=setup.entry_price,
                 highest_price_since_entry=setup.entry_price,
                 lowest_price_since_entry=setup.entry_price,
             )
+
+            if connector is None:
+                execution.entry_fills.append(
+                    {
+                        'price': setup.entry_price,
+                        'size': portion_size,
+                        'time': datetime.now().isoformat(),
+                        'type': 'market',
+                    }
+                )
+            else:
+                order_result = connector.place_order(
+                    symbol=setup.symbol,
+                    side='BUY' if setup.direction == 'long' else 'SELL',
+                    order_type='MARKET',
+                    quantity=portion_size,
+                )
+                if order_result.get('status') not in ['FILLED', 'PARTIALLY_FILLED']:
+                    return None
+
+                fill_price = float(order_result.get('avgPrice', setup.entry_price))
+                execution.actual_entry_price = fill_price
+                execution.entry_slippage = abs(fill_price - setup.entry_price)
+                execution.current_position_size = portion_size
+                execution.average_entry_price = fill_price
+                execution.highest_price_since_entry = fill_price
+                execution.lowest_price_since_entry = fill_price
+                execution.entry_fills.append(
+                    {
+                        'order_id': order_result.get('orderId'),
+                        'price': fill_price,
+                        'size': portion_size,
+                        'time': datetime.now().isoformat(),
+                        'type': 'market',
+                    }
+                )
+
             self.state = StrategyState.POSITION_OPEN
             logger.info(
-                f"[DC策略] 入場: {setup.direction.upper()} @ {setup.entry_price:.2f}, "
+                f"[DC策略] 入場: {setup.direction.upper()} @ {execution.actual_entry_price:.2f}, "
                 f"SL: {setup.stop_loss:.2f}, TP1: {setup.take_profit_1:.2f}"
             )
             return execution
@@ -581,19 +631,74 @@ class DirectionChangeStrategy(BaseStrategy):
     ) -> bool:
         """執行出場"""
         try:
-            trade.exit_reason = reason
-            trade.exit_time = datetime.now()
-            self.state = StrategyState.IDLE
-            self.performance.update(trade)
-            self.trade_history.append(trade)
-            logger.info(
-                f"[DC策略] 出場: {reason}, "
-                f"R倍數: {trade.calculate_r_multiple():.2f}"
-            )
-            if "止損" in reason:
-                self._cooldown_until = datetime.now() + timedelta(
-                    hours=self.risk_params.cooldown_after_loss
+            exit_size = trade.current_position_size * exit_portion
+            if exit_size <= 0:
+                logger.warning(f"[DC策略] 忽略無效出場數量: {exit_size}")
+                return False
+
+            if connector is None:
+                fill_price = trade.average_exit_price or trade.setup.entry_price
+                if trade.setup.direction == 'long':
+                    pnl = (fill_price - trade.average_entry_price) * exit_size
+                else:
+                    pnl = (trade.average_entry_price - fill_price) * exit_size
+                trade.average_exit_price = fill_price
+                trade.realized_pnl += pnl
+                trade.current_position_size -= exit_size
+                trade.exit_fills.append(
+                    {
+                        'price': fill_price,
+                        'size': exit_size,
+                        'time': datetime.now().isoformat(),
+                        'reason': reason,
+                    }
                 )
+            else:
+                order_result = connector.place_order(
+                    symbol=trade.setup.symbol,
+                    side='SELL' if trade.setup.direction == 'long' else 'BUY',
+                    order_type='MARKET',
+                    quantity=exit_size,
+                    reduce_only=True,
+                )
+                if order_result.get('status') not in ['FILLED', 'PARTIALLY_FILLED']:
+                    return False
+
+                fill_price = float(order_result.get('avgPrice', 0))
+                trade.average_exit_price = fill_price
+                if trade.setup.direction == 'long':
+                    pnl = (fill_price - trade.average_entry_price) * exit_size
+                else:
+                    pnl = (trade.average_entry_price - fill_price) * exit_size
+
+                trade.realized_pnl += pnl
+                trade.current_position_size -= exit_size
+                trade.exit_fills.append(
+                    {
+                        'order_id': order_result.get('orderId'),
+                        'price': fill_price,
+                        'size': exit_size,
+                        'time': datetime.now().isoformat(),
+                        'reason': reason,
+                    }
+                )
+
+            if trade.current_position_size <= 0:
+                trade.exit_reason = reason
+                trade.exit_time = datetime.now()
+                trade.holding_duration = trade.exit_time - trade.entry_time
+                self.state = StrategyState.IDLE
+                self.performance.update(trade)
+                self.trade_history.append(trade)
+                logger.info(
+                    f"[DC策略] 出場: {reason}, "
+                    f"PnL: {trade.realized_pnl:.2f}, "
+                    f"R倍數: {trade.calculate_r_multiple():.2f}"
+                )
+                if "止損" in reason:
+                    self._cooldown_until = datetime.now() + timedelta(
+                        hours=self.risk_params.cooldown_after_loss
+                    )
             return True
         except Exception as e:
             logger.error(f"[DC策略] 出場失敗: {e}")

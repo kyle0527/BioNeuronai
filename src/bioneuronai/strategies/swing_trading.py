@@ -32,12 +32,6 @@ from datetime import datetime, timedelta
 from dataclasses import dataclass, field
 import uuid
 
-try:
-    import talib
-    TALIB_AVAILABLE = True
-except ImportError:
-    talib = None  # type: ignore[assignment]
-    TALIB_AVAILABLE = False
 
 from .base_strategy import (
     BaseStrategy,
@@ -213,10 +207,6 @@ class SwingTradingStrategy(BaseStrategy):
         if n < period + 1:
             return cast(np.ndarray, np.full(n, 50.0))
 
-        if TALIB_AVAILABLE and talib is not None:
-            rsi = talib.RSI(close.astype(np.float64), timeperiod=period)
-            return cast(np.ndarray, np.nan_to_num(rsi, nan=50.0))
-        
         deltas: np.ndarray[Tuple[Any], np.dtype[Any]] = np.diff(close)
         gains: np.ndarray[Tuple[Any], np.dtype[Any]] = np.where(deltas > 0, deltas, 0)
         losses: np.ndarray[Tuple[Any], np.dtype[Any]] = np.where(deltas < 0, -deltas, 0)
@@ -416,7 +406,7 @@ class SwingTradingStrategy(BaseStrategy):
         # 判斷市場狀態
         market_condition, trend_direction = self._determine_market_condition(analysis)
         
-        self.state = StrategyState.IDLE
+        self._finalize_analysis_state()
         self._last_analysis_time = datetime.now()
         
         return {
@@ -862,6 +852,9 @@ class SwingTradingStrategy(BaseStrategy):
             
             # 
             portion_size: float = setup.total_position_size / setup.entry_portions
+            if portion_size <= 0:
+                logger.warning(f"⚠️ 波段策略忽略無效進場數量: {portion_size}")
+                return None
             
             if connector is None:
                 # 
@@ -904,6 +897,8 @@ class SwingTradingStrategy(BaseStrategy):
                         'time': datetime.now().isoformat(),
                         'type': 'limit',
                     })
+                else:
+                    return None
             
             execution.highest_price_since_entry = execution.actual_entry_price
             execution.lowest_price_since_entry = execution.actual_entry_price
