@@ -140,9 +140,8 @@ def auto_evolve_training(
             input_ids = input_ids.to(device)
             labels = labels.to(device)
             
-            # 前向傳播
-            outputs = model(input_ids)
-            logits = outputs.logits
+            # 前向傳播（TinyLLM.forward() 直接返回 logits tensor，無 .logits 屬性）
+            logits = model(input_ids)
             
             # 計算損失
             loss = torch.nn.functional.cross_entropy(
@@ -170,14 +169,21 @@ def auto_evolve_training(
     print(f"\n💾 保存進化模型到: {output_path}")
     output_dir = Path(output_path)
     output_dir.mkdir(parents=True, exist_ok=True)
-    
-    # 保存權重
-    torch.save(model.state_dict(), output_dir / "pytorch_model.bin")
-    
-    # 保存配置
+
+    # 補上存檔所需變數（2.2：config_dict / vocab_file 在此之前未定義）
+    config_dict = model.config.__dict__
+    vocab_file = tok_file  # tok_file 在訓練開始前已被賦值
+
+    # 保存權重（使用 load_llm() 相容格式：{'state_dict':..., 'config':...}）
+    torch.save(
+        {"state_dict": model.state_dict(), "config": config_dict},
+        output_dir / "pytorch_model.bin",
+    )
+
+    # 同時保存獨立的 config.json（供人工閱讀）
     with open(output_dir / "config.json", 'w') as f:
         json.dump(config_dict, f, indent=2)
-    
+
     # 複製分詞器
     if vocab_file.exists():
         import shutil

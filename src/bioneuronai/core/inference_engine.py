@@ -228,8 +228,11 @@ class ModelLoader:
     def warmup(self, model_name: Optional[str] = None, iterations: int = 10):
         """ ()"""
         model = self.get_model(model_name)
-        dummy_input = torch.randn(1, 1024, device=self.device)
-        
+        # forward() 的第一個參數 input_ids 需要整數 (torch.long) token ID；
+        # 使用 torch.randn 會傳入浮點 tensor，導致 embedding 層拋出 RuntimeError
+        seq_len = getattr(getattr(model, "config", None), "numeric_seq_len", 16)
+        dummy_input = torch.zeros(1, seq_len, dtype=torch.long, device=self.device)
+
         logger.info(f"... ({iterations} )")
         with torch.no_grad():
             for _ in range(iterations):
@@ -728,7 +731,13 @@ class FeaturePipeline:
         ema_slow = self._calculate_ema(prices, slow)
         
         macd_line = ema_fast - ema_slow
-        signal_line = macd_line * (2 / (signal + 1))  # 
+        # MACD 信號線應為 MACD 值的 9 週期 EMA；
+        # 需要足夠多的歷史價格才能計算滾動 EMA——若資料不足則用 MACD 值本身近似
+        macd_history = np.array([
+            self._calculate_ema(prices[:i], fast) - self._calculate_ema(prices[:i], slow)
+            for i in range(slow, len(prices) + 1)
+        ])
+        signal_line = self._calculate_ema(macd_history, signal) if len(macd_history) >= signal else macd_line
         histogram = macd_line - signal_line
         
         return macd_line, signal_line, histogram
