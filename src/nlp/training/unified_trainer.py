@@ -254,7 +254,7 @@ def build_model(model_path: Optional[Path] = None) -> Tuple[TinyLLM, BilingualTo
     ckpt = model_path or (_ROOT / "model" / "my_100m_model.pth")
     if ckpt.exists():
         try:
-            checkpoint = torch.load(str(ckpt), map_location="cpu", weights_only=False)
+            checkpoint = torch.load(str(ckpt), map_location="cpu", weights_only=True)
             # 支援新格式 {'state_dict':..., 'config':...} 及舊格式（純 OrderedDict）
             if isinstance(checkpoint, dict) and "state_dict" in checkpoint:
                 state = checkpoint["state_dict"]
