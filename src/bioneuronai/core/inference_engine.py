@@ -228,8 +228,11 @@ class ModelLoader:
     def warmup(self, model_name: Optional[str] = None, iterations: int = 10):
         """ ()"""
         model = self.get_model(model_name)
-        dummy_input = torch.randn(1, 1024, device=self.device)
-        
+        # forward() 的第一個參數 input_ids 需要整數 (torch.long) token ID；
+        # 使用 torch.randn 會傳入浮點 tensor，導致 embedding 層拋出 RuntimeError
+        seq_len = getattr(getattr(model, "config", None), "numeric_seq_len", 16)
+        dummy_input = torch.zeros(1, seq_len, dtype=torch.long, device=self.device)
+
         logger.info(f"... ({iterations} )")
         with torch.no_grad():
             for _ in range(iterations):
@@ -728,11 +731,44 @@ class FeaturePipeline:
         ema_slow = self._calculate_ema(prices, slow)
         
         macd_line = ema_fast - ema_slow
-        signal_line = macd_line * (2 / (signal + 1))  # 
+        # MACD 信號線應為 MACD 值的 9 週期 EMA（O(n) 增量計算）
+        signal_line = self._calculate_macd_signal_ema(prices, fast, slow, signal)
+        if signal_line is None:
+            signal_line = macd_line  # 資料不足時退化為 MACD 值本身
         histogram = macd_line - signal_line
         
         return macd_line, signal_line, histogram
     
+    def _calculate_macd_signal_ema(
+        self,
+        prices: np.ndarray,
+        fast: int,
+        slow: int,
+        signal: int,
+    ):
+        """O(n) 增量計算 MACD 信號線（MACD 值的 signal 週期 EMA）。"""
+        if len(prices) < slow + signal:
+            return None
+        k_fast = 2 / (fast + 1)
+        k_slow = 2 / (slow + 1)
+        k_sig = 2 / (signal + 1)
+        ema_f = float(prices[0])
+        ema_s = float(prices[0])
+        for p in prices[1:slow]:
+            ema_f = p * k_fast + ema_f * (1 - k_fast)
+            ema_s = p * k_slow + ema_s * (1 - k_slow)
+        macd_vals = []
+        for p in prices[slow:]:
+            ema_f = p * k_fast + ema_f * (1 - k_fast)
+            ema_s = p * k_slow + ema_s * (1 - k_slow)
+            macd_vals.append(ema_f - ema_s)
+        if len(macd_vals) < signal:
+            return None
+        sig_ema = macd_vals[0]
+        for v in macd_vals[1:]:
+            sig_ema = v * k_sig + sig_ema * (1 - k_sig)
+        return sig_ema
+
     def _calculate_ema(self, prices: np.ndarray, period: int) -> float:
         """ EMA"""
         if len(prices) < period:

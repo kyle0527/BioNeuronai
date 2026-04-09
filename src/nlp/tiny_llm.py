@@ -78,7 +78,28 @@ class TinyLLMConfig:
 
     @classmethod
     def from_dict(cls, config_dict: Dict) -> 'TinyLLMConfig':
-        return cls(**config_dict)
+        # HuggingFace 欄位名稱 → TinyLLMConfig 欄位名稱 映射
+        # （解決 model/*/config.json 使用 HuggingFace 格式但程式碼使用自訂格式的問題）
+        hf_field_map = {
+            "hidden_size": "embed_dim",
+            "num_hidden_layers": "num_layers",
+            "num_attention_heads": "num_heads",
+            "intermediate_size": "ffn_dim",
+            "max_position_embeddings": "max_seq_length",
+            "hidden_dropout_prob": "dropout",
+            "attention_probs_dropout_prob": "attention_dropout",
+        }
+        translated: Dict = {}
+        for k, v in config_dict.items():
+            translated[hf_field_map.get(k, k)] = v
+        # 過濾掉 TinyLLMConfig.__init__ 不接受的 HuggingFace 專用欄位
+        valid_fields = {
+            "vocab_size", "max_seq_length", "embed_dim", "num_heads", "num_layers",
+            "ffn_dim", "dropout", "attention_dropout", "use_cache",
+            "use_numeric_mode", "numeric_input_dim", "signal_output_dim", "numeric_seq_len",
+        }
+        filtered = {k: v for k, v in translated.items() if k in valid_fields}
+        return cls(**filtered)
 
 
 class MultiHeadAttention(nn.Module):

@@ -218,38 +218,53 @@ class Trainer:
         total_signal_loss = 0.0
         num_batches = 0
 
+        # sig_only 旗標由 unified_trainer 動態注入
+        sig_only: bool = getattr(self, "_run_sig_only", False)
         multitask = self.config.multitask and self.signal_dataloader is not None
 
         self.optimizer.zero_grad()
 
         for batch_idx, batch in enumerate(self.train_dataloader):
-            # ── 語言任務 ────────────────────────────────────────────────────────
-            input_ids = batch['input_ids'].to(self.device)
-            labels = batch['labels'].to(self.device) if 'labels' in batch else input_ids
-
-            if self.config.use_amp:
-                with autocast():
-                    logits = self.model(input_ids)
-                    lm_loss = self._compute_loss(logits, labels)
-            else:
-                logits = self.model(input_ids)
-                lm_loss = self._compute_loss(logits, labels)
-
-            # ── 訊號任務（多任務模式）──────────────────────────────────────────
-            signal_loss_val = 0.0
-            if multitask:
-                sig_batch = self._next_signal_batch()
-                feat_seq = sig_batch['feature_seq'].to(self.device)    # (B, T, 1024)
-                sig_labels = sig_batch['signal_labels'].to(self.device) # (B, 512)
+            # ── sig_only 模式：batch 只含 feature_seq / signal_labels ──────────
+            if sig_only:
+                feat_seq = batch['feature_seq'].to(self.device)      # (B, T, 1024)
+                sig_labels = batch['signal_labels'].to(self.device)  # (B, 512)
                 if self.config.use_amp:
                     with autocast():
-                        sig_loss = self._compute_signal_loss(feat_seq, sig_labels)
+                        combined_loss = self._compute_signal_loss(feat_seq, sig_labels)
                 else:
-                    sig_loss = self._compute_signal_loss(feat_seq, sig_labels)
-                signal_loss_val = sig_loss.item()
-                combined_loss = (lm_loss + self.config.signal_loss_weight * sig_loss)
+                    combined_loss = self._compute_signal_loss(feat_seq, sig_labels)
+                total_signal_loss += combined_loss.item()
+                lm_loss = combined_loss  # 供下方統一記錄
             else:
-                combined_loss = lm_loss
+                # ── 語言任務 ─────────────────────────────────────────────────────
+                input_ids = batch['input_ids'].to(self.device)
+                labels = batch['labels'].to(self.device) if 'labels' in batch else input_ids
+
+                if self.config.use_amp:
+                    with autocast():
+                        logits = self.model(input_ids)
+                        lm_loss = self._compute_loss(logits, labels)
+                else:
+                    logits = self.model(input_ids)
+                    lm_loss = self._compute_loss(logits, labels)
+
+                # ── 訊號任務（多任務模式）──────────────────────────────────────
+                signal_loss_val = 0.0
+                if multitask:
+                    sig_batch = self._next_signal_batch()
+                    feat_seq = sig_batch['feature_seq'].to(self.device)    # (B, T, 1024)
+                    sig_labels = sig_batch['signal_labels'].to(self.device) # (B, 512)
+                    if self.config.use_amp:
+                        with autocast():
+                            sig_loss = self._compute_signal_loss(feat_seq, sig_labels)
+                    else:
+                        sig_loss = self._compute_signal_loss(feat_seq, sig_labels)
+                    signal_loss_val = sig_loss.item()
+                    combined_loss = (lm_loss + self.config.signal_loss_weight * sig_loss)
+                else:
+                    combined_loss = lm_loss
+                total_signal_loss += signal_loss_val
 
             combined_loss = combined_loss / self.config.gradient_accumulation_steps
 
@@ -261,7 +276,6 @@ class Trainer:
 
             total_loss += combined_loss.item() * self.config.gradient_accumulation_steps
             total_lm_loss += lm_loss.item()
-            total_signal_loss += signal_loss_val
             num_batches += 1
 
             # ── 梯度累積 & 優化器步進 ──────────────────────────────────────────

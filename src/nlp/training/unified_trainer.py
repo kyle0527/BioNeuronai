@@ -254,9 +254,22 @@ def build_model(model_path: Optional[Path] = None) -> Tuple[TinyLLM, BilingualTo
     ckpt = model_path or (_ROOT / "model" / "my_100m_model.pth")
     if ckpt.exists():
         try:
-            state = torch.load(str(ckpt), map_location="cpu", weights_only=True)
-            model.load_state_dict(state, strict=False)
-            print(f"[unified_trainer] 權重載入自 {ckpt}（strict=False，部分層可忽略）")
+            checkpoint = torch.load(str(ckpt), map_location="cpu", weights_only=True)
+            # 支援新格式 {'state_dict':..., 'config':...} 及舊格式（純 OrderedDict）
+            if isinstance(checkpoint, dict) and "state_dict" in checkpoint:
+                state = checkpoint["state_dict"]
+            else:
+                state = checkpoint
+            loaded = model.load_state_dict(state, strict=False)
+            missing = loaded.missing_keys
+            unexpected = loaded.unexpected_keys
+            if missing or unexpected:
+                print(
+                    f"[unified_trainer] 部分層未對齊 — missing={len(missing)}, "
+                    f"unexpected={len(unexpected)}（通常因詞彙表大小不符，embedding 已重新初始化）"
+                )
+            else:
+                print(f"[unified_trainer] 權重載入自 {ckpt}（完整載入）")
         except Exception as e:
             print(f"[unified_trainer] 權重載入失敗，從隨機初始化開始: {e}")
     else:
@@ -355,7 +368,8 @@ def train(
     if save_to_model:
         dest = _ROOT / "model" / "my_100m_model.pth"
         dest.parent.mkdir(exist_ok=True)
-        torch.save(model.state_dict(), str(dest))
+        # 使用 load_llm() 相容格式，讓 auto_evolve.py 可直接載入
+        torch.save({"state_dict": model.state_dict(), "config": model.config.__dict__}, str(dest))
         print(f"\n[unified_trainer] ✓ 權重已儲存至 {dest}")
         print("  InferenceEngine 與 ChatEngine 下次啟動時將自動載入此權重。")
     else:
