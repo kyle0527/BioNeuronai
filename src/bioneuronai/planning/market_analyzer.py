@@ -656,10 +656,19 @@ class MarketAnalyzer:
         }
         return {'metrics': metrics}
     
-    def _analyze_news_sentiment(self) -> Dict:
-        """新聞情緒分析（保守中性預設值）"""
-        return {'score': 0.0}
-    
+    def _analyze_news_sentiment(self, symbol: str = "BTCUSDT") -> Dict:
+        """新聞情緒分析 — 整合 CryptoNewsAnalyzer（CODE_FIX: 移除硬編碼 0.0，接入真實分析器）"""
+        try:
+            from bioneuronai.analysis.news.analyzer import CryptoNewsAnalyzer
+            _analyzer = CryptoNewsAnalyzer()
+            result = _analyzer.analyze_news(symbol)
+            score = float(result.sentiment_score)
+            logger.info(f"  ✓ 新聞情緒 (CryptoNewsAnalyzer): {score:+.3f}")
+            return {'score': score}
+        except Exception as e:
+            logger.debug(f"新聞情緒分析 fallback（中性）: {e}")
+            return {'score': 0.0}
+
     def _analyze_social_sentiment(self) -> Dict:
         """社交情緒分析（保守中性預設值）"""
         return {'score': 0.0}
