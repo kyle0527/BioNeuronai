@@ -11,6 +11,8 @@ BioNeuronai CLI - 統一命令入口
     trade     --symbol BTCUSDT --testnet
     plan      [--output report.json]
     news      --symbol BTCUSDT --max-items 10
+    evolve    --symbol ETHUSDT --generations 10 --population 20
+    phase     [--timeframe 1h]
     status
 
 符合 CODE_FIX_GUIDE.md 規範:
@@ -372,6 +374,70 @@ def cmd_evolve(args: argparse.Namespace) -> None:
         sys.exit(1)
 
 
+def cmd_phase(args: argparse.Namespace) -> None:
+    """
+    市場階段路由命令（CODE_FIX: 新增 TradingPhaseRouter CLI 整合）
+
+    查詢當前時間的市場交易階段及建議策略組合。
+    若指定 --timeframe 可調整策略時間框架。
+
+    Example:
+        python main.py phase
+        python main.py phase --timeframe 4h
+    """
+    print(f"\n{'='*60}")
+    print(f"  BioNeuronai Phase Router  [timeframe: {args.timeframe}]")
+    print(f"{'='*60}\n")
+
+    try:
+        from bioneuronai.strategies.phase_router import TradingPhaseRouter
+    except ImportError as e:
+        logger.error("TradingPhaseRouter 載入失敗: %s", e)
+        sys.exit(1)
+
+    try:
+        from datetime import datetime as _dt
+        router = TradingPhaseRouter(timeframe=args.timeframe)
+        now = _dt.now()
+
+        # 使用基本市場數據（無持倉、中性波動率）路由決策
+        market_data = {
+            'price': 0.0,
+            'volatility': 0.5,
+            'has_news_event': False,
+        }
+        decision = router.route_trading_decision(
+            current_time=now,
+            market_data=market_data,
+            has_position=False,
+        )
+
+        print(f"  當前時間  : {now.strftime('%Y-%m-%d %H:%M:%S')}")
+        print(f"  交易階段  : {decision.get('phase', 'N/A')}")
+        print(f"  動作階段  : {decision.get('action_phase', 'N/A')}")
+        print(f"  使用策略  : {decision.get('strategy_used', 'N/A')}")
+        config = decision.get('config', {})
+        if config:
+            print(f"  倉位倍數  : {config.get('position_size_multiplier', 1.0):.2f}")
+            print(f"  風險倍數  : {config.get('risk_multiplier', 1.0):.2f}")
+            preferred = config.get('preferred_actions', [])
+            if preferred:
+                print(f"  建議動作  : {', '.join(preferred)}")
+
+        stats = router.get_phase_statistics()
+        if stats:
+            total = sum(v.get('count', 0) for v in stats.values())
+            print(f"\n  歷史階段統計: {total} 次")
+
+        print(f"\n{'='*60}\n")
+
+    except KeyboardInterrupt:
+        print("\n  已中止。")
+    except Exception as exc:
+        logger.error("市場階段查詢失敗: %s", exc)
+        sys.exit(1)
+
+
 def cmd_status(args: argparse.Namespace) -> None:  # noqa: ARG001
     """
     系統健康狀態命令
@@ -681,6 +747,8 @@ def _build_parser() -> argparse.ArgumentParser:
   python main.py plan      --output daily_plan.json
   python main.py news      --symbol BTCUSDT --max-items 5
   python main.py pretrade  --symbol BTCUSDT --action long
+  python main.py evolve    --symbol ETHUSDT --generations 10 --population 20
+  python main.py phase     --timeframe 1h
   python main.py status
         """,
     )
@@ -799,6 +867,13 @@ def _build_parser() -> argparse.ArgumentParser:
     ep.add_argument("--output", default=None, metavar="FILE",
                     help="輸出最優策略至 JSON 檔案  (可選)")
     ep.set_defaults(func=cmd_evolve)
+
+    # ── phase ─────────────────────────────────────────────────────────────────
+    # CODE_FIX: 新增市場階段路由命令（整合 TradingPhaseRouter）
+    php = subparsers.add_parser("phase", help="查詢當前市場交易階段及建議策略（TradingPhaseRouter）")
+    php.add_argument("--timeframe", default="1h", metavar="TIMEFRAME",
+                     help="策略時間框架  (預設: 1h)")
+    php.set_defaults(func=cmd_phase)
 
     # ── status ────────────────────────────────────────────────────────────────
     statp = subparsers.add_parser("status", help="系統健康狀態檢查")

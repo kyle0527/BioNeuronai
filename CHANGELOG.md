@@ -1,5 +1,30 @@
 # 更新日誌
 
+## [v2.2.1] - 2026-04-12
+
+### 🔧 核心修正（依 CODE_FIX_GUIDE.md 規範）
+
+#### 【一】整合 CryptoNewsAnalyzer 於 MarketAnalyzer（market_analyzer.py）
+- **修正**：`_analyze_news_sentiment()` 移除硬編碼 `{'score': 0.0}`，改為呼叫
+  `CryptoNewsAnalyzer().analyze_news(symbol)` 取得真實新聞情緒分數
+- **Fallback**：API 失敗時 graceful fallback 至中性值 `0.0`，不中斷主流程
+- **統一**：`analyze_fundamental_environment()` 與 `calculate_comprehensive_sentiment()`
+  兩條路徑現在均透過 `CryptoNewsAnalyzer` 取得新聞情緒，消除不一致
+
+#### 【二】CLI 新增 `phase` 命令（市場階段路由）
+- **新增**：`src/bioneuronai/cli/main.py` 加入 `cmd_phase()` 函數及 `phase` subparser
+- **功能**：查詢當前時間的交易階段、動作階段、建議策略、倉位倍數、風險倍數
+- **參數**：`--timeframe`（預設 `1h`）
+- **範例**：`python main.py phase` / `python main.py phase --timeframe 4h`
+- **說明**：`evolve` 命令（StrategyArena）已於 v2.2 加入，本次僅補充 `phase` 命令
+
+#### 【三】新增 docs/CODE_FIX_GUIDE.md
+- 建立專案核心修正規範文件，記錄修正原則、已完成修正、待辦項目
+- 說明 GitHub Spark UI 整合流程（分開部署 vs 整合 build 至 FastAPI）
+- 確認現有 AI 引擎、UI 及 REST API 完成狀態
+
+---
+
 ## [v2.2] - 2026-04-07
 
 ### 🧠 TinyLLM 雙模態架構重設計 + 訓練系統整合
