@@ -917,7 +917,7 @@ print(bioneuronai.__file__)  # 確認加載的包位置
 - [ ] **回測引擎**: 完整的策略回測框架
 - [ ] **多交易所支持**: Binance + OKX + Bybit
 
-### v2.2 計劃功能
+### v2.1 後續延伸功能
 
 - [ ] **機器學習優化**: 自動調參系統
 - [ ] **雲端部署**: Docker + Kubernetes
@@ -930,7 +930,7 @@ print(bioneuronai.__file__)  # 確認加載的包位置
 
 - [ARCHITECTURE_REFACTORING.md](../../ARCHITECTURE_REFACTORING.md) - 架構重構總覽
 - [CRYPTO_TRADING_GUIDE.md](../CRYPTO_TRADING_GUIDE.md) - 加密貨幣交易指南
-- [STRATEGIES_QUICK_REFERENCE.md](../STRATEGIES_QUICK_REFERENCE.md) - 策略快速參考
+- [STRATEGIES_QUICK_REFERENCE.md](../../archived/docs_v2_1_legacy/STRATEGIES_QUICK_REFERENCE.legacy_20260406.md) - 策略快速參考
 - [TRADING_STRATEGIES_GUIDE.md](../TRADING_STRATEGIES_GUIDE.md) - 交易策略詳細指南
 
 ---

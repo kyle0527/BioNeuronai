@@ -5,6 +5,15 @@
 1. 模組依賴圖與實際資料流
 2. 核心檔案與舊版殘留/過渡檔案清單
 
+## 目錄
+
+1. 模組依賴圖
+2. 實際資料流
+3. 核心檔案
+4. 舊版與過渡區注意事項
+5. 修改優先順序建議
+6. 建議閱讀順序
+
 ---
 
 ## 1. 模組依賴圖
@@ -65,9 +74,12 @@ flowchart TD
     RAGADAPTER --> IKB[rag.internal.InternalKnowledgeBase]
 
     IE --> MODEL[model/my_100m_model.pth]
+    CE --> CHATMODEL[model/tiny_llm_100m.pth]
     IE --> FP[FeaturePipeline]
     FP --> FEAT[1024 維特徵]
 ```
+
+> 補充：目前正式交易訊號由 `InferenceEngine -> model/my_100m_model.pth` 處理；對話功能由 `ChatEngine -> model/tiny_llm_100m.pth` 處理，兩條模型路徑已分離。
 
 ### 1.2 契約層與基礎設施依賴
 

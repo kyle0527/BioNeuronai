@@ -23,6 +23,8 @@ from datetime import datetime, timedelta
 import numpy as np
 import logging
 
+from config.trading_costs import TradingCostCalculator
+
 logger = logging.getLogger(__name__)
 
 
@@ -313,9 +315,14 @@ class BaseStrategy(ABC):
         self.current_setup: Optional[TradeSetup] = None
         self.active_trades: Dict[str, TradeExecution] = {}
         self.trade_history: List[TradeExecution] = []
-        
+
         self._last_analysis_time: Optional[datetime] = None
         self._cooldown_until: Optional[datetime] = None
+        self.cost_calculator = TradingCostCalculator(
+            vip_level=0,
+            use_bnb=False,
+            default_leverage=5,
+        )
 
     def _finalize_analysis_state(self) -> None:
         """分析結束後同步狀態，避免持倉中被誤重置為 idle。"""
@@ -456,6 +463,106 @@ class BaseStrategy(ABC):
             logger.warning("檢查 connector 進場衝突時失敗: %s", exc)
 
         return False, ""
+
+    @staticmethod
+    def _safe_float(value: Any, default: float = 0.0) -> float:
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return default
+
+    def _get_dynamic_cost_inputs(
+        self,
+        setup: TradeSetup,
+        connector: Any,
+    ) -> Tuple[Optional[float], Optional[float]]:
+        """從 connector 提取資金費率與即時 spread。"""
+        if connector is None:
+            return None, None
+
+        funding_rate: Optional[float] = None
+        spread_bps: Optional[float] = None
+        try:
+            if hasattr(connector, "get_premium_index"):
+                premium = connector.get_premium_index(setup.symbol)
+                if premium:
+                    funding_rate = self._safe_float(premium.get("lastFundingRate"))
+        except Exception as exc:
+            logger.debug("提取 funding rate 失敗: %s", exc)
+
+        try:
+            if hasattr(connector, "get_book_ticker"):
+                ticker = connector.get_book_ticker(setup.symbol)
+                if ticker:
+                    best_bid = self._safe_float(ticker.get("bidPrice"))
+                    best_ask = self._safe_float(ticker.get("askPrice"))
+                    mid = (best_bid + best_ask) / 2
+                    if mid > 0:
+                        spread_bps = ((best_ask - best_bid) / mid) * 10000
+        except Exception as exc:
+            logger.debug("提取 spread 失敗: %s", exc)
+
+        return funding_rate, spread_bps
+
+    def _estimate_liquidation_price(
+        self,
+        setup: TradeSetup,
+        leverage: Optional[int] = None,
+    ) -> float:
+        """使用既有交易成本計算器估算強平價。"""
+        if setup.entry_price <= 0 or setup.total_position_size <= 0:
+            return 0.0
+        costs = self.cost_calculator.calculate_entry_exit_costs(
+            position_size_usd=setup.total_position_size * setup.entry_price,
+            entry_price=setup.entry_price,
+            exit_price=setup.entry_price,
+            symbol=setup.symbol,
+            leverage=leverage or self.cost_calculator.default_leverage,
+            position_side=setup.direction if setup.direction in ("long", "short") else "long",
+        )
+        return float(costs.get("liquidation_price", 0.0))
+
+    def _get_primary_take_profit(self, setup: TradeSetup) -> float:
+        """取得策略最保守的第一個止盈目標。"""
+        for price in (setup.take_profit_1, setup.take_profit_2, setup.take_profit_3):
+            if price and price > 0:
+                return float(price)
+        return 0.0
+
+    def _passes_pre_entry_guards(
+        self,
+        setup: TradeSetup,
+        connector: Any,
+    ) -> Tuple[bool, str]:
+        """進場前統一檢查：成本效益與止損必須先於強平。"""
+        leverage = self.cost_calculator.default_leverage
+        liquidation_price = self._estimate_liquidation_price(setup, leverage=leverage)
+        if liquidation_price > 0:
+            if setup.direction == "long" and setup.stop_loss <= liquidation_price:
+                return False, f"止損 {setup.stop_loss:.2f} 未高於強平價 {liquidation_price:.2f}"
+            if setup.direction == "short" and setup.stop_loss >= liquidation_price:
+                return False, f"止損 {setup.stop_loss:.2f} 未低於強平價 {liquidation_price:.2f}"
+
+        take_profit = self._get_primary_take_profit(setup)
+        if take_profit > 0 and setup.entry_price > 0 and setup.total_position_size > 0:
+            funding_rate, spread_bps = self._get_dynamic_cost_inputs(setup, connector)
+            min_profit_pct = self.cost_calculator.get_minimum_profit_target(
+                position_size_usd=setup.total_position_size * setup.entry_price,
+                symbol=setup.symbol,
+                desired_profit_margin=0.0,
+                leverage=leverage,
+                based_on="notional",
+                funding_rate=funding_rate,
+                spread_bps=spread_bps,
+                position_side=setup.direction if setup.direction in ("long", "short") else "long",
+            )
+            expected_profit_pct = abs(take_profit - setup.entry_price) / setup.entry_price * 100
+            if expected_profit_pct < min_profit_pct:
+                return False, (
+                    f"預期利潤 {expected_profit_pct:.3f}% 低於最低成本門檻 {min_profit_pct:.3f}%"
+                )
+
+        return True, ""
     
     # ========================
     # 3. 

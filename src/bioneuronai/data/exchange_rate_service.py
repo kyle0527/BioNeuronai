@@ -4,16 +4,19 @@
 從外部 API 獲取即時匯率，不存資料庫
 
 支援的 API：
-1. ExchangeRate-API (免費)
-2. Binance (USDT 對穩定幣)
+1. Binance (加密貨幣對，優先使用)
+2. ExchangeRate-API (法幣匯率，免費)
 3. 備用：固定匯率（離線時使用）
 """
 
 import logging
-from typing import Optional, Dict
+from typing import Optional, Dict, Any
 from datetime import datetime
 from dataclasses import dataclass
 import threading
+
+# 已知法幣代碼；不在此集合中的視為加密貨幣，優先使用 Binance 報價
+KNOWN_FIAT: frozenset = frozenset({"USD", "TWD", "EUR", "GBP", "JPY", "CNY", "KRW", "HKD", "SGD"})
 
 try:
     import requests
@@ -61,12 +64,22 @@ class ExchangeRateService:
         ("USDT", "SGD"): 1.34,
     }
     
-    def __init__(self):
+    def __init__(self, connector: Optional[Any] = None):
+        """
+        Args:
+            connector: 可選的 BinanceFuturesConnector 實例。
+                       提供後，加密貨幣對將優先從 Binance 取得即時報價。
+        """
         self._cache: Dict[tuple, ExchangeRateInfo] = {}
         self._lock = threading.Lock()
         self._last_api_error = None
-        
+        self._binance = connector  # Optional[BinanceFuturesConnector]
+
         logger.info("💱 即時匯率服務已啟動")
+
+    def set_connector(self, connector: Any) -> None:
+        """注入 Binance 連接器（用於加密貨幣即時報價）"""
+        self._binance = connector
     
     def get_rate(self, from_currency: str, to_currency: str) -> Optional[ExchangeRateInfo]:
         """
@@ -116,45 +129,94 @@ class ExchangeRateService:
     
     def _fetch_from_api(self, from_curr: str, to_curr: str) -> Optional[ExchangeRateInfo]:
         """從外部 API 獲取匯率"""
-        
-        # 方法 1: 如果是 USDT 對 USD，直接返回 1:1（穩定幣）
+
+        # USDT/USD 穩定幣 1:1
         if from_curr == "USDT" and to_curr == "USD":
             return ExchangeRateInfo(
-                from_currency=from_curr,
-                to_currency=to_curr,
-                rate=1.0,
-                source="stablecoin",
-                updated_at=datetime.now(),
-                is_realtime=True
+                from_currency=from_curr, to_currency=to_curr,
+                rate=1.0, source="stablecoin",
+                updated_at=datetime.now(), is_realtime=True
             )
-        
-        # 方法 2: 使用免費匯率 API
+
+        # 加密貨幣對 → 優先 Binance
+        if self._binance and from_curr not in KNOWN_FIAT:
+            result = self._fetch_crypto_from_binance(from_curr, to_curr)
+            if result:
+                return result
+
+        # 法幣匯率 → ExchangeRate-API
+        return self._fetch_fiat_from_api(from_curr, to_curr)
+
+    def _fetch_crypto_from_binance(self, from_curr: str, to_curr: str) -> Optional[ExchangeRateInfo]:
+        """使用 Binance 取得加密貨幣即時報價"""
+        try:
+            base_quote = "USDT" if to_curr in KNOWN_FIAT or to_curr == "USD" else to_curr
+            ticker = self._binance.get_ticker_price(f"{from_curr}{base_quote}")
+            direct_rate = self._extract_ticker_price(ticker)
+
+            if direct_rate is None and to_curr not in KNOWN_FIAT:
+                inverse_ticker = self._binance.get_ticker_price(f"{to_curr}{from_curr}")
+                inverse_rate = self._extract_ticker_price(inverse_ticker)
+                if inverse_rate and inverse_rate > 0:
+                    direct_rate = 1 / inverse_rate
+
+            if direct_rate is None:
+                return None
+
+            rate = direct_rate
+            source = "binance"
+            if to_curr in KNOWN_FIAT and to_curr not in ("USD", "USDT"):
+                fiat_rate = self._fetch_fiat_from_api("USDT", to_curr) or self._get_fallback_rate("USDT", to_curr)
+                if fiat_rate is None:
+                    return None
+                rate *= fiat_rate.rate
+                source = f"binance+{fiat_rate.source}"
+
+            logger.debug(f"💱 Binance 報價: {from_curr}/{to_curr} = {rate}")
+            return ExchangeRateInfo(
+                from_currency=from_curr, to_currency=to_curr,
+                rate=rate, source=source,
+                updated_at=datetime.now(), is_realtime=True
+            )
+        except Exception as e:
+            logger.debug(f"Binance 報價失敗，回退 ExchangeRate-API: {e}")
+        return None
+
+    @staticmethod
+    def _extract_ticker_price(ticker: Any) -> Optional[float]:
+        """從 Binance connector 回傳的 MarketData / dict 中提取價格。"""
+        if ticker is None:
+            return None
+        if hasattr(ticker, "price"):
+            try:
+                return float(ticker.price)
+            except (TypeError, ValueError):
+                return None
+        if isinstance(ticker, dict):
+            price = ticker.get("price", ticker.get("close"))
+            try:
+                return float(price)
+            except (TypeError, ValueError):
+                return None
+        return None
+
+    def _fetch_fiat_from_api(self, from_curr: str, to_curr: str) -> Optional[ExchangeRateInfo]:
+        """使用 exchangerate-api.com 取得法幣匯率（免費，每月 1500 次）"""
         try:
             import requests
-            
-            # 先將 USDT 視為 USD
             base = "USD" if from_curr == "USDT" else from_curr
-            
-            # 使用 exchangerate-api.com (免費，每月 1500 次)
             url = f"https://open.er-api.com/v6/latest/{base}"
             response = requests.get(url, timeout=5)
-            
             if response.status_code == 200:
                 data = response.json()
                 if data.get("result") == "success" and to_curr in data.get("rates", {}):
                     rate = data["rates"][to_curr]
-                    
                     logger.debug(f"💱 API 匯率: {from_curr}/{to_curr} = {rate}")
-                    
                     return ExchangeRateInfo(
-                        from_currency=from_curr,
-                        to_currency=to_curr,
-                        rate=rate,
-                        source="exchangerate-api",
-                        updated_at=datetime.now(),
-                        is_realtime=True
+                        from_currency=from_curr, to_currency=to_curr,
+                        rate=rate, source="exchangerate-api",
+                        updated_at=datetime.now(), is_realtime=True
                     )
-        
         except Exception as e:
             error_type = type(e).__name__
             if 'Timeout' in error_type:
@@ -163,7 +225,6 @@ class ExchangeRateService:
                 logger.warning(f"匯率 API 請求失敗: {e}")
             else:
                 logger.error(f"獲取匯率時發生錯誤: {e}")
-        
         return None
     
     def _get_fallback_rate(self, from_curr: str, to_curr: str) -> Optional[ExchangeRateInfo]:
@@ -264,11 +325,19 @@ class ExchangeRateService:
 _rate_service: Optional[ExchangeRateService] = None
 
 
-def get_exchange_rate_service() -> ExchangeRateService:
-    """獲取全局匯率服務實例"""
+def get_exchange_rate_service(connector: Optional[Any] = None) -> ExchangeRateService:
+    """
+    獲取全局匯率服務實例。
+
+    Args:
+        connector: 可選的 BinanceFuturesConnector，傳入後將注入至服務實例，
+                   使加密貨幣報價優先從 Binance 取得。
+    """
     global _rate_service
     if _rate_service is None:
-        _rate_service = ExchangeRateService()
+        _rate_service = ExchangeRateService(connector=connector)
+    elif connector is not None:
+        _rate_service.set_connector(connector)
     return _rate_service
 
 

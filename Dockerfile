@@ -26,7 +26,7 @@ RUN wget -q https://prdownloads.sourceforge.net/ta-lib/ta-lib-0.4.0-src.tar.gz \
 
 # Install Python dependencies into an isolated prefix
 WORKDIR /install
-COPY requirements-crypto.txt pyproject.toml ./
+COPY pyproject.toml ./
 
 RUN pip install --upgrade pip --no-cache-dir \
     && pip install --prefix=/install/pkg --no-cache-dir \
@@ -73,7 +73,6 @@ WORKDIR /app
 COPY src/       ./src/
 COPY config/    ./config/
 COPY backtest/  ./backtest/
-COPY backtesting/ ./backtesting/
 COPY main.py    ./
 COPY pyproject.toml ./
 

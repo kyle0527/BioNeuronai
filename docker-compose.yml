@@ -79,7 +79,7 @@ services:
     volumes:
       - bioneuron-data:/app/data
       - bioneuron-logs:/app/logs
-      - ./backtesting:/app/backtesting  # 掛載本地回測結果方便查看
+      - ./backtest:/app/backtest  # 掛載本地回測結果方便查看
 
   # ---- 模擬紙交易 ----
   simulate:

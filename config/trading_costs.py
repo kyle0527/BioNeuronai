@@ -15,8 +15,12 @@
 3. 800:00, 08:00, 16:00 UTC
 """
 
-from typing import Dict, Literal, Optional
-from dataclasses import dataclass
+from typing import Any, Dict, Literal, Optional, TYPE_CHECKING
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
+
+if TYPE_CHECKING:
+    from src.bioneuronai.data.binance_futures import BinanceFuturesConnector
 
 
 # ========================================
@@ -244,12 +248,10 @@ class TradingCostCalculator:
     
     def __init__(self, vip_level: int = 0, use_bnb: bool = False, default_leverage: int = 10):
         """
-        
-        
         Args:
             vip_level: VIP 0-9
-            use_bnb:  BNB 
-            default_leverage: 1-125
+            use_bnb: 使用 BNB 支付手續費
+            default_leverage: 預設槓桿倍數 1-125
         """
         self.fees = VIP_FEES.get(vip_level, STANDARD_FEES)
         self.use_bnb = use_bnb
@@ -266,55 +268,51 @@ class TradingCostCalculator:
         is_maker_exit: bool = False,
         holding_hours: float = 24.0,
         market_condition: Literal["normal", "volatile", "extreme"] = "normal",
-        leverage: Optional[int] = None
+        leverage: Optional[int] = None,
+        funding_rate: Optional[float] = None,
+        funding_interval_hours: float = 8.0,
+        spread_bps: Optional[float] = None,
+        position_side: Literal["long", "short"] = "long",
     ) -> Dict:
         """
-        
-        
         Args:
-            leverage: 
-        
-        Returns:
-            Dict: 
+            funding_rate: 當下資金費率（可正可負）。正值=多單付費，負值=多單收入。
+                          由呼叫方從已收集的 MarketMicrostructure 傳入；None 時用靜態預設。
+            funding_interval_hours: 實際結算間隔小時數（Binance 可能非固定 8h）。
+            spread_bps: 當下買賣價差基點。由呼叫方從 order_book 計算後傳入；None 時用靜態預設。
         """
-        # 
-        if leverage is None:
-            leverage = self.default_leverage
-        
-        # 
-        required_margin = position_size_usd / leverage
-        
-        # 100%
-        # :  =  × (1 - 1/ + )
-        #  0.4%BTC 2.5%
+        lev = leverage if leverage is not None else self.default_leverage
+        required_margin = position_size_usd / lev
         maintenance_margin_rate = 0.004 if symbol == "BTCUSDT" else 0.01
-        liquidation_distance = (1 / leverage) - maintenance_margin_rate
-        liquidation_price_long = entry_price * (1 - liquidation_distance)
-        
-        # 1. 
+        liquidation_distance = (1 / lev) - maintenance_margin_rate
+        if position_side == "short":
+            liquidation_price = entry_price * (1 + liquidation_distance)
+        else:
+            liquidation_price = entry_price * (1 - liquidation_distance)
+
+        # 1. 開倉手續費
         entry_fee = self.fees.calculate_fee(position_size_usd, is_maker_entry)
         if self.use_bnb:
             entry_fee *= (1 - float(self.bnb_discount))
-        
-        # 2. 
+
+        # 2. 平倉手續費
         exit_value = position_size_usd * (exit_price / entry_price)
         exit_fee = self.fees.calculate_fee(exit_value, is_maker_exit)
         if self.use_bnb:
             exit_fee *= (1 - float(self.bnb_discount))
-        
-        # 3. 
-        avg_funding_rate = FUNDING_RATE_REFERENCE.get(
-            symbol, 
-            FUNDING_RATE_REFERENCE["ALTCOINS"]
-        )["avg_7d"]
-        
-        funding_settlements = holding_hours / FUNDING_RATE.settlement_interval_hours
-        funding_cost = position_size_usd * float(avg_funding_rate) * funding_settlements  # type: ignore[arg-type]
-        
-        # 4. 
-        spread_info = SPREAD_COSTS.get(symbol, SPREAD_COSTS["MINOR_ALTS"])
-        spread_bps = spread_info["typical_spread_bps"]
-        spread_cost = position_size_usd * (float(spread_bps) / 10000) * 2  # type: ignore[arg-type]  # 
+
+        # 3. 資金費率（由呼叫方傳入已收集的即時值；可正可負）
+        actual_funding_rate = funding_rate if funding_rate is not None else float(
+            FUNDING_RATE_REFERENCE.get(symbol, FUNDING_RATE_REFERENCE["ALTCOINS"])["avg_7d"]  # type: ignore[arg-type]
+        )
+        funding_settlements = holding_hours / funding_interval_hours
+        funding_cost = position_size_usd * actual_funding_rate * funding_settlements
+
+        # 4. 買賣價差（由呼叫方傳入即時值；否則用靜態預設）
+        actual_spread_bps = spread_bps if spread_bps is not None else float(
+            SPREAD_COSTS.get(symbol, SPREAD_COSTS["MINOR_ALTS"])["typical_spread_bps"]  # type: ignore[index]
+        )
+        spread_cost = position_size_usd * (actual_spread_bps / 10000) * 2
         
         # 5. 
         slippage_rate = estimate_slippage(position_size_usd, symbol, market_condition)
@@ -358,24 +356,22 @@ class TradingCostCalculator:
             "cost_percentage_on_margin": round(cost_percentage_on_margin, 4),  # 
             
             # 
-            "leverage": leverage,
+            "leverage": lev,
             "position_size_usd": position_size_usd,
             "required_margin": round(required_margin, 2),
-            "liquidation_price": round(liquidation_price_long, 2),
-            
-            # 
+            "liquidation_price": round(liquidation_price, 2),
             "breakeven_price": round(breakeven_price, 2),
             "roi_on_margin": round(roi_on_margin, 2) if exit_price != entry_price else 0.0,
             "roi_on_notional": round(roi_on_notional, 2) if exit_price != entry_price else 0.0,
-            
-            # 
             "details": {
                 "vip_level": self.fees.vip_level,
                 "bnb_discount": self.bnb_discount,
                 "holding_hours": holding_hours,
-                "funding_settlements": funding_settlements,
-                "avg_funding_rate": avg_funding_rate,
-                "maintenance_margin_rate": maintenance_margin_rate
+                "funding_rate": actual_funding_rate,
+                "funding_rate_is_negative": actual_funding_rate < 0,
+                "funding_interval_hours": funding_interval_hours,
+                "funding_settlements": round(funding_settlements, 2),
+                "maintenance_margin_rate": maintenance_margin_rate,
             }
         }
     
@@ -383,9 +379,12 @@ class TradingCostCalculator:
         self,
         position_size_usd: float,
         symbol: str = "BTCUSDT",
-        desired_profit_margin: float = 0.01,  # 1%
+        desired_profit_margin: float = 0.01,
         leverage: Optional[int] = None,
-        based_on: Literal["margin", "notional"] = "notional"
+        based_on: Literal["margin", "notional"] = "notional",
+        funding_rate: Optional[float] = None,
+        spread_bps: Optional[float] = None,
+        position_side: Literal["long", "short"] = "long",
     ) -> float:
         """
         
@@ -405,13 +404,16 @@ class TradingCostCalculator:
         # 24market order 
         costs = self.calculate_entry_exit_costs(
             position_size_usd=position_size_usd,
-            entry_price=50000,  # 
+            entry_price=50000,
             exit_price=50000,
             symbol=symbol,
             is_maker_entry=False,
             is_maker_exit=False,
             holding_hours=24.0,
-            leverage=leverage
+            leverage=leverage,
+            funding_rate=funding_rate,
+            spread_bps=spread_bps,
+            position_side=position_side,
         )
         
         if based_on == "margin":

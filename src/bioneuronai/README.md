@@ -283,7 +283,7 @@ if results['risk_check']['passed']:
 - ✅ 代碼質量達標（0 錯誤）
 - ✅ 全模組 README 更新
 
-### v2.2 (細部優化)
+### v2.1 (細部優化)
 - ⏳ WebDataFetcher 數據整合
 - ⏳ 市場情緒分析器增強
 - ⏳ 鏈上指標提供器

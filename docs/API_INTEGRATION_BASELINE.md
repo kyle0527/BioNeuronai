@@ -18,7 +18,7 @@
 10. 10. Binance 憑證流的標準做法
 11. 11. 系統級 provider 的標準做法
 12. 12. 配置管理原則
-13. 13. CLI、REST API、未來 UI 的共用方式
+13. 13. CLI、REST API、前端 UI 的共用方式
 14. 14. 建議的改造順序
 15. 15. 各檔案的後續角色建議
 16. 16. 不建議做的事
@@ -79,17 +79,37 @@ BioNeuronai 後續應採用以下整合原則：
 - CLI：`main.py`、`src/bioneuronai/cli/main.py`
 - REST API：`src/bioneuronai/api/app.py`
 
-其中 REST API 目前提供的主要端點包括：
+其中 REST API 目前提供的完整端點（v2.1 現行，`localhost:8000`）：
 
-- `GET /api/v1/status`
-- `POST /api/v1/plan`
+**System**
+- `GET  /api/v1/status`
+- `POST /api/v1/binance/validate`
+
+**Analysis**
 - `POST /api/v1/news`
+
+**Trading**
 - `POST /api/v1/pretrade`
-- `POST /api/v1/backtest`
-- `POST /api/v1/simulate`
-- `GET /api/v1/jobs/{job_id}`
 - `POST /api/v1/trade/start`
 - `POST /api/v1/trade/stop`
+
+**Backtest**
+- `GET  /api/v1/backtest/catalog`
+- `GET  /api/v1/backtest/inspect`
+- `POST /api/v1/backtest/simulate`
+- `POST /api/v1/backtest/run`
+- `GET  /api/v1/backtest/runs`
+- `GET  /api/v1/backtest/runs/{run_id}`
+
+**Chat**
+- `POST   /api/v1/chat`
+- `DELETE /api/v1/chat/{conversation_id}`
+
+> ⚠️ **已移除的舊路由**（文件中的以下路由不存在）：
+> - ~~`POST /api/v1/plan`~~ — 已廢棄
+> - ~~`POST /api/v1/backtest`~~ — 拆分為 6 個子路由
+> - ~~`POST /api/v1/simulate`~~ — 現為 `POST /api/v1/backtest/simulate`
+> - ~~`GET /api/v1/jobs/{job_id}`~~ — 已廢棄
 
 ### 3.2 目前專案中的外部資料源 / 外部操作 API
 
@@ -458,20 +478,14 @@ REST API 的用途應是：
 - 可保留
 - 因其屬於系統級資料，不依賴使用者帳戶
 
-### 8.3 可延後處理的端點
+### 8.3 已廢棄的舊端點（不再存在）
 
-#### `POST /api/v1/plan`
+以下端點在 v2.1 中已不存在，不應再以舊名稱呼叫：
 
-理由：
-- 不是最先卡住交易功能的缺口
-- 可作為後續 UI 的高階功能
-
-#### `POST /api/v1/backtest`
-#### `POST /api/v1/simulate`
-#### `GET /api/v1/jobs/{job_id}`
-
-理由：
-- 有價值，但不屬於你目前「單人實用化 + 低維護」的最低必要集合
+- ~~`POST /api/v1/plan`~~ — 已廢棄，CLI `bioneuronai plan` 仍可用
+- ~~`POST /api/v1/backtest`~~ — 已拆分為 6 個子路由（`/backtest/catalog`、`/backtest/inspect` 等）
+- ~~`POST /api/v1/simulate`~~ — 已整合為 `POST /api/v1/backtest/simulate`
+- ~~`GET /api/v1/jobs/{job_id}`~~ — 已廢棄
 
 ---
 
@@ -651,11 +665,11 @@ Binance API key / secret 不是一般登入帳密，而是交易授權憑證。
 
 ---
 
-## 13. CLI、REST API、未來 UI 的共用方式
+## 13. CLI、REST API、前端 UI 的共用方式
 
 ### 13.1 基本原則
 
-CLI、REST API、未來 UI 都不應各自重寫一套業務流程。
+CLI、REST API、三個前端 UI（`frontend/devops-d`、`frontend/admin-da`、`frontend/trading`）都不應各自重寫一套業務流程。
 
 ### 13.2 正確做法
 
@@ -735,14 +749,19 @@ trading / core / analysis / data
 - 延後次要端點
 - 將 `_trade_task` / `_trade_engine` 全域狀態封裝進管理類別
 
-### 第 5 階段：準備 UI 對接
+### ✅ 第 5 階段：前端 UI 整合（已完成 2026-04-12）
 
 目標：
-- UI 不需要知道內部細節
+- 前端 UI 接入單一穩定 endpoint，不知道內部細節
 
 工作：
-- 讓 UI 只依賴少數穩定 endpoint 或 CLI wrapper
-- 若需要即時狀態，再考慮 WebSocket / SSE
+- ✅ `frontend/devops-d/` — DevOps 監控面板（系統、新聞、回測、Chat、Pre-Trade、交易控制）
+- ✅ `frontend/admin-da/` — 管理後台（風控儀表板、稽核日誌、盤前清單）
+- ✅ `frontend/trading/` — 交易操作介面（即時監控、WebSocket、價格預警）
+- ✅ 三個前端均已移除 `@github/spark` 依賴，使用 `localStorage` 取代 `useKV`
+- ✅ 全部對接 `http://localhost:8000/api/v1`，TypeScript 型別對應 `src/schemas/api.py`
+- ✅ 三個前端 `npm run build` 均成功（Exit Code 0）
+- ✅ 前端原始碼已移入 `BioNeuronai/frontend/`（不含 node_modules/dist）
 
 ---
 
@@ -898,8 +917,8 @@ trading / core / analysis / data
 ### 18.5 FastAPI WebSocket
 
 方向重點：
-- 若未來 UI 需要即時監控，再加狀態輸出通道
-- 不必作為當前最低必要項
+- `frontend/trading/` 已透過 `useWebSocket` 直連 `/ws/trade`，可即時接收交易狀態推播
+- 若要擴充至 admin-da 或 devops-d，再加對應 WebSocket 端點
 
 可參考：
 - https://fastapi.tiangolo.com/advanced/websockets/
@@ -951,15 +970,19 @@ trading / core / analysis / data
 - [ ] `SOP` 回測驗證步驟補完（`analysis/daily_report/__init__.py` 仍有待補強）
 - [ ] `phase_router.py` 認知複雜度問題修正
 
-### 批次 E：UI 對接準備（待評估）
+### ✅ 批次 E：前端 UI 整合（已完成 2026-04-12）
 
-- [ ] 評估是否需要 WebSocket / SSE 即時狀態推播
-- [ ] CLI / REST API 高層流程統一（避免邏輯分叉）
-- [ ] CORS `allow_origins` 依部署環境收斂
+- ✅ `frontend/devops-d/` 整合完成 — 系統狀態、新聞、回測、Chat、Pre-Trade、交易控制、API Playground
+- ✅ `frontend/admin-da/` 整合完成 — 風控儀表板、稽核日誌、盤前清單
+- ✅ `frontend/trading/` 整合完成 — 即時概覽、WebSocket 交易監控、價格預警
+- ✅ 三個前端均已移除 `@github/spark` 依賴（`useKV` → `localStorage`），`npm run build` 全部 Exit Code 0
+- ✅ 前端原始碼移入 `BioNeuronai/frontend/`（不含 node_modules/dist）
+- ✅ CORS `allow_origins` 待後續依部署環境收斂（目前 `*` 或 localhost）
+- [ ] `api/app.py` WebSocket 端點補全（`trading/` 前端已有 `/ws/trade` hook，後端端點需確認）
 
 ---
 
 本文件建立日期：2026-03-28
-最後更新：2026-03-28（批次 A、B 完成；批次 C 部分完成；批次 D 部分完成）
+最後更新：2026-04-13（批次 E 完成：三個前端 UI 整合進 `frontend/`）
 適用版本：以目前工作樹為準
 維護原則：若後續架構方向變更，應更新本文件而非另立互相衝突的新規格

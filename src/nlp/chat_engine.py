@@ -554,7 +554,7 @@ def create_chat_engine(
     """
     try:
         import torch
-        from .tiny_llm import TinyLLM, TinyLLMConfig
+        from .tiny_llm import load_llm
         from .bilingual_tokenizer import BilingualTokenizer
 
         tokenizer = BilingualTokenizer()
@@ -567,24 +567,16 @@ def create_chat_engine(
             except Exception:
                 pass
 
-        # 與 InferenceEngine 使用相同的多模態配置，確保同一份權重可以載入
-        cfg = TinyLLMConfig(
-            use_numeric_mode=True,
-            numeric_input_dim=1024,
-            signal_output_dim=512,
-        )
-        model = TinyLLM(cfg)
-
-        # 嘗試載入模型權重
+        # ChatEngine 僅使用 TinyLLM 文字權重，不再混用交易主線 checkpoint。
         ckpt_path = Path(model_path) if model_path else (
-            Path(__file__).parent.parent.parent / "model" / "my_100m_model.pth"
+            Path(__file__).parent.parent.parent / "model" / "tiny_llm_100m.pth"
         )
-        if ckpt_path.exists():
-            state = torch.load(str(ckpt_path), map_location="cpu", weights_only=True)
-            model.load_state_dict(state, strict=False)
-            logger.info(f"[ChatEngine] 模型已從 {ckpt_path} 載入")
-        else:
-            logger.warning(f"[ChatEngine] 未找到模型權重 {ckpt_path}，使用隨機初始化")
+        if not ckpt_path.exists():
+            logger.warning(f"[ChatEngine] 未找到 TinyLLM 權重 {ckpt_path}")
+            return None
+
+        model, _ = load_llm(str(ckpt_path), device="cpu")
+        logger.info(f"[ChatEngine] TinyLLM 模型已從 {ckpt_path} 載入")
 
         model.eval()
         return ChatEngine(model, tokenizer, language=language, max_new_tokens=max_new_tokens)

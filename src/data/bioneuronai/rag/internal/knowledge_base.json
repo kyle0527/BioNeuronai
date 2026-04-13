@@ -1,0 +1,2201 @@
+{
+  "documents": [
+    {
+      "id": "rule_1",
+      "title": "風險管理規則 - 單筆交易風險",
+      "content": "\n            單筆交易風險控制規則：\n            1. 單筆交易最大風險不超過帳戶的 1-2%\n            2. 必須設置止損單，止損距離基於 ATR 或關鍵支撐位\n            3. 風險報酬比至少 1:2，理想 1:3\n            4. 高波動市場下降低倉位大小\n            5. 連續虧損 3 次後暫停交易並重新評估\n            ",
+      "doc_type": "trading_rule",
+      "created_at": "2026-04-10T01:05:33.565413",
+      "updated_at": "2026-04-10T01:05:33.565415",
+      "tags": [
+        "risk",
+        "position_sizing",
+        "stop_loss"
+      ],
+      "metadata": {}
+    },
+    {
+      "id": "rule_2",
+      "title": "進場規則 - 趨勢確認",
+      "content": "\n            趨勢交易進場規則：\n            1. 確認主趨勢方向（使用 EMA 200 或更高時間框架）\n            2. 等待回調至支撐/阻力位\n            3. 確認動量指標（RSI、MACD）同向\n            4. 成交量確認（突破時放量）\n            5. 避免在重大新聞發布前 30 分鐘內進場\n            ",
+      "doc_type": "trading_rule",
+      "created_at": "2026-04-10T01:05:33.565427",
+      "updated_at": "2026-04-10T01:05:33.565427",
+      "tags": [
+        "entry",
+        "trend",
+        "confirmation"
+      ],
+      "metadata": {}
+    },
+    {
+      "id": "rule_3",
+      "title": "出場規則 - 止盈策略",
+      "content": "\n            止盈策略規則：\n            1. 分批止盈：50% 在 1:2 RR，30% 在 1:3 RR，20% 跟蹤止損\n            2. 移動止損至成本價當獲利達 1:1\n            3. 使用跟蹤止損保護利潤（ATR 的 2-3 倍）\n            4. 在關鍵阻力位部分獲利了結\n            5. 時間止損：如果 48 小時內未達目標，重新評估\n            ",
+      "doc_type": "trading_rule",
+      "created_at": "2026-04-10T01:05:33.565433",
+      "updated_at": "2026-04-10T01:05:33.565433",
+      "tags": [
+        "exit",
+        "take_profit",
+        "trailing_stop"
+      ],
+      "metadata": {}
+    },
+    {
+      "id": "rule_4",
+      "title": "新聞交易規則",
+      "content": "\n            新聞和事件交易規則：\n            1. 重大新聞發布前 30 分鐘不開新倉\n            2. 負面新聞（監管、駭客、破產）立即評估現有持倉\n            3. ETF 批准等重大利好可能導致劇烈波動，謹慎追漲\n            4. 關注鏈上數據異常（大額轉帳、交易所流入）\n            5. 社交媒體情緒極端時反向思考\n            ",
+      "doc_type": "trading_rule",
+      "created_at": "2026-04-10T01:05:33.565437",
+      "updated_at": "2026-04-10T01:05:33.565437",
+      "tags": [
+        "news",
+        "events",
+        "sentiment"
+      ],
+      "metadata": {}
+    },
+    {
+      "id": "rule_5",
+      "title": "市場狀態判斷規則",
+      "content": "\n            市場狀態識別規則：\n            1. 強趨勢：ADX > 25，價格持續突破，回調淺\n            2. 弱趨勢：ADX 20-25，價格震盪上行/下行\n            3. 盤整：ADX < 20，價格在區間內波動\n            4. 高波動：ATR 超過 20 日均值 1.5 倍\n            5. 根據市場狀態調整策略：趨勢市用趨勢策略，盤整市用區間策略\n            ",
+      "doc_type": "trading_rule",
+      "created_at": "2026-04-10T01:05:33.565441",
+      "updated_at": "2026-04-10T01:05:33.565441",
+      "tags": [
+        "market_regime",
+        "adx",
+        "volatility"
+      ],
+      "metadata": {}
+    },
+    {
+      "id": "news_btc_c0b072360b87e7cf",
+      "title": "MarketVector and Coinbase launch index tracking Bitcoin and tokenized gold",
+      "content": "<p style=\"float:right; margin:0 0 10px 15px; width:240px;\"><img src=\"https://images.cointelegraph.com/images/528_aHR0cHM6Ly9zMy5jb2ludGVsZWdyYXBoLmNvbS91cGxvYWRzLzIwMjYtMDQvMDE5ZDcyZTgtY2Y5MS03YjFhLWE",
+      "doc_type": "news_archive",
+      "created_at": "2026-04-10T01:05:33.566673",
+      "updated_at": "2026-04-10T01:05:33.566675",
+      "tags": [
+        "news",
+        "btc",
+        "cointelegraph.com",
+        "🤝_合作夥伴",
+        "⚖️_監管風險",
+        "⬆️_技術升級"
+      ],
+      "metadata": {
+        "symbol": "BTC",
+        "news_source": "cointelegraph.com",
+        "url": "https://cointelegraph.com/news/marketvector-coinbase-bitcoin-gold-index-store-of-value-debate?utm_source=rss_feed&utm_medium=rss&utm_campaign=rss_partner_inbound",
+        "published_at": "2026-04-09T17:09:46",
+        "analysis_hours": 24,
+        "overall_sentiment_score": 0.032,
+        "article_sentiment": "positive",
+        "article_sentiment_score": 0.9,
+        "importance_score": 9.5,
+        "relevance_score": 2.0,
+        "key_events": [
+          "🤝 合作夥伴",
+          "⚖️ 監管風險",
+          "⬆️ 技術升級",
+          "🔒 安全事件",
+          "📈 ETF 相關"
+        ],
+        "ingested_at": "2026-04-10T01:05:33.565981",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_btc_28786f54235c276d",
+      "title": "Is Iran Collecting Hormuz Tolls in Bitcoin? This Crypto Intelligence Firm Is Skeptical",
+      "content": "TRM’s Ari Redbord expressed skepticism that Iran and affiliated actors are accepting Bitcoin for safe passage through the Strait of Hormuz.",
+      "doc_type": "news_archive",
+      "created_at": "2026-04-10T01:05:33.566728",
+      "updated_at": "2026-04-10T01:05:33.566729",
+      "tags": [
+        "news",
+        "btc",
+        "decrypt.co",
+        "🤝_合作夥伴",
+        "⚖️_監管風險",
+        "⬆️_技術升級"
+      ],
+      "metadata": {
+        "symbol": "BTC",
+        "news_source": "decrypt.co",
+        "url": "https://decrypt.co/363828/iran-hormuz-tolls-bitcoin-crypto-intelligence-firm-skeptical",
+        "published_at": "2026-04-09T16:55:31",
+        "analysis_hours": 24,
+        "overall_sentiment_score": 0.032,
+        "article_sentiment": "neutral",
+        "article_sentiment_score": 0.032,
+        "importance_score": 6.92,
+        "relevance_score": 2.0,
+        "key_events": [
+          "🤝 合作夥伴",
+          "⚖️ 監管風險",
+          "⬆️ 技術升級",
+          "🔒 安全事件",
+          "📈 ETF 相關"
+        ],
+        "ingested_at": "2026-04-10T01:05:33.565981",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_btc_13bf973e26e20282",
+      "title": "Treasury Secretary Bessent Slams Crypto Industry 'Nihilists' as Clarity Act Remains in Limbo",
+      "content": "Several obstacles to the Clarity Act, which have remained unsolved for months, stand in the way of its passage before a looming deadline.",
+      "doc_type": "news_archive",
+      "created_at": "2026-04-10T01:05:33.566761",
+      "updated_at": "2026-04-10T01:05:33.566762",
+      "tags": [
+        "news",
+        "btc",
+        "decrypt.co",
+        "🤝_合作夥伴",
+        "⚖️_監管風險",
+        "⬆️_技術升級"
+      ],
+      "metadata": {
+        "symbol": "BTC",
+        "news_source": "decrypt.co",
+        "url": "https://decrypt.co/363821/treasury-secretary-bessent-slams-crypto-industry-nihilists-as-clarity-act-remains-in-limbo",
+        "published_at": "2026-04-09T16:18:37",
+        "analysis_hours": 24,
+        "overall_sentiment_score": 0.032,
+        "article_sentiment": "neutral",
+        "article_sentiment_score": 0.032,
+        "importance_score": 6.69,
+        "relevance_score": 1.0,
+        "key_events": [
+          "🤝 合作夥伴",
+          "⚖️ 監管風險",
+          "⬆️ 技術升級",
+          "🔒 安全事件",
+          "📈 ETF 相關"
+        ],
+        "ingested_at": "2026-04-10T01:05:33.565981",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_btc_35c4c31e070c6142",
+      "title": "Bitcoin shoots above $72,000 as optimism grows over Middle East ceasefire",
+      "content": "Israeli Prime Minister Netanyahu reportedly has signaled a willingness to negotiate with Lebanon.",
+      "doc_type": "news_archive",
+      "created_at": "2026-04-10T01:05:33.566794",
+      "updated_at": "2026-04-10T01:05:33.566794",
+      "tags": [
+        "news",
+        "btc",
+        "www.coindesk.com",
+        "🤝_合作夥伴",
+        "⚖️_監管風險",
+        "⬆️_技術升級"
+      ],
+      "metadata": {
+        "symbol": "BTC",
+        "news_source": "www.coindesk.com",
+        "url": "https://www.coindesk.com/markets/2026/04/09/bitcoin-shoots-above-usd72-000-as-optimism-grows-over-middle-east-ceasefire",
+        "published_at": "2026-04-09T16:06:29",
+        "analysis_hours": 24,
+        "overall_sentiment_score": 0.032,
+        "article_sentiment": "negative",
+        "article_sentiment_score": -1.0,
+        "importance_score": 8.86,
+        "relevance_score": 2.0,
+        "key_events": [
+          "🤝 合作夥伴",
+          "⚖️ 監管風險",
+          "⬆️ 技術升級",
+          "🔒 安全事件",
+          "📈 ETF 相關"
+        ],
+        "ingested_at": "2026-04-10T01:05:33.565981",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_btc_9a360f46b8511a52",
+      "title": "Tom Lee's BitMine Uplisted to NYSE as Ethereum Firm Expands Buyback Program to $4 Billion",
+      "content": "Ethereum treasury giant BitMine Immersion Technologies upped its share buyback program to $4 billion and was uplisted to the NYSE on Thursday.",
+      "doc_type": "news_archive",
+      "created_at": "2026-04-10T01:05:33.566817",
+      "updated_at": "2026-04-10T01:05:33.566817",
+      "tags": [
+        "news",
+        "btc",
+        "decrypt.co",
+        "🤝_合作夥伴",
+        "⚖️_監管風險",
+        "⬆️_技術升級"
+      ],
+      "metadata": {
+        "symbol": "BTC",
+        "news_source": "decrypt.co",
+        "url": "https://decrypt.co/363823/tom-lee-bitmine-uplisted-nyse-ethereum-firm-expands-buybacks-4-billion",
+        "published_at": "2026-04-09T15:58:26",
+        "analysis_hours": 24,
+        "overall_sentiment_score": 0.032,
+        "article_sentiment": "neutral",
+        "article_sentiment_score": 0.032,
+        "importance_score": 6.09,
+        "relevance_score": 0.3,
+        "key_events": [
+          "🤝 合作夥伴",
+          "⚖️ 監管風險",
+          "⬆️ 技術升級",
+          "🔒 安全事件",
+          "📈 ETF 相關"
+        ],
+        "ingested_at": "2026-04-10T01:05:33.565981",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_btc_c31931b34bdad0fb",
+      "title": "UK-led Operation Atlantic freezes $12M in crypto scam proceeds",
+      "content": "<p style=\"float:right; margin:0 0 10px 15px; width:240px;\"><img src=\"https://images.cointelegraph.com/images/528_aHR0cHM6Ly9zMy5jb2ludGVsZWdyYXBoLmNvbS91cGxvYWRzLzIwMjYtMDQvMDE5ZDcyNmUtZjc1Yi03MTE4LTh",
+      "doc_type": "news_archive",
+      "created_at": "2026-04-10T01:05:33.566840",
+      "updated_at": "2026-04-10T01:05:33.566840",
+      "tags": [
+        "news",
+        "btc",
+        "cointelegraph.com",
+        "🤝_合作夥伴",
+        "⚖️_監管風險",
+        "⬆️_技術升級"
+      ],
+      "metadata": {
+        "symbol": "BTC",
+        "news_source": "cointelegraph.com",
+        "url": "https://cointelegraph.com/news/operation-atlantic-crypto-approval-phishing-freezes?utm_source=rss_feed&utm_medium=rss&utm_campaign=rss_partner_inbound",
+        "published_at": "2026-04-09T15:49:52",
+        "analysis_hours": 24,
+        "overall_sentiment_score": 0.032,
+        "article_sentiment": "negative",
+        "article_sentiment_score": -1.0,
+        "importance_score": 6.49,
+        "relevance_score": 1.0,
+        "key_events": [
+          "🤝 合作夥伴",
+          "⚖️ 監管風險",
+          "⬆️ 技術升級",
+          "🔒 安全事件",
+          "📈 ETF 相關"
+        ],
+        "ingested_at": "2026-04-10T01:05:33.565981",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_btc_dd11cee7d5883cbc",
+      "title": "OpenAI Pauses UK AI Tech Team-Up With Nvidia Over Energy Costs, Regulation",
+      "content": "OpenAI's planned Stargate project with Nvidia and Nscale aimed to deploy thousands of GPUs to support AI workloads in Britain.",
+      "doc_type": "news_archive",
+      "created_at": "2026-04-10T01:05:33.566864",
+      "updated_at": "2026-04-10T01:05:33.566864",
+      "tags": [
+        "news",
+        "btc",
+        "decrypt.co",
+        "🤝_合作夥伴",
+        "⚖️_監管風險",
+        "⬆️_技術升級"
+      ],
+      "metadata": {
+        "symbol": "BTC",
+        "news_source": "decrypt.co",
+        "url": "https://decrypt.co/363818/openai-pauses-uk-ai-tech-nvidia-energy-costs-regulation",
+        "published_at": "2026-04-09T15:39:32",
+        "analysis_hours": 24,
+        "overall_sentiment_score": 0.032,
+        "article_sentiment": "positive",
+        "article_sentiment_score": 0.8,
+        "importance_score": 9.9,
+        "relevance_score": 0.3,
+        "key_events": [
+          "🤝 合作夥伴",
+          "⚖️ 監管風險",
+          "⬆️ 技術升級",
+          "🔒 安全事件",
+          "📈 ETF 相關"
+        ],
+        "ingested_at": "2026-04-10T01:05:33.565981",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_btc_167a0bf68c52010e",
+      "title": "Stablecoin Giant Tether Launches Toolkit for Building Local, Offline AI Apps",
+      "content": "Tether’s new toolkit lets developers build AI applications that run entirely on-device, marking an expanded push into decentralized AI.",
+      "doc_type": "news_archive",
+      "created_at": "2026-04-10T01:05:33.566890",
+      "updated_at": "2026-04-10T01:05:33.566891",
+      "tags": [
+        "news",
+        "btc",
+        "decrypt.co",
+        "🤝_合作夥伴",
+        "⚖️_監管風險",
+        "⬆️_技術升級"
+      ],
+      "metadata": {
+        "symbol": "BTC",
+        "news_source": "decrypt.co",
+        "url": "https://decrypt.co/363809/stablecoin-giant-tether-launches-toolkit-for-building-local-offline-ai-apps",
+        "published_at": "2026-04-09T15:09:32",
+        "analysis_hours": 24,
+        "overall_sentiment_score": 0.032,
+        "article_sentiment": "positive",
+        "article_sentiment_score": 0.9,
+        "importance_score": 7.6,
+        "relevance_score": 0.3,
+        "key_events": [
+          "🤝 合作夥伴",
+          "⚖️ 監管風險",
+          "⬆️ 技術升級",
+          "🔒 安全事件",
+          "📈 ETF 相關"
+        ],
+        "ingested_at": "2026-04-10T01:05:33.565981",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_btc_06eca46112aa2f37",
+      "title": "Bithumb Files to Seize Bitcoin From Holdouts After $43B Blunder",
+      "content": "The South Korean exchange is pursuing formal legal remedies to recover 7 BTC after voluntary return requests failed.",
+      "doc_type": "news_archive",
+      "created_at": "2026-04-10T01:05:33.566915",
+      "updated_at": "2026-04-10T01:05:33.566915",
+      "tags": [
+        "news",
+        "btc",
+        "decrypt.co",
+        "🤝_合作夥伴",
+        "⚖️_監管風險",
+        "⬆️_技術升級"
+      ],
+      "metadata": {
+        "symbol": "BTC",
+        "news_source": "decrypt.co",
+        "url": "https://decrypt.co/363804/bithumb-files-to-seize-bitcoin-from-holdouts-after-43b-blunder",
+        "published_at": "2026-04-09T15:02:22",
+        "analysis_hours": 24,
+        "overall_sentiment_score": 0.032,
+        "article_sentiment": "neutral",
+        "article_sentiment_score": 0.032,
+        "importance_score": 10.0,
+        "relevance_score": 2.0,
+        "key_events": [
+          "🤝 合作夥伴",
+          "⚖️ 監管風險",
+          "⬆️ 技術升級",
+          "🔒 安全事件",
+          "📈 ETF 相關"
+        ],
+        "ingested_at": "2026-04-10T01:05:33.565981",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_btc_401b7025a45b4c06",
+      "title": "Crypto for Advisors: Crypto’s Performance Q1",
+      "content": "Q1 digital asset review: geopolitical conflict and Fed caution led to declines, but institutional flows and regulatory clarity returned in March, building a durable foundation for Q2",
+      "doc_type": "news_archive",
+      "created_at": "2026-04-10T01:05:33.566944",
+      "updated_at": "2026-04-10T01:05:33.566945",
+      "tags": [
+        "news",
+        "btc",
+        "www.coindesk.com",
+        "🤝_合作夥伴",
+        "⚖️_監管風險",
+        "⬆️_技術升級"
+      ],
+      "metadata": {
+        "symbol": "BTC",
+        "news_source": "www.coindesk.com",
+        "url": "https://www.coindesk.com/coindesk-indices/2026/04/08/crypto-for-advisors-crypto-s-performance-q1",
+        "published_at": "2026-04-09T15:00:00",
+        "analysis_hours": 24,
+        "overall_sentiment_score": 0.032,
+        "article_sentiment": "negative",
+        "article_sentiment_score": -1.0,
+        "importance_score": 9.89,
+        "relevance_score": 1.0,
+        "key_events": [
+          "🤝 合作夥伴",
+          "⚖️ 監管風險",
+          "⬆️ 技術升級",
+          "🔒 安全事件",
+          "📈 ETF 相關"
+        ],
+        "ingested_at": "2026-04-10T01:05:33.565981",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_btc_70de3b8835093934",
+      "title": "Nunchuk Launches Open-Source Bitcoin Tools for AI Agents With 'Bounded Authority'",
+      "content": "Nunchuk releases open-source tools that allow AI agents to interact with Bitcoin wallets while keeping humans in control over spending.",
+      "doc_type": "news_archive",
+      "created_at": "2026-04-10T01:05:33.566968",
+      "updated_at": "2026-04-10T01:05:33.566969",
+      "tags": [
+        "news",
+        "btc",
+        "decrypt.co",
+        "🤝_合作夥伴",
+        "⚖️_監管風險",
+        "⬆️_技術升級"
+      ],
+      "metadata": {
+        "symbol": "BTC",
+        "news_source": "decrypt.co",
+        "url": "https://decrypt.co/363737/nunchuk-open-source-bitcoin-tools-ai-agents-bounded-authority",
+        "published_at": "2026-04-09T14:57:29",
+        "analysis_hours": 24,
+        "overall_sentiment_score": 0.032,
+        "article_sentiment": "positive",
+        "article_sentiment_score": 1.0,
+        "importance_score": 9.3,
+        "relevance_score": 2.0,
+        "key_events": [
+          "🤝 合作夥伴",
+          "⚖️ 監管風險",
+          "⬆️ 技術升級",
+          "🔒 安全事件",
+          "📈 ETF 相關"
+        ],
+        "ingested_at": "2026-04-10T01:05:33.565981",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_btc_04682843791829b9",
+      "title": "Bitcoin price surfs US PCE inflation as trader keeps $80K BTC price target",
+      "content": "<p style=\"float:right; margin:0 0 10px 15px; width:240px;\"><img src=\"https://images.cointelegraph.com/images/528_aHR0cHM6Ly9zMy5jb2ludGVsZWdyYXBoLmNvbS91cGxvYWRzLzIwMjYtMDQvMDE5ZDcyODctYmRmYy03YTgxLWE",
+      "doc_type": "news_archive",
+      "created_at": "2026-04-10T01:05:33.566994",
+      "updated_at": "2026-04-10T01:05:33.566994",
+      "tags": [
+        "news",
+        "btc",
+        "cointelegraph.com",
+        "🤝_合作夥伴",
+        "⚖️_監管風險",
+        "⬆️_技術升級"
+      ],
+      "metadata": {
+        "symbol": "BTC",
+        "news_source": "cointelegraph.com",
+        "url": "https://cointelegraph.com/news/bitcoin-price-surfs-us-pce-inflation-data-shifts-wartime-cpi?utm_source=rss_feed&utm_medium=rss&utm_campaign=rss_partner_inbound",
+        "published_at": "2026-04-09T14:57:14",
+        "analysis_hours": 24,
+        "overall_sentiment_score": 0.032,
+        "article_sentiment": "neutral",
+        "article_sentiment_score": 0.032,
+        "importance_score": 9.0,
+        "relevance_score": 2.0,
+        "key_events": [
+          "🤝 合作夥伴",
+          "⚖️ 監管風險",
+          "⬆️ 技術升級",
+          "🔒 安全事件",
+          "📈 ETF 相關"
+        ],
+        "ingested_at": "2026-04-10T01:05:33.565981",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_btc_fe31b742d0ce6729",
+      "title": "Stablecoin volumes to reach $719T by 2035 as generational wealth shift speeds up crypto adoption",
+      "content": "Massive transfer of wealth to younger, crypto-native users and rising payment volumes challenge dominance of Visa and Mastercard",
+      "doc_type": "news_archive",
+      "created_at": "2026-04-10T01:05:33.567016",
+      "updated_at": "2026-04-10T01:05:33.567017",
+      "tags": [
+        "news",
+        "btc",
+        "www.coindesk.com",
+        "🤝_合作夥伴",
+        "⚖️_監管風險",
+        "⬆️_技術升級"
+      ],
+      "metadata": {
+        "symbol": "BTC",
+        "news_source": "www.coindesk.com",
+        "url": "https://www.coindesk.com/business/2026/04/09/stablecoin-volumes-to-reach-usd719t-by-2035-as-generational-wealth-shift-speeds-up-crypto-adoption",
+        "published_at": "2026-04-09T14:57:10",
+        "analysis_hours": 24,
+        "overall_sentiment_score": 0.032,
+        "article_sentiment": "positive",
+        "article_sentiment_score": 1.0,
+        "importance_score": 6.31,
+        "relevance_score": 1.0,
+        "key_events": [
+          "🤝 合作夥伴",
+          "⚖️ 監管風險",
+          "⬆️ 技術升級",
+          "🔒 安全事件",
+          "📈 ETF 相關"
+        ],
+        "ingested_at": "2026-04-10T01:05:33.565981",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_btc_d7e53e0ca7d9d012",
+      "title": "Tom Lee's Bitmine uplists to NYSE, expands buyback authorization to $4 billion",
+      "content": "The company holds nearly 4% of ether's (ETH) total supply, but shares have struggled alongside that crypto.",
+      "doc_type": "news_archive",
+      "created_at": "2026-04-10T01:05:33.567039",
+      "updated_at": "2026-04-10T01:05:33.567039",
+      "tags": [
+        "news",
+        "btc",
+        "www.coindesk.com",
+        "🤝_合作夥伴",
+        "⚖️_監管風險",
+        "⬆️_技術升級"
+      ],
+      "metadata": {
+        "symbol": "BTC",
+        "news_source": "www.coindesk.com",
+        "url": "https://www.coindesk.com/markets/2026/04/09/tom-lee-s-bitmine-lists-on-nyse-expands-usd4-billion-buyback-as-eth-bet-deepens",
+        "published_at": "2026-04-09T14:50:48",
+        "analysis_hours": 24,
+        "overall_sentiment_score": 0.032,
+        "article_sentiment": "neutral",
+        "article_sentiment_score": 0.032,
+        "importance_score": 5.31,
+        "relevance_score": 1.0,
+        "key_events": [
+          "🤝 合作夥伴",
+          "⚖️ 監管風險",
+          "⬆️ 技術升級",
+          "🔒 安全事件",
+          "📈 ETF 相關"
+        ],
+        "ingested_at": "2026-04-10T01:05:33.565981",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_btc_f9ed04fb6f017cca",
+      "title": "Trump's World Liberty Financial borrowed millions from a protocol its own advisor co-founded",
+      "content": "Onchain data shows WLFI deposited 5 billion of its own tokens as collateral to borrow stablecoins it then sent to Coinbase Prime, pushing a lending pool to 100% utilization and leaving depositors unab",
+      "doc_type": "news_archive",
+      "created_at": "2026-04-10T01:05:33.567063",
+      "updated_at": "2026-04-10T01:05:33.567064",
+      "tags": [
+        "news",
+        "btc",
+        "www.coindesk.com",
+        "🤝_合作夥伴",
+        "⚖️_監管風險",
+        "⬆️_技術升級"
+      ],
+      "metadata": {
+        "symbol": "BTC",
+        "news_source": "www.coindesk.com",
+        "url": "https://www.coindesk.com/markets/2026/04/09/trump-s-world-liberty-financial-borrows-usd75-million-against-its-own-token-trapping-depositors-on-dolomite",
+        "published_at": "2026-04-09T14:40:36",
+        "analysis_hours": 24,
+        "overall_sentiment_score": 0.032,
+        "article_sentiment": "neutral",
+        "article_sentiment_score": 0.032,
+        "importance_score": 6.8,
+        "relevance_score": 0.3,
+        "key_events": [
+          "🤝 合作夥伴",
+          "⚖️ 監管風險",
+          "⬆️ 技術升級",
+          "🔒 安全事件",
+          "📈 ETF 相關"
+        ],
+        "ingested_at": "2026-04-10T01:05:33.565981",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_btc_9540172964a4aa7b",
+      "title": "Trader loses $3M as leveraged Fartcoin position unwinds on Hyperliquid",
+      "content": "<p style=\"float:right; margin:0 0 10px 15px; width:240px;\"><img src=\"https://images.cointelegraph.com/images/528_aHR0cHM6Ly9zMy5jb2ludGVsZWdyYXBoLmNvbS91cGxvYWRzLzIwMjYtMDQvMDE5ZDcyMDctNTlmOC03MWU5LWE",
+      "doc_type": "news_archive",
+      "created_at": "2026-04-10T01:05:33.567086",
+      "updated_at": "2026-04-10T01:05:33.567087",
+      "tags": [
+        "news",
+        "btc",
+        "cointelegraph.com",
+        "🤝_合作夥伴",
+        "⚖️_監管風險",
+        "⬆️_技術升級"
+      ],
+      "metadata": {
+        "symbol": "BTC",
+        "news_source": "cointelegraph.com",
+        "url": "https://cointelegraph.com/news/trader-loses-3m-fartcoin-hyperliquid-adl-liquidation?utm_source=rss_feed&utm_medium=rss&utm_campaign=rss_partner_inbound",
+        "published_at": "2026-04-09T14:36:45",
+        "analysis_hours": 24,
+        "overall_sentiment_score": 0.032,
+        "article_sentiment": "neutral",
+        "article_sentiment_score": 0.032,
+        "importance_score": 5.42,
+        "relevance_score": 0.3,
+        "key_events": [
+          "🤝 合作夥伴",
+          "⚖️ 監管風險",
+          "⬆️ 技術升級",
+          "🔒 安全事件",
+          "📈 ETF 相關"
+        ],
+        "ingested_at": "2026-04-10T01:05:33.565981",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_btc_6ae93b459487a698",
+      "title": "BitMEX co-founder donates $5 million to Nigel Farage’s Reform UK party",
+      "content": "Delo did not specify whether he made the donation in fiat currency or crypto, but he expressed support for a proposed U.K. government moratorium on political donations made in cryptoassets",
+      "doc_type": "news_archive",
+      "created_at": "2026-04-10T01:05:33.567121",
+      "updated_at": "2026-04-10T01:05:33.567121",
+      "tags": [
+        "news",
+        "btc",
+        "www.coindesk.com",
+        "🤝_合作夥伴",
+        "⚖️_監管風險",
+        "⬆️_技術升級"
+      ],
+      "metadata": {
+        "symbol": "BTC",
+        "news_source": "www.coindesk.com",
+        "url": "https://www.coindesk.com/business/2026/04/09/bitmex-co-founder-donates-usd5-million-to-nigel-farage-s-reform-uk-party",
+        "published_at": "2026-04-09T14:33:08",
+        "analysis_hours": 24,
+        "overall_sentiment_score": 0.032,
+        "article_sentiment": "positive",
+        "article_sentiment_score": 0.8,
+        "importance_score": 6.26,
+        "relevance_score": 1.0,
+        "key_events": [
+          "🤝 合作夥伴",
+          "⚖️ 監管風險",
+          "⬆️ 技術升級",
+          "🔒 安全事件",
+          "📈 ETF 相關"
+        ],
+        "ingested_at": "2026-04-10T01:05:33.565981",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_btc_e84cb8b12520390c",
+      "title": "DOJ and CFTC seek halt to Arizona action against Kalshi",
+      "content": "<p style=\"float:right; margin:0 0 10px 15px; width:240px;\"><img src=\"https://images.cointelegraph.com/images/528_aHR0cHM6Ly9zMy5jb2ludGVsZWdyYXBoLmNvbS91cGxvYWRzLzIwMjYtMDQvMDE5ZDcyNDgtNDlhMC03YzkwLWE",
+      "doc_type": "news_archive",
+      "created_at": "2026-04-10T01:05:33.567162",
+      "updated_at": "2026-04-10T01:05:33.567163",
+      "tags": [
+        "news",
+        "btc",
+        "cointelegraph.com",
+        "🤝_合作夥伴",
+        "⚖️_監管風險",
+        "⬆️_技術升級"
+      ],
+      "metadata": {
+        "symbol": "BTC",
+        "news_source": "cointelegraph.com",
+        "url": "https://cointelegraph.com/news/doj-cftc-arizona-court-kalshi-action?utm_source=rss_feed&utm_medium=rss&utm_campaign=rss_partner_inbound",
+        "published_at": "2026-04-09T14:24:30",
+        "analysis_hours": 24,
+        "overall_sentiment_score": 0.032,
+        "article_sentiment": "neutral",
+        "article_sentiment_score": 0.032,
+        "importance_score": 6.02,
+        "relevance_score": 0.3,
+        "key_events": [
+          "🤝 合作夥伴",
+          "⚖️ 監管風險",
+          "⬆️ 技術升級",
+          "🔒 安全事件",
+          "📈 ETF 相關"
+        ],
+        "ingested_at": "2026-04-10T01:05:33.565981",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_btc_a19cc8e7679f8b97",
+      "title": "Mike Novogratz spotlights Helios as $15 billion powerhouse in Galaxy Digital annual report",
+      "content": "The company's Nasdaq debut was a turning point toward infrastructure-led growth in the digital economy, said Novogratz.",
+      "doc_type": "news_archive",
+      "created_at": "2026-04-10T01:05:33.567190",
+      "updated_at": "2026-04-10T01:05:33.567190",
+      "tags": [
+        "news",
+        "btc",
+        "www.coindesk.com",
+        "🤝_合作夥伴",
+        "⚖️_監管風險",
+        "⬆️_技術升級"
+      ],
+      "metadata": {
+        "symbol": "BTC",
+        "news_source": "www.coindesk.com",
+        "url": "https://www.coindesk.com/markets/2026/04/09/mike-novogratz-spotlights-helios-as-usd15-billion-powerhouse-in-galaxy-digital-annual-report",
+        "published_at": "2026-04-09T13:54:06",
+        "analysis_hours": 24,
+        "overall_sentiment_score": 0.032,
+        "article_sentiment": "positive",
+        "article_sentiment_score": 1.0,
+        "importance_score": 5.61,
+        "relevance_score": 0.3,
+        "key_events": [
+          "🤝 合作夥伴",
+          "⚖️ 監管風險",
+          "⬆️ 技術升級",
+          "🔒 安全事件",
+          "📈 ETF 相關"
+        ],
+        "ingested_at": "2026-04-10T01:05:33.565981",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_btc_0912a90276968036",
+      "title": "Binance adds prediction market to its app for millions of users",
+      "content": "The integration covers gas costs to lower barriers for retail users. Binance doesn't operate the markets directly, instead providing access to a third-party application.",
+      "doc_type": "news_archive",
+      "created_at": "2026-04-10T01:05:33.567217",
+      "updated_at": "2026-04-10T01:05:33.567218",
+      "tags": [
+        "news",
+        "btc",
+        "www.coindesk.com",
+        "🤝_合作夥伴",
+        "⚖️_監管風險",
+        "⬆️_技術升級"
+      ],
+      "metadata": {
+        "symbol": "BTC",
+        "news_source": "www.coindesk.com",
+        "url": "https://www.coindesk.com/markets/2026/04/09/binance-enters-prediction-markets-arena-via-predict-fun-integration",
+        "published_at": "2026-04-09T13:46:33",
+        "analysis_hours": 24,
+        "overall_sentiment_score": 0.032,
+        "article_sentiment": "neutral",
+        "article_sentiment_score": 0.032,
+        "importance_score": 5.53,
+        "relevance_score": 0.3,
+        "key_events": [
+          "🤝 合作夥伴",
+          "⚖️ 監管風險",
+          "⬆️ 技術升級",
+          "🔒 安全事件",
+          "📈 ETF 相關"
+        ],
+        "ingested_at": "2026-04-10T01:05:33.565981",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_btc_cd30717ffcb56db8",
+      "title": "CoinDesk 20 performance update: Bitcoin (BTC) trades flat as index declines",
+      "content": "Aave (AAVE) dropped 3.6% and Stellar (XLM) fell 2.7%, leading the index lower.",
+      "doc_type": "news_archive",
+      "created_at": "2026-04-10T01:05:33.567246",
+      "updated_at": "2026-04-10T01:05:33.567246",
+      "tags": [
+        "news",
+        "btc",
+        "www.coindesk.com",
+        "🤝_合作夥伴",
+        "⚖️_監管風險",
+        "⬆️_技術升級"
+      ],
+      "metadata": {
+        "symbol": "BTC",
+        "news_source": "www.coindesk.com",
+        "url": "https://www.coindesk.com/coindesk-indices/2026/04/09/coindesk-20-performance-update-bitcoin-btc-trades-flat-as-index-declines",
+        "published_at": "2026-04-09T13:14:50",
+        "analysis_hours": 24,
+        "overall_sentiment_score": 0.032,
+        "article_sentiment": "negative",
+        "article_sentiment_score": -1.0,
+        "importance_score": 10.0,
+        "relevance_score": 2.0,
+        "key_events": [
+          "🤝 合作夥伴",
+          "⚖️ 監管風險",
+          "⬆️ 技術升級",
+          "🔒 安全事件",
+          "📈 ETF 相關"
+        ],
+        "ingested_at": "2026-04-10T01:05:33.565981",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_btc_52811e8cfeb21113",
+      "title": "Bitcoin Depot discloses $3.7M BTC theft in cybersecurity breach",
+      "content": "<p style=\"float:right; margin:0 0 10px 15px; width:240px;\"><img src=\"https://images.cointelegraph.com/images/528_aHR0cHM6Ly9zMy5jb2ludGVsZWdyYXBoLmNvbS91cGxvYWRzLzIwMjUtMTIvMDE5YjI5OGUtMmExZS03NDA5LTk",
+      "doc_type": "news_archive",
+      "created_at": "2026-04-10T01:05:33.567271",
+      "updated_at": "2026-04-10T01:05:33.567271",
+      "tags": [
+        "news",
+        "btc",
+        "cointelegraph.com",
+        "🤝_合作夥伴",
+        "⚖️_監管風險",
+        "⬆️_技術升級"
+      ],
+      "metadata": {
+        "symbol": "BTC",
+        "news_source": "cointelegraph.com",
+        "url": "https://cointelegraph.com/news/bitcoin-depot-3-7m-cybersecurity-breach-customer-data-safe?utm_source=rss_feed&utm_medium=rss&utm_campaign=rss_partner_inbound",
+        "published_at": "2026-04-09T13:13:28",
+        "analysis_hours": 24,
+        "overall_sentiment_score": 0.032,
+        "article_sentiment": "negative",
+        "article_sentiment_score": -1.0,
+        "importance_score": 10.0,
+        "relevance_score": 2.0,
+        "key_events": [
+          "🤝 合作夥伴",
+          "⚖️ 監管風險",
+          "⬆️ 技術升級",
+          "🔒 安全事件",
+          "📈 ETF 相關"
+        ],
+        "ingested_at": "2026-04-10T01:05:33.565981",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_btc_5cef7c88cbc14264",
+      "title": "Crypto exchanges chase TradFi commodities market as pricing gaps persist",
+      "content": "<p style=\"float:right; margin:0 0 10px 15px; width:240px;\"><img src=\"https://images.cointelegraph.com/images/528_aHR0cHM6Ly9zMy5jb2ludGVsZWdyYXBoLmNvbS91cGxvYWRzLzIwMjYtMDQvMDE5ZDcxZWUtOTY1NC03YjI1LWE",
+      "doc_type": "news_archive",
+      "created_at": "2026-04-10T01:05:33.567293",
+      "updated_at": "2026-04-10T01:05:33.567293",
+      "tags": [
+        "news",
+        "btc",
+        "cointelegraph.com",
+        "🤝_合作夥伴",
+        "⚖️_監管風險",
+        "⬆️_技術升級"
+      ],
+      "metadata": {
+        "symbol": "BTC",
+        "news_source": "cointelegraph.com",
+        "url": "https://cointelegraph.com/news/crypto-exchanges-tradfi-precious-metals-pricing-liquidity-risks?utm_source=rss_feed&utm_medium=rss&utm_campaign=rss_partner_inbound",
+        "published_at": "2026-04-09T13:03:16",
+        "analysis_hours": 24,
+        "overall_sentiment_score": 0.032,
+        "article_sentiment": "neutral",
+        "article_sentiment_score": 0.032,
+        "importance_score": 5.24,
+        "relevance_score": 1.0,
+        "key_events": [
+          "🤝 合作夥伴",
+          "⚖️ 監管風險",
+          "⬆️ 技術升級",
+          "🔒 安全事件",
+          "📈 ETF 相關"
+        ],
+        "ingested_at": "2026-04-10T01:05:33.565981",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_btc_81cced4cb8ac6eb7",
+      "title": "Meet the Anti-Trump Crypto Developer Running for Congress in Virginia",
+      "content": "Ethereum developer Joe Schiarizzi says most pro-crypto lawmakers in D.C. “just want a check” and don’t actually understand the technology—or its potential.",
+      "doc_type": "news_archive",
+      "created_at": "2026-04-10T01:05:33.567316",
+      "updated_at": "2026-04-10T01:05:33.567317",
+      "tags": [
+        "news",
+        "btc",
+        "decrypt.co",
+        "🤝_合作夥伴",
+        "⚖️_監管風險",
+        "⬆️_技術升級"
+      ],
+      "metadata": {
+        "symbol": "BTC",
+        "news_source": "decrypt.co",
+        "url": "https://decrypt.co/363739/meet-anti-trump-crypto-developer-running-congress-virginia",
+        "published_at": "2026-04-09T13:01:03",
+        "analysis_hours": 24,
+        "overall_sentiment_score": 0.032,
+        "article_sentiment": "neutral",
+        "article_sentiment_score": 0.032,
+        "importance_score": 6.8,
+        "relevance_score": 1.0,
+        "key_events": [
+          "🤝 合作夥伴",
+          "⚖️ 監管風險",
+          "⬆️ 技術升級",
+          "🔒 安全事件",
+          "📈 ETF 相關"
+        ],
+        "ingested_at": "2026-04-10T01:05:33.565981",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_btc_dfb0080f164da4a1",
+      "title": "Gold, silver and oil drive 65,000% jump in commodity perpetuals",
+      "content": "<p style=\"float:right; margin:0 0 10px 15px; width:240px;\"><img src=\"https://images.cointelegraph.com/images/528_aHR0cHM6Ly9zMy5jb2ludGVsZWdyYXBoLmNvbS91cGxvYWRzLzIwMjYtMDQvMDE5ZDcxNmEtZDg1OC03YjcyLWF",
+      "doc_type": "news_archive",
+      "created_at": "2026-04-10T01:05:33.567343",
+      "updated_at": "2026-04-10T01:05:33.567344",
+      "tags": [
+        "news",
+        "btc",
+        "cointelegraph.com",
+        "🤝_合作夥伴",
+        "⚖️_監管風險",
+        "⬆️_技術升級"
+      ],
+      "metadata": {
+        "symbol": "BTC",
+        "news_source": "cointelegraph.com",
+        "url": "https://cointelegraph.com/news/gold-silver-oil-drive-65000-percent-jump-in-commodity-perpetuals?utm_source=rss_feed&utm_medium=rss&utm_campaign=rss_partner_inbound",
+        "published_at": "2026-04-09T13:00:00",
+        "analysis_hours": 24,
+        "overall_sentiment_score": 0.032,
+        "article_sentiment": "neutral",
+        "article_sentiment_score": 0.032,
+        "importance_score": 4.18,
+        "relevance_score": 0.3,
+        "key_events": [
+          "🤝 合作夥伴",
+          "⚖️ 監管風險",
+          "⬆️ 技術升級",
+          "🔒 安全事件",
+          "📈 ETF 相關"
+        ],
+        "ingested_at": "2026-04-10T01:05:33.565981",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_btc_0bafab033dce8361",
+      "title": "The $21 billion AI bet: Meta and CoreWeave ink deal for NVIDIA’s next-gen superchips",
+      "content": "Long-term agreement between Meta and CoreWeave signals growing demand for scalable AI compute and inference capacity.",
+      "doc_type": "news_archive",
+      "created_at": "2026-04-10T01:05:33.567379",
+      "updated_at": "2026-04-10T01:05:33.567380",
+      "tags": [
+        "news",
+        "btc",
+        "www.coindesk.com",
+        "🤝_合作夥伴",
+        "⚖️_監管風險",
+        "⬆️_技術升級"
+      ],
+      "metadata": {
+        "symbol": "BTC",
+        "news_source": "www.coindesk.com",
+        "url": "https://www.coindesk.com/markets/2026/04/09/meta-expands-ai-infrastructure-bet-with-usd21-billion-coreweave-deal",
+        "published_at": "2026-04-09T12:19:55",
+        "analysis_hours": 24,
+        "overall_sentiment_score": 0.032,
+        "article_sentiment": "neutral",
+        "article_sentiment_score": 0.032,
+        "importance_score": 6.15,
+        "relevance_score": 0.3,
+        "key_events": [
+          "🤝 合作夥伴",
+          "⚖️ 監管風險",
+          "⬆️ 技術升級",
+          "🔒 安全事件",
+          "📈 ETF 相關"
+        ],
+        "ingested_at": "2026-04-10T01:05:33.565981",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_btc_ccf89e8769a76776",
+      "title": "Tokenized perpetual swaps hit $31 billion weekly volume on commodities volatility",
+      "content": "Commodities led the growth, with oil trading reaching $6.9 billion in weekly volume after geopolitical tensions, while stock perpetual swaps grew 908% to roughly $4.9 billion.",
+      "doc_type": "news_archive",
+      "created_at": "2026-04-10T01:05:33.567409",
+      "updated_at": "2026-04-10T01:05:33.567410",
+      "tags": [
+        "news",
+        "btc",
+        "www.coindesk.com",
+        "🤝_合作夥伴",
+        "⚖️_監管風險",
+        "⬆️_技術升級"
+      ],
+      "metadata": {
+        "symbol": "BTC",
+        "news_source": "www.coindesk.com",
+        "url": "https://www.coindesk.com/markets/2026/04/09/tokenized-perpetual-swaps-hit-usd31-billion-weekly-volume-on-commodities-volatility",
+        "published_at": "2026-04-09T12:00:00",
+        "analysis_hours": 24,
+        "overall_sentiment_score": 0.032,
+        "article_sentiment": "positive",
+        "article_sentiment_score": 1.0,
+        "importance_score": 5.72,
+        "relevance_score": 0.3,
+        "key_events": [
+          "🤝 合作夥伴",
+          "⚖️ 監管風險",
+          "⬆️ 技術升級",
+          "🔒 安全事件",
+          "📈 ETF 相關"
+        ],
+        "ingested_at": "2026-04-10T01:05:33.565981",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_btc_38e76012dfac3366",
+      "title": "Morning Minute: Iran Wants Bitcoin to Let Oil Tankers Through the Strait",
+      "content": "Iran may accept BTC for oil tanker passage through the Strait of Hormuz, while Morgan Stanley just helped drive a huge day for Bitcoin ETFs.",
+      "doc_type": "news_archive",
+      "created_at": "2026-04-10T01:05:33.567440",
+      "updated_at": "2026-04-10T01:05:33.567441",
+      "tags": [
+        "news",
+        "btc",
+        "decrypt.co",
+        "🤝_合作夥伴",
+        "⚖️_監管風險",
+        "⬆️_技術升級"
+      ],
+      "metadata": {
+        "symbol": "BTC",
+        "news_source": "decrypt.co",
+        "url": "https://decrypt.co/363786/morning-minute-iran-wants-bitcoin-to-let-oil-tankers-through-the-strait",
+        "published_at": "2026-04-09T11:54:40",
+        "analysis_hours": 24,
+        "overall_sentiment_score": 0.032,
+        "article_sentiment": "neutral",
+        "article_sentiment_score": 0.032,
+        "importance_score": 7.8,
+        "relevance_score": 2.0,
+        "key_events": [
+          "🤝 合作夥伴",
+          "⚖️ 監管風險",
+          "⬆️ 技術升級",
+          "🔒 安全事件",
+          "📈 ETF 相關"
+        ],
+        "ingested_at": "2026-04-10T01:05:33.565981",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_btc_9cbe065fe817b18b",
+      "title": "Bitcoin analysts say this must happen for BTC price to ‘continue rising’",
+      "content": "<p style=\"float:right; margin:0 0 10px 15px; width:240px;\"><img src=\"https://images.cointelegraph.com/images/528_aHR0cHM6Ly9zMy5jb2ludGVsZWdyYXBoLmNvbS91cGxvYWRzLzIwMjQtMTIvMDE5M2ExMmItMmUwZi03ZWQ0LTl",
+      "doc_type": "news_archive",
+      "created_at": "2026-04-10T01:05:33.567478",
+      "updated_at": "2026-04-10T01:05:33.567479",
+      "tags": [
+        "news",
+        "btc",
+        "cointelegraph.com",
+        "🤝_合作夥伴",
+        "⚖️_監管風險",
+        "⬆️_技術升級"
+      ],
+      "metadata": {
+        "symbol": "BTC",
+        "news_source": "cointelegraph.com",
+        "url": "https://cointelegraph.com/news/bitcoin-analysts-say-this-must-happen-for-btc-price-to-continue-rising?utm_source=rss_feed&utm_medium=rss&utm_campaign=rss_partner_inbound",
+        "published_at": "2026-04-09T11:46:35",
+        "analysis_hours": 24,
+        "overall_sentiment_score": 0.032,
+        "article_sentiment": "neutral",
+        "article_sentiment_score": 0.032,
+        "importance_score": 8.14,
+        "relevance_score": 2.0,
+        "key_events": [
+          "🤝 合作夥伴",
+          "⚖️ 監管風險",
+          "⬆️ 技術升級",
+          "🔒 安全事件",
+          "📈 ETF 相關"
+        ],
+        "ingested_at": "2026-04-10T01:05:33.565981",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_btc_e81d2153907c3518",
+      "title": "Fartcoin Leads Altcoin Slump With Double-Digit Drop",
+      "content": "Altcoin volatility spiked as Fartcoin crashed 28% from its peak, while Hyperliquid recorded $84 million in liquidations.",
+      "doc_type": "news_archive",
+      "created_at": "2026-04-10T01:05:33.567508",
+      "updated_at": "2026-04-10T01:05:33.567509",
+      "tags": [
+        "news",
+        "btc",
+        "decrypt.co",
+        "🤝_合作夥伴",
+        "⚖️_監管風險",
+        "⬆️_技術升級"
+      ],
+      "metadata": {
+        "symbol": "BTC",
+        "news_source": "decrypt.co",
+        "url": "https://decrypt.co/363772/fartcoin-leads-altcoin-slump-with-double-digit-drop",
+        "published_at": "2026-04-09T11:42:31",
+        "analysis_hours": 24,
+        "overall_sentiment_score": 0.032,
+        "article_sentiment": "negative",
+        "article_sentiment_score": -1.0,
+        "importance_score": 5.72,
+        "relevance_score": 0.3,
+        "key_events": [
+          "🤝 合作夥伴",
+          "⚖️ 監管風險",
+          "⬆️ 技術升級",
+          "🔒 安全事件",
+          "📈 ETF 相關"
+        ],
+        "ingested_at": "2026-04-10T01:05:33.565981",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_btc_65c890edd0b9bd2f",
+      "title": "Bhutan moves a further $23M in Bitcoin as holdings drop by 70%",
+      "content": "<p style=\"float:right; margin:0 0 10px 15px; width:240px;\"><img src=\"https://images.cointelegraph.com/images/528_aHR0cHM6Ly9zMy5jb2ludGVsZWdyYXBoLmNvbS91cGxvYWRzLzIwMjYtMDMvMDE5Y2Q1YzEtY2M2OC03YmFiLWJ",
+      "doc_type": "news_archive",
+      "created_at": "2026-04-10T01:05:33.567537",
+      "updated_at": "2026-04-10T01:05:33.567538",
+      "tags": [
+        "news",
+        "btc",
+        "cointelegraph.com",
+        "🤝_合作夥伴",
+        "⚖️_監管風險",
+        "⬆️_技術升級"
+      ],
+      "metadata": {
+        "symbol": "BTC",
+        "news_source": "cointelegraph.com",
+        "url": "https://cointelegraph.com/news/bhutan-offloads-a-further-23m-bitcoin?utm_source=rss_feed&utm_medium=rss&utm_campaign=rss_partner_inbound",
+        "published_at": "2026-04-09T11:39:46",
+        "analysis_hours": 24,
+        "overall_sentiment_score": 0.032,
+        "article_sentiment": "negative",
+        "article_sentiment_score": -0.9,
+        "importance_score": 7.62,
+        "relevance_score": 2.0,
+        "key_events": [
+          "🤝 合作夥伴",
+          "⚖️ 監管風險",
+          "⬆️ 技術升級",
+          "🔒 安全事件",
+          "📈 ETF 相關"
+        ],
+        "ingested_at": "2026-04-10T01:05:33.565981",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_btc_16f3c57280f5c67e",
+      "title": "Fartcoin's price crashed 50% after $145 million manipulation bet went wrong",
+      "content": "The liquidation was so large relative to the order book that Hyperliquid's auto-deleveraging mechanism activated, forcibly closing profitable short positions on the other side of the trade to prevent",
+      "doc_type": "news_archive",
+      "created_at": "2026-04-10T01:05:33.567565",
+      "updated_at": "2026-04-10T01:05:33.567566",
+      "tags": [
+        "news",
+        "btc",
+        "www.coindesk.com",
+        "🤝_合作夥伴",
+        "⚖️_監管風險",
+        "⬆️_技術升級"
+      ],
+      "metadata": {
+        "symbol": "BTC",
+        "news_source": "www.coindesk.com",
+        "url": "https://www.coindesk.com/markets/2026/04/09/someone-tried-to-manipulate-fartcoin-s-price-with-a-usd145-million-long-it-crashed-50",
+        "published_at": "2026-04-09T11:30:40",
+        "analysis_hours": 24,
+        "overall_sentiment_score": 0.032,
+        "article_sentiment": "negative",
+        "article_sentiment_score": -1.0,
+        "importance_score": 7.34,
+        "relevance_score": 0.3,
+        "key_events": [
+          "🤝 合作夥伴",
+          "⚖️ 監管風險",
+          "⬆️ 技術升級",
+          "🔒 安全事件",
+          "📈 ETF 相關"
+        ],
+        "ingested_at": "2026-04-10T01:05:33.565981",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_btc_539ffa53d5c43bd2",
+      "title": "Bitcoin’s $80,000 bull bet just took over the market",
+      "content": "Whales and options traders are betting on a massive BTC reversal toward $80,000 as a fragile Iran ceasefire fuels hopes for a supply squeeze and a breakout.",
+      "doc_type": "news_archive",
+      "created_at": "2026-04-10T01:05:33.567599",
+      "updated_at": "2026-04-10T01:05:33.567600",
+      "tags": [
+        "news",
+        "btc",
+        "www.coindesk.com",
+        "🤝_合作夥伴",
+        "⚖️_監管風險",
+        "⬆️_技術升級"
+      ],
+      "metadata": {
+        "symbol": "BTC",
+        "news_source": "www.coindesk.com",
+        "url": "https://www.coindesk.com/markets/2026/04/09/bitcoin-s-usd80-000-bull-bet-just-took-over-the-market",
+        "published_at": "2026-04-09T11:23:57",
+        "analysis_hours": 24,
+        "overall_sentiment_score": 0.032,
+        "article_sentiment": "neutral",
+        "article_sentiment_score": 0.032,
+        "importance_score": 8.5,
+        "relevance_score": 2.0,
+        "key_events": [
+          "🤝 合作夥伴",
+          "⚖️ 監管風險",
+          "⬆️ 技術升級",
+          "🔒 安全事件",
+          "📈 ETF 相關"
+        ],
+        "ingested_at": "2026-04-10T01:05:33.565981",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_btc_44e4bc4ec6e45c9e",
+      "title": "Bessent ramps up pressure on Congress to pass CLARITY Act",
+      "content": "<p style=\"float:right; margin:0 0 10px 15px; width:240px;\"><img src=\"https://images.cointelegraph.com/images/528_aHR0cHM6Ly9zMy5jb2ludGVsZWdyYXBoLmNvbS91cGxvYWRzLzIwMjYtMDIvMDE5YzU3ZDYtOWNmYy03ODhlLTh",
+      "doc_type": "news_archive",
+      "created_at": "2026-04-10T01:05:33.567627",
+      "updated_at": "2026-04-10T01:05:33.567628",
+      "tags": [
+        "news",
+        "btc",
+        "cointelegraph.com",
+        "🤝_合作夥伴",
+        "⚖️_監管風險",
+        "⬆️_技術升級"
+      ],
+      "metadata": {
+        "symbol": "BTC",
+        "news_source": "cointelegraph.com",
+        "url": "https://cointelegraph.com/news/bessent-presses-congress-to-pass-clarity-act?utm_source=rss_feed&utm_medium=rss&utm_campaign=rss_partner_inbound",
+        "published_at": "2026-04-09T10:58:19",
+        "analysis_hours": 24,
+        "overall_sentiment_score": 0.032,
+        "article_sentiment": "neutral",
+        "article_sentiment_score": 0.032,
+        "importance_score": 4.29,
+        "relevance_score": 0.3,
+        "key_events": [
+          "🤝 合作夥伴",
+          "⚖️ 監管風險",
+          "⬆️ 技術升級",
+          "🔒 安全事件",
+          "📈 ETF 相關"
+        ],
+        "ingested_at": "2026-04-10T01:05:33.565981",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_btc_07e140837356cc83",
+      "title": "Bitcoin stalls below key resistance as analysts clash over next move",
+      "content": "Despite a geopolitical \"risk-on\" boost, crypto markets remain range-bound with BTC hovering at $71,200 while altcoins like MANA and AERO show strength.",
+      "doc_type": "news_archive",
+      "created_at": "2026-04-10T01:05:33.567657",
+      "updated_at": "2026-04-10T01:05:33.567658",
+      "tags": [
+        "news",
+        "btc",
+        "www.coindesk.com",
+        "🤝_合作夥伴",
+        "⚖️_監管風險",
+        "⬆️_技術升級"
+      ],
+      "metadata": {
+        "symbol": "BTC",
+        "news_source": "www.coindesk.com",
+        "url": "https://www.coindesk.com/markets/2026/04/09/bitcoin-stalls-below-key-resistance-as-analysts-clash-over-next-move",
+        "published_at": "2026-04-09T10:31:26",
+        "analysis_hours": 24,
+        "overall_sentiment_score": 0.032,
+        "article_sentiment": "negative",
+        "article_sentiment_score": -0.7,
+        "importance_score": 9.0,
+        "relevance_score": 2.0,
+        "key_events": [
+          "🤝 合作夥伴",
+          "⚖️ 監管風險",
+          "⬆️ 技術升級",
+          "🔒 安全事件",
+          "📈 ETF 相關"
+        ],
+        "ingested_at": "2026-04-10T01:05:33.565981",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_btc_1414289c54a1bd7f",
+      "title": "Morgan Stanley Bitcoin ETF trails BlackRock with $30M in first-day inflows",
+      "content": "<p style=\"float:right; margin:0 0 10px 15px; width:240px;\"><img src=\"https://images.cointelegraph.com/images/528_aHR0cHM6Ly9zMy5jb2ludGVsZWdyYXBoLmNvbS91cGxvYWRzLzIwMjYtMDEvMDE5YmEyMmUtZDEzZC03NmNmLTk",
+      "doc_type": "news_archive",
+      "created_at": "2026-04-10T01:05:33.567687",
+      "updated_at": "2026-04-10T01:05:33.567688",
+      "tags": [
+        "news",
+        "btc",
+        "cointelegraph.com",
+        "🤝_合作夥伴",
+        "⚖️_監管風險",
+        "⬆️_技術升級"
+      ],
+      "metadata": {
+        "symbol": "BTC",
+        "news_source": "cointelegraph.com",
+        "url": "https://cointelegraph.com/news/morgan-stanley-bitcoin-etf-trails-blackrock-with-30m-in-first-day-inflows?utm_source=rss_feed&utm_medium=rss&utm_campaign=rss_partner_inbound",
+        "published_at": "2026-04-09T10:21:29",
+        "analysis_hours": 24,
+        "overall_sentiment_score": 0.032,
+        "article_sentiment": "neutral",
+        "article_sentiment_score": 0.032,
+        "importance_score": 10.0,
+        "relevance_score": 2.0,
+        "key_events": [
+          "🤝 合作夥伴",
+          "⚖️ 監管風險",
+          "⬆️ 技術升級",
+          "🔒 安全事件",
+          "📈 ETF 相關"
+        ],
+        "ingested_at": "2026-04-10T01:05:33.565981",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_btc_666fb156cfe1b777",
+      "title": "Strategy’s STRC sees one of its highest volume days, with just one penny of volatility",
+      "content": "High yield structure keeps STRC pinned at par while enabling large scale bitcoin purchases.",
+      "doc_type": "news_archive",
+      "created_at": "2026-04-10T01:05:33.567785",
+      "updated_at": "2026-04-10T01:05:33.567786",
+      "tags": [
+        "news",
+        "btc",
+        "www.coindesk.com",
+        "🤝_合作夥伴",
+        "⚖️_監管風險",
+        "⬆️_技術升級"
+      ],
+      "metadata": {
+        "symbol": "BTC",
+        "news_source": "www.coindesk.com",
+        "url": "https://www.coindesk.com/markets/2026/04/09/strategy-s-strc-sees-one-of-its-highest-volume-days-with-just-one-penny-of-volatility",
+        "published_at": "2026-04-09T09:50:36",
+        "analysis_hours": 24,
+        "overall_sentiment_score": 0.032,
+        "article_sentiment": "neutral",
+        "article_sentiment_score": 0.032,
+        "importance_score": 6.62,
+        "relevance_score": 2.0,
+        "key_events": [
+          "🤝 合作夥伴",
+          "⚖️ 監管風險",
+          "⬆️ 技術升級",
+          "🔒 安全事件",
+          "📈 ETF 相關"
+        ],
+        "ingested_at": "2026-04-10T01:05:33.565981",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_btc_900a59048477bbea",
+      "title": "Bithumb moves to seize assets over mistaken $8 million bitcoin dispute",
+      "content": "On Feb. 6, staff mistakenly entered \"BTC\" instead of \"KRW\" in a promotion, crediting roughly 620,000 bitcoin worth over $40 billion.",
+      "doc_type": "news_archive",
+      "created_at": "2026-04-10T01:05:33.567810",
+      "updated_at": "2026-04-10T01:05:33.567811",
+      "tags": [
+        "news",
+        "btc",
+        "www.coindesk.com",
+        "🤝_合作夥伴",
+        "⚖️_監管風險",
+        "⬆️_技術升級"
+      ],
+      "metadata": {
+        "symbol": "BTC",
+        "news_source": "www.coindesk.com",
+        "url": "https://www.coindesk.com/business/2026/04/09/bithumb-moves-to-seize-assets-over-mistaken-usd8-million-bitcoin-dispute",
+        "published_at": "2026-04-09T09:28:29",
+        "analysis_hours": 24,
+        "overall_sentiment_score": 0.032,
+        "article_sentiment": "neutral",
+        "article_sentiment_score": 0.032,
+        "importance_score": 7.64,
+        "relevance_score": 2.0,
+        "key_events": [
+          "🤝 合作夥伴",
+          "⚖️ 監管風險",
+          "⬆️ 技術升級",
+          "🔒 安全事件",
+          "📈 ETF 相關"
+        ],
+        "ingested_at": "2026-04-10T01:05:33.565981",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_btc_8c7c9e4cbacc8811",
+      "title": "Morgan Stanley Bitcoin ETF Draws In $31M on First Trading Day",
+      "content": "The new fund launched amid a second straight day of outflows for Bitcoin ETFs, undercutting competitors with a 0.14% expense ratio.",
+      "doc_type": "news_archive",
+      "created_at": "2026-04-10T01:05:33.567838",
+      "updated_at": "2026-04-10T01:05:33.567839",
+      "tags": [
+        "news",
+        "btc",
+        "decrypt.co",
+        "🤝_合作夥伴",
+        "⚖️_監管風險",
+        "⬆️_技術升級"
+      ],
+      "metadata": {
+        "symbol": "BTC",
+        "news_source": "decrypt.co",
+        "url": "https://decrypt.co/363766/morgan-stanley-bitcoin-etf-draws-in-31m-on-first-trading-day",
+        "published_at": "2026-04-09T09:27:42",
+        "analysis_hours": 24,
+        "overall_sentiment_score": 0.032,
+        "article_sentiment": "positive",
+        "article_sentiment_score": 0.9,
+        "importance_score": 10.0,
+        "relevance_score": 2.0,
+        "key_events": [
+          "🤝 合作夥伴",
+          "⚖️ 監管風險",
+          "⬆️ 技術升級",
+          "🔒 安全事件",
+          "📈 ETF 相關"
+        ],
+        "ingested_at": "2026-04-10T01:05:33.565981",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_btc_fc2aad8d299f8078",
+      "title": "Bithumb launches legal action to recover 7 Bitcoin from payout error",
+      "content": "<p style=\"float:right; margin:0 0 10px 15px; width:240px;\"><img src=\"https://images.cointelegraph.com/images/528_aHR0cHM6Ly9zMy5jb2ludGVsZWdyYXBoLmNvbS91cGxvYWRzLzIwMjYtMDMvMDE5Y2QyYzAtN2MxNC03OTVkLTk",
+      "doc_type": "news_archive",
+      "created_at": "2026-04-10T01:05:33.567859",
+      "updated_at": "2026-04-10T01:05:33.567860",
+      "tags": [
+        "news",
+        "btc",
+        "cointelegraph.com",
+        "🤝_合作夥伴",
+        "⚖️_監管風險",
+        "⬆️_技術升級"
+      ],
+      "metadata": {
+        "symbol": "BTC",
+        "news_source": "cointelegraph.com",
+        "url": "https://cointelegraph.com/news/bithumb-legal-action-recover-7-bitcoin?utm_source=rss_feed&utm_medium=rss&utm_campaign=rss_partner_inbound",
+        "published_at": "2026-04-09T08:55:04",
+        "analysis_hours": 24,
+        "overall_sentiment_score": 0.032,
+        "article_sentiment": "positive",
+        "article_sentiment_score": 0.9,
+        "importance_score": 9.92,
+        "relevance_score": 2.0,
+        "key_events": [
+          "🤝 合作夥伴",
+          "⚖️ 監管風險",
+          "⬆️ 技術升級",
+          "🔒 安全事件",
+          "📈 ETF 相關"
+        ],
+        "ingested_at": "2026-04-10T01:05:33.565981",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_btc_609da551ad566074",
+      "title": "Iran's crypto tanker tolls are the latest step in its sanctions‑busting trade network",
+      "content": "The Iranian regime has been increasingly using cryptocurrency over the last few years to facilitate cross border oil trading, according to data from Chainalysis.",
+      "doc_type": "news_archive",
+      "created_at": "2026-04-10T01:05:33.567884",
+      "updated_at": "2026-04-10T01:05:33.567885",
+      "tags": [
+        "news",
+        "btc",
+        "www.coindesk.com",
+        "🤝_合作夥伴",
+        "⚖️_監管風險",
+        "⬆️_技術升級"
+      ],
+      "metadata": {
+        "symbol": "BTC",
+        "news_source": "www.coindesk.com",
+        "url": "https://www.coindesk.com/policy/2026/04/09/crypto-payments-to-pass-strait-of-hormuz-is-the-next-logical-step-for-iran-s-sanctions-skirting-trade-network",
+        "published_at": "2026-04-09T08:32:18",
+        "analysis_hours": 24,
+        "overall_sentiment_score": 0.032,
+        "article_sentiment": "neutral",
+        "article_sentiment_score": 0.032,
+        "importance_score": 5.49,
+        "relevance_score": 1.0,
+        "key_events": [
+          "🤝 合作夥伴",
+          "⚖️ 監管風險",
+          "⬆️ 技術升級",
+          "🔒 安全事件",
+          "📈 ETF 相關"
+        ],
+        "ingested_at": "2026-04-10T01:05:33.565981",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_btc_5a43d0b48bbff8f3",
+      "title": "Everyone’s awaiting U.S. inflation figures, but bitcoin traders couldn’t care less",
+      "content": "There’s a wide gap between how experts are viewing Friday’s inflation data and how the bitcoin market is pricing in the impending figures.",
+      "doc_type": "news_archive",
+      "created_at": "2026-04-10T01:05:33.567911",
+      "updated_at": "2026-04-10T01:05:33.567911",
+      "tags": [
+        "news",
+        "btc",
+        "www.coindesk.com",
+        "🤝_合作夥伴",
+        "⚖️_監管風險",
+        "⬆️_技術升級"
+      ],
+      "metadata": {
+        "symbol": "BTC",
+        "news_source": "www.coindesk.com",
+        "url": "https://www.coindesk.com/markets/2026/04/09/everyone-s-awaiting-u-s-inflation-figures-but-bitcoin-traders-couldn-t-care-less",
+        "published_at": "2026-04-09T08:22:28",
+        "analysis_hours": 24,
+        "overall_sentiment_score": 0.032,
+        "article_sentiment": "neutral",
+        "article_sentiment_score": 0.032,
+        "importance_score": 8.11,
+        "relevance_score": 2.0,
+        "key_events": [
+          "🤝 合作夥伴",
+          "⚖️ 監管風險",
+          "⬆️ 技術升級",
+          "🔒 安全事件",
+          "📈 ETF 相關"
+        ],
+        "ingested_at": "2026-04-10T01:05:33.565981",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_btc_1dd6e3dfe1e9f52a",
+      "title": "The ‘bottom is in’: Why Tom Lee says the Iran ceasefire is the starting gun for a massive bitcoin rally",
+      "content": "The Fundstrat co-founder and largest corporate ether buyer on earth said the ceasefire means the worst is over. His company bought 71,252 ETH last week.",
+      "doc_type": "news_archive",
+      "created_at": "2026-04-10T01:05:33.567934",
+      "updated_at": "2026-04-10T01:05:33.567935",
+      "tags": [
+        "news",
+        "btc",
+        "www.coindesk.com",
+        "🤝_合作夥伴",
+        "⚖️_監管風險",
+        "⬆️_技術升級"
+      ],
+      "metadata": {
+        "symbol": "BTC",
+        "news_source": "www.coindesk.com",
+        "url": "https://www.coindesk.com/markets/2026/04/09/fundstrat-s-tom-lee-says-the-bottom-is-in-for-stocks-paving-a-bull-case-for-bitcoin-and-ether",
+        "published_at": "2026-04-09T07:42:38",
+        "analysis_hours": 24,
+        "overall_sentiment_score": 0.032,
+        "article_sentiment": "positive",
+        "article_sentiment_score": 1.0,
+        "importance_score": 9.0,
+        "relevance_score": 2.0,
+        "key_events": [
+          "🤝 合作夥伴",
+          "⚖️ 監管風險",
+          "⬆️ 技術升級",
+          "🔒 安全事件",
+          "📈 ETF 相關"
+        ],
+        "ingested_at": "2026-04-10T01:05:33.565981",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_btc_cdf7b580ee5a4bc6",
+      "title": "Yuga Labs settles lawsuit against artists accused of copying its NFTs",
+      "content": "<p style=\"float:right; margin:0 0 10px 15px; width:240px;\"><img src=\"https://images.cointelegraph.com/images/528_aHR0cHM6Ly9zMy5jb2ludGVsZWdyYXBoLmNvbS91cGxvYWRzLzIwMjYtMDQvMDE5ZDcwOTEtMDk1My03OTNiLTl",
+      "doc_type": "news_archive",
+      "created_at": "2026-04-10T01:05:33.567960",
+      "updated_at": "2026-04-10T01:05:33.567960",
+      "tags": [
+        "news",
+        "btc",
+        "cointelegraph.com",
+        "🤝_合作夥伴",
+        "⚖️_監管風險",
+        "⬆️_技術升級"
+      ],
+      "metadata": {
+        "symbol": "BTC",
+        "news_source": "cointelegraph.com",
+        "url": "https://cointelegraph.com/news/yuga-labs-settles-bayc-nft-lawsuit-ripps-cahen?utm_source=rss_feed&utm_medium=rss&utm_campaign=rss_partner_inbound",
+        "published_at": "2026-04-09T07:23:23",
+        "analysis_hours": 24,
+        "overall_sentiment_score": 0.032,
+        "article_sentiment": "neutral",
+        "article_sentiment_score": 0.032,
+        "importance_score": 6.83,
+        "relevance_score": 0.3,
+        "key_events": [
+          "🤝 合作夥伴",
+          "⚖️ 監管風險",
+          "⬆️ 技術升級",
+          "🔒 安全事件",
+          "📈 ETF 相關"
+        ],
+        "ingested_at": "2026-04-10T01:05:33.565981",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_btc_f9e505e678962ed1",
+      "title": "Canary Capital submits application for US-based spot PEPE ETF",
+      "content": "<p style=\"float:right; margin:0 0 10px 15px; width:240px;\"><img src=\"https://images.cointelegraph.com/images/528_aHR0cHM6Ly9zMy5jb2ludGVsZWdyYXBoLmNvbS91cGxvYWRzLzIwMjYtMDQvMDE5ZDZmNmYtMGRhMy03N2U5LWF",
+      "doc_type": "news_archive",
+      "created_at": "2026-04-10T01:05:33.567977",
+      "updated_at": "2026-04-10T01:05:33.567977",
+      "tags": [
+        "news",
+        "btc",
+        "cointelegraph.com",
+        "🤝_合作夥伴",
+        "⚖️_監管風險",
+        "⬆️_技術升級"
+      ],
+      "metadata": {
+        "symbol": "BTC",
+        "news_source": "cointelegraph.com",
+        "url": "https://cointelegraph.com/news/canary-capital-pepe-us-etf-crypto-altcoins?utm_source=rss_feed&utm_medium=rss&utm_campaign=rss_partner_inbound",
+        "published_at": "2026-04-09T07:13:49",
+        "analysis_hours": 24,
+        "overall_sentiment_score": 0.032,
+        "article_sentiment": "neutral",
+        "article_sentiment_score": 0.032,
+        "importance_score": 7.23,
+        "relevance_score": 0.3,
+        "key_events": [
+          "🤝 合作夥伴",
+          "⚖️ 監管風險",
+          "⬆️ 技術升級",
+          "🔒 安全事件",
+          "📈 ETF 相關"
+        ],
+        "ingested_at": "2026-04-10T01:05:33.565981",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_btc_a48e717feeb6ab38",
+      "title": "Bitcoin miners face a tougher road to the 2028 halving",
+      "content": "<p style=\"float:right; margin:0 0 10px 15px; width:240px;\"><img src=\"https://images.cointelegraph.com/images/528_aHR0cHM6Ly9zMy5jb2ludGVsZWdyYXBoLmNvbS91cGxvYWRzLzIwMjYtMDQvMDE5ZDc2YjUtMjhmMS03ZmE1LWI",
+      "doc_type": "news_archive",
+      "created_at": "2026-04-13T00:35:10.412334",
+      "updated_at": "2026-04-13T00:35:10.412336",
+      "tags": [
+        "news",
+        "btc",
+        "cointelegraph.com",
+        "⏳_減半事件",
+        "🐋_大戶動向"
+      ],
+      "metadata": {
+        "symbol": "BTC",
+        "news_source": "cointelegraph.com",
+        "url": "https://cointelegraph.com/news/bitcoin-2028-halving-hits-the-halfway-point?utm_source=rss_feed&utm_medium=rss&utm_campaign=rss_partner_inbound",
+        "published_at": "2026-04-12T15:00:00",
+        "analysis_hours": 24,
+        "overall_sentiment_score": -0.062,
+        "article_sentiment": "neutral",
+        "article_sentiment_score": -0.062,
+        "importance_score": 10.0,
+        "relevance_score": 2.0,
+        "key_events": [
+          "⏳ 減半事件",
+          "🐋 大戶動向"
+        ],
+        "ingested_at": "2026-04-13T00:35:10.411733",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_btc_36be13572c8ffb88",
+      "title": "Bitcoin may be forming a base at $65,000 as 'paper hands' have been flushed out",
+      "content": "Jurrien Timmer, director of global macro at Fidelity Investments, says strong earnings are helping markets absorb geopolitical shocks, despite ongoing risks.",
+      "doc_type": "news_archive",
+      "created_at": "2026-04-13T00:35:10.412382",
+      "updated_at": "2026-04-13T00:35:10.412383",
+      "tags": [
+        "news",
+        "btc",
+        "www.coindesk.com",
+        "⏳_減半事件",
+        "🐋_大戶動向"
+      ],
+      "metadata": {
+        "symbol": "BTC",
+        "news_source": "www.coindesk.com",
+        "url": "https://www.coindesk.com/markets/2026/04/07/oil-at-usd100-vs-bitcoin-at-usd70k-the-wild-ride-that-fidelity-strategist-says-is-a-real-buying-opportunity",
+        "published_at": "2026-04-12T15:00:00",
+        "analysis_hours": 24,
+        "overall_sentiment_score": -0.062,
+        "article_sentiment": "positive",
+        "article_sentiment_score": 0.2222222222222223,
+        "importance_score": 8.83,
+        "relevance_score": 2.0,
+        "key_events": [
+          "⏳ 減半事件",
+          "🐋 大戶動向"
+        ],
+        "ingested_at": "2026-04-13T00:35:10.411733",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_btc_937554669428b866",
+      "title": "Oil futures up 7% on Hyperliquid as Trump orders Naval blockade of Hormuz",
+      "content": "Oil prices spiked on the Hyperliquid platform after President Donald Trump ordered a naval blockade of the Strait of Hormuz",
+      "doc_type": "news_archive",
+      "created_at": "2026-04-13T00:35:10.412409",
+      "updated_at": "2026-04-13T00:35:10.412410",
+      "tags": [
+        "news",
+        "btc",
+        "www.coindesk.com",
+        "⏳_減半事件",
+        "🐋_大戶動向"
+      ],
+      "metadata": {
+        "symbol": "BTC",
+        "news_source": "www.coindesk.com",
+        "url": "https://www.coindesk.com/markets/2026/04/12/oil-futures-up-7-on-hyperliquid-as-trump-orders-naval-blockade-of-hormuz",
+        "published_at": "2026-04-12T14:16:28",
+        "analysis_hours": 24,
+        "overall_sentiment_score": -0.062,
+        "article_sentiment": "neutral",
+        "article_sentiment_score": -0.062,
+        "importance_score": 6.66,
+        "relevance_score": 0.3,
+        "key_events": [
+          "⏳ 減半事件",
+          "🐋 大戶動向"
+        ],
+        "ingested_at": "2026-04-13T00:35:10.411733",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_btc_ad4ef465b175c27a",
+      "title": "Banks, corporates in Europe ‘actively selecting partners’ for stablecoin push",
+      "content": "<p style=\"float:right; margin:0 0 10px 15px; width:240px;\"><img src=\"https://images.cointelegraph.com/images/528_aHR0cHM6Ly9zMy5jb2ludGVsZWdyYXBoLmNvbS91cGxvYWRzLzIwMjYtMDQvMDE5ZDgxYTgtYWQ0Ny03NzhhLTk",
+      "doc_type": "news_archive",
+      "created_at": "2026-04-13T00:35:10.412438",
+      "updated_at": "2026-04-13T00:35:10.412439",
+      "tags": [
+        "news",
+        "btc",
+        "cointelegraph.com",
+        "⏳_減半事件",
+        "🐋_大戶動向"
+      ],
+      "metadata": {
+        "symbol": "BTC",
+        "news_source": "cointelegraph.com",
+        "url": "https://cointelegraph.com/news/banks-corporates-europe-actively-selecting-partners-stablecoin-push?utm_source=rss_feed&utm_medium=rss&utm_campaign=rss_partner_inbound",
+        "published_at": "2026-04-12T13:46:49",
+        "analysis_hours": 24,
+        "overall_sentiment_score": -0.062,
+        "article_sentiment": "negative",
+        "article_sentiment_score": -1.0,
+        "importance_score": 5.61,
+        "relevance_score": 0.3,
+        "key_events": [
+          "⏳ 減半事件",
+          "🐋 大戶動向"
+        ],
+        "ingested_at": "2026-04-13T00:35:10.411733",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_btc_52cfb144ef2775f2",
+      "title": "Bitcoin slips below $71,000 as Trump orders blockade of Strait of Hormuz",
+      "content": "\"Effective immediately, the United States Navy ... will begin the process of blockading any and all ships trying to enter, or leave, the Strait of Hormuz,\" said the president in a social media post.",
+      "doc_type": "news_archive",
+      "created_at": "2026-04-13T00:35:10.412464",
+      "updated_at": "2026-04-13T00:35:10.412464",
+      "tags": [
+        "news",
+        "btc",
+        "www.coindesk.com",
+        "⏳_減半事件",
+        "🐋_大戶動向"
+      ],
+      "metadata": {
+        "symbol": "BTC",
+        "news_source": "www.coindesk.com",
+        "url": "https://www.coindesk.com/markets/2026/04/12/bitcoin-slips-below-usd71-000-as-trump-orders-blockade-of-strait-of-hormuz",
+        "published_at": "2026-04-12T13:46:02",
+        "analysis_hours": 24,
+        "overall_sentiment_score": -0.062,
+        "article_sentiment": "neutral",
+        "article_sentiment_score": -0.062,
+        "importance_score": 8.5,
+        "relevance_score": 2.0,
+        "key_events": [
+          "⏳ 減半事件",
+          "🐋 大戶動向"
+        ],
+        "ingested_at": "2026-04-13T00:35:10.411733",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_btc_c4ba50a7cacb05f4",
+      "title": "Bitcoin analysts flag triggers for a massive surge to $88,000 even as war risks linger",
+      "content": "Key factors, such as ETF flows, macro factors and on-chain supply favor a rally in bitcoin even as war risks linger.",
+      "doc_type": "news_archive",
+      "created_at": "2026-04-13T00:35:10.412488",
+      "updated_at": "2026-04-13T00:35:10.412489",
+      "tags": [
+        "news",
+        "btc",
+        "www.coindesk.com",
+        "⏳_減半事件",
+        "🐋_大戶動向"
+      ],
+      "metadata": {
+        "symbol": "BTC",
+        "news_source": "www.coindesk.com",
+        "url": "https://www.coindesk.com/markets/2026/04/12/bitcoin-analysts-flag-triggers-for-a-massive-surge-to-usd88-000-even-as-war-risks-linger",
+        "published_at": "2026-04-12T13:21:19",
+        "analysis_hours": 24,
+        "overall_sentiment_score": -0.062,
+        "article_sentiment": "positive",
+        "article_sentiment_score": 0.5757575757575758,
+        "importance_score": 10.0,
+        "relevance_score": 2.0,
+        "key_events": [
+          "⏳ 減半事件",
+          "🐋 大戶動向"
+        ],
+        "ingested_at": "2026-04-13T00:35:10.411733",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_btc_d0bbc8805367b9f2",
+      "title": "There’s a Way to Make Bitcoin Safe From Quantum Without a Fork, Researchers Say",
+      "content": "A new proposal suggests Bitcoin users could defend against future quantum attacks using a transaction design that works within the network’s existing rules.",
+      "doc_type": "news_archive",
+      "created_at": "2026-04-13T00:35:10.412518",
+      "updated_at": "2026-04-13T00:35:10.412518",
+      "tags": [
+        "news",
+        "btc",
+        "decrypt.co",
+        "⏳_減半事件",
+        "🐋_大戶動向"
+      ],
+      "metadata": {
+        "symbol": "BTC",
+        "news_source": "decrypt.co",
+        "url": "https://decrypt.co/364092/quantum-safe-bitcoin-transactions-without-fork",
+        "published_at": "2026-04-12T13:01:03",
+        "analysis_hours": 24,
+        "overall_sentiment_score": -0.062,
+        "article_sentiment": "neutral",
+        "article_sentiment_score": -0.062,
+        "importance_score": 7.92,
+        "relevance_score": 2.0,
+        "key_events": [
+          "⏳ 減半事件",
+          "🐋 大戶動向"
+        ],
+        "ingested_at": "2026-04-13T00:35:10.411733",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_btc_5c8d885a2ce81b49",
+      "title": "Super PAC tied to Tether makes first ad buy from firm founded by Tether's U.S. CEO",
+      "content": "The Fellowship PAC spent $300,000 with Nxum Group that was co-founded by Bo Hines, the chief of Tether's U.S. arm and former adviser to President Donald Trump.",
+      "doc_type": "news_archive",
+      "created_at": "2026-04-13T00:35:10.412546",
+      "updated_at": "2026-04-13T00:35:10.412547",
+      "tags": [
+        "news",
+        "btc",
+        "www.coindesk.com",
+        "⏳_減半事件",
+        "🐋_大戶動向"
+      ],
+      "metadata": {
+        "symbol": "BTC",
+        "news_source": "www.coindesk.com",
+        "url": "https://www.coindesk.com/policy/2026/04/10/super-pac-tied-to-tether-makes-first-ad-buy-from-firm-founded-by-tether-s-u-s-ceo",
+        "published_at": "2026-04-12T13:00:00",
+        "analysis_hours": 24,
+        "overall_sentiment_score": -0.062,
+        "article_sentiment": "neutral",
+        "article_sentiment_score": -0.062,
+        "importance_score": 6.8,
+        "relevance_score": 0.3,
+        "key_events": [
+          "⏳ 減半事件",
+          "🐋 大戶動向"
+        ],
+        "ingested_at": "2026-04-13T00:35:10.411733",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_btc_952d24bc825648cd",
+      "title": "Tron’s Justin Sun slams Trump-backed WLFI for treating users as ‘personal ATM’ after $75 Million DeFi loan",
+      "content": "Once WLFI's largest outside backer, Sun is going public days after the Trump-family venture borrowed $75 million against its own token on a DeFi protocol advised by one of its own insiders.",
+      "doc_type": "news_archive",
+      "created_at": "2026-04-13T00:35:10.412576",
+      "updated_at": "2026-04-13T00:35:10.412577",
+      "tags": [
+        "news",
+        "btc",
+        "www.coindesk.com",
+        "⏳_減半事件",
+        "🐋_大戶動向"
+      ],
+      "metadata": {
+        "symbol": "BTC",
+        "news_source": "www.coindesk.com",
+        "url": "https://www.coindesk.com/markets/2026/04/12/tron-s-justin-sun-slams-trump-backed-wlfi-for-treating-users-as-personal-atm-after-usd75-million-defi-loan",
+        "published_at": "2026-04-12T11:49:24",
+        "analysis_hours": 24,
+        "overall_sentiment_score": -0.062,
+        "article_sentiment": "neutral",
+        "article_sentiment_score": -0.062,
+        "importance_score": 6.09,
+        "relevance_score": 0.3,
+        "key_events": [
+          "⏳ 減半事件",
+          "🐋 大戶動向"
+        ],
+        "ingested_at": "2026-04-13T00:35:10.411733",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_btc_5af02867935f4e67",
+      "title": "Trump token sees whale accumulation ahead of Mar-a-Lago gala; senators raise questions over event",
+      "content": "Some whales have withdrawn large amounts of TRUMP tokens to private wallets, according to Lookonchain.",
+      "doc_type": "news_archive",
+      "created_at": "2026-04-13T00:35:10.412601",
+      "updated_at": "2026-04-13T00:35:10.412602",
+      "tags": [
+        "news",
+        "btc",
+        "www.coindesk.com",
+        "⏳_減半事件",
+        "🐋_大戶動向"
+      ],
+      "metadata": {
+        "symbol": "BTC",
+        "news_source": "www.coindesk.com",
+        "url": "https://www.coindesk.com/markets/2026/04/12/trump-token-sees-whale-accumulation-ahead-of-mar-a-lago-gala-senators-raise-questions-over-event",
+        "published_at": "2026-04-12T10:52:10",
+        "analysis_hours": 24,
+        "overall_sentiment_score": -0.062,
+        "article_sentiment": "positive",
+        "article_sentiment_score": 1.0,
+        "importance_score": 8.3,
+        "relevance_score": 0.3,
+        "key_events": [
+          "⏳ 減半事件",
+          "🐋 大戶動向"
+        ],
+        "ingested_at": "2026-04-13T00:35:10.411733",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_btc_070ef64231eaba16",
+      "title": "US down to 'last chance' to pass CLARITY Act before 2030: Lummis",
+      "content": "<p style=\"float:right; margin:0 0 10px 15px; width:240px;\"><img src=\"https://images.cointelegraph.com/images/528_aHR0cHM6Ly9zMy5jb2ludGVsZWdyYXBoLmNvbS91cGxvYWRzLzIwMjYtMDQvMDE5ZDgwNWQtNzU2OC03MDYyLWF",
+      "doc_type": "news_archive",
+      "created_at": "2026-04-13T00:35:10.412627",
+      "updated_at": "2026-04-13T00:35:10.412627",
+      "tags": [
+        "news",
+        "btc",
+        "cointelegraph.com",
+        "⏳_減半事件",
+        "🐋_大戶動向"
+      ],
+      "metadata": {
+        "symbol": "BTC",
+        "news_source": "cointelegraph.com",
+        "url": "https://cointelegraph.com/news/us-clarity-act-crypto-regulations-cynthia-lummis-senator?utm_source=rss_feed&utm_medium=rss&utm_campaign=rss_partner_inbound",
+        "published_at": "2026-04-12T10:44:46",
+        "analysis_hours": 24,
+        "overall_sentiment_score": -0.062,
+        "article_sentiment": "negative",
+        "article_sentiment_score": -0.6,
+        "importance_score": 5.19,
+        "relevance_score": 0.3,
+        "key_events": [
+          "⏳ 減半事件",
+          "🐋 大戶動向"
+        ],
+        "ingested_at": "2026-04-13T00:35:10.411733",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_btc_35b77a5fed7ea20b",
+      "title": "Bitcoin, Ether near levels that could signal trend reversal: Analyst",
+      "content": "<p style=\"float:right; margin:0 0 10px 15px; width:240px;\"><img src=\"https://images.cointelegraph.com/images/528_aHR0cHM6Ly9zMy5jb2ludGVsZWdyYXBoLmNvbS91cGxvYWRzLzIwMjQtMTEvMDE5MzEwYjQtYTQxZS03NTBiLTh",
+      "doc_type": "news_archive",
+      "created_at": "2026-04-13T00:35:10.412653",
+      "updated_at": "2026-04-13T00:35:10.412654",
+      "tags": [
+        "news",
+        "btc",
+        "cointelegraph.com",
+        "⏳_減半事件",
+        "🐋_大戶動向"
+      ],
+      "metadata": {
+        "symbol": "BTC",
+        "news_source": "cointelegraph.com",
+        "url": "https://cointelegraph.com/news/bitcoin-ether-crypto-market-trend-reversal-macro-investor?utm_source=rss_feed&utm_medium=rss&utm_campaign=rss_partner_inbound",
+        "published_at": "2026-04-12T06:26:55",
+        "analysis_hours": 24,
+        "overall_sentiment_score": -0.062,
+        "article_sentiment": "neutral",
+        "article_sentiment_score": -0.062,
+        "importance_score": 7.32,
+        "relevance_score": 2.0,
+        "key_events": [
+          "⏳ 減半事件",
+          "🐋 大戶動向"
+        ],
+        "ingested_at": "2026-04-13T00:35:10.411733",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_btc_d1780f1734bc2c99",
+      "title": "XRP drops to $1.33 as bitcoin weakness pulls down majors",
+      "content": "Sudden selloff triggered liquidation-style move, with weak recovery reinforcing bearish structure despite compressed volatility setup.",
+      "doc_type": "news_archive",
+      "created_at": "2026-04-13T00:35:10.412678",
+      "updated_at": "2026-04-13T00:35:10.412678",
+      "tags": [
+        "news",
+        "btc",
+        "www.coindesk.com",
+        "⏳_減半事件",
+        "🐋_大戶動向"
+      ],
+      "metadata": {
+        "symbol": "BTC",
+        "news_source": "www.coindesk.com",
+        "url": "https://www.coindesk.com/markets/2026/04/12/xrp-drops-to-usd1-33-as-bitcoin-weakness-pulls-down-majors",
+        "published_at": "2026-04-12T05:57:25",
+        "analysis_hours": 24,
+        "overall_sentiment_score": -0.062,
+        "article_sentiment": "negative",
+        "article_sentiment_score": -0.7101449275362319,
+        "importance_score": 9.0,
+        "relevance_score": 2.0,
+        "key_events": [
+          "⏳ 減半事件",
+          "🐋 大戶動向"
+        ],
+        "ingested_at": "2026-04-13T00:35:10.411733",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_btc_4341cb84337fa2e2",
+      "title": "Bitcoin and other cryptos fall as U.S., Iranian negotiators fail to reach war resolution",
+      "content": "U.S. Vice President J.D. Vance said negotiations had ended after a daylong session in Pakistan, sending crypto prices down between 1.5% and 2%.",
+      "doc_type": "news_archive",
+      "created_at": "2026-04-13T00:35:10.412699",
+      "updated_at": "2026-04-13T00:35:10.412700",
+      "tags": [
+        "news",
+        "btc",
+        "www.coindesk.com",
+        "⏳_減半事件",
+        "🐋_大戶動向"
+      ],
+      "metadata": {
+        "symbol": "BTC",
+        "news_source": "www.coindesk.com",
+        "url": "https://www.coindesk.com/markets/2026/04/11/bitcoin-and-other-cryptos-fall-as-u-s-iranian-negotiators-fail-to-reach-war-resolution",
+        "published_at": "2026-04-12T02:05:05",
+        "analysis_hours": 24,
+        "overall_sentiment_score": -0.062,
+        "article_sentiment": "negative",
+        "article_sentiment_score": -1.0,
+        "importance_score": 7.62,
+        "relevance_score": 2.0,
+        "key_events": [
+          "⏳ 減半事件",
+          "🐋 大戶動向"
+        ],
+        "ingested_at": "2026-04-13T00:35:10.411733",
+        "ingested_by": "NewsAdapter"
+      }
+    }
+  ]
+}

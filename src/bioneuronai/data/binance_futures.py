@@ -273,6 +273,37 @@ class BinanceFuturesConnector:
             return result
         return None
     
+    def get_book_ticker(self, symbol: str) -> Optional[Dict]:
+        """取得最佳買賣價（即時買賣價差計算用）
+
+        返回:
+            {"symbol": "BTCUSDT", "bidPrice": "...", "bidQty": "...",
+             "askPrice": "...", "askQty": "..."}
+        """
+        return self._make_request("GET", "/fapi/v1/bookTicker", {"symbol": symbol})
+
+    def get_premium_index(self, symbol: str) -> Optional[Dict]:
+        """取得即時資金費率與標記價格
+
+        返回:
+            {"symbol": "...", "markPrice": "...", "lastFundingRate": "...",
+             "nextFundingTime": <ms timestamp>}
+
+        注意：lastFundingRate 可能為負值（負費率時多單收入、空單付費）。
+        """
+        return self._make_request("GET", "/fapi/v1/premiumIndex", {"symbol": symbol})
+
+    def get_funding_info(self, symbol: str) -> Optional[Dict]:
+        """取得資金費率結算資訊，包含實際結算間隔小時數
+
+        返回:
+            {"symbol": "...", "fundingIntervalHours": 8,
+             "adjustedFundingRateCap": "...", "adjustedFundingRateFloor": "..."}
+
+        Binance 可能將特定幣對改為 4h 或其他間隔，需用此端點取得實際值。
+        """
+        return self._make_request("GET", "/fapi/v1/fundingInfo", {"symbol": symbol})
+
     def get_open_interest(self, symbol: str) -> Optional[Dict]:
         """
         獲取當前未平倉合約數（持倉量）
@@ -310,6 +341,36 @@ class BinanceFuturesConnector:
             return f"{quantity:.3f}"
         return f"{quantity:.2f}"
     
+    _ORDER_ENDPOINT = "/fapi/v1/order"
+
+    def _build_order_params(
+        self,
+        symbol: str,
+        side: str,
+        order_type: str,
+        quantity: float,
+        price: Optional[float],
+        **kwargs: Any,
+    ) -> Dict:
+        """組裝下單參數（抽出以降低 place_order 認知複雜度）"""
+        formatted_qty = self.format_quantity(symbol, quantity)
+        params: Dict = {
+            "symbol": symbol,
+            "side": side,
+            "type": order_type,
+            "quantity": formatted_qty,
+        }
+        stop_price = kwargs.get("stop_price")
+        time_in_force = kwargs.get("time_in_force")
+        if order_type == "LIMIT":
+            if price is None:
+                raise ValueError("LIMIT 訂單必須指定價格")
+            params["price"] = f"{price:.2f}"
+            params["timeInForce"] = time_in_force or "GTC"
+        elif stop_price is not None:
+            params["stopPrice"] = f"{float(stop_price):.2f}"
+        return params
+
     def place_order(
         self,
         symbol: str,
@@ -325,29 +386,12 @@ class BinanceFuturesConnector:
         if not self.api_key or not self.api_secret:
             logger.warning("未配置 API Key，無法下單")
             return None
-        
-        try:
-            formatted_qty = self.format_quantity(symbol, quantity)
-            
-            params = {
-                "symbol": symbol,
-                "side": side,
-                "type": order_type,
-                "quantity": formatted_qty
-            }
 
-            stop_price = kwargs.get("stop_price")
-            time_in_force = kwargs.get("time_in_force")
-            
-            if order_type == "LIMIT":
-                if price is None:
-                    raise ValueError("LIMIT 訂單必須指定價格")
-                params['price'] = f"{price:.2f}"
-                params['timeInForce'] = time_in_force or 'GTC'
-            elif stop_price is not None:
-                params["stopPrice"] = f"{float(stop_price):.2f}"
-            
-            result = self._make_request("POST", "/fapi/v1/order", params, signed=True)
+        try:
+            params = self._build_order_params(
+                symbol, side, order_type, quantity, price, **kwargs
+            )
+            result = self._make_request("POST", self._ORDER_ENDPOINT, params, signed=True)
             
             if result:
                 order_result = OrderResult(
@@ -399,7 +443,7 @@ class BinanceFuturesConnector:
                 "stopPrice": f"{stop_price:.2f}"
             }
             
-            result = self._make_request("POST", "/fapi/v1/order", params, signed=True)
+            result = self._make_request("POST", self._ORDER_ENDPOINT, params, signed=True)
             if result:
                 logger.info(f"🛡️ 止損單已設置: {stop_price:.2f}")
         except Exception as e:
@@ -419,7 +463,7 @@ class BinanceFuturesConnector:
                 "stopPrice": f"{take_profit_price:.2f}"
             }
             
-            result = self._make_request("POST", "/fapi/v1/order", params, signed=True)
+            result = self._make_request("POST", self._ORDER_ENDPOINT, params, signed=True)
             if result:
                 logger.info(f"🎯 止盈單已設置: {take_profit_price:.2f}")
         except Exception as e:

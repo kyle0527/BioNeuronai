@@ -194,8 +194,9 @@ class KeywordLearner:
         """
         if get_current_price is None:
             # 使用預設的價格獲取方式
+            from config.trading_config import resolve_binance_testnet
             from ...data.binance_futures import BinanceFuturesConnector
-            _testnet = os.getenv("BINANCE_TESTNET", "false").lower() == "true"
+            _testnet = resolve_binance_testnet(default=True)
             connector = BinanceFuturesConnector(testnet=_testnet)
             def get_current_price(symbol):
                 data = connector.get_ticker_price(symbol)

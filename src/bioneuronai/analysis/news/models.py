@@ -11,7 +11,7 @@
 
 # 1. 標準庫
 from datetime import datetime
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 from dataclasses import dataclass, field
 
 
@@ -57,6 +57,10 @@ class NewsAnalysisResult:
     recent_headlines: List[str]
     recommendation: str
     analysis_time: datetime
+    signal_valid_hours: int = 24
+    signal_expires_at: Optional[datetime] = None
+    signal_urgency: str = "medium"
+    applicable_timeframes: List[str] = field(default_factory=list)
     articles: List[NewsArticle] = field(default_factory=list)
     
     def is_high_risk(self) -> bool:
@@ -87,6 +91,10 @@ class NewsAnalysisResult:
             'recent_headlines': self.recent_headlines,
             'recommendation': self.recommendation,
             'analysis_time': self.analysis_time.isoformat(),
+            'signal_valid_hours': self.signal_valid_hours,
+            'signal_expires_at': self.signal_expires_at.isoformat() if self.signal_expires_at else None,
+            'signal_urgency': self.signal_urgency,
+            'applicable_timeframes': self.applicable_timeframes,
             'is_high_risk': self.is_high_risk(),
             'articles': [
                 {

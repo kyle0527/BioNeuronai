@@ -11,6 +11,7 @@
 
 import logging
 import hashlib
+import re
 from typing import List, Dict, Optional, Any, cast
 from dataclasses import dataclass, field
 from enum import Enum
@@ -105,7 +106,7 @@ class EmbeddingService:
                 self._model = SentenceTransformer(self.model_type.value)
                 logger.info(f"本地嵌入模型已加載: {self.model_type.value}")
             except ImportError:
-                logger.warning("sentence-transformers 未安裝，將使用簡單嵌入")
+                logger.warning("sentence-transformers 未安裝，將使用 deterministic hashed embedding")
                 self._model = None
             except Exception as e:
                 logger.error(f"模型加載失敗: {e}")
@@ -227,10 +228,33 @@ class EmbeddingService:
             return self._simple_embed(text)
     
     def _simple_embed(self, text: str) -> np.ndarray:
-        """簡單的基於詞頻的嵌入 (備用方案)"""
-        # 使用簡單的 TF 向量作為備用
-        rng = np.random.default_rng(hash(text) % (2**32))
-        return cast(np.ndarray, rng.standard_normal(self._dimensions).astype(np.float32))
+        """Deterministic hashed embedding 備援方案，避免隨機向量污染檢索結果。"""
+        vector = np.zeros(self._dimensions, dtype=np.float32)
+        normalized = text.lower().strip()
+        if not normalized:
+            return vector
+
+        tokens = re.findall(r"[\w]+", normalized)
+        if not tokens:
+            tokens = list(normalized)
+
+        # 混合 unigram / bigram，保留基本詞序資訊
+        features = list(tokens)
+        features.extend(
+            f"{tokens[i]}::{tokens[i + 1]}"
+            for i in range(len(tokens) - 1)
+        )
+
+        for feature in features:
+            digest = hashlib.sha256(feature.encode("utf-8")).digest()
+            index = int.from_bytes(digest[:4], "little") % self._dimensions
+            sign = 1.0 if digest[4] % 2 == 0 else -1.0
+            vector[index] += sign
+
+        norm = np.linalg.norm(vector)
+        if norm > 0:
+            vector /= norm
+        return vector
     
     @staticmethod
     def cosine_similarity(vec1: np.ndarray, vec2: np.ndarray) -> float:

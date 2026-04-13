@@ -1,7 +1,7 @@
 """
 統一訓練入口腳本 (Unified Trainer)
 ====================================
-同一份 TinyLLM 權重，同時訓練兩個任務：
+同一個 TinyLLM 訓練流程，同時支援兩個任務：
 
   任務 A（語言）  ：用 trading_dialogue_data.py 的 QA 對進行 next-token 預測
   任務 B（訊號）  ：用回測歷史中的 (feature_seq, signal_label) 進行序列回歸
@@ -12,7 +12,7 @@
     python -m nlp.training.unified_trainer --sig-only   # 純訊號訓練
 
 輸出：
-    model/my_100m_model.pth   ← 直接覆寫，InferenceEngine 與 ChatEngine 共用
+    model/my_100m_model.pth   ← 正式交易 checkpoint 輸出位置
 """
 
 from __future__ import annotations
@@ -95,7 +95,7 @@ class SignalDataset(Dataset):
     """
     從回測資料庫讀取 (feature_seq, signal_label) 對。
 
-    若 jsonl 檔案不存在，自動生成合成資料供測試用（回測運行後再替換）。
+    預設必須提供真實 JSONL；只有顯式 allow_synthetic=True 時才允許產生合成資料供 smoke test。
 
     JSONL 格式（每行一筆）：
     {
@@ -113,14 +113,25 @@ class SignalDataset(Dataset):
         data_path: Optional[Path] = None,
         seq_len: int = 16,
         n_synthetic: int = 1000,
+        allow_synthetic: bool = False,
     ) -> None:
         self.seq_len = seq_len
         self.samples: List[Tuple[np.ndarray, np.ndarray]] = []
 
         if data_path and data_path.exists():
             self._load_jsonl(data_path)
-        else:
+            if not self.samples:
+                raise ValueError(f"訊號資料檔為空或沒有有效樣本: {data_path}")
+        elif allow_synthetic:
+            print("[unified_trainer] 警告：使用合成 signal 資料，僅適用於 smoke test，不應作為正式訓練資料。")
             self._generate_synthetic(n_synthetic)
+        else:
+            target = str(data_path) if data_path else "未指定 --signal-data"
+            raise FileNotFoundError(
+                f"找不到真實訊號資料: {target}。"
+                " 請先執行 backtest.service.collect_signal_training_data 收集 JSONL，"
+                "或顯式使用 --allow-synthetic-signal-data 進行 smoke test。"
+            )
 
     def _load_jsonl(self, path: Path) -> None:
         with open(path, encoding="utf-8") as f:
@@ -197,8 +208,14 @@ def build_signal_dataloader(
     seq_len: int = 16,
     batch_size: int = 8,
     n_synthetic: int = 1000,
+    allow_synthetic: bool = False,
 ) -> _WrappedLoader:
-    ds = SignalDataset(data_path, seq_len=seq_len, n_synthetic=n_synthetic)
+    ds = SignalDataset(
+        data_path,
+        seq_len=seq_len,
+        n_synthetic=n_synthetic,
+        allow_synthetic=allow_synthetic,
+    )
     return _WrappedLoader(DataLoader(ds, batch_size=batch_size, shuffle=True, num_workers=0))
 
 
@@ -289,6 +306,7 @@ def train(
     signal_data_path: Optional[Path] = None,
     output_dir: str = "./output/unified",
     save_to_model: bool = True,
+    allow_synthetic_signal_data: bool = False,
 ) -> None:
     """
     執行訓練。
@@ -299,13 +317,21 @@ def train(
         epochs:            訓練輪數
         batch_size:        批次大小
         lr:                學習率
-        signal_data_path:  訊號任務 JSONL 資料路徑（None 則使用合成資料）
+        signal_data_path:  訊號任務 JSONL 資料路徑
         output_dir:        檢查點輸出目錄
         save_to_model:     訓練完成後是否直接覆寫 model/my_100m_model.pth
+        allow_synthetic_signal_data:
+                          允許用合成 signal 資料做 smoke test；正式訓練請保持 False
     """
     model, tokenizer = build_model()
 
     multitask = (not lm_only) and (not sig_only)
+
+    if not lm_only and signal_data_path is None and not allow_synthetic_signal_data:
+        raise ValueError(
+            "signal 任務需要真實資料。請使用 --signal-data 指定 JSONL，"
+            "或顯式傳入 --allow-synthetic-signal-data 僅做 smoke test。"
+        )
 
     cfg = TrainingConfig(
         batch_size=batch_size,
@@ -338,10 +364,13 @@ def train(
     signal_dl = None
     if not lm_only:
         signal_dl = build_signal_dataloader(
-            signal_data_path, seq_len=cfg.signal_seq_len, batch_size=batch_size
+            signal_data_path,
+            seq_len=cfg.signal_seq_len,
+            batch_size=batch_size,
+            allow_synthetic=allow_synthetic_signal_data,
         )
         print(f"[unified_trainer] 訊號任務: {len(signal_dl)} batches"
-              f"{'（合成資料）' if signal_data_path is None else ''}")
+              f"{'（合成資料）' if allow_synthetic_signal_data and signal_data_path is None else ''}")
 
     # ── sig_only 時把 signal_dl 當作主 dataloader ──────────────────────────
     if sig_only and signal_dl is not None:
@@ -389,7 +418,12 @@ def _parse_args() -> argparse.Namespace:
     p.add_argument("--lr",       type=float, default=3e-4,  help="學習率")
     p.add_argument(
         "--signal-data", type=str, default=None,
-        help="訊號任務 JSONL 路徑（不指定則使用合成資料）"
+        help="訊號任務 JSONL 路徑"
+    )
+    p.add_argument(
+        "--allow-synthetic-signal-data",
+        action="store_true",
+        help="允許在未提供真實 signal JSONL 時使用合成資料進行 smoke test",
     )
     p.add_argument("--output",   type=str,   default="./output/unified", help="檢查點輸出目錄")
     p.add_argument("--no-save",  action="store_true", help="不覆寫 model/my_100m_model.pth")
@@ -407,4 +441,5 @@ if __name__ == "__main__":
         signal_data_path=Path(args.signal_data) if args.signal_data else None,
         output_dir=args.output,
         save_to_model=not args.no_save,
+        allow_synthetic_signal_data=args.allow_synthetic_signal_data,
     )

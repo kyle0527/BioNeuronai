@@ -139,8 +139,8 @@ if portfolio_risk.total_exposure > 0.5:
 
 ## 📚 相關文檔
 
-- **風險管理手冊**: [RISK_MANAGEMENT_MANUAL.md](../../../docs/RISK_MANAGEMENT_MANUAL.md)
-- **交易成本指南**: [TRADING_COSTS_GUIDE.md](../../../docs/TRADING_COSTS_GUIDE.md)
+- **風險管理手冊**: [RISK_MANAGEMENT_MANUAL.md](../../../archived/docs_v2_1_legacy/RISK_MANAGEMENT_MANUAL.legacy_20260406.md)
+- **交易成本指南**: [TRADING_COSTS_GUIDE.md](../../../archived/docs_v2_1_legacy/TRADING_COSTS_GUIDE.legacy_20260406.md)
 - **父模組**: [BioNeuronai 主模組](../README.md)
 
 ---

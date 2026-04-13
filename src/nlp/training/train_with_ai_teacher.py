@@ -8,6 +8,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader
+import argparse
 import sys
 from pathlib import Path
 import json
@@ -147,6 +148,8 @@ AI_TEACHER_DATA = {
         ],
     },
 }
+
+AI_TEACHER_DATA_IS_DEMO = True
 
 
 class AITeacherDataset(Dataset):
@@ -312,6 +315,7 @@ def train_with_ai_teacher(
     learning_rate: float = 5e-5,
     max_length: int = 128,
     force_retrain: bool = False,
+    allow_demo_data: bool = False,
 ):
     """使用 AI 老師數據訓練模型
     
@@ -319,6 +323,13 @@ def train_with_ai_teacher(
         force_retrain: 如果為 True，即使已訓練過也會重新訓練
     """
     
+    if AI_TEACHER_DATA_IS_DEMO and not allow_demo_data:
+        raise RuntimeError(
+            "train_with_ai_teacher.py 目前內建的是通用示範資料，"
+            "不應作為正式交易訓練。請改用 unified_trainer，"
+            "或顯式加上 --allow-demo-data 僅做開發驗證。"
+        )
+
     print("=" * 70)
     print("🎓 知識蒸餾訓練 - AI 老師版")
     print("=" * 70)
@@ -511,7 +522,7 @@ def train_with_ai_teacher(
     
     log["training_history"].append(training_record)
     log["models"][str(log["current_version"])] = {
-        "path": str(output_path),
+        "path": str(output_dir),
         "date": training_end_time.strftime('%Y-%m-%d %H:%M:%S'),
         "performance": {
             "final_loss": history['losses'][-1],
@@ -535,7 +546,7 @@ def train_with_ai_teacher(
     print(f"  • 最終困惑度: {history['perplexities'][-1]:.2f}")
     print(f"  • 損失下降: {(1 - history['losses'][-1]/history['losses'][0])*100:.1f}%")
     
-    print(f"\n💾 保存位置: {output_path}")
+    print(f"\n💾 保存位置: {output_dir}")
     print("📝 訓練記錄已更新到: training_log.json")
     print("\n💡 提示:")
     print("  • 這是一個簡化的訓練示範")
@@ -544,7 +555,7 @@ def train_with_ai_teacher(
     print("  • 可以繼續訓練或添加更多數據")
     print("  • 使用 'python view_training_history.py' 查看完整歷史")
     
-    return str(output_path)
+    return str(output_dir)
 
 
 def expand_teacher_data():
@@ -570,15 +581,31 @@ def expand_teacher_data():
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="TinyLLM AI teacher demo trainer")
+    parser.add_argument("--model-dir", default="model/my_100m_model.pth")
+    parser.add_argument("--output-dir", default="model/tiny_llm_finetuned.pth")
+    parser.add_argument("--epochs", type=int, default=20)
+    parser.add_argument("--batch-size", type=int, default=4)
+    parser.add_argument("--learning-rate", type=float, default=5e-5)
+    parser.add_argument("--max-length", type=int, default=128)
+    parser.add_argument("--force-retrain", action="store_true")
+    parser.add_argument(
+        "--allow-demo-data",
+        action="store_true",
+        help="僅供開發驗證：允許使用內建通用示範資料進行 teacher training",
+    )
+    args = parser.parse_args()
+
     print("\n🎓 知識蒸餾訓練系統")
-    print("👨‍🏫 AI 老師: 我會用高質量的英中雙語數據教導你的模型\n")
-    
-    # 訓練
+    print("👨‍🏫 AI 老師: 目前內建資料為通用示範資料，非正式交易語料\n")
+
     train_with_ai_teacher(
-        model_dir="model/my_100m_model.pth",
-        output_dir="model/tiny_llm_finetuned.pth",
-        epochs=20,  # 訓練 20 輪
-        batch_size=4,
-        learning_rate=5e-5,
-        max_length=128,
+        model_dir=args.model_dir,
+        output_dir=args.output_dir,
+        epochs=args.epochs,
+        batch_size=args.batch_size,
+        learning_rate=args.learning_rate,
+        max_length=args.max_length,
+        force_retrain=args.force_retrain,
+        allow_demo_data=args.allow_demo_data,
     )

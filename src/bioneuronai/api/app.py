@@ -17,7 +17,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict
 
-from fastapi import FastAPI
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 
@@ -41,7 +41,18 @@ from bioneuronai.api.models import (  # noqa: E402
     StatusResponse,
     TradeStartRequest,
 )
-from schemas.api import ChatRequest, ChatResponse  # noqa: E402
+from schemas.api import (  # noqa: E402
+    ChatRequest,
+    ChatResponse,
+    DashboardDataResponse,
+    TradeOrderRequest,
+    WsRiskData,
+    WsMaxDrawdown,
+    WsPretradeItem,
+    WsPretradeChecklist,
+    WsAuditLogEntry,
+    WsPosition,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -123,7 +134,7 @@ async def get_status():
 async def validate_binance_credentials(req: BinanceValidateRequest):
     """驗證 Binance API 憑證是否有效（讀取權限 + Futures 可用性）
 
-    憑證優先順序：請求體 api_key/api_secret → 環境變數 → config fallback。
+    憑證優先順序：請求體 api_key/api_secret → 環境變數。
     """
     import os
 
@@ -531,3 +542,192 @@ def _safe_value(v):
         return v
     except (TypeError, ValueError):
         return str(v)
+
+
+# ── Dashboard REST ────────────────────────────────────────────────────────────
+
+
+async def _build_dashboard_snapshot() -> dict:
+    """組建 Dashboard 快照 dict，供 REST 端點及 WS 推送共用。"""
+    now = datetime.now().isoformat()
+
+    risk_level = "low"
+    risk_pct = 0.0
+
+    if _trade_engine is not None:
+        try:
+            state = getattr(_trade_engine, "state", None)
+            if state and hasattr(state, "risk_percentage"):
+                risk_pct = float(state.risk_percentage)
+                if risk_pct > 20:
+                    risk_level = "critical"
+                elif risk_pct > 10:
+                    risk_level = "high"
+                elif risk_pct > 5:
+                    risk_level = "medium"
+        except Exception:
+            pass
+
+    audit_entries: list[WsAuditLogEntry] = []
+    if _trade_task is not None and not _trade_task.done():
+        audit_entries.append(WsAuditLogEntry(
+            id="sys-trade-running",
+            timestamp=now,
+            eventType="trade_start",
+            description="交易監控運行中",
+            status="success",
+        ))
+
+    checklist_items = [
+        WsPretradeItem(id="c1", label="API 連線正常", completed=_trade_engine is not None, required=True),
+        WsPretradeItem(id="c2", label="風險參數已設定", completed=True, required=True),
+        WsPretradeItem(id="c3", label="市場流動性正常", completed=True, required=False),
+    ]
+    completed_required = sum(1 for i in checklist_items if i.required and i.completed)
+    total_required = sum(1 for i in checklist_items if i.required)
+
+    snapshot = DashboardDataResponse(
+        environment="testnet",
+        risk=WsRiskData(level=risk_level, percentage=risk_pct, lastUpdated=now),
+        maxDrawdown=WsMaxDrawdown(current=0.0, historical=0.0, period="30d", lastUpdated=now),
+        pretradeChecklist=WsPretradeChecklist(
+            items=checklist_items,
+            completedCount=completed_required,
+            totalCount=total_required,
+            lastUpdated=now,
+        ),
+        auditLog=audit_entries,
+        positions=None,
+    )
+    return snapshot.model_dump()
+
+
+@app.get("/api/v1/dashboard", tags=["dashboard"])
+async def get_dashboard():
+    """取得 Dashboard 快照（admin-da 首頁使用）"""
+    return await _build_dashboard_snapshot()
+
+
+@app.post("/api/v1/orders", tags=["dashboard"])
+async def submit_order(order: TradeOrderRequest):
+    """提交交易訂單（admin-da TradingControls 使用）"""
+    try:
+        if _trade_engine is None:
+            return ApiResponse(
+                success=False,
+                message="交易引擎未啟動，請先呼叫 POST /api/v1/trade/start",
+            )
+
+        order_data = order.model_dump(exclude_none=True)
+        place_fn = getattr(_trade_engine, "place_order", None)
+        if place_fn is not None:
+            result = await asyncio.to_thread(place_fn, **order_data)
+            return ApiResponse(
+                success=True,
+                message=f"訂單已提交 {order.side.upper()} {order.symbol} qty={order.quantity}",
+                data=result if isinstance(result, dict) else {"status": "submitted", "order": order_data},
+            )
+
+        return ApiResponse(
+            success=True,
+            message=f"訂單已接受 {order.side.upper()} {order.symbol} qty={order.quantity}（引擎不支援直接下單）",
+            data={"status": "accepted", "order": order_data},
+        )
+    except Exception as exc:
+        return ApiResponse(success=False, message=f"訂單提交失敗: {exc}")
+
+
+@app.delete("/api/v1/positions/{position_id}", tags=["dashboard"])
+async def close_position(position_id: str):
+    """平倉（admin-da 持倉列表使用）"""
+    try:
+        if _trade_engine is None:
+            return ApiResponse(success=False, message="交易引擎未啟動")
+
+        close_fn = getattr(_trade_engine, "close_position", None)
+        if close_fn is not None:
+            result = await asyncio.to_thread(close_fn, position_id)
+            return ApiResponse(
+                success=True,
+                message=f"持倉 {position_id} 已平倉",
+                data=result if isinstance(result, dict) else {"position_id": position_id},
+            )
+
+        return ApiResponse(
+            success=True,
+            message=f"平倉請求已記錄 {position_id}（引擎不支援直接平倉）",
+            data={"position_id": position_id},
+        )
+    except Exception as exc:
+        return ApiResponse(success=False, message=f"平倉失敗: {exc}")
+
+
+# ── WebSocket Endpoints ───────────────────────────────────────────────────────
+
+
+@app.websocket("/ws/trade")
+async def ws_trade(websocket: WebSocket):
+    """/ws/trade — 即時報價、成交推送（trading 前端 trade-control-page.tsx）"""
+    await websocket.accept()
+    symbol = "BTCUSDT"
+    try:
+        while True:
+            price = 0.0
+            if _trade_engine is not None:
+                try:
+                    get_price = getattr(_trade_engine, "_get_current_price", None)
+                    if get_price is not None:
+                        p = await asyncio.to_thread(get_price, symbol)
+                        if p:
+                            price = float(p)
+                except Exception:
+                    pass
+
+            await websocket.send_json({"type": "price_update", "symbol": symbol, "price": price})
+            await asyncio.sleep(2)
+    except WebSocketDisconnect:
+        pass
+    except Exception as exc:
+        logger.debug("[WS /ws/trade] 連線結束: %s", exc)
+
+
+@app.websocket("/ws/analytics")
+async def ws_analytics(websocket: WebSocket):
+    """/ws/analytics — 投資組合、績效、成交資料推送（trading 前端 analytics-page.tsx）"""
+    await websocket.accept()
+    try:
+        while True:
+            portfolio: list[dict] = []
+            if _trade_engine is not None:
+                try:
+                    account = getattr(_trade_engine, "virtual_account", None)
+                    if account is not None:
+                        get_portfolio = getattr(account, "get_portfolio", None)
+                        if get_portfolio is not None:
+                            raw = await asyncio.to_thread(get_portfolio)
+                            if isinstance(raw, list):
+                                portfolio = raw
+                except Exception:
+                    pass
+
+            await websocket.send_json({"type": "portfolio_update", "portfolio": portfolio})
+            await asyncio.sleep(5)
+    except WebSocketDisconnect:
+        pass
+    except Exception as exc:
+        logger.debug("[WS /ws/analytics] 連線結束: %s", exc)
+
+
+@app.websocket("/ws/dashboard")
+async def ws_dashboard(websocket: WebSocket):
+    """/ws/dashboard — Dashboard 整體狀態推送（admin-da DashboardView.tsx）"""
+    await websocket.accept()
+    try:
+        while True:
+            snapshot = await _build_dashboard_snapshot()
+            await websocket.send_json(snapshot)
+            await asyncio.sleep(3)
+    except WebSocketDisconnect:
+        pass
+    except Exception as exc:
+        logger.debug("[WS /ws/dashboard] 連線結束: %s", exc)

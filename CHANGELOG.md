@@ -1,6 +1,6 @@
 # 更新日誌
 
-## [v2.2] - 2026-04-07
+## [v2.1] - 2026-04-07
 
 ### 🧠 TinyLLM 雙模態架構重設計 + 訓練系統整合
 
@@ -343,11 +343,11 @@ BINANCE_API_KEY=xxx BINANCE_API_SECRET=yyy docker compose --profile trade up tra
 - [ ] 實盤測試（小資金）
 
 ### ✅ 已完成
-- ✅ TinyLLM 雙模態架構重設計（v2.2）
-- ✅ 16 步滾動推論視窗 + reset_buffer（v2.2）
-- ✅ ChatEngine 完整整合（v2.2）
-- ✅ 訓練系統整合（unified_trainer + build_vocab，v2.2）
-- ✅ BacktestEngine 重構（認知複雜度 <15，v2.2）
+- ✅ TinyLLM 雙模態架構重設計（v2.1）
+- ✅ 16 步滾動推論視窗 + reset_buffer（v2.1）
+- ✅ ChatEngine 完整整合（v2.1）
+- ✅ 訓練系統整合（unified_trainer + build_vocab，v2.1）
+- ✅ BacktestEngine 重構（認知複雜度 <15，v2.1）
 - ✅ RAG 快取偵測（v4.4）
 - ✅ Docker 部署基礎建設（v4.4）
 - ✅ FastAPI REST API 伺服器（v4.4）
@@ -387,6 +387,6 @@ BINANCE_API_KEY=xxx BINANCE_API_SECRET=yyy docker compose --profile trade up tra
 ---
 
 **最後更新**: 2026年4月7日
-**版本**: v2.2 - TinyLLM 雙模態 + 訓練系統整合版
+**版本**: v2.1 - TinyLLM 雙模態 + 訓練系統整合版
 
 🎉 **TinyLLM 架構整合完成！一份 GPT 權重，同時服務交易訊號預測與雙語對話！** 🎉

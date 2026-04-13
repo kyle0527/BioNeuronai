@@ -340,10 +340,11 @@ pytest tests/
 ### 📚 開發指南
 - [用戶手冊](./USER_MANUAL.md)
 - [交易策略指南](./TRADING_STRATEGIES_GUIDE.md)
-- [數據源指南](./DATA_SOURCES_GUIDE.md)
+- [數據源指南](../archived/docs_v2_1_legacy/DATA_SOURCES_GUIDE.legacy_20260406.md)
+- [代碼修復指南](./CODE_FIX_GUIDE.md)
 
 ### 🏗️ 專案文檔
-- [專案結構](../PROJECT_STRUCTURE.md)
+- [專案結構](../archived/docs_v2_1_legacy/PROJECT_STRUCTURE.legacy_20260406.md)
 - [加密交易 README](../CRYPTO_TRADING_README.md)
 - [SOP 自動化文檔](./CRYPTO_TRADING_SOP.md)
 

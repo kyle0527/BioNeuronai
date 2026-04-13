@@ -598,6 +598,7 @@ class CryptoNewsAnalyzer:
         target_coin = symbol.replace("USDT", "").replace("USD", "")
         
         if not articles:
+            analysis_time = datetime.now()
             return NewsAnalysisResult(
                 symbol=symbol,
                 total_articles=0,
@@ -610,7 +611,11 @@ class CryptoNewsAnalyzer:
                 top_keywords=[],
                 recent_headlines=[],
                 recommendation="無新聞資料",
-                analysis_time=datetime.now(),
+                analysis_time=analysis_time,
+                signal_valid_hours=0,
+                signal_expires_at=analysis_time,
+                signal_urgency="low",
+                applicable_timeframes=[],
                 articles=[]
             )
         
@@ -688,6 +693,12 @@ class CryptoNewsAnalyzer:
         recommendation = self._generate_recommendation(
             overall_sentiment, avg_score, list(key_events), positive_count, negative_count
         )
+        analysis_time = datetime.now()
+        signal_valid_hours, signal_urgency, applicable_timeframes = self._estimate_signal_validity(
+            score=avg_score,
+            key_events=list(key_events),
+            articles=articles,
+        )
         
         return NewsAnalysisResult(
             symbol=symbol,
@@ -701,15 +712,20 @@ class CryptoNewsAnalyzer:
             top_keywords=top_keywords,
             recent_headlines=recent_headlines,
             recommendation=recommendation,
-            analysis_time=datetime.now(),
+            analysis_time=analysis_time,
+            signal_valid_hours=signal_valid_hours,
+            signal_expires_at=analysis_time + timedelta(hours=signal_valid_hours),
+            signal_urgency=signal_urgency,
+            applicable_timeframes=applicable_timeframes,
             articles=sorted(articles, key=lambda x: x.published_at, reverse=True)
         )
     
     def _get_current_price(self, symbol: str) -> float:
         """獲取當前價格"""
         try:
+            from config.trading_config import resolve_binance_testnet
             from ...data.binance_futures import BinanceFuturesConnector
-            _testnet = os.getenv("BINANCE_TESTNET", "false").lower() == "true"
+            _testnet = resolve_binance_testnet(default=True)
             connector = BinanceFuturesConnector(testnet=_testnet)
             price_data = connector.get_ticker_price(symbol)
             if price_data:
@@ -980,6 +996,41 @@ class CryptoNewsAnalyzer:
             return "🟡 偏空信號，謹慎操作"
         else:
             return "⚪ 中性市場，維持現有策略"
+
+    def _estimate_signal_validity(
+        self,
+        score: float,
+        key_events: List[str],
+        articles: List[NewsArticle],
+    ) -> Tuple[int, str, List[str]]:
+        """估算新聞信號有效時間、緊急程度與適用時間框架。"""
+        now = datetime.now()
+        latest_published = max((article.published_at for article in articles), default=now)
+        age_hours = max(0.0, (now - latest_published).total_seconds() / 3600)
+        max_importance = max((article.importance_score for article in articles), default=0.0)
+        has_danger = any(event in key_events for event in [EVENT_SECURITY, EVENT_REGULATION])
+
+        if has_danger:
+            base_hours = 6
+            urgency = "high"
+        elif abs(score) >= 0.45 or max_importance >= 8.5:
+            base_hours = 12
+            urgency = "high"
+        elif abs(score) >= 0.25 or max_importance >= 7.0:
+            base_hours = 24
+            urgency = "medium"
+        else:
+            base_hours = 36
+            urgency = "low"
+
+        remaining_hours = max(1, int(round(max(1.0, base_hours - age_hours))))
+        if remaining_hours <= 6:
+            applicable_timeframes = ["5m", "15m", "1h"]
+        elif remaining_hours <= 24:
+            applicable_timeframes = ["15m", "1h", "4h"]
+        else:
+            applicable_timeframes = ["1h", "4h", "1d"]
+        return remaining_hours, urgency, applicable_timeframes
     
     # ========================================
     # 新聞記錄與評估
@@ -1034,8 +1085,9 @@ class CryptoNewsAnalyzer:
         try:
             symbol = record.get('symbol') or (record['target_coin'] + 'USDT')
             
+            from config.trading_config import resolve_binance_testnet
             from ...data.binance_futures import BinanceFuturesConnector
-            _testnet = os.getenv("BINANCE_TESTNET", "false").lower() == "true"
+            _testnet = resolve_binance_testnet(default=True)
             connector = BinanceFuturesConnector(testnet=_testnet)
             price_data = connector.get_ticker_price(symbol)
 

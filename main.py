@@ -31,6 +31,13 @@ BioNeuronai - 統一入口點
 import sys
 from pathlib import Path
 
+# 載入 .env 環境變數（BINANCE_API_KEY、BINANCE_API_SECRET 等）
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass  # python-dotenv 未安裝時靜默略過，環境變數仍可從系統層級設定
+
 # 修正 Windows cp950 終端亂碼：強制 stdout/stderr 使用 UTF-8
 if hasattr(sys.stdout, "reconfigure"):
     try:

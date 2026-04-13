@@ -9,10 +9,45 @@
 import hashlib
 import logging
 import time
+import re
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union, cast
 from datetime import datetime, timedelta
 
 logger = logging.getLogger(__name__)
+
+
+_TRADING_RULE_CORPUS: List[Dict[str, Any]] = [
+    {
+        "title": "Risk Per Trade",
+        "content": "每筆交易風險應限制在帳戶資金的小比例內，先算最大可承受虧損，再回推倉位大小。",
+        "tags": {"risk", "position", "sizing", "loss", "capital"},
+    },
+    {
+        "title": "Stop Loss Before Liquidation",
+        "content": "槓桿倉位必須先確認止損價格位於強平價之前，避免由交易所強制平倉承擔額外成本。",
+        "tags": {"stop", "loss", "liquidation", "leverage", "margin"},
+    },
+    {
+        "title": "Cost Effectiveness",
+        "content": "進場前要確認預期利潤高於手續費、資金費率、spread 與滑點的總和，否則屬於低品質交易。",
+        "tags": {"cost", "fee", "funding", "spread", "slippage", "profit"},
+    },
+    {
+        "title": "Trade With Trend",
+        "content": "趨勢市場優先順勢交易，逆勢單必須要求更高確認與更小倉位。",
+        "tags": {"trend", "momentum", "confirmation"},
+    },
+    {
+        "title": "Avoid Trading Into Major News",
+        "content": "重大監管、安全事件或極端新聞時段，應降低槓桿或暫停交易，等待波動重新定價。",
+        "tags": {"news", "regulation", "security", "volatility", "event"},
+    },
+    {
+        "title": "Wait For Liquidity",
+        "content": "流動性不足與深度不足會放大滑點與 stop hunt 風險，應避免在極薄 order book 下重倉進場。",
+        "tags": {"liquidity", "depth", "orderbook", "slippage"},
+    },
+]
 
 # ── 單一事實來源：從 schemas 導入，不在此重複定義 ─────────────────────────────
 from schemas.rag import (  # noqa: E402
@@ -65,12 +100,25 @@ class UnifiedRetriever:
         """生成查詢的快取鍵"""
         key_parts = [
             query.query,
-            ",".join(sorted(s.value for s in query.sources)),
+            ",".join(sorted(self._source_value(s) for s in query.sources)),
             str(query.top_k),
             str(query.min_relevance),
             str(query.time_range_hours),
         ]
         return hashlib.md5("|".join(key_parts).encode()).hexdigest()
+
+    @staticmethod
+    def _source_value(source: Any) -> str:
+        return source.value if hasattr(source, "value") else str(source)
+
+    @staticmethod
+    def _normalize_source(source: Any) -> Optional[RetrievalSource]:
+        if isinstance(source, RetrievalSource):
+            return source
+        try:
+            return RetrievalSource(str(source))
+        except ValueError:
+            return None
 
     def _get_cached(self, cache_key: str) -> Optional[List["RetrievalResult"]]:
         """從快取取得結果，若已過期則返回 None"""
@@ -116,7 +164,7 @@ class UnifiedRetriever:
             results: List[RetrievalResult] = []
 
             # 根據指定來源檢索
-            sources = query.sources
+            sources = [s for s in (self._normalize_source(src) for src in query.sources) if s is not None]
             if RetrievalSource.ALL in sources:
                 sources = [
                     RetrievalSource.INTERNAL_KNOWLEDGE,
@@ -124,7 +172,7 @@ class UnifiedRetriever:
                     RetrievalSource.NEWS_API
                 ]
 
-            sources_used = [s.value for s in sources]
+            sources_used = [self._source_value(s) for s in sources]
 
             for source in sources:
                 try:
@@ -273,8 +321,33 @@ class UnifiedRetriever:
     
     def _retrieve_trading_rules(self, query: RetrievalQuery) -> List[RetrievalResult]:
         """從交易規則庫檢索"""
-        # 這裡可以連接到專門的交易規則知識庫
-        return []
+        query_tokens = set(re.findall(r"[\w]+", query.query.lower()))
+        if not query_tokens:
+            return []
+
+        ranked: List[Tuple[float, Dict[str, Any]]] = []
+        for rule in _TRADING_RULE_CORPUS:
+            tags = cast(set[str], rule["tags"])
+            overlap = len(query_tokens & tags)
+            if overlap == 0:
+                continue
+            score = min(1.0, 0.35 + overlap * 0.15)
+            ranked.append((score, rule))
+
+        ranked.sort(key=lambda item: item[0], reverse=True)
+        results: List[RetrievalResult] = []
+        for score, rule in ranked[:query.top_k]:
+            results.append(
+                RetrievalResult(
+                    content=cast(str, rule["content"]),
+                    source=RetrievalSource.TRADING_RULES,
+                    relevance_score=score,
+                    timestamp=datetime.now(),
+                    title=cast(str, rule["title"]),
+                    metadata={"tags": sorted(cast(set[str], rule["tags"]))},
+                )
+            )
+        return results
     
     def retrieve_for_trading(
         self,

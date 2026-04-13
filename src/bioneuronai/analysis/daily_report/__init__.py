@@ -40,6 +40,7 @@ from .news_sentiment import NewsSentimentAnalyzer
 from .strategy_planner import StrategyPlanner
 from .risk_manager import RiskManager
 from .report_generator import ReportGenerator
+from config.trading_config import resolve_binance_testnet
 
 logger = logging.getLogger(__name__)
 
@@ -86,7 +87,7 @@ class SOPAutomationSystem:
 
             api_key = os.getenv("BINANCE_API_KEY", "")
             api_secret = os.getenv("BINANCE_API_SECRET", "")
-            testnet = os.getenv("BINANCE_TESTNET", "true").lower() != "false"
+            testnet = resolve_binance_testnet(default=True)
 
             connector = BinanceFuturesConnector(
                 api_key=api_key,

@@ -199,7 +199,7 @@ python -m bioneuronai.cli.main collect-signal-data --symbol BTCUSDT --interval 1
 python -m nlp.training.unified_trainer \
     --signal-data data/signal_history.jsonl --epochs 10
 
-# 輸出：model/my_100m_model.pth（InferenceEngine 與 ChatEngine 共用）
+# 輸出：model/my_100m_model.pth（正式交易 checkpoint）
 ```
 
 **完整 CLI 參數：**
@@ -210,7 +210,7 @@ python -m nlp.training.unified_trainer --help
   --epochs N         訓練輪數（預設 10）
   --batch N          批次大小（預設 8）
   --lr FLOAT         學習率（預設 3e-4）
-  --signal-data PATH 訊號 JSONL 路徑（不指定則用合成資料）
+  --signal-data PATH 訊號 JSONL 路徑（正式訓練必填）
   --no-save          不覆寫 model/my_100m_model.pth
 ```
 
@@ -218,10 +218,10 @@ python -m nlp.training.unified_trainer --help
 
 ```bash
 cd src/nlp/training
-python train_with_ai_teacher.py
+python train_with_ai_teacher.py --allow-demo-data
 ```
 
-**優點：** 無需準備訓練數據；AI 自動生成高品質樣本；適合快速驗證語言能力
+**注意：** 這條目前只適合開發驗證。內建資料是通用示範樣本，不應視為正式交易語料。
 
 ### 方案 C：使用自定義數據訓練（進階）
 
@@ -500,7 +500,8 @@ for prompt in test_prompts:
 ## 🔗 相關資源
 
 ### 模型文件位置
-- **模型權重**: `model/my_100m_model.pth`（TinyLLM，InferenceEngine 與 ChatEngine 共用）
+- **交易模型權重**: `model/my_100m_model.pth`（目前正式交易 checkpoint）
+- **Chat / TinyLLM 權重**: `model/tiny_llm_100m.pth`
 - **分詞器詞彙**: `model/tokenizer/vocab.json`（由 `build_vocab.py` 產生）
 
 ### 工具腳本
@@ -538,21 +539,21 @@ for prompt in test_prompts:
 
 ### Q: 如何在交易系統中使用訓練的模型？
 **A:**
-訓練完成後，`model/my_100m_model.pth` 會被兩個系統自動載入：
+訓練完成後，`model/my_100m_model.pth` 目前主要供交易訊號推論使用：
 
 - **交易訊號推論**：`InferenceEngine` 在 `trading_engine.py` 啟動時自動載入，透過 16 步滾動視窗輸出 512 維訊號向量
-- **自然語言對話**：`ChatEngine` 在 CLI `chat` 指令或 API `/api/v1/chat` 呼叫時自動載入
+- **自然語言對話**：`ChatEngine` 預設載入 `model/tiny_llm_100m.pth`；若要測試其他 TinyLLM checkpoint，需顯式指定
 
 手動驗證：
 ```python
 from nlp.chat_engine import create_chat_engine
 
-engine = create_chat_engine(language="zh")
+engine = create_chat_engine(model_path="model/tiny_llm_100m.pth", language="zh")
 if engine:
     response = engine.chat("BTC 現在適合做多嗎？")
     print(response.text)
 else:
-    print("模型未載入，請先訓練或確認 model/my_100m_model.pth 存在")
+    print("模型未載入，請先確認 model/tiny_llm_100m.pth 存在")
 ```
 
 ## 📞 技術支援
@@ -566,5 +567,5 @@ else:
 ---
 
 **最後更新**: 2026-04-07
-**版本**: v2.2
+**版本**: v2.1
 **維護者**: BioNeuronAI Team

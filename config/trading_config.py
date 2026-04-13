@@ -2,6 +2,20 @@
 
 import os
 
+
+def resolve_binance_testnet(default: bool = True) -> bool:
+    """統一解析 BINANCE_TESTNET，避免不同模組各自解讀。"""
+    raw_value = os.getenv("BINANCE_TESTNET", "")
+    if not raw_value:
+        return default
+
+    normalized = raw_value.strip().lower()
+    if normalized in {"false", "0", "no", "off", "mainnet", "live"}:
+        return False
+    if normalized in {"true", "1", "yes", "on", "testnet", "demo"}:
+        return True
+    return default
+
 # =======================================
 # Binance API 配置
 # =======================================
@@ -17,7 +31,7 @@ BINANCE_API_KEY = os.getenv("BINANCE_API_KEY", "")
 BINANCE_API_SECRET = os.getenv("BINANCE_API_SECRET", "")
 
 # 使用測試網 (Demo Trading)
-USE_TESTNET = os.getenv("BINANCE_TESTNET", "true").lower() != "false"
+USE_TESTNET = resolve_binance_testnet(default=True)
 
 # API Endpoint: https://demo-fapi.binance.com (自動選擇)
 

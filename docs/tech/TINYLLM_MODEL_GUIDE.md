@@ -1,6 +1,6 @@
 # TinyLLM 模型技術指南
 
-**版本**: v2.2  
+**版本**: v2.1  
 **更新日期**: 2026-04-06  
 **適用對象**: 開發者、訓練工程師、系統整合者
 
@@ -238,25 +238,24 @@ ChatEngine.chat(user_message, market_ctx)
 ```
 src/bioneuronai/core/inference_engine.py
     ModelLoader.load_model()
-    └── 使用 TinyLLMConfig(use_numeric_mode=True)
     └── 載入 model/my_100m_model.pth
-    └── Predictor.predict() 呼叫 model.forward_signal()
+    └── 若為 TinyLLM numeric checkpoint，Predictor.predict() 呼叫 model.forward_signal()
+    └── 若為 legacy MLP checkpoint，走相容交易推論路徑
 
 src/nlp/chat_engine.py
     create_chat_engine()
-    └── 使用相同 TinyLLMConfig(use_numeric_mode=True)
-    └── 載入同一個 model/my_100m_model.pth
+    └── 載入 model/tiny_llm_100m.pth
     └── ChatEngine.chat() 呼叫 model.generate()
 ```
 
-**重點：兩處載入的是同一個檔案 `model/my_100m_model.pth`**
+**重點：交易推論與文字對話目前不是同一個 checkpoint。**
 
 ### 6.2 各模組調用規則
 
 | 調用者 | 使用方法 | 注意事項 |
 |--------|---------|---------|
 | `InferenceEngine` | `model.forward_signal(tensor)` | 需要 `use_numeric_mode=True` |
-| `ChatEngine` | `model.generate(input_ids)` | 不需要 `use_numeric_mode`，但加了也無妨 |
+| `ChatEngine` | `model.generate(input_ids)` | 預設讀取 `model/tiny_llm_100m.pth` |
 | `Predictor` | 透過 `InferenceEngine` | 不直接呼叫 TinyLLM |
 | `BacktestEngine` | 透過 `TradingEngine` → `InferenceEngine` | 換 episode 前需呼叫 `reset_buffer()` |
 | 訓練腳本 | 直接操作 `TinyLLM` | 見第 7 節 |
@@ -274,7 +273,8 @@ engine.inference_engine.reset_buffer()
 
 ```
 model/
-├── my_100m_model.pth     ← 正式模型權重（InferenceEngine + ChatEngine 共用）
+├── my_100m_model.pth     ← 正式交易 checkpoint
+├── tiny_llm_100m.pth     ← ChatEngine / NLP TinyLLM checkpoint
 ├── tokenizer/
 │   └── vocab.json        ← BilingualTokenizer 詞彙（由 build_vocab.py 產生）
 └── checkpoints/          ← 訓練過程中的檢查點（不直接用於推論）
@@ -349,7 +349,7 @@ python -m bioneuronai.cli.main collect-signal-data \
 
 1. 回測 replay 每根 K 線後，`FeaturePipeline` 提取 1024 維特徵
 2. `deque(maxlen=16)` 維護滾動視窗，累積至 16 步後輸出一筆
-3. 若 `InferenceEngine` 已載入，`signal` 欄位為模型推論值；否則填零向量
+3. 若 `InferenceEngine` 已載入，`signal` 欄位為模型推論值；否則停止收集，避免寫入虛假標籤
 4. 寫入 `data/signal_history.jsonl`，可直接作為 `unified_trainer --signal-data` 的輸入
 
 ---
@@ -388,7 +388,7 @@ python -m bioneuronai.cli.main collect-signal-data \
 ```
 交易訊號路徑：可以跑，但輸出是隨機的（未訓練）
 語言對話路徑：可以跑，但輸出是亂碼（未訓練）
-CLI chat 指令：已降級為關鍵字匹配模式（不需要模型）
+CLI chat 指令：若 TinyLLM 權重不可用，預設直接報錯；需顯式開啟 fallback 才進規則模式
 ```
 
 ### 8.4 與舊 HundredMillionModel 的相容性

@@ -13,7 +13,7 @@
 9. 交易對篩選
 10. 執行計劃監控
 
-參考文檔: docs/TRADING_PLAN_10_STEPS.md
+參考文檔: archived/docs_v2_1_legacy/TRADING_PLAN_10_STEPS.legacy_20260406.md
 """
 
 from typing import Any, Callable, Dict, List, Optional, cast

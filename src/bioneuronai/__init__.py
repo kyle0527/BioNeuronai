@@ -62,7 +62,7 @@ from schemas.market import MarketData  # noqa: E402
 from schemas.trading import TradingSignal  # noqa: E402
 from .data import BinanceFuturesConnector, ExchangeRateService  # noqa: E402
 from .risk_management import RiskManager, RiskParameters  # noqa: E402
-from .strategies import AIStrategyFusion  # noqa: E402
+from .strategies import AIStrategyFusion, StrategySelector  # noqa: E402
 
 #  ()
 imported_strategy_gene: Any = None
