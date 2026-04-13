@@ -167,6 +167,30 @@ class BinanceFuturesConnector:
         except Exception as e:
             logger.error(f"未預期錯誤: {e}")
             return None
+
+    def _make_list_request(self, endpoint: str, params: Optional[Dict] = None) -> Optional[List[Dict]]:
+        """統一的 API 請求處理（回傳 List 的端點）"""
+        try:
+            self._check_rate_limit()
+            url = f"{self.rest_base}{endpoint}"
+            response = requests.get(url, params=params, timeout=10)
+            response.raise_for_status()
+            data = response.json()
+            if isinstance(data, list):
+                return cast(Optional[List[Dict[str, Any]]], data)
+            return None
+        except requests.exceptions.Timeout:
+            logger.error(f"請求超時: {endpoint}")
+            return None
+        except requests.exceptions.HTTPError as e:
+            logger.error(f"HTTP 錯誤: {e}")
+            return None
+        except requests.exceptions.RequestException as e:
+            logger.error(f"請求失敗: {e}")
+            return None
+        except Exception as e:
+            logger.error(f"未預期錯誤: {e}")
+            return None
     
     def get_ticker_price(self, symbol: str = "BTCUSDT") -> Optional[MarketData]:
         """獲取最新價格"""
@@ -328,12 +352,28 @@ class BinanceFuturesConnector:
         return self._make_request("GET", "/fapi/v2/account", signed=True)
     
     def get_exchange_info(self, symbol: str) -> Optional[Dict]:
-        """獲取交易對信息"""
+        """獲取單一交易對信息"""
         data = self._make_request("GET", "/fapi/v1/exchangeInfo", {"symbol": symbol})
         
         if data and 'symbols' in data and len(data['symbols']) > 0:
             return cast(Optional[Dict[str, Any]], data['symbols'][0])
         return None
+
+    def get_all_exchange_info(self) -> Optional[Dict]:
+        """獲取所有交易對的交易所信息（不帶 symbol 過濾）
+
+        返回:
+            完整的 /fapi/v1/exchangeInfo 回應，包含 "symbols" 陣列
+        """
+        return self._make_request("GET", "/fapi/v1/exchangeInfo")
+
+    def get_all_tickers_24hr(self) -> Optional[List[Dict]]:
+        """獲取所有交易對的 24 小時行情統計（不帶 symbol 過濾）
+
+        返回:
+            列表，每個元素為一個交易對的 24hr ticker 字典
+        """
+        return self._make_list_request("/fapi/v1/ticker/24hr")
     
     def format_quantity(self, symbol: str, quantity: float) -> str:
         """格式化數量"""
