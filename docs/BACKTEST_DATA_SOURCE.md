@@ -92,31 +92,24 @@ K線端點: /fapi/v1/klines
 
 ## 🚀 數據載入流程
 
-### 1. 初始化數據載入器
+### 1. 初始化數據串流
 ```python
-from bioneuronai.backtesting.historical_backtest import HistoricalDataLoader
+from backtest.data_stream import HistoricalDataStream
 
-# 主網數據
-loader = HistoricalDataLoader(use_testnet=False)
-
-# 測試網數據
-loader_test = HistoricalDataLoader(use_testnet=True)
+stream = HistoricalDataStream(
+    data_dir="backtest/data/binance_historical",
+    symbol="BTCUSDT",
+    interval="1h",
+    start_date="2025-01-01",
+    end_date="2025-12-31",
+)
 ```
 
 ### 2. 載入歷史數據
 ```python
-from datetime import datetime
-
-data = await loader.load_data(
-    symbol="BTCUSDT",           # 交易對
-    start_date=datetime(2025, 1, 1),  # 開始日期
-    end_date=datetime(2025, 12, 31),  # 結束日期
-    interval="1h"               # 時間框架
-)
-
-# 返回 pandas DataFrame
-print(f"載入 {len(data)} 根 K 線")
-print(data.head())
+df = stream.load_data()
+print(f"載入 {len(df)} 根 K 線")
+print(df.head())
 ```
 
 ### 3. 數據格式
@@ -257,44 +250,40 @@ print(f"零成交量 K 線: {len(zero_volume)}")
 
 ### 基礎用法
 ```python
-from bioneuronai.backtesting.historical_backtest import HistoricalDataLoader
-from datetime import datetime
-import asyncio
+from backtest.data_stream import HistoricalDataStream
 
-async def main():
-    loader = HistoricalDataLoader(use_testnet=False)
+stream = HistoricalDataStream(
+    data_dir="backtest/data/binance_historical",
+    symbol="BTCUSDT",
+    interval="1h",
+    start_date="2025-01-01",
+    end_date="2025-12-31",
+)
+data = stream.load_data()
 
-    # 載入 BTC 2025 年全年 1 小時 K 線
-    data = await loader.load_data(
-        symbol="BTCUSDT",
-        start_date=datetime(2025, 1, 1),
-        end_date=datetime(2025, 12, 31),
-        interval="1h"
-    )
-
-    print(f"✅ 成功載入 {len(data)} 根 K 線")
-    print(f"時間範圍: {data['open_time'].iloc[0]} 到 {data['open_time'].iloc[-1]}")
-    print(f"平均價格: ${data['close'].mean():,.2f}")
-    print(f"總成交量: {data['volume'].sum():,.0f}")
-
-asyncio.run(main())
+print(f"✅ 成功載入 {len(data)} 根 K 線")
+print(f"時間範圍: {data['open_time'].iloc[0]} 到 {data['open_time'].iloc[-1]}")
+print(f"平均價格: ${data['close'].mean():,.2f}")
+print(f"總成交量: {data['volume'].sum():,.0f}")
 ```
 
 ### 高級用法：多交易對
 ```python
-async def load_multiple_symbols():
-    loader = HistoricalDataLoader(use_testnet=False)
+from backtest.data_stream import HistoricalDataStream
 
+def load_multiple_symbols():
     symbols = ["BTCUSDT", "ETHUSDT", "BNBUSDT"]
     all_data = {}
 
     for symbol in symbols:
-        data = await loader.load_data(
+        stream = HistoricalDataStream(
+            data_dir="backtest/data/binance_historical",
             symbol=symbol,
-            start_date=datetime(2025, 1, 1),
-            end_date=datetime(2025, 1, 31),
-            interval="1h"
+            interval="1h",
+            start_date="2025-01-01",
+            end_date="2025-01-31",
         )
+        data = stream.load_data()
         all_data[symbol] = data
         print(f"✅ {symbol}: {len(data)} 根 K 線")
 
@@ -341,9 +330,10 @@ async def load_multiple_symbols():
 - [API 速率限制](https://binance-docs.github.io/apidocs/futures/en/#limits)
 
 ### 相關檔案
-- `src/bioneuronai/backtesting/historical_backtest.py` - 數據載入實現
+- `backtest/data_stream.py` - 歷史數據載入與串流實現
+- `backtest/backtest_engine.py` - 正式 replay backtest 主鏈
 - `src/bioneuronai/data/binance_futures.py` - Binance API 客戶端
-- `test_backtest_system.py` - 測試腳本
+- `backtest/README.md` - 回測模組說明
 
 ---
 

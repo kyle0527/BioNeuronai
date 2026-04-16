@@ -730,6 +730,11 @@ class BreakoutTradingStrategy(BaseStrategy):
             if setup.total_position_size <= 0:
                 logger.warning(f"⚠️ 突破策略忽略無效進場數量: {setup.total_position_size}")
                 return None
+
+            passed, reason = self._passes_pre_entry_guards(setup, connector)
+            if not passed:
+                logger.warning(f"⚠️ 突破策略取消進場: {reason}")
+                return None
             
             if connector is None:
                 logger.info(f": {trade_id}")

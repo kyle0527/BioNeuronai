@@ -27,11 +27,12 @@
 - **[市場關鍵字系統](./MARKET_KEYWORDS_SYSTEM.md)**
 
 ### 📋 參考文檔（位於 docs/）
-- **[策略快速參考](../STRATEGIES_QUICK_REFERENCE.md)**
+- **[策略快速參考](../../archived/docs_v2_1_legacy/STRATEGIES_QUICK_REFERENCE.legacy_20260406.md)**
   - 快速查詢表
   - 參數配置
 
-> **📝 注意**: 部分舊版文檔（交易指南、策略詳解、交易 SOP）已移至 [archived/docs_v3/](../../archived/docs_v3/) 歸檔目錄。
+> **📝 注意**: 部分舊版文檔已移至 [archived/docs_v2_1_legacy/](../../archived/docs_v2_1_legacy/)；
+> 若同名文件已恢復到 `docs/` 根目錄，請以現行 `docs/` 版本為準。
 
 ---
 
@@ -39,12 +40,12 @@
 
 ### 新用戶
 1. 閱讀 [模組化架構技術手冊](./MODULAR_ARCHITECTURE_GUIDE.md) 的「快速開始」章節
-2. 查看 [策略快速參考](../STRATEGIES_QUICK_REFERENCE.md)
+2. 查看 [策略快速參考](../../archived/docs_v2_1_legacy/STRATEGIES_QUICK_REFERENCE.legacy_20260406.md)
 3. 運行示例代碼
 
 ### 開發者
 1. 閱讀 [模組化架構技術手冊](./MODULAR_ARCHITECTURE_GUIDE.md) 完整內容
-2. 查看 [專案結構](../PROJECT_STRUCTURE.md)
+2. 查看 [專案結構](../../archived/docs_v2_1_legacy/PROJECT_STRUCTURE.legacy_20260406.md)
 3. 參考 API 文檔開發新功能
 
 ---
@@ -65,7 +66,7 @@ docs/tech/
 
 - **項目主頁**: [GitHub - kyle0527/BioNeuronai](https://github.com/kyle0527/BioNeuronai)
 - **根目錄 README**: [../../README.md](../../README.md)
-- **歸檔文檔**: [archived/docs_v3/](../../archived/docs_v3/)
+- **歸檔文檔**: [archived/docs_v2_1_legacy/](../../archived/docs_v2_1_legacy/)
 
 ---
 

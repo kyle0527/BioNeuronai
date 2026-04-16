@@ -440,6 +440,7 @@ def cmd_chat(args: argparse.Namespace) -> None:
 
     symbol: str = getattr(args, "symbol", "") or ""
     language: str = getattr(args, "language", "auto") or "auto"
+    allow_rule_based_fallback: bool = bool(getattr(args, "allow_rule_based_fallback", False))
 
     print(f"\n{'='*60}")
     print("  BioNeuronai AI 交易助理 / Trading Assistant")
@@ -449,11 +450,12 @@ def cmd_chat(args: argparse.Namespace) -> None:
 
     engine = create_chat_engine(language=language)
     if engine is None:
-        print("[警告] 模型未載入，使用規則型回應模式。")
-        print("[Warning] Model not loaded. Using rule-based fallback.\n")
-
-    # 無模型時的簡單規則回退
-    if engine is None:
+        if not allow_rule_based_fallback:
+            print("[錯誤] 對話模型未載入；若要使用開發用規則模式，請加上 --allow-rule-based-fallback。")
+            print("[Error] Chat model not loaded. Re-run with --allow-rule-based-fallback for development mode.")
+            sys.exit(1)
+        print("[警告] 模型未載入，已顯式切換到規則型開發模式。")
+        print("[Warning] Model not loaded. Entering rule-based development fallback.\n")
         _chat_fallback(symbol)
         return
 
@@ -810,6 +812,8 @@ def _build_parser() -> argparse.ArgumentParser:
                      help="交易對（可選，如 BTCUSDT），提供時自動注入即時市場資料")
     chp.add_argument("--language", default="auto", choices=["auto", "zh", "en"],
                      help="回應語言：auto（自動偵測）| zh（繁體中文）| en（英文）  （預設: auto）")
+    chp.add_argument("--allow-rule-based-fallback", action="store_true",
+                     help="僅供開發模式：若 chat 模型不可用，明確允許退回規則式回應")
     chp.set_defaults(func=cmd_chat)
 
     return parser

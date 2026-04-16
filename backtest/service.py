@@ -384,7 +384,7 @@ def list_runtime_runs(limit: int = 20) -> Dict[str, Any]:
 # ============================================================================
 
 def _try_load_inference_engine() -> Optional[Any]:
-    """嘗試載入 InferenceEngine；失敗時返回 None（signal 欄位將填零）。"""
+    """嘗試載入 InferenceEngine；失敗時返回 None。"""
     try:
         from bioneuronai.core.inference_engine import InferenceEngine
         ie = InferenceEngine()
@@ -394,16 +394,16 @@ def _try_load_inference_engine() -> Optional[Any]:
         return None
 
 
-def _infer_signal(ie: Optional[Any], buf: deque) -> List[float]:
-    """用 InferenceEngine 推算 signal 向量；失敗或 ie 為 None 時返回零向量。"""
+def _infer_signal(ie: Optional[Any], buf: deque) -> Optional[List[float]]:
+    """用 InferenceEngine 推算 signal 向量；失敗或 ie 為 None 時返回 None。"""
     if ie is None:
-        return [0.0] * 512
+        return None
     try:
         feat_seq = np.stack(list(buf), axis=0)        # (seq_len, 1024)
         signal_output, _ = ie.predictor.predict(feat_seq)
         return signal_output.tolist()
     except Exception:
-        return [0.0] * 512
+        return None
 
 
 def _extract_features(feature_pipeline: Any, bar: Any, connector: Any) -> Optional[List]:
@@ -466,15 +466,22 @@ def collect_signal_training_data(
     resolved_root = resolve_data_dir(data_dir)
     dest = Path(output_path) if output_path else (_root / "data" / "signal_history.jsonl")
     dest.parent.mkdir(parents=True, exist_ok=True)
-    dest.write_text("", encoding="utf-8")   # 清空舊檔案
 
     feature_pipeline = FeaturePipeline()
     ie = _try_load_inference_engine()
+    if ie is None:
+        return {
+            "error": "InferenceEngine 無法載入，已停止收集以避免寫入全零 signal 標籤。",
+            "samples_collected": 0,
+        }
+
+    dest.write_text("", encoding="utf-8")   # 清空舊檔案
     buf: deque = deque(maxlen=seq_len)
     samples_collected = 0
+    skipped_samples = 0
 
     def _collect_callback(bar: Any, connector: Any) -> None:
-        nonlocal samples_collected
+        nonlocal samples_collected, skipped_samples
         if samples_collected >= max_samples:
             return
         feats = _extract_features(feature_pipeline, bar, connector)
@@ -483,7 +490,11 @@ def collect_signal_training_data(
         buf.append(feats)
         if len(buf) < seq_len:
             return
-        record = {"features": list(buf), "signal": _infer_signal(ie, buf)}
+        signal = _infer_signal(ie, buf)
+        if signal is None:
+            skipped_samples += 1
+            return
+        record = {"features": list(buf), "signal": signal}
         with open(dest, "a", encoding="utf-8") as f:
             f.write(json.dumps(record, ensure_ascii=False) + "\n")
         samples_collected += 1
@@ -501,6 +512,7 @@ def collect_signal_training_data(
 
     return {
         "samples_collected": samples_collected,
+        "skipped_samples": skipped_samples,
         "output_path": str(dest),
         "seq_len": seq_len,
     }

@@ -416,6 +416,11 @@ class PairTradingStrategy(BaseStrategy):
                 logger.warning(f"[配對交易] 忽略無效進場數量: {portion_size}")
                 return None
 
+            passed, reason = self._passes_pre_entry_guards(setup, connector)
+            if not passed:
+                logger.warning(f"[配對交易] 取消進場: {reason}")
+                return None
+
             execution = TradeExecution(
                 trade_id=f"PT_{uuid.uuid4().hex[:8]}",
                 setup=setup,

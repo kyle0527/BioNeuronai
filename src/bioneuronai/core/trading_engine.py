@@ -29,6 +29,7 @@ from schemas.trading import TradingSignal
 from ..data import BinanceFuturesConnector
 from ..data.database_manager import get_database_manager, DatabaseManager
 from ..risk_management import RiskManager
+from config.trading_costs import TradingCostCalculator
 
 try:
     from ..strategies.selector import StrategySelector
@@ -48,6 +49,55 @@ class Position:
     mark_price: float
     pnl: float
     timestamp: datetime
+
+
+@dataclass
+class _OrderBookSnapshotAdapter:
+    """將 Binance order book dict 轉為特徵模組可讀的快照介面。"""
+
+    bids: List[List[Any]]
+    asks: List[List[Any]]
+    best_bid: float = 0.0
+    best_ask: float = 0.0
+
+    @property
+    def spread_percentage(self) -> float:
+        if self.best_bid <= 0 or self.best_ask <= 0:
+            return 0.0
+        mid_price = (self.best_bid + self.best_ask) / 2
+        if mid_price <= 0:
+            return 0.0
+        return ((self.best_ask - self.best_bid) / mid_price) * 100
+
+    def get_bid_depth(self, levels: int = 20) -> float:
+        return sum(float(level[1]) for level in self.bids[:levels] if len(level) >= 2)
+
+    def get_ask_depth(self, levels: int = 20) -> float:
+        return sum(float(level[1]) for level in self.asks[:levels] if len(level) >= 2)
+
+    def get_imbalance(self, levels: int = 20) -> float:
+        bid_depth = self.get_bid_depth(levels)
+        ask_depth = self.get_ask_depth(levels)
+        total_depth = bid_depth + ask_depth
+        if total_depth <= 0:
+            return 0.0
+        return (bid_depth - ask_depth) / total_depth
+
+
+@dataclass
+class _FundingRateAdapter:
+    """資金費率特徵轉接層。"""
+
+    funding_rate: float = 0.0
+    predicted_funding_rate: float = 0.0
+    hours_until_funding: float = 0.0
+
+
+@dataclass
+class _OpenInterestAdapter:
+    """未平倉量特徵轉接層。"""
+
+    open_interest: float = 0.0
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -140,7 +190,13 @@ class TradingEngine:
             " + AI Fusion" if getattr(self.strategy, "ai_fusion_available", False) else "",
         )
         
-        # 
+        self.cost_calculator = TradingCostCalculator(
+            vip_level=0,
+            use_bnb=False,
+            default_leverage=10,
+        )
+
+        #
         self.auto_trade = False
         self.is_monitoring = False
         self.positions: List[Position] = []
@@ -313,20 +369,104 @@ class TradingEngine:
             return None
         
         try:
-            order_book = self.connector.get_order_book(symbol, limit=20)
-            funding_data = self.connector.get_funding_rate(symbol)
-            oi_data = self.connector.get_open_interest(symbol)
+            order_book_raw = self.connector.get_order_book(symbol, limit=20)
+            book_ticker = self.connector.get_book_ticker(symbol)
+            premium_index = self.connector.get_premium_index(symbol)
+            funding_info = self.connector.get_funding_info(symbol)
+            funding_history = self.connector.get_funding_rate(symbol)
+            oi_raw = self.connector.get_open_interest(symbol)
             
             return self.market_data_processor.build_market_microstructure(
                 symbol=symbol,
                 current_price=current_price,
-                order_book=order_book,
-                funding_data=funding_data,
-                oi_data=oi_data
+                order_book=self._adapt_order_book(order_book_raw, book_ticker),
+                funding_data=self._adapt_funding_data(premium_index, funding_info, funding_history),
+                oi_data=self._adapt_open_interest(oi_raw),
             )
         except Exception as e:
             logger.debug(f": {e}")
             return None
+
+    @staticmethod
+    def _safe_float(value: Any, default: float = 0.0) -> float:
+        """安全轉 float，避免原始 API 格式不穩定時中斷主流程。"""
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return default
+
+    def _adapt_order_book(
+        self,
+        order_book: Optional[Dict[str, Any]],
+        book_ticker: Optional[Dict[str, Any]] = None,
+    ) -> Optional[_OrderBookSnapshotAdapter]:
+        """將 Binance order book / bookTicker 轉為市場微結構需要的介面。"""
+        bids = order_book.get("bids", []) if order_book else []
+        asks = order_book.get("asks", []) if order_book else []
+
+        best_bid = self._safe_float(book_ticker.get("bidPrice")) if book_ticker else 0.0
+        best_ask = self._safe_float(book_ticker.get("askPrice")) if book_ticker else 0.0
+        if best_bid <= 0 and bids:
+            best_bid = self._safe_float(bids[0][0])
+        if best_ask <= 0 and asks:
+            best_ask = self._safe_float(asks[0][0])
+
+        if not bids and not asks and best_bid <= 0 and best_ask <= 0:
+            return None
+        return _OrderBookSnapshotAdapter(
+            bids=bids,
+            asks=asks,
+            best_bid=best_bid,
+            best_ask=best_ask,
+        )
+
+    def _adapt_funding_data(
+        self,
+        premium_index: Optional[Dict[str, Any]],
+        funding_info: Optional[Any],
+        funding_history: Optional[List[Dict[str, Any]]],
+    ) -> Optional[_FundingRateAdapter]:
+        """整合 premiumIndex / fundingInfo / fundingRate 歷史為單一 funding 特徵。"""
+        funding_rate = 0.0
+        if premium_index:
+            funding_rate = self._safe_float(premium_index.get("lastFundingRate"))
+        elif funding_history:
+            funding_rate = self._safe_float(funding_history[0].get("fundingRate"))
+
+        hours_until_funding = 0.0
+        if premium_index and premium_index.get("nextFundingTime"):
+            next_funding_ts = self._safe_float(premium_index.get("nextFundingTime"))
+            if next_funding_ts > 0:
+                hours_until_funding = max(0.0, (next_funding_ts / 1000 - time.time()) / 3600)
+
+        info_payload: Optional[Dict[str, Any]] = None
+        if isinstance(funding_info, list):
+            info_payload = funding_info[0] if funding_info else None
+        elif isinstance(funding_info, dict):
+            info_payload = funding_info
+
+        if hours_until_funding <= 0 and info_payload:
+            hours_until_funding = self._safe_float(info_payload.get("fundingIntervalHours"))
+
+        if funding_rate == 0.0 and hours_until_funding <= 0 and not info_payload:
+            return None
+        return _FundingRateAdapter(
+            funding_rate=funding_rate,
+            predicted_funding_rate=funding_rate,
+            hours_until_funding=hours_until_funding,
+        )
+
+    def _adapt_open_interest(
+        self,
+        oi_data: Optional[Dict[str, Any]],
+    ) -> Optional[_OpenInterestAdapter]:
+        """將 openInterest API 回傳轉為市場微結構需要的欄位。"""
+        if not oi_data:
+            return None
+        open_interest = self._safe_float(oi_data.get("openInterest"))
+        if open_interest <= 0:
+            return None
+        return _OpenInterestAdapter(open_interest=open_interest)
     
     def _collect_regime_analysis(self, symbol: str, klines: List) -> Optional[RegimeAnalysis]:
         """收集市場環境分析"""
@@ -999,7 +1139,18 @@ class TradingEngine:
             )
             if position_size is None:
                 return
-            
+
+            # 4.5 成本效益驗證：預期獲利必須超過總交易成本
+            microstructure: Optional[MarketMicrostructure] = self._collect_market_microstructure(
+                signal.symbol, current_price
+            )
+            if not self._is_cost_effective(signal, current_price, position_size * current_price, microstructure):
+                logger.info(
+                    "[成本過濾] %s 預期獲利不足以覆蓋手續費+資金費率+滑點，跳過下單",
+                    signal.symbol,
+                )
+                return
+
             # 5. 顯示交易信息
             self._display_trade_info(signal, position_size, current_price)
             
@@ -1046,6 +1197,56 @@ class TradingEngine:
         except Exception as e:
             logger.error(f" : {e}", exc_info=True)
     
+    def _is_cost_effective(
+        self,
+        signal: TradingSignal,
+        current_price: float,
+        position_size_usd: float,
+        microstructure: Optional[MarketMicrostructure] = None,
+    ) -> bool:
+        """驗證預期獲利是否足以覆蓋交易總成本。
+
+        funding_rate 直接從已收集的 MarketMicrostructure 讀取（無需另發 API）。
+        spread_bps 從 order_book 的最佳買賣報價計算（order_book 已在微結構收集時取得）。
+        取得失敗或無 take_profit 時放行，不阻擋交易。
+        """
+        try:
+            take_profit = getattr(signal, "take_profit", None)
+            if not take_profit or current_price <= 0:
+                return True
+
+            # 從已收集的微結構讀取資金費率（可正可負）
+            funding_rate: Optional[float] = None
+            spread_bps: Optional[float] = None
+            if microstructure is not None:
+                funding_rate = microstructure.funding_rate
+
+            # 從 order_book 計算即時價差（order_book 已在微結構收集時取得）
+            try:
+                ob = self.connector.get_order_book(signal.symbol, limit=5)
+                if ob and ob.get("bids") and ob.get("asks"):
+                    best_bid = float(ob["bids"][0][0])
+                    best_ask = float(ob["asks"][0][0])
+                    mid = (best_bid + best_ask) / 2
+                    if mid > 0:
+                        spread_bps = ((best_ask - best_bid) / mid) * 10000
+            except Exception:
+                pass
+
+            expected_move_pct = abs(take_profit - current_price) / current_price * 100
+            min_profit_pct = self.cost_calculator.get_minimum_profit_target(
+                position_size_usd=position_size_usd,
+                symbol=signal.symbol,
+                desired_profit_margin=0.0,
+                leverage=self.cost_calculator.default_leverage,
+                based_on="notional",
+                funding_rate=funding_rate,
+                spread_bps=spread_bps,
+            )
+            return expected_move_pct >= min_profit_pct
+        except Exception:
+            return True
+
     def _check_news_risk(self, symbol: str) -> bool:
         """檢查新聞風險
         

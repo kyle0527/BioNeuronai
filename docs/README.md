@@ -1,5 +1,5 @@
 # docs/ — 文檔索引
-> **更新日期**: 2026-04-06
+> **更新日期**: 2026-04-09
 
 ---
 
@@ -57,6 +57,7 @@
 | 文檔 | 說明 |
 |------|------|
 | [API_INTEGRATION_BASELINE.md](API_INTEGRATION_BASELINE.md) | FastAPI 介面整合作業基準 |
+| [CODE_FIX_GUIDE.md](CODE_FIX_GUIDE.md) | 代碼修復與架構維護規範 |
 | [DOCUMENTATION_GOVERNANCE_PLAN.md](DOCUMENTATION_GOVERNANCE_PLAN.md) | 文件治理與清理規範 (核心守則) |
 | [DEVELOPMENT_TOOLS.md](DEVELOPMENT_TOOLS.md) | 目錄產生等 PowerShell 開發腳本說明 |
 | [TECH_DEBT_AND_ROADMAP.md](TECH_DEBT_AND_ROADMAP.md) | 技術債盤點與未來路線圖 |
@@ -66,7 +67,8 @@
 
 ## 📚 歸檔文件
 
-以下文件由於依賴舊版 `trading_plan_system`、舊 `crypto_trader.py` 互動腳本、或其他不存在的模組路徑，已經退役並封存於 `archived/docs_v2_1_legacy/` 目錄下供歷史考古。
+以下文件為 v2.1 收斂前的歷史快照，保留於 `archived/docs_v2_1_legacy/` 供考古比對。
+若同名文件已恢復到 `docs/` 根目錄，請以 `docs/` 內版本為目前相容入口。
 
 | 文檔 | 說明 |
 |------|------|

@@ -1,15 +1,15 @@
 # BioNeuronai 系統架構總覽
 
 **用途**: 描述目前專案的正式主線架構 (`v2.1`)，提供開發者對外入口、核心交易主鏈與資料供應鏈的總體視野。  
-**版本**: v2.2
-**更新日期**: 2026-04-07
+**版本**: v2.1
+**更新日期**: 2026-04-12
 
 ---
 
 ## 📑 目錄
 
 1. 總體架構圖
-2. 分層說明
+2. 分層說明（含 2.1a 前端子系統）
 3. 資料流架構圖
 4. 交易執行時序圖
 5. 模組職責表
@@ -21,14 +21,19 @@
 
 ```mermaid
 flowchart TD
-    U[使用者 / 外部系統] --> CLI[CLI 入口\nmain.py / bioneuronai.cli.main]
-    U --> API[FastAPI 入口\nbioneuronai.api.app]
+    U[使用者 / 外部系統] --> FE_D[frontend/devops-d\nDevOps 監控面板\nReact 19 + Vite 7]
+    U --> FE_A[frontend/admin-da\n管理後台\nReact 19 + Vite 7]
+    U --> FE_T[frontend/trading\n交易操作介面\nReact 19 + Vite 7]
+    U --> CLI[CLI 入口\nmain.py / bioneuronai.cli.main]
 
+    FE_D --> API[FastAPI 入口\nbioneuronai.api.app\nlocalhost:8000]
+    FE_A --> API
+    FE_T --> API
+    CLI --> API
     CLI --> TE[TradingEngine\n核心交易引擎]
     CLI --> PLN[planning/\n高階計劃與盤前檢查]
     CLI --> CNA[analysis.news\n新聞分析]
     CLI --> BT1[backtest/\n主回測子系統]
-
     API --> PLN
     API --> CNA
     API --> BT1
@@ -74,12 +79,29 @@ flowchart TD
 
 - `main.py`: 專案根目錄統一入口，將 `src/` 加入路徑後轉交給 CLI。
 - `src/bioneuronai/cli/main.py`: 真正的命令列入口，負責 `status`、`plan`、`pretrade`、`news`、`backtest`、`simulate`、`trade` 等。
-- `src/bioneuronai/api/app.py`: FastAPI 服務，將各交易能力封裝成 HTTP API 供外部呼叫。
+- `src/bioneuronai/api/app.py`: FastAPI 服務（`localhost:8000`），將各交易能力封裝成 HTTP API 供前端與外部呼叫。
+
+### 2.1a 前端子系統 (`frontend/`)
+
+三個獨立 React 19 + Vite 7 + TypeScript 應用，均位於 `frontend/` 下，統一連接 `http://localhost:8000/api/v1`：
+
+| 目錄 | 用途 | 主要功能 |
+|------|------|---------|
+| `frontend/devops-d/` | DevOps 監控面板 | 系統狀態、新聞分析、回測、ChatBot、Pre-Trade、交易控制、API Playground |
+| `frontend/admin-da/` | 管理後台 | 儀表板、風控指標、最大回撤、盤前清單、稽核日誌 |
+| `frontend/trading/` | 交易操作介面 | 即時概覽、分析、回測、Chat 助理、交易控制（WebSocket + 價格預警） |
+
+**啟動方式（各自獨立）**：
+```bash
+cd frontend/devops-d  &&  npm run dev   # → http://localhost:5173
+cd frontend/admin-da  &&  npm run dev   # → http://localhost:5174
+cd frontend/trading   &&  npm run dev   # → http://localhost:5175
+```
 
 ### 2.2 核心交易層
 
 - `src/bioneuronai/core/trading_engine.py`: 專案執行中樞，整合 AI 推理、策略融合、資料庫落檔等。
-- `src/bioneuronai/core/inference_engine.py`: 負責提煉 1024 維特徵，維護 16 步滾動特徵視窗，並透過 TinyLLM（`model/my_100m_model.pth`）的 `forward_signal()` 路徑輸出 512 維訊號向量。
+- `src/bioneuronai/core/inference_engine.py`: 負責提煉 1024 維特徵，維護 16 步滾動特徵視窗，並透過目前正式交易 checkpoint（`model/my_100m_model.pth`）輸出交易訊號；若 checkpoint 為舊版 MLP，則走相容載入路徑。
 
 ### 2.3 策略層 (`strategies/`)
 
@@ -159,6 +181,9 @@ flowchart LR
 | 模組分佈 | 主要職責 | 在主流程中的位置 |
 |------|------|------|
 | `main.py` & `cli/`, `api/` | CLI與Web API命令分派 | 對外入口 |
+| `frontend/devops-d/` | DevOps 監控面板（系統狀態、回測、Chat、API Playground） | 前端入口 |
+| `frontend/admin-da/` | 管理後台（風控儀表板、稽核日誌、盤前清單） | 前端入口 |
+| `frontend/trading/` | 交易操作介面（即時監控、價格預警、WebSocket） | 前端入口 |
 | `src/bioneuronai/core/` | 交易引擎、AI 推論、進化系統 | 核心中樞 |
 | `src/bioneuronai/strategies/`| 固定策略、selector、fusion、arena | 策略實作與競爭 |
 | `src/bioneuronai/planning/` | 高階計劃、盤前檢查、大盤分析、選對 | 決策支援與規劃 |

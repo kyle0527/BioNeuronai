@@ -444,8 +444,8 @@ print(f"最優候選: {best.name}, Sharpe: {best.sharpe_ratio:.2f}, Trades: {bes
 
 ## 📚 相關文檔
 
-- **策略進化指南**: [STRATEGY_EVOLUTION_GUIDE.md](../../../docs/STRATEGY_EVOLUTION_GUIDE.md)
-- **策略快速參考**: [STRATEGIES_QUICK_REFERENCE.md](../../../docs/STRATEGIES_QUICK_REFERENCE.md)
+- **策略進化指南**: [STRATEGY_EVOLUTION_GUIDE.md](../../../archived/docs_v2_1_legacy/STRATEGY_EVOLUTION_GUIDE.legacy_20260406.md)
+- **策略快速參考**: [STRATEGIES_QUICK_REFERENCE.md](../../../archived/docs_v2_1_legacy/STRATEGIES_QUICK_REFERENCE.legacy_20260406.md)
 - **策略選擇器子模組**: [selector/README.md](C:/D/E/BioNeuronai/src/bioneuronai/strategies/selector/README.md)
 - **父模組**: [BioNeuronai 主模組](../README.md)
 

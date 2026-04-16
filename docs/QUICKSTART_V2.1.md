@@ -1,5 +1,12 @@
 # 🚀 BioNeuronai v2.1 快速開始指南
 
+## 📑 目錄
+
+1. 安裝與依賴
+2. 設定環境變數
+3. 驗證系統狀態
+4. 核心功能驗證
+
 ## 📦 1. 安裝與依賴
 
 ```bash
@@ -21,6 +28,10 @@ pip install -r requirements-crypto.txt
 ```bash
 # 生成環境設定檔
 cp .env.example .env
+```
+Windows PowerShell 可改用：
+```powershell
+Copy-Item .env.example .env
 ```
 請編輯 `.env`，填入您的幣安金鑰，並確保 `BINANCE_TESTNET=true` 以安全試用。
 
@@ -54,7 +65,7 @@ python main.py pretrade --symbol BTCUSDT --action long
 **步驟 D：模擬或測試網執行 (Trade)**
 確認一切正常後，開啟機器人接收即時 WebSocket 數據進行自動交易（需連網）：
 ```bash
-python main.py trade --testnet
+python main.py trade --symbol BTCUSDT --testnet
 ```
 隨時可按 `Ctrl+C` 平順中止程式。
 
@@ -63,5 +74,6 @@ python main.py trade --testnet
 ```bash
 python main.py chat                     # 自動語言
 python main.py chat --symbol BTCUSDT    # 附帶即時市場資料
+python main.py chat --allow-rule-based-fallback  # 僅供開發測試
 ```
-無需 API 金鑰即可使用基礎規則型回應；安裝 PyTorch 並載入模型後可啟用完整 AI 對話。
+正式對話模式需要 PyTorch 與 `model/tiny_llm_100m.pth`。若模型未載入，現在不會默默降級；只有顯式加上 `--allow-rule-based-fallback` 才會進入開發用規則模式。

@@ -238,8 +238,8 @@ TRADING_CONFIG = {
 
 ## 📚 相關文檔
 
-- **策略進化指南**: [STRATEGY_EVOLUTION_GUIDE.md](../../../docs/STRATEGY_EVOLUTION_GUIDE.md)
-- **風險管理手冊**: [RISK_MANAGEMENT_MANUAL.md](../../../docs/RISK_MANAGEMENT_MANUAL.md)
+- **策略進化指南**: [STRATEGY_EVOLUTION_GUIDE.md](../../../archived/docs_v2_1_legacy/STRATEGY_EVOLUTION_GUIDE.legacy_20260406.md)
+- **風險管理手冊**: [RISK_MANAGEMENT_MANUAL.md](../../../archived/docs_v2_1_legacy/RISK_MANAGEMENT_MANUAL.legacy_20260406.md)
 - **代碼修復指南**: [CODE_FIX_GUIDE.md](../../../docs/CODE_FIX_GUIDE.md)
 - **父模組**: [BioNeuronai 主模組](../README.md)
 

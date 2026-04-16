@@ -370,8 +370,13 @@ class TradingDatabase:
         注意：匯率不存資料庫，使用 exchange_rate_service 即時獲取
         """
         try:
+            from config.trading_config import resolve_binance_testnet
+            from .binance_futures import BinanceFuturesConnector
             from .exchange_rate_service import get_exchange_rate_service
-            service = get_exchange_rate_service()
+
+            testnet = resolve_binance_testnet(default=True)
+            connector = BinanceFuturesConnector(testnet=testnet)
+            service = get_exchange_rate_service(connector=connector)
             rate_info = service.get_rate(from_currency, to_currency)
             if rate_info:
                 return rate_info.rate

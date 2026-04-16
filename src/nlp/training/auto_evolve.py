@@ -65,7 +65,8 @@ def auto_evolve_training(
     output_path: str = "./model/tiny_llm_evolved",
     num_epochs: int = 3,
     batch_size: int = 4,
-    learning_rate: float = 1e-5
+    learning_rate: float = 1e-5,
+    allow_small_dataset: bool = False,
 ):
     """
     自動進化訓練
@@ -112,10 +113,17 @@ def auto_evolve_training(
     if len(dataset) < 10:
         print(f"\n⚠️  警告：進化數據太少 ({len(dataset)} 個樣本)")
         print("   建議收集至少 50-100 個高質量樣本再進化\n")
-        response = input("是否繼續？(y/N): ").strip().lower()
-        if response != 'y':
-            print("已取消")
-            return
+        if allow_small_dataset:
+            print("   已使用 allow_small_dataset 覆寫最小樣本限制，繼續訓練。")
+        elif sys.stdin.isatty():
+            response = input("是否繼續？(y/N): ").strip().lower()
+            if response != 'y':
+                print("已取消")
+                return
+        else:
+            raise RuntimeError(
+                "進化樣本少於 10 筆且目前為非互動環境；請先補資料，或加上 --allow-small-dataset 明確覆寫。"
+            )
     
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=0)
     
@@ -217,6 +225,11 @@ if __name__ == "__main__":
     parser.add_argument("--epochs", type=int, default=3, help="訓練輪數")
     parser.add_argument("--batch-size", type=int, default=4, help="批次大小")
     parser.add_argument("--lr", type=float, default=1e-5, help="學習率")
+    parser.add_argument(
+        "--allow-small-dataset",
+        action="store_true",
+        help="允許在樣本數低於 10 時繼續訓練（非互動環境需顯式指定）",
+    )
     
     args = parser.parse_args()
     
@@ -226,5 +239,6 @@ if __name__ == "__main__":
         output_path=args.output,
         num_epochs=args.epochs,
         batch_size=args.batch_size,
-        learning_rate=args.lr
+        learning_rate=args.lr,
+        allow_small_dataset=args.allow_small_dataset,
     )

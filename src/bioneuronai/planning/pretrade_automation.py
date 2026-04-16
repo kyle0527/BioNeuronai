@@ -14,6 +14,8 @@ from typing import Dict, List, Optional, Tuple, Any
 from dataclasses import dataclass
 from pathlib import Path
 
+from config.trading_config import resolve_binance_testnet
+from config.trading_costs import TradingCostCalculator
 from schemas.market import MarketData
 
 # 錯誤常量定義
@@ -69,6 +71,10 @@ class RiskCalculation:
     max_loss: float = 0.02  # 2%
     expected_return: float = 0.0
     risk_reward_ratio: float = 0.0
+    liquidation_price: float = 0.0
+    minimum_profit_target_pct: float = 0.0
+    cost_check_passed: bool = True
+    liquidation_safe: bool = True
     overall_status: str = "UNKNOWN"
 
 @dataclass
@@ -147,12 +153,17 @@ class PreTradeCheckSystem:
             }
             logger.warning("⚠️ 配置文件不可用，使用默認風險參數")
 
+        self.cost_calculator = TradingCostCalculator(
+            vip_level=0,
+            use_bnb=False,
+            default_leverage=5,
+        )
+
     def _get_connector(self):
         """取得 BinanceFuturesConnector，憑證優先順序：
         1. 注入值（__init__ 傳入）
         2. 環境變數 BINANCE_API_KEY / BINANCE_API_SECRET / BINANCE_TESTNET
         """
-        import os
         from ..data.binance_futures import BinanceFuturesConnector
 
         api_key = self._api_key or os.getenv("BINANCE_API_KEY", "")
@@ -160,8 +171,7 @@ class PreTradeCheckSystem:
         if self._testnet is not None:
             testnet = self._testnet
         else:
-            env_testnet = os.getenv("BINANCE_TESTNET", "")
-            testnet = (env_testnet.lower() != "false") if env_testnet else True  # 安全預設：testnet
+            testnet = resolve_binance_testnet(default=True)
 
         return BinanceFuturesConnector(
             api_key=api_key,
@@ -396,6 +406,33 @@ class PreTradeCheckSystem:
         if is_buy:
             return entry_price + profit_distance
         return entry_price - profit_distance
+
+    @staticmethod
+    def _safe_float(value: Any, default: float = 0.0) -> float:
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return default
+
+    def _get_dynamic_cost_inputs(self, symbol: str) -> Tuple[Optional[float], Optional[float]]:
+        """讀取即時 funding / spread，用於 pretrade 成本評估。"""
+        funding_rate: Optional[float] = None
+        spread_bps: Optional[float] = None
+        try:
+            connector = self._get_connector()
+            premium = connector.get_premium_index(symbol)
+            if premium:
+                funding_rate = self._safe_float(premium.get("lastFundingRate"))
+            book_ticker = connector.get_book_ticker(symbol)
+            if book_ticker:
+                best_bid = self._safe_float(book_ticker.get("bidPrice"))
+                best_ask = self._safe_float(book_ticker.get("askPrice"))
+                mid = (best_bid + best_ask) / 2
+                if mid > 0:
+                    spread_bps = ((best_ask - best_bid) / mid) * 10000
+        except Exception as exc:
+            logger.debug(f"無法取得即時交易成本輸入，將回退預設值: {exc}")
+        return funding_rate, spread_bps
     
     def _calculate_risk(self, symbol: str, action: str, 
                             technical_check: TechnicalSignalCheck) -> RiskCalculation:
@@ -451,10 +488,42 @@ class PreTradeCheckSystem:
             
             # 7. 計算盈虧比
             calc.risk_reward_ratio = calc.profit_target / calc.max_loss if calc.max_loss > 0 else 0
+
+            funding_rate, spread_bps = self._get_dynamic_cost_inputs(symbol)
+            side = "long" if is_buy else "short"
+            cost_stats = self.cost_calculator.calculate_entry_exit_costs(
+                position_size_usd=calc.position_size * calc.entry_price,
+                entry_price=calc.entry_price,
+                exit_price=calc.take_profit_price,
+                symbol=symbol,
+                leverage=self.cost_calculator.default_leverage,
+                funding_rate=funding_rate,
+                spread_bps=spread_bps,
+                position_side=side,
+            )
+            calc.liquidation_price = float(cost_stats.get("liquidation_price", 0.0))
+            calc.minimum_profit_target_pct = self.cost_calculator.get_minimum_profit_target(
+                position_size_usd=calc.position_size * calc.entry_price,
+                symbol=symbol,
+                desired_profit_margin=0.0,
+                leverage=self.cost_calculator.default_leverage,
+                based_on="notional",
+                funding_rate=funding_rate,
+                spread_bps=spread_bps,
+                position_side=side,
+            )
+            actual_profit_pct = abs(calc.take_profit_price - calc.entry_price) / calc.entry_price * 100
+            calc.cost_check_passed = actual_profit_pct >= calc.minimum_profit_target_pct
+            calc.liquidation_safe = (
+                calc.stop_loss_price > calc.liquidation_price if is_buy
+                else calc.stop_loss_price < calc.liquidation_price
+            )
             
             logger.info(f"     ✓ 止盈價格: ${calc.take_profit_price:.2f}")
             logger.info(f"     ✓ 期望回報: {calc.expected_return*100:.2f}%")
             logger.info(f"     ✓ 盈虧比: {calc.risk_reward_ratio:.2f}:1")
+            logger.info(f"     ✓ 強平價格: ${calc.liquidation_price:.2f}")
+            logger.info(f"     ✓ 成本門檻: {calc.minimum_profit_target_pct:.3f}%")
             
             # 8. 風險評估
             calc.overall_status = self._assess_risk_status(calc)
@@ -1021,6 +1090,8 @@ class PreTradeCheckSystem:
     
     def _assess_risk_status(self, calc: RiskCalculation) -> str:
         """評估風險狀態"""
+        if not calc.cost_check_passed or not calc.liquidation_safe:
+            return "HIGH_RISK"
         if (calc.risk_reward_ratio >= 2.0 and 
             calc.expected_return >= 0.01 and
             calc.position_size > 0):
@@ -1038,6 +1109,8 @@ class PreTradeCheckSystem:
             params: 訂單參數
             _risk: 風險計算結果（保留以保持接口一致性）
         """
+        if not _risk.cost_check_passed or not _risk.liquidation_safe:
+            return "INVALID"
         if (params.quantity > 0 and
             params.entry_price > 0 and
             params.stop_loss_price > 0 and

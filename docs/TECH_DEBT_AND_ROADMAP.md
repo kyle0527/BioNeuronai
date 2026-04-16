@@ -1,7 +1,15 @@
 # BioNeuronai 技術債與開發路線圖
 
-> 更新日期：2026-04-03
+> 更新日期：2026-04-13
 > 本文件彙整多輪分析 session 中發現的所有問題、已完成的修復、以及後續行動計畫。
+
+## 📑 目錄
+
+1. 已完成的修復
+2. 已確認的技術債
+3. 建議執行順序
+4. 新聞模組驗證框架設計
+5. 策略系統測試的補充說明
 
 ---
 
@@ -16,51 +24,40 @@
 | API 健康檢查清理 | 移除 `app.py` 中已不存在的 `BacktestEngine`、`PlanController` 參照 |
 | 新聞情緒接通 | `calculate_comprehensive_sentiment()` 的第 4 項從硬編碼 0.0 改為實際呼叫 `CryptoNewsAnalyzer` |
 | 新增 `evolve` CLI 命令 | `StrategyArena.run()` 對應單一 CLI 入口，不再需要手動 3 步驟 |
+| `.env` 自動載入 | `main.py` 已加入 `load_dotenv()`，並補上 `python-dotenv` 依賴 |
+| `BINANCE_TESTNET` 一致化 | `config/trading_config.py` 統一解析，各模組不再各自判讀 |
+| 對話 fallback 顯式化 | `chat` 未載入模型時，需明確加 `--allow-rule-based-fallback` 才會進入規則模式 |
+| 交易 / 對話模型路徑分離 | `InferenceEngine` 使用 `my_100m_model.pth`；`ChatEngine` 使用 `tiny_llm_100m.pth` |
+| RAG 基礎修補 | 交易規則檢索不再回空；embedding fallback 改為 deterministic hashed embedding |
+| 新聞時效欄位 | `NewsAnalysisResult` 已加入 `signal_valid_hours`、`signal_expires_at`、`signal_urgency` |
+| 交易成本與強平邊界 | 交易引擎、策略基底與 `pretrade` 已補成本效益 / 強平安全檢查 |
+| **T1 外部 API 移至 data/ 層** | `analysis/` 模組不再直接呼叫 `requests.get()`；新增 `NewsDataFetcher` 與 `SyncExternalDataFetcher`；`BinanceFuturesConnector` 補充 `get_all_exchange_info()` 與 `get_all_tickers_24hr()` |
 
 ### 文件修正
 | 文件 | 修正內容 |
 |------|---------|
 | `docs/OPERATION_MANUAL.md` | 憑證設定改為 `.env` 格式；移除硬編碼範例 |
-| `docs/FEATURE_STATUS.md` | 新聞情緒標記已修復；schedule 依賴確認存在 |
 | `docs/BIONEURONAI_MASTER_MANUAL.md` | 移除硬編碼憑證範例；`USE_TESTNET` → `BINANCE_TESTNET` |
-| `docs/BINANCE_TESTNET_STEP_BY_STEP.md` | 設定步驟改為 `.env` 格式 |
 | `docs/API_INTEGRATION_BASELINE.md` | 標記所有已完成批次 A/B/C/D |
+| `docs/BRANCH_ANALYSIS_COMPARISON.md` | 改寫為現役狀態摘要，不再保留已刪除報告對照 |
+| `docs/QUICKSTART_V2.1.md` | 補上目錄，並修正 chat fallback 與 PowerShell 操作說明 |
 
 ---
 
 ## 二、已確認的技術債（待處理）
 
-### T1：外部 API 呼叫散落在 analysis/ 模組（高優先）
+### ✅ T1：外部 API 呼叫散落在 analysis/ 模組（已完成 — 2026-04-13）
 
-**問題：** `analysis/` 模組直接使用 `requests.get()`，違反「外部 API 呼叫集中在 `data/` 層」的架構原則。
+**原問題：** `analysis/` 模組直接使用 `requests.get()`，違反「外部 API 呼叫集中在 `data/` 層」的架構原則。
 
-**受影響檔案（共 13 處）：**
-```
-analysis/daily_report/market_data.py     — 5 處（Fear & Greed、Yahoo Finance、CryptoCompare 等）
-analysis/daily_report/strategy_planner.py — 1 處（Binance K 線）
-analysis/daily_report/risk_manager.py    — 2 處（Binance 帳戶餘額）
-analysis/news/analyzer.py               — 2 處（CryptoPanic、RSS Feed）
-```
-
-**現有可用的 data/ 層介面：**
-```python
-# data/web_data_fetcher.py 已有：
-fetch_fear_greed_index()       # market_data.py 重複呼叫同一 URL
-fetch_global_market_data()     # market_data.py 重複呼叫 Yahoo Finance
-fetch_defi_metrics()
-fetch_stablecoin_metrics()
-
-# data/binance_futures.py 已有：
-get_klines()                   # strategy_planner.py 直接 requests
-get_account_info()             # risk_manager.py 直接 requests
-get_funding_rate()
-```
-
-**修復方向：**
-1. `market_data.py` 改為接收 injected `WebDataFetcher` 實例
-2. `strategy_planner.py` 改為接收 injected `BinanceFuturesConnector`
-3. `risk_manager.py` 同上
-4. `news/analyzer.py` 的 HTTP 呼叫抽到 `data/` 層新增 `NewsDataFetcher`
+**已完成：**
+- 新增 `data/news_data_fetcher.py`（`NewsDataFetcher`）：封裝 CryptoPanic API + RSS 的同步 HTTP 呼叫。
+- 新增 `data/sync_external_fetcher.py`（`SyncExternalDataFetcher`）：封裝 Fear & Greed / Yahoo Finance / Binance Spot 的同步 HTTP 呼叫。
+- `BinanceFuturesConnector` 新增 `get_all_exchange_info()`、`get_all_tickers_24hr()`、`_make_list_request()` 方法。
+- `analysis/daily_report/market_data.py`：`MarketDataCollector.__init__` 改為接收 `connector` 與 `external_fetcher` 注入參數；移除所有直接 `requests.get()` 呼叫。
+- `analysis/daily_report/strategy_planner.py`：`StrategyPlanner.analyze_current_market_condition()` 改透過 `connector.get_klines()` 取得 K 線；移除 `requests` 直接呼叫。
+- `analysis/daily_report/risk_manager.py`：`scan_available_trading_pairs()` 和 `analyze_liquidity_metrics()` 改透過 `connector.get_all_exchange_info()` 與 `connector.get_all_tickers_24hr()` 取得；移除 `requests` 直接呼叫。
+- `analysis/news/analyzer.py`：`CryptoNewsAnalyzer.__init__` 改為接收 `news_fetcher` 注入參數（未提供時自動建立預設 `NewsDataFetcher`）；`_fetch_from_cryptopanic()`、`_fetch_from_rss()`、`_process_single_rss_feed()` 全部委託 `news_fetcher` 進行 HTTP 呼叫。
 
 ---
 
@@ -87,6 +84,8 @@ get_funding_rate()
 - 知識庫現有 123 篇新聞 + 5 條預設交易規則，且每次 `news` 命令自動更新
 - `rag/services/news_adapter.ingest_news_analysis_with_status()` 為唯一寫入入口
 - `schemas/rag.py` 為所有跨模組 RAG 類型的 Single Source of Truth
+- `UnifiedRetriever._retrieve_trading_rules()` 已不再直接回空陣列
+- `rag/core/embeddings.py` 在缺少 `sentence-transformers` 時，已改為 deterministic hashed embedding 並輸出警告
 
 **剩餘未完成：**
 - `UnifiedRetriever.retrieve_for_trading()` 仍未在交易前檢查中呼叫
@@ -167,7 +166,7 @@ news = analyzer.analyze_news(symbol, hours=max(1, min(48, hours_since_last)))
 | `api/app.py` 全域狀態未封裝 | `_trade_task`/`_trade_engine` → 應封裝為 `TradeManager` | 低 |
 | `analysis/daily_report/__init__.py` | Backtest 驗證步驟未完成 | 低 |
 | `phase_router.py` 認知複雜度過高 | 單一函式邏輯過多 | 低 |
-| `nlp/rag_system.py` | 已廢棄，計畫 2026-04-26 移除 | 已排程 |
+| `nlp/rag_system.py` | legacy 腳本仍留存，非正式主線 | 低 |
 
 ---
 
@@ -175,7 +174,7 @@ news = analyzer.analyze_news(symbol, hours=max(1, min(48, hours_since_last)))
 
 ```
 優先執行（地基）
-  T1 → 外部 API 移到 data/ 層        （最具架構意義）
+  T1 → ✅ 已完成（2026-04-13）
   T2 → ✅ 已完成（2026-04-03）
 
 中期執行（功能完整）

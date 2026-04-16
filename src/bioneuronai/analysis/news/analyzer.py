@@ -25,10 +25,7 @@ from datetime import datetime, timedelta
 from typing import Any, Callable, Dict, List, Optional, Tuple, cast
 from collections import Counter
 
-# 2. 第三方套件
-import requests
-
-# 3. 本地模組
+# 2. 本地模組
 from .models import NewsArticle, NewsAnalysisResult
 
 # 設置日誌
@@ -189,19 +186,40 @@ class CryptoNewsAnalyzer:
         'PEPE': ['pepe'],
     }
     
-    def __init__(self, enable_rag_ingest: bool = True):
+    def __init__(
+        self,
+        enable_rag_ingest: bool = True,
+        news_fetcher: Any = None,
+    ) -> None:
+        """
+        Args:
+            enable_rag_ingest: 是否將新聞注入 RAG 知識庫。
+            news_fetcher:      NewsDataFetcher 實例（用於 CryptoPanic + RSS HTTP 請求）。
+                               若未提供，自動建立預設實例。
+        """
         self._cache: Dict[str, Tuple[NewsAnalysisResult, datetime]] = {}
         self._cache_ttl = 300  # 5 分鐘
         self._lock = threading.Lock()
         self.enable_rag_ingest = enable_rag_ingest
-        
+
+        # 注入或自建 NewsDataFetcher
+        if news_fetcher is not None:
+            self._news_fetcher = news_fetcher
+        else:
+            try:
+                from ...data.news_data_fetcher import NewsDataFetcher
+                self._news_fetcher = NewsDataFetcher()
+            except Exception as exc:
+                logger.warning(f"NewsDataFetcher 建立失敗，新聞抓取將不可用: {exc}")
+                self._news_fetcher = None
+
         # 新聞記錄文件路徑
         self._news_records_dir = os.path.join(
             os.path.dirname(__file__), '..', '..', '..', '..', 'data', 'bioneuronai', 'trading', 'sop'
         )
         self._news_records_file = os.path.join(self._news_records_dir, 'news_records.json')
         os.makedirs(self._news_records_dir, exist_ok=True)
-        
+
         logger.info("✅ CryptoNewsAnalyzer 初始化完成")
     
     # ========================================
@@ -423,130 +441,71 @@ class CryptoNewsAnalyzer:
         return unique_articles
     
     def _fetch_from_cryptopanic(self, coin: str) -> List[NewsArticle]:
-        """從 CryptoPanic API 獲取新聞"""
-        articles = []
-        
-        try:
-            api_token = os.getenv('CRYPTOPANIC_API_TOKEN', 'free')
-            
-            if api_token == 'free':
-                logger.warning(
-                    "⚠️ 使用 CryptoPanic 免費限制模式。"
-                    "請設置環境變數 CRYPTOPANIC_API_TOKEN 以獲得完整功能。"
+        """透過注入的 NewsDataFetcher 從 CryptoPanic API 獲取新聞"""
+        if self._news_fetcher is None:
+            logger.warning("_fetch_from_cryptopanic: NewsDataFetcher 不可用，跳過")
+            return []
+
+        raw_items = self._news_fetcher.fetch_cryptopanic(coin)
+        articles: List[NewsArticle] = []
+        for item in raw_items:
+            try:
+                articles.append(
+                    NewsArticle(
+                        title=item["title"],
+                        source=item["source"],
+                        url=item["url"],
+                        published_at=item["published_at"],
+                        summary=item["summary"],
+                    )
                 )
-            
-            url = "https://cryptopanic.com/api/v1/posts/"
-            params = {
-                'auth_token': api_token,
-                'currencies': coin,
-                'filter': 'important',
-                'public': 'true'
-            }
-            
-            response = requests.get(url, params=params, timeout=10)
-            
-            if response.status_code == 200:
-                data = response.json()
-                for item in data.get('results', [])[:20]:
-                    try:
-                        pub_date = datetime.fromisoformat(
-                            item['published_at'].replace('Z', '+00:00')
-                        ).replace(tzinfo=None)
-                        
-                        article = NewsArticle(
-                            title=item.get('title', ''),
-                            source=item.get('source', {}).get('title', 'CryptoPanic'),
-                            url=item.get('url', ''),
-                            published_at=pub_date,
-                            summary=item.get('title', '')
-                        )
-                        articles.append(article)
-                    except Exception:
-                        continue
-        
-        except requests.Timeout:
-            logger.warning("CryptoPanic API 請求超時")
-        except requests.RequestException as e:
-            logger.warning(f"CryptoPanic API 請求失敗: {e}")
-        except Exception as e:
-            logger.warning(f"獲取 CryptoPanic 失敗: {e}")
-        
+            except Exception:
+                continue
         return articles
-    
+
     def _fetch_from_rss(self, coin: str) -> List[NewsArticle]:
-        """從 RSS Feeds 獲取新聞"""
-        articles = []
-        
-        rss_feeds = [
-            'https://cointelegraph.com/rss',
-            'https://decrypt.co/feed',
-            'https://www.coindesk.com/arc/outboundfeeds/rss/',
-        ]
-        
+        """透過注入的 NewsDataFetcher 從 RSS Feeds 獲取新聞"""
+        if self._news_fetcher is None:
+            logger.warning("_fetch_from_rss: NewsDataFetcher 不可用，跳過")
+            return []
+
+        articles: List[NewsArticle] = []
         try:
-            for feed_url in rss_feeds:
+            for feed_url in self._news_fetcher.rss_feeds:
                 feed_articles = self._process_single_rss_feed(feed_url, coin)
                 articles.extend(feed_articles)
-        
-        except ImportError:
-            logger.warning("缺少 requests 庫，跳過 RSS")
         except Exception as e:
             logger.warning(f"RSS 獲取失敗: {e}")
-        
         return articles
-    
+
     def _process_single_rss_feed(self, feed_url: str, coin: str) -> List[NewsArticle]:
-        """處理單個 RSS 源"""
+        """透過注入的 NewsDataFetcher 處理單個 RSS 源，並套用相關性過濾"""
+        if self._news_fetcher is None:
+            return []
+
         articles: List[NewsArticle] = []
-        
-        try:
-            response = requests.get(feed_url, timeout=5)
-            if response.status_code != 200:
-                return articles
-            
-            import xml.etree.ElementTree as ET
-            root = ET.fromstring(response.content)
-            
-            for item in root.findall('.//item')[:20]:
-                article = self._parse_rss_item(item, feed_url, coin)
-                if article:
-                    articles.append(article)
-        
-        except Exception as e:
-            logger.debug(f"RSS 源 {feed_url} 處理失敗: {e}")
-        
+        raw_items = self._news_fetcher.fetch_rss_feed(feed_url, coin)
+        for item in raw_items:
+            try:
+                title_text = item["title"]
+                desc_text = (item.get("summary") or "")[:200]
+                full_text = f"{title_text} {desc_text}"
+                matched_keywords = self._check_content_relevance(full_text, coin)
+                if not matched_keywords:
+                    continue
+                articles.append(
+                    NewsArticle(
+                        title=title_text,
+                        source=feed_url.split("/")[2] if "/" in feed_url else feed_url,
+                        url=item.get("url", ""),
+                        published_at=item["published_at"],
+                        summary=desc_text,
+                        keywords=matched_keywords,
+                    )
+                )
+            except Exception as e:
+                logger.debug(f"RSS 條目處理失敗: {e}")
         return articles
-    
-    def _parse_rss_item(self, item, feed_url: str, coin: str) -> Optional[NewsArticle]:
-        """解析 RSS 條目"""
-        title = item.find('title')
-        link = item.find('link')
-        pub_date = item.find('pubDate')
-        description = item.find('description')
-        
-        if title is None:
-            return None
-        
-        title_text = title.text or ''
-        desc_text = description.text[:200] if description is not None and description.text else ''
-        full_text = f"{title_text} {desc_text}"
-        
-        # 檢查相關性
-        matched_keywords = self._check_content_relevance(full_text, coin)
-        if not matched_keywords:
-            return None
-        
-        # 解析時間
-        parsed_date = self._parse_publication_date(pub_date)
-        
-        return NewsArticle(
-            title=title_text,
-            source=feed_url.split('/')[2],
-            url=link.text.strip() if link is not None and link.text else '',
-            published_at=parsed_date,
-            summary=desc_text,
-            keywords=matched_keywords
-        )
     
     def _check_content_relevance(self, full_text: str, coin: str) -> List[str]:
         """檢查內容相關性"""
@@ -576,19 +535,7 @@ class CryptoNewsAnalyzer:
         coin_keywords = self.COIN_KEYWORDS.get(coin, [coin.lower()])
         matched = [kw for kw in coin_keywords if kw in full_text.lower()]
         return matched if matched else []
-    
-    def _parse_publication_date(self, pub_date) -> datetime:
-        """解析發布時間"""
-        try:
-            from email.utils import parsedate_to_datetime
-            if pub_date is not None and pub_date.text:
-                parsed_date = parsedate_to_datetime(pub_date.text)
-                return parsed_date.replace(tzinfo=None)
-        except Exception:
-            pass
-        
-        return datetime.now()
-    
+
     # ========================================
     # 新聞分析方法
     # ========================================
@@ -598,6 +545,7 @@ class CryptoNewsAnalyzer:
         target_coin = symbol.replace("USDT", "").replace("USD", "")
         
         if not articles:
+            analysis_time = datetime.now()
             return NewsAnalysisResult(
                 symbol=symbol,
                 total_articles=0,
@@ -610,7 +558,11 @@ class CryptoNewsAnalyzer:
                 top_keywords=[],
                 recent_headlines=[],
                 recommendation="無新聞資料",
-                analysis_time=datetime.now(),
+                analysis_time=analysis_time,
+                signal_valid_hours=0,
+                signal_expires_at=analysis_time,
+                signal_urgency="low",
+                applicable_timeframes=[],
                 articles=[]
             )
         
@@ -688,6 +640,12 @@ class CryptoNewsAnalyzer:
         recommendation = self._generate_recommendation(
             overall_sentiment, avg_score, list(key_events), positive_count, negative_count
         )
+        analysis_time = datetime.now()
+        signal_valid_hours, signal_urgency, applicable_timeframes = self._estimate_signal_validity(
+            score=avg_score,
+            key_events=list(key_events),
+            articles=articles,
+        )
         
         return NewsAnalysisResult(
             symbol=symbol,
@@ -701,15 +659,20 @@ class CryptoNewsAnalyzer:
             top_keywords=top_keywords,
             recent_headlines=recent_headlines,
             recommendation=recommendation,
-            analysis_time=datetime.now(),
+            analysis_time=analysis_time,
+            signal_valid_hours=signal_valid_hours,
+            signal_expires_at=analysis_time + timedelta(hours=signal_valid_hours),
+            signal_urgency=signal_urgency,
+            applicable_timeframes=applicable_timeframes,
             articles=sorted(articles, key=lambda x: x.published_at, reverse=True)
         )
     
     def _get_current_price(self, symbol: str) -> float:
         """獲取當前價格"""
         try:
+            from config.trading_config import resolve_binance_testnet
             from ...data.binance_futures import BinanceFuturesConnector
-            _testnet = os.getenv("BINANCE_TESTNET", "false").lower() == "true"
+            _testnet = resolve_binance_testnet(default=True)
             connector = BinanceFuturesConnector(testnet=_testnet)
             price_data = connector.get_ticker_price(symbol)
             if price_data:
@@ -980,6 +943,41 @@ class CryptoNewsAnalyzer:
             return "🟡 偏空信號，謹慎操作"
         else:
             return "⚪ 中性市場，維持現有策略"
+
+    def _estimate_signal_validity(
+        self,
+        score: float,
+        key_events: List[str],
+        articles: List[NewsArticle],
+    ) -> Tuple[int, str, List[str]]:
+        """估算新聞信號有效時間、緊急程度與適用時間框架。"""
+        now = datetime.now()
+        latest_published = max((article.published_at for article in articles), default=now)
+        age_hours = max(0.0, (now - latest_published).total_seconds() / 3600)
+        max_importance = max((article.importance_score for article in articles), default=0.0)
+        has_danger = any(event in key_events for event in [EVENT_SECURITY, EVENT_REGULATION])
+
+        if has_danger:
+            base_hours = 6
+            urgency = "high"
+        elif abs(score) >= 0.45 or max_importance >= 8.5:
+            base_hours = 12
+            urgency = "high"
+        elif abs(score) >= 0.25 or max_importance >= 7.0:
+            base_hours = 24
+            urgency = "medium"
+        else:
+            base_hours = 36
+            urgency = "low"
+
+        remaining_hours = max(1, int(round(max(1.0, base_hours - age_hours))))
+        if remaining_hours <= 6:
+            applicable_timeframes = ["5m", "15m", "1h"]
+        elif remaining_hours <= 24:
+            applicable_timeframes = ["15m", "1h", "4h"]
+        else:
+            applicable_timeframes = ["1h", "4h", "1d"]
+        return remaining_hours, urgency, applicable_timeframes
     
     # ========================================
     # 新聞記錄與評估
@@ -1034,8 +1032,9 @@ class CryptoNewsAnalyzer:
         try:
             symbol = record.get('symbol') or (record['target_coin'] + 'USDT')
             
+            from config.trading_config import resolve_binance_testnet
             from ...data.binance_futures import BinanceFuturesConnector
-            _testnet = os.getenv("BINANCE_TESTNET", "false").lower() == "true"
+            _testnet = resolve_binance_testnet(default=True)
             connector = BinanceFuturesConnector(testnet=_testnet)
             price_data = connector.get_ticker_price(symbol)
 

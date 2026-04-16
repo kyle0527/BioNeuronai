@@ -152,6 +152,76 @@ class ModelLoader:
             device = torch.device("cpu")
             logger.info(" CPU ")
         return device
+
+    @staticmethod
+    def _extract_state_dict(checkpoint: Any) -> Dict[str, torch.Tensor]:
+        """從多種 checkpoint 版型中提取 state_dict。"""
+        if isinstance(checkpoint, dict) and isinstance(checkpoint.get("state_dict"), dict):
+            return cast(Dict[str, torch.Tensor], checkpoint["state_dict"])
+        if isinstance(checkpoint, dict):
+            return cast(Dict[str, torch.Tensor], checkpoint)
+        raise TypeError(f"不支援的 checkpoint 格式: {type(checkpoint).__name__}")
+
+    @staticmethod
+    def _is_legacy_mlp_checkpoint(state_dict: Dict[str, torch.Tensor]) -> bool:
+        """判斷是否為舊版 100M MLP 交易模型權重。"""
+        return any(key.startswith("hidden_layers.") for key in state_dict)
+
+    @staticmethod
+    def _has_numeric_signal_path(state_dict: Dict[str, torch.Tensor]) -> bool:
+        """判斷 TinyLLM 權重是否包含數值輸入與 signal head。"""
+        return any(key.startswith("numeric_proj.") for key in state_dict) and any(
+            key.startswith("signal_head.") for key in state_dict
+        )
+
+    @staticmethod
+    def _supports_signal_inference(model: nn.Module) -> bool:
+        """判斷模型是否可直接用於交易訊號推論。"""
+        return (
+            hasattr(model, "forward_signal")
+            and getattr(model, "numeric_proj", None) is not None
+            and getattr(model, "signal_head", None) is not None
+        )
+
+    def _build_default_model(
+        self,
+        checkpoint: Any,
+        state_dict: Dict[str, torch.Tensor],
+    ) -> Tuple[type, Dict[str, Any]]:
+        """依 checkpoint 自動選擇相容的模型類別與初始化參數。"""
+        import sys
+
+        project_root = self.model_dir.parent
+        src_path = str(project_root / "src")
+        if src_path not in sys.path:
+            sys.path.insert(0, src_path)
+
+        if self._is_legacy_mlp_checkpoint(state_dict):
+            from archived.pytorch_100m_model import HundredMillionModel
+
+            logger.warning("偵測到舊版 MLP checkpoint，將使用 HundredMillionModel 向下相容載入")
+            return HundredMillionModel, {}
+
+        from nlp.tiny_llm import TinyLLM, TinyLLMConfig  # type: ignore
+
+        config_dict = checkpoint.get("config") if isinstance(checkpoint, dict) else None
+        if isinstance(config_dict, dict):
+            config = TinyLLMConfig.from_dict(config_dict)
+        else:
+            config = TinyLLMConfig()
+
+        if self._has_numeric_signal_path(state_dict):
+            config.use_numeric_mode = True
+            numeric_proj_weight = state_dict.get("numeric_proj.weight")
+            signal_head_weight = state_dict.get("signal_head.weight")
+            if numeric_proj_weight is not None and numeric_proj_weight.ndim == 2:
+                config.numeric_input_dim = int(numeric_proj_weight.shape[1])
+            if signal_head_weight is not None and signal_head_weight.ndim == 2:
+                config.signal_output_dim = int(signal_head_weight.shape[0])
+        elif config.use_numeric_mode:
+            logger.warning("checkpoint 設定啟用了 numeric mode，但權重缺少 numeric_proj/signal_head")
+
+        return TinyLLM, {"config": config}
     
     def load_model(
         self, 
@@ -177,29 +247,30 @@ class ModelLoader:
         start_time = time.time()
         checkpoint = torch.load(model_path, map_location=self.device, weights_only=True)
         load_time = time.time() - start_time
-        
-        # 統一使用 TinyLLM 多模態架構（use_numeric_mode=True）
-        # 一份權重同時支援：交易訊號預測（forward_signal）與自然語言對話（generate）
-        if model_class is None:
-            import sys
-            src_path = str(self.model_dir.parent / "src")
-            if src_path not in sys.path:
-                sys.path.insert(0, src_path)
-            from nlp.tiny_llm import TinyLLM, TinyLLMConfig  # type: ignore
-            model_class = TinyLLM
 
-        if model_kwargs is None:
-            model_kwargs = {
-                "config": TinyLLMConfig(  # type: ignore[name-defined]
-                    use_numeric_mode=True,
-                    numeric_input_dim=1024,
-                    signal_output_dim=512,   # 與 SignalInterpreter 相容
-                )
-            }
+        state_dict = self._extract_state_dict(checkpoint)
+
+        # 預設路徑：自動判斷 TinyLLM / 舊版 100M MLP，維持交易主線向下相容
+        if model_class is None:
+            model_class, inferred_kwargs = self._build_default_model(checkpoint, state_dict)
+            model_kwargs = model_kwargs or inferred_kwargs
+        elif model_kwargs is None:
+            model_kwargs = {}
 
         assert model_class is not None, "model_class must be provided or loaded"
         model = model_class(**model_kwargs)
-        model.load_state_dict(checkpoint)
+        missing_keys, unexpected_keys = model.load_state_dict(state_dict, strict=False)
+        if missing_keys or unexpected_keys:
+            details: List[str] = []
+            if missing_keys:
+                details.append(f"missing={missing_keys[:8]}")
+            if unexpected_keys:
+                details.append(f"unexpected={unexpected_keys[:8]}")
+            raise RuntimeError(
+                f"模型權重與架構不相容 ({'; '.join(details)})。"
+            )
+        if hasattr(model, "forward_signal") and not self._supports_signal_inference(model):
+            raise RuntimeError("載入的是文字生成 TinyLLM 權重，缺少 numeric signal head，無法用於交易推論")
         model.to(self.device)
         model.eval()  # 
         
@@ -228,15 +299,18 @@ class ModelLoader:
     def warmup(self, model_name: Optional[str] = None, iterations: int = 10):
         """ ()"""
         model = self.get_model(model_name)
-        # forward() 的第一個參數 input_ids 需要整數 (torch.long) token ID；
-        # 使用 torch.randn 會傳入浮點 tensor，導致 embedding 層拋出 RuntimeError
-        seq_len = getattr(getattr(model, "config", None), "numeric_seq_len", 16)
-        dummy_input = torch.zeros(1, seq_len, dtype=torch.long, device=self.device)
 
         logger.info(f"... ({iterations} )")
         with torch.no_grad():
             for _ in range(iterations):
-                _ = model(dummy_input)
+                if self._supports_signal_inference(model):
+                    seq_len = getattr(getattr(model, "config", None), "numeric_seq_len", 16)
+                    input_dim = getattr(getattr(model, "config", None), "numeric_input_dim", 1024)
+                    dummy_input = torch.zeros(1, seq_len, input_dim, dtype=torch.float32, device=self.device)
+                    _ = model.forward_signal(dummy_input)  # type: ignore[union-attr]
+                else:
+                    dummy_input = torch.zeros(1, 1024, dtype=torch.float32, device=self.device)
+                    _ = model(dummy_input)
         
         # 
         start = time.perf_counter()
@@ -872,7 +946,7 @@ class Predictor:
 
         # 執行推論：優先使用 TinyLLM 的 forward_signal 路徑
         start_time = time.perf_counter()
-        if hasattr(model, "forward_signal"):
+        if self.model_loader._supports_signal_inference(model):
             output = model.forward_signal(input_tensor)           # type: ignore[union-attr]
         else:
             # 舊版 MLP 模型向下相容：降為單步 (1, 1024)

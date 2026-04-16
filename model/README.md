@@ -69,15 +69,16 @@ model/my_100m_model.pth
 archived/pytorch_100m_model.py::HundredMillionModel
 ```
 
-這代表它雖然是主交易模型，但**模型定義仍依賴 `archived/`**，後續若要整理模型系統，這會是需要處理的技術債。
+這代表它雖然是主交易模型，但**目前實際上仍是 legacy 交易模型相容路徑**，而且模型定義仍依賴 `archived/`。後續若要整理模型系統，這會是需要處理的技術債。
 
 ### `tiny_llm_100m.pth`
 
-這是 TinyLLM 權重 checkpoint，主要被 `src/nlp/` 工具鏈使用，不是 `src/bioneuronai` 交易主鏈的一部分。
+這是 TinyLLM 權重 checkpoint，主要被 `src/nlp/` 工具鏈與 `ChatEngine` 使用，不是 `src/bioneuronai` 交易主鏈的正式交易模型。
 
 目前已確認的用途：
 
 - `src/nlp/tiny_llm.py` 產出/保存
+- `src/nlp/chat_engine.py` 預設文字對話模型
 - `src/nlp/tools/create_model_package.py` 作為模型封裝輸入
 - `src/nlp/training/` 相關流程的基礎權重
 
@@ -169,8 +170,8 @@ TinyLLM 相關資產目前主要由 `src/nlp/` 使用，例如：
 
 ## 使用建議
 
-1. 若你在看主交易系統，只需要先關注 `my_100m_model.pth`。
-2. 若你在看語言模型訓練、封裝或歷史 RAG 實驗，再看 `tiny_llm_*` 系列。
+1. 若你在看主交易系統，先關注 `my_100m_model.pth`。
+2. 若你在看 chat、語言模型訓練或 TinyLLM 封裝，再看 `tiny_llm_*` 系列。
 3. 上層 README 不再重複 TinyLLM 子目錄的完整功能表，避免和子 README 產生雙重維護。
 4. 若 `my_100m_model.pth` 無法載入，先確認不是 Git LFS pointer 或缺檔。
 

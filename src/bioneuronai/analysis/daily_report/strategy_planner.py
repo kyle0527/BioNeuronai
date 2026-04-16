@@ -9,16 +9,12 @@
 
 # 1. 標準庫
 import logging
-import requests
 from typing import Any, Dict
 
 # 2. 本地模組
 from .models import DailyMarketCondition, StrategyPerformance
 
 logger = logging.getLogger(__name__)
-
-# Binance Futures 公開 REST API（K 線不需要 API Key）
-_BINANCE_FUTURES_API = "https://fapi.binance.com"
 
 
 class StrategyPlanner:
@@ -34,10 +30,9 @@ class StrategyPlanner:
     """
 
     def __init__(self, connector: Any = None) -> None:
-        self.connector = connector  # 保留供未來擴充使用
+        # connector: BinanceFuturesConnector instance（可選，用於 K 線查詢）
+        self.connector = connector
         self.default_strategy = "StrategyFusion"
-        self.request_timeout: int = 10
-        self.user_agent: str = "Mozilla/5.0"
     
     # ========================================
     # 市場狀況分析
@@ -48,7 +43,8 @@ class StrategyPlanner:
         分析當前市場狀況。
 
         流程：
-        1. 從 Binance /fapi/v1/klines 取得 BTCUSDT 1h 最近 200 根 K 線（公開，無需 Key）
+        1. 若有注入的 connector，透過 BinanceFuturesConnector.get_klines() 取得
+           BTCUSDT 1h 最近 200 根 K 線；否則回傳 UNKNOWN 狀態。
         2. 將每根 K 線餵入 MarketRegimeDetector
         3. 呼叫 detect_regime() 取得 RegimeAnalysis
         4. 將 MarketRegime / VolatilityRegime 映射為 DailyMarketCondition
@@ -59,20 +55,20 @@ class StrategyPlanner:
         try:
             from ..market_regime import MarketRegimeDetector
 
-            url = (
-                f"{_BINANCE_FUTURES_API}/fapi/v1/klines"
-                "?symbol=BTCUSDT&interval=1h&limit=200"
-            )
-            response = requests.get(
-                url,
-                timeout=self.request_timeout,
-                headers={"User-Agent": self.user_agent},
-            )
-            response.raise_for_status()
-            klines_raw = response.json()
+            if self.connector is None:
+                raise RuntimeError(
+                    "analyze_current_market_condition 需要注入 BinanceFuturesConnector，"
+                    "請在初始化時傳入 connector 參數。"
+                )
 
-            if len(klines_raw) < 100:
-                raise ValueError(f"K 線資料不足（{len(klines_raw)} 根），需至少 100 根")
+            klines_raw = self.connector.get_klines(
+                symbol="BTCUSDT", interval="1h", limit=200
+            )
+
+            if klines_raw is None or len(klines_raw) < 100:
+                raise ValueError(
+                    f"K 線資料不足（{len(klines_raw) if klines_raw else 0} 根），需至少 100 根"
+                )
 
             detector = MarketRegimeDetector()
             for k in klines_raw:

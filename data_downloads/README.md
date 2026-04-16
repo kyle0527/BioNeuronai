@@ -22,9 +22,9 @@ BacktestEngine 預設讀取 `binance_historical/` 下的 CSV，
 python tools/download_historical_data.py --symbol BTCUSDT --interval 1h --days 365
 ```
 
-**方式 2：使用 HistoricalBacktest 直接從 API 加載**
+**方式 2：使用正式回測資料主線**
 ```bash
-python backtesting/historical_backtest.py --symbol BTCUSDT
+python main.py backtest-data --symbol BTCUSDT --interval 1h --days 365
 ```
 
 **方式 3：手動放置**

@@ -331,3 +331,166 @@ class ChatResponse(BaseModel):
     latency_ms: float = Field(default=0.0, description="生成耗時（毫秒）")
     conversation_id: Optional[str] = Field(default=None, description="對話 ID，供下一輪使用")
     timestamp: datetime = Field(default_factory=datetime.now)
+
+
+# ── Dashboard Data Models (admin-da DashboardData mirror) ────────────────────
+
+
+class WsRiskData(BaseModel):
+    """風險指標"""
+    level: str = Field(default="low", description="low | medium | high | critical")
+    percentage: float = Field(default=0.0)
+    lastUpdated: str = Field(default_factory=lambda: datetime.now().isoformat())
+
+
+class WsMaxDrawdown(BaseModel):
+    """最大回撤資料"""
+    current: float = Field(default=0.0)
+    historical: float = Field(default=0.0)
+    period: str = Field(default="30d")
+    lastUpdated: str = Field(default_factory=lambda: datetime.now().isoformat())
+
+
+class WsPretradeItem(BaseModel):
+    """進場前檢查項目"""
+    id: str
+    label: str
+    completed: bool = False
+    required: bool = True
+
+
+class WsPretradeChecklist(BaseModel):
+    """進場前檢查清單"""
+    items: List[WsPretradeItem] = Field(default_factory=list)
+    completedCount: int = 0
+    totalCount: int = 0
+    lastUpdated: str = Field(default_factory=lambda: datetime.now().isoformat())
+
+
+class WsAuditLogEntry(BaseModel):
+    """稽核日誌條目"""
+    id: str
+    timestamp: str
+    eventType: str = Field(description="backtest | trade_start | trade_stop | chat_session | config_change")
+    description: str
+    status: str = Field(default="info", description="success | error | pending | info")
+
+
+class WsPosition(BaseModel):
+    """持倉資料（對應 admin-da Position 介面）"""
+    id: str
+    symbol: str
+    side: str = Field(description="long | short")
+    quantity: float
+    entryPrice: float
+    currentPrice: float
+    unrealizedPnl: float
+    unrealizedPnlPercent: float
+    leverage: int = 1
+    liquidationPrice: Optional[float] = None
+    openedAt: str
+
+
+class DashboardDataResponse(BaseModel):
+    """admin-da DashboardData 的 Python 鏡像，用於 GET /api/v1/dashboard 及 /ws/dashboard 推送"""
+    environment: str = Field(default="testnet", description="testnet | mainnet")
+    risk: WsRiskData = Field(default_factory=WsRiskData)
+    maxDrawdown: WsMaxDrawdown = Field(default_factory=WsMaxDrawdown)
+    pretradeChecklist: WsPretradeChecklist = Field(default_factory=WsPretradeChecklist)
+    auditLog: List[WsAuditLogEntry] = Field(default_factory=list)
+    positions: Optional[List[WsPosition]] = None
+
+
+# ── WebSocket Trade Message Models ────────────────────────────────────────────
+
+
+class WsTradeExecution(BaseModel):
+    """trade_execution 推送訊息（/ws/trade）"""
+    type: str = "trade_execution"
+    id: str
+    timestamp: str
+    symbol: str
+    side: str = Field(description="buy | sell")
+    price: float
+    quantity: float
+    status: str = Field(default="executed", description="executed | pending | failed")
+
+
+class WsPriceUpdate(BaseModel):
+    """price_update 推送訊息（/ws/trade）"""
+    type: str = "price_update"
+    symbol: str
+    price: float
+
+
+# ── WebSocket Analytics Message Models ───────────────────────────────────────
+
+
+class WsPortfolioAsset(BaseModel):
+    """portfolio_update 中的單一資產（/ws/analytics）"""
+    symbol: str
+    quantity: float
+    avg_price: float
+    current_price: float
+    value: float
+    pnl: float
+    pnl_percent: float
+    allocation: float
+
+
+class WsPortfolioUpdate(BaseModel):
+    """portfolio_update 推送訊息（/ws/analytics）"""
+    type: str = "portfolio_update"
+    portfolio: List[WsPortfolioAsset]
+
+
+class WsTradeRecord(BaseModel):
+    """trade_executed 中的成交記錄（/ws/analytics）"""
+    id: str
+    timestamp: str
+    symbol: str
+    type: str = Field(description="buy | sell")
+    quantity: float
+    price: float
+    pnl: float
+    status: str
+
+
+class WsTradeExecuted(BaseModel):
+    """trade_executed 推送訊息（/ws/analytics）"""
+    type: str = "trade_executed"
+    trade: WsTradeRecord
+
+
+class WsPerformancePoint(BaseModel):
+    """performance_update 中的單一資料點（/ws/analytics）"""
+    date: str
+    pnl: float
+    daily_pnl: float
+    value: float
+
+
+class WsPerformanceUpdate(BaseModel):
+    """performance_update 推送訊息（/ws/analytics）"""
+    type: str = "performance_update"
+    performance: List[WsPerformancePoint]
+
+
+# ── Order Request Model ───────────────────────────────────────────────────────
+
+
+class TradeOrderRequest(BaseModel):
+    """POST /api/v1/orders 請求體 - 對應 admin-da TradeOrder 介面"""
+    symbol: str
+    side: str = Field(description="buy | sell")
+    orderType: str = Field(description="market | limit | stop_loss | take_profit | trailing_stop | oco")
+    quantity: float = Field(gt=0)
+    price: Optional[float] = None
+    stopPrice: Optional[float] = None
+    takeProfit: Optional[float] = None
+    stopLoss: Optional[float] = None
+    trailingDelta: Optional[float] = None
+    trailingPercent: Optional[float] = None
+    ocoStopPrice: Optional[float] = None
+    ocoLimitPrice: Optional[float] = None
+    timeInForce: Optional[str] = Field(default=None, description="GTC | IOC | FOK")

@@ -978,6 +978,11 @@ class MeanReversionStrategy(BaseStrategy):
             if portion_size <= 0:
                 logger.warning(f"⚠️ 均值回歸策略忽略無效進場數量: {portion_size}")
                 return None
+
+            passed, reason = self._passes_pre_entry_guards(setup, connector)
+            if not passed:
+                logger.warning(f"⚠️ 均值回歸策略取消進場: {reason}")
+                return None
             
             if connector is None:
                 logger.info(f": {trade_id}")

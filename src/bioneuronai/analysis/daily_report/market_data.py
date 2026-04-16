@@ -13,12 +13,8 @@
 
 # 1. 標準庫
 import logging
-import requests
 from datetime import datetime, timezone
 from typing import Dict, List, Optional, Any
-
-# Binance Futures REST API 根路徑（無需 API Key 的公開端點）
-_BINANCE_FUTURES_API = "https://fapi.binance.com"
 
 # FOMC 2026 利率決議日期（美聯儲官方公告排程，非 mock 資料）
 # 來源：Federal Reserve FOMC meeting calendar 2026
@@ -50,11 +46,23 @@ class MarketDataCollector:
     - 獲取全球股市指數
     - 分析市場趨勢
     - 獲取加密貨幣情緒指標
+
+    外部 HTTP 請求統一委託注入的 fetcher / connector 處理，
+    不在此類別內直接呼叫 requests.get()。
     """
     
-    def __init__(self):
-        self.request_timeout = 10
-        self.user_agent = 'Mozilla/5.0'
+    def __init__(
+        self,
+        connector: Any = None,
+        external_fetcher: Any = None,
+    ) -> None:
+        """
+        Args:
+            connector:        BinanceFuturesConnector 實例（用於資金費率、季度交割）。
+            external_fetcher: SyncExternalDataFetcher 實例（用於 Fear&Greed、Yahoo Finance、Binance Spot）。
+        """
+        self.connector = connector
+        self.external_fetcher = external_fetcher
     
     # ========================================
     # 主要接口
@@ -117,9 +125,9 @@ class MarketDataCollector:
 
     def _get_binance_funding_events(self) -> List[str]:
         """
-        從 Binance 永續合約 API 取得下次資金費率結算時間與預估費率。
+        透過注入的 BinanceFuturesConnector 取得下次資金費率結算時間與預估費率。
 
-        端點：GET /fapi/v1/premiumIndex（公開，無需 API Key）
+        使用 connector.get_premium_index(symbol) 端點（公開，無需 API Key）。
 
         Returns:
             事件描述列表
@@ -127,16 +135,15 @@ class MarketDataCollector:
         events: List[str] = []
         now_utc = datetime.now(tz=timezone.utc)
 
+        if self.connector is None:
+            logger.warning("_get_binance_funding_events: 未注入 connector，跳過資金費率查詢")
+            return events
+
         for symbol in _FUNDING_SYMBOLS:
             try:
-                url = f"{_BINANCE_FUTURES_API}/fapi/v1/premiumIndex?symbol={symbol}"
-                response = requests.get(
-                    url,
-                    timeout=self.request_timeout,
-                    headers={"User-Agent": self.user_agent},
-                )
-                response.raise_for_status()
-                data = response.json()
+                data = self.connector.get_premium_index(symbol)
+                if data is None:
+                    continue
 
                 next_funding_ms: int = int(data.get("nextFundingTime", 0))
                 last_rate: float = float(data.get("lastFundingRate", 0.0)) * 100
@@ -148,7 +155,7 @@ class MarketDataCollector:
                 delta_min = int((next_time - now_utc).total_seconds() / 60)
 
                 if delta_min < 0:
-                    continue  # 已結算，跳過
+                    continue
 
                 direction = "+" if last_rate >= 0 else ""
                 payer = "多方付空方" if last_rate >= 0 else "空方付多方"
@@ -163,9 +170,9 @@ class MarketDataCollector:
 
     def _get_binance_delivery_events(self) -> List[str]:
         """
-        從 Binance 合約交易所資訊取得季度合約交割日期。
+        透過注入的 BinanceFuturesConnector 取得季度合約交割日期。
 
-        端點：GET /fapi/v1/exchangeInfo（公開，無需 API Key）
+        使用 connector.get_all_exchange_info() 端點（公開，無需 API Key）。
         過濾條件：contractType in {CURRENT_QUARTER, NEXT_QUARTER} and status == TRADING
 
         Returns:
@@ -174,15 +181,14 @@ class MarketDataCollector:
         events: List[str] = []
         now_utc = datetime.now(tz=timezone.utc)
 
+        if self.connector is None:
+            logger.warning("_get_binance_delivery_events: 未注入 connector，跳過季度交割查詢")
+            return events
+
         try:
-            url = f"{_BINANCE_FUTURES_API}/fapi/v1/exchangeInfo"
-            response = requests.get(
-                url,
-                timeout=self.request_timeout,
-                headers={"User-Agent": self.user_agent},
-            )
-            response.raise_for_status()
-            data = response.json()
+            data = self.connector.get_all_exchange_info()
+            if data is None:
+                return events
 
             for sym_info in data.get("symbols", []):
                 contract_type: str = sym_info.get("contractType", "")
@@ -257,63 +263,14 @@ class MarketDataCollector:
     
     def _get_global_stock_indices(self) -> Optional[Dict]:
         """
-        獲取全球主要股市指數 (美股、歐股、日股)
-        
-        使用 Yahoo Finance API
+        透過注入的 SyncExternalDataFetcher 取得全球主要股市指數 (美股、歐股、日股)
         """
-        try:
-            symbols = {
-                # 美股
-                '^GSPC': 'S&P 500',
-                '^DJI': 'Dow Jones',
-                '^IXIC': 'NASDAQ',
-                # 歐股
-                '^FTSE': 'FTSE 100',
-                '^GDAXI': 'DAX',
-                '^FCHI': 'CAC 40',
-                # 日股
-                '^N225': 'Nikkei 225',
-                '^TPX': 'TOPIX'
-            }
-            
-            indices_data = {}
-            base_url = "https://query1.finance.yahoo.com/v8/finance/chart/"
-            
-            for symbol, name in symbols.items():
-                try:
-                    url = f"{base_url}{symbol}?interval=1d&range=5d"
-                    response = requests.get(
-                        url, 
-                        timeout=self.request_timeout,
-                        headers={'User-Agent': self.user_agent}
-                    )
-                    response.raise_for_status()
-                    
-                    data = response.json()
-                    if 'chart' in data and 'result' in data['chart'] and len(data['chart']['result']) > 0:
-                        result = data['chart']['result'][0]
-                        meta = result.get('meta', {})
-                        
-                        current_price = meta.get('regularMarketPrice', 0)
-                        # Yahoo Finance v8 chart API 使用 chartPreviousClose（非 previousClose）
-                        previous_close = meta.get('chartPreviousClose') or meta.get('previousClose', 0)
+        if self.external_fetcher is None:
+            logger.warning("_get_global_stock_indices: 未注入 external_fetcher，跳過股市指數查詢")
+            return None
 
-                        # 計算漲跌幅
-                        change_percent = 0
-                        if previous_close > 0:
-                            change_percent = ((current_price - previous_close) / previous_close) * 100
-                        
-                        indices_data[name] = {
-                            'symbol': symbol,
-                            'price': current_price,
-                            'previous_close': previous_close,
-                            'change_percent': round(change_percent, 2)
-                        }
-                except Exception as e:
-                    logger.warning(f"獲取 {name} 數據失敗: {e}")
-            
-            return indices_data if indices_data else None
-            
+        try:
+            return self.external_fetcher.fetch_global_stock_indices()
         except Exception as e:
             logger.error(f"獲取全球股市指數失敗: {e}")
             return None
@@ -395,70 +352,25 @@ class MarketDataCollector:
     # ========================================
     
     def _get_fear_greed_index(self) -> Optional[Dict]:
-        """獲取加密貨幣恐慌貪婪指數"""
-        try:
-            url = "https://api.alternative.me/fng/?limit=1"
-            response = requests.get(url, timeout=5)
-            
-            if response.status_code == 200:
-                data = response.json()
-                if 'data' in data and len(data['data']) > 0:
-                    fng = data['data'][0]
-                    return {
-                        'value': int(fng['value']),
-                        'classification': fng['value_classification'],
-                        'timestamp': fng['timestamp'],
-                        'time_until_update': fng.get('time_until_update')
-                    }
-            
-            logger.warning("Fear & Greed Index API 返回異常")
+        """透過注入的 SyncExternalDataFetcher 取得加密貨幣恐慌貪婪指數"""
+        if self.external_fetcher is None:
+            logger.warning("_get_fear_greed_index: 未注入 external_fetcher，跳過恐慌貪婪指數查詢")
             return None
+
+        try:
+            return self.external_fetcher.fetch_fear_greed_index()
         except Exception as e:
             logger.error(f"獲取 Fear & Greed Index 失敗: {e}")
             return None
     
     def _get_binance_market_sentiment(self) -> Optional[Dict]:
-        """從 Binance 24hr Ticker 獲取市場情緒"""
+        """透過注入的 SyncExternalDataFetcher 從 Binance 現貨取得市場情緒"""
+        if self.external_fetcher is None:
+            logger.warning("_get_binance_market_sentiment: 未注入 external_fetcher，跳過情緒查詢")
+            return None
+
         try:
-            symbols = ['BTCUSDT', 'ETHUSDT', 'BNBUSDT']
-            sentiment_data = {}
-            
-            for symbol in symbols:
-                url = f"https://api.binance.com/api/v3/ticker/24hr?symbol={symbol}"
-                response = requests.get(url, timeout=5)
-                
-                if response.status_code == 200:
-                    data = response.json()
-                    price_change_pct = float(data['priceChangePercent'])
-                    sentiment_data[symbol] = {
-                        'price_change_pct': price_change_pct,
-                        'volume': float(data['volume']),
-                        'quote_volume': float(data['quoteVolume'])
-                    }
-            
-            if not sentiment_data:
-                return None
-            
-            # 計算平均漲跌幅
-            avg_change = sum(d['price_change_pct'] for d in sentiment_data.values()) / len(sentiment_data)
-            
-            # 判斷市場情緒
-            if avg_change > 5:
-                market_state = "STRONG_BULLISH"
-            elif avg_change > 2:
-                market_state = "BULLISH"
-            elif avg_change > -2:
-                market_state = "NEUTRAL"
-            elif avg_change > -5:
-                market_state = "BEARISH"
-            else:
-                market_state = "STRONG_BEARISH"
-            
-            return {
-                'symbols': sentiment_data,
-                'avg_change_pct': round(avg_change, 2),
-                'market_state': market_state
-            }
+            return self.external_fetcher.fetch_binance_spot_sentiment()
         except Exception as e:
             logger.error(f"獲取 Binance 市場情緒失敗: {e}")
             return None

@@ -9,16 +9,12 @@
 
 # 1. 標準庫
 import logging
-import requests
 from typing import Any, Dict, List, cast
 
 # 2. 本地模組
 from .models import DailyRiskLimits, TradingPairsPriority, DailyMarketCondition
 
 logger = logging.getLogger(__name__)
-
-# Binance Futures 公開 REST API（無需 API Key）
-_BINANCE_FUTURES_API = "https://fapi.binance.com"
 
 # 主流 USDT 永續合約（用於優先級排序）
 _MAJOR_SYMBOLS = {
@@ -41,10 +37,8 @@ class RiskManager:
     """
 
     def __init__(self, connector: Any = None) -> None:
-        # connector: BinanceFuturesConnector instance（可選，用於取得帳戶資料）
+        # connector: BinanceFuturesConnector instance（可選，用於取得帳戶資料與公開 API）
         self.connector = connector
-        self.request_timeout: int = 10
-        self.user_agent: str = "Mozilla/5.0"
         self.default_risk: Dict[str, Any] = {
             "single_trade": 1.0,  # 1%
             "daily_limit": 3.0,   # 3%
@@ -293,21 +287,22 @@ class RiskManager:
         """
         從 Binance 掃描所有可用的 USDT 永續合約。
 
-        端點：GET /fapi/v1/exchangeInfo（公開，無需 API Key）
+        透過注入的 BinanceFuturesConnector.get_all_exchange_info() 取得交易所資訊。
         過濾條件：contractType == PERPETUAL，status == TRADING，quoteAsset == USDT
 
         Returns:
             分類的交易對列表
         """
         try:
-            url = f"{_BINANCE_FUTURES_API}/fapi/v1/exchangeInfo"
-            response = requests.get(
-                url,
-                timeout=self.request_timeout,
-                headers={"User-Agent": self.user_agent},
-            )
-            response.raise_for_status()
-            data = response.json()
+            if self.connector is None:
+                raise RuntimeError(
+                    "scan_available_trading_pairs 需要注入 BinanceFuturesConnector，"
+                    "請在初始化時傳入 connector 參數。"
+                )
+
+            data = self.connector.get_all_exchange_info()
+            if data is None:
+                raise RuntimeError("get_all_exchange_info() 回傳 None")
 
             all_pairs: List[str] = []
             for sym in data.get("symbols", []):
@@ -340,7 +335,7 @@ class RiskManager:
         """
         從 Binance 取得 24 小時成交量並分析流動性。
 
-        端點：GET /fapi/v1/ticker/24hr（公開，無需 API Key）
+        透過注入的 BinanceFuturesConnector.get_all_tickers_24hr() 取得行情。
         分級標準（以 USDT 計價日成交量）：
           高流動性：≥ 10 億 USDT
           中流動性：≥ 1 億 USDT
@@ -353,14 +348,15 @@ class RiskManager:
             流動性分析結果
         """
         try:
-            url = f"{_BINANCE_FUTURES_API}/fapi/v1/ticker/24hr"
-            response = requests.get(
-                url,
-                timeout=self.request_timeout,
-                headers={"User-Agent": self.user_agent},
-            )
-            response.raise_for_status()
-            tickers = response.json()
+            if self.connector is None:
+                raise RuntimeError(
+                    "analyze_liquidity_metrics 需要注入 BinanceFuturesConnector，"
+                    "請在初始化時傳入 connector 參數。"
+                )
+
+            tickers = self.connector.get_all_tickers_24hr()
+            if tickers is None:
+                raise RuntimeError("get_all_tickers_24hr() 回傳 None")
 
             # 建立成交量與價差映射
             volume_map: Dict[str, float] = {}
