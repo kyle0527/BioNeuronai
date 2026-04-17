@@ -11,6 +11,7 @@ BioNeuronai REST API Server
 
 import asyncio
 import logging
+import os
 import sys
 from contextlib import asynccontextmanager
 from datetime import datetime
@@ -65,6 +66,26 @@ async def lifespan(app: FastAPI):
     logger.info("BioNeuronai API 關閉")
 
 
+# ── CORS ─────────────────────────────────────────────────────────────────────
+def _get_allowed_origins() -> list[str]:
+    """從環境變數讀取允許的來源。
+    
+    生產環境請設定 ALLOWED_ORIGINS 環境變數，例如：
+        ALLOWED_ORIGINS=https://app.example.com,https://admin.example.com
+    
+    若未設定，預設只允許本地開發伺服器。
+    """
+    env_val = os.getenv("ALLOWED_ORIGINS", "").strip()
+    if env_val:
+        return [o.strip() for o in env_val.split(",") if o.strip()]
+    # 預設：本地開發的常見埠口
+    return [
+        "http://localhost:5173",   # Vite dev (devops-d)
+        "http://localhost:3000",   # Create React App
+        "http://localhost:8080",   # 其他本地服務
+    ]
+
+
 # ── App ───────────────────────────────────────────────────────────────────────
 app = FastAPI(
     title="BioNeuronai API",
@@ -75,7 +96,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_get_allowed_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

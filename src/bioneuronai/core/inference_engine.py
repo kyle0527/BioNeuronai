@@ -193,11 +193,16 @@ class ModelLoader:
 
         project_root = self.model_dir.parent
         src_path = str(project_root / "src")
+        root_path = str(project_root)
         if src_path not in sys.path:
             sys.path.insert(0, src_path)
+        # archived/ 在 project_root 下；確保根目錄在路徑中才能找到它
+        if root_path not in sys.path:
+            sys.path.insert(0, root_path)
 
         if self._is_legacy_mlp_checkpoint(state_dict):
-            from archived.pytorch_100m_model import HundredMillionModel
+            # 使用正式遷移的 legacy 模組，不再依賴 archived/ 路徑
+            from bioneuronai.models.legacy import HundredMillionModel
 
             logger.warning("偵測到舊版 MLP checkpoint，將使用 HundredMillionModel 向下相容載入")
             return HundredMillionModel, {}

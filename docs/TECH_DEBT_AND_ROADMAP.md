@@ -1,6 +1,6 @@
 # BioNeuronai 技術債與開發路線圖
 
-> 更新日期：2026-04-13
+> 更新日期：2026-04-17
 > 本文件彙整多輪分析 session 中發現的所有問題、已完成的修復、以及後續行動計畫。
 
 ## 📑 目錄
@@ -45,6 +45,26 @@
 ---
 
 ## 二、已確認的技術債（待處理）
+
+### 2026-04-17 部署前盤點摘要
+
+本次新增正式紀錄：[DEPLOYMENT_READINESS_RECORD_20260417.md](DEPLOYMENT_READINESS_RECORD_20260417.md)。
+
+**目前部署判斷：**
+- `frontend/devops-d/` 作為第一階段前端主線，已完成 npm install / build 驗證。
+- `frontend/admin-da/` 與 `frontend/trading/` 暫緩，不列入第一階段部署驗收。
+- 分析模組、策略模組、AI/模型主鏈已有主體，但尚未完成 backend runtime 與模型載入 smoke test。
+- 本機目前沒有可用 Python runtime，Docker daemon 也未啟動，因此不能宣稱 backend 已完成部署驗收。
+
+**新增 P0/P1 阻塞：**
+| 項目 | 說明 | 優先 |
+|------|------|------|
+| Backend runtime 未實跑 | `python` / `py` 不可用，Docker daemon 無法連線 | P0 |
+| `EventContext` 型別落差 | `strategy_fusion.py` 期待 `EventContext` 物件，部分上游仍組 dict | P0 |
+| 最小測試缺口 | `pyproject.toml` 指向 `tests/`，但目前未找到正式測試目錄 | P0 |
+| 模型 artifact 驗收 | `my_100m_model.pth` 仍走 legacy 相容載入；chat model 權重交付需確認 | P1 |
+| API 安全 | `api/app.py` CORS 仍為 `allow_origins=["*"]`，正式部署前需收斂 | P1 |
+| Docker compose bind mount | `${LOGS_DIR:-./logs}` 需先確保本機 `logs/` 存在 | P1 |
 
 ### ✅ T1：外部 API 呼叫散落在 analysis/ 模組（已完成 — 2026-04-13）
 

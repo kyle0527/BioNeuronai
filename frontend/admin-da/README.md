@@ -1,3 +1,7 @@
+> **⏸ 部署狀態：暫緩（第二階段）**
+> 本前端為管理儀板（Admin Dashboard），原始碼保留但目前不作為部署目標。
+> 第一階段僅推進 `frontend/devops-d/`。詳見 [部署準備紀錄](../../docs/DEPLOYMENT_READINESS_RECORD_20260417.md)。
+
 # ✨ Welcome to Your Spark Template!
 You've just launched your brand-new Spark Template Codespace — everything’s fired up and ready for you to explore, build, and create with Spark!
 

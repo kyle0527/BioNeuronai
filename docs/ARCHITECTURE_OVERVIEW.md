@@ -2,7 +2,7 @@
 
 **用途**: 描述目前專案的正式主線架構 (`v2.1`)，提供開發者對外入口、核心交易主鏈與資料供應鏈的總體視野。  
 **版本**: v2.1
-**更新日期**: 2026-04-12
+**更新日期**: 2026-04-17
 
 ---
 
@@ -21,14 +21,12 @@
 
 ```mermaid
 flowchart TD
-    U[使用者 / 外部系統] --> FE_D[frontend/devops-d\nDevOps 監控面板\nReact 19 + Vite 7]
-    U --> FE_A[frontend/admin-da\n管理後台\nReact 19 + Vite 7]
-    U --> FE_T[frontend/trading\n交易操作介面\nReact 19 + Vite 7]
+    U[使用者 / 外部系統] --> FE_D[frontend/devops-d\n第一階段前端主線\nReact 19 + Vite 7]
+    FE_A[frontend/admin-da\n暫緩\nReact 19 + Vite 7]
+    FE_T[frontend/trading\n暫緩\nReact 19 + Vite 7]
     U --> CLI[CLI 入口\nmain.py / bioneuronai.cli.main]
 
     FE_D --> API[FastAPI 入口\nbioneuronai.api.app\nlocalhost:8000]
-    FE_A --> API
-    FE_T --> API
     CLI --> API
     CLI --> TE[TradingEngine\n核心交易引擎]
     CLI --> PLN[planning/\n高階計劃與盤前檢查]
@@ -83,20 +81,20 @@ flowchart TD
 
 ### 2.1a 前端子系統 (`frontend/`)
 
-三個獨立 React 19 + Vite 7 + TypeScript 應用，均位於 `frontend/` 下，統一連接 `http://localhost:8000/api/v1`：
+`frontend/` 下目前保留三個 React 19 + Vite 7 + TypeScript 應用，但 2026-04-17 的部署決策是**先只推進 `frontend/devops-d/`**。`admin-da` 與 `trading` 保留原始碼，暫不列入第一階段部署驗收。
 
-| 目錄 | 用途 | 主要功能 |
+| 目錄 | 用途 | 部署狀態 |
 |------|------|---------|
-| `frontend/devops-d/` | DevOps 監控面板 | 系統狀態、新聞分析、回測、ChatBot、Pre-Trade、交易控制、API Playground |
-| `frontend/admin-da/` | 管理後台 | 儀表板、風控指標、最大回撤、盤前清單、稽核日誌 |
-| `frontend/trading/` | 交易操作介面 | 即時概覽、分析、回測、Chat 助理、交易控制（WebSocket + 價格預警） |
+| `frontend/devops-d/` | DevOps 監控面板：系統狀態、新聞分析、回測、ChatBot、Pre-Trade、交易控制、API Playground | 第一階段主線；已補齊 `src/lib`、完成 `npm.cmd run build` |
+| `frontend/admin-da/` | 管理後台：儀表板、風控指標、最大回撤、盤前清單、稽核日誌 | 暫緩；部分後端端點仍需確認 |
+| `frontend/trading/` | 交易操作介面：即時概覽、分析、回測、Chat 助理、交易控制（WebSocket + 價格預警） | 暫緩；WebSocket 與部分 API 對接仍需確認 |
 
-**啟動方式（各自獨立）**：
+**目前驗收入口**：
 ```bash
 cd frontend/devops-d  &&  npm run dev   # → http://localhost:5173
-cd frontend/admin-da  &&  npm run dev   # → http://localhost:5174
-cd frontend/trading   &&  npm run dev   # → http://localhost:5175
 ```
+
+後端 API 預設仍為 `http://localhost:8000`。
 
 ### 2.2 核心交易層
 
@@ -181,9 +179,9 @@ flowchart LR
 | 模組分佈 | 主要職責 | 在主流程中的位置 |
 |------|------|------|
 | `main.py` & `cli/`, `api/` | CLI與Web API命令分派 | 對外入口 |
-| `frontend/devops-d/` | DevOps 監控面板（系統狀態、回測、Chat、API Playground） | 前端入口 |
-| `frontend/admin-da/` | 管理後台（風控儀表板、稽核日誌、盤前清單） | 前端入口 |
-| `frontend/trading/` | 交易操作介面（即時監控、價格預警、WebSocket） | 前端入口 |
+| `frontend/devops-d/` | DevOps 監控面板（系統狀態、回測、Chat、API Playground） | 第一階段前端入口 |
+| `frontend/admin-da/` | 管理後台（風控儀表板、稽核日誌、盤前清單） | 暫緩，待端點驗收 |
+| `frontend/trading/` | 交易操作介面（即時監控、價格預警、WebSocket） | 暫緩，待 WebSocket 驗收 |
 | `src/bioneuronai/core/` | 交易引擎、AI 推論、進化系統 | 核心中樞 |
 | `src/bioneuronai/strategies/`| 固定策略、selector、fusion、arena | 策略實作與競爭 |
 | `src/bioneuronai/planning/` | 高階計劃、盤前檢查、大盤分析、選對 | 決策支援與規劃 |

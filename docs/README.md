@@ -1,5 +1,5 @@
 # docs/ — 文檔索引
-> **更新日期**: 2026-04-09
+> **更新日期**: 2026-04-17
 
 ---
 
@@ -57,6 +57,7 @@
 | 文檔 | 說明 |
 |------|------|
 | [API_INTEGRATION_BASELINE.md](API_INTEGRATION_BASELINE.md) | FastAPI 介面整合作業基準 |
+| [DEPLOYMENT_READINESS_RECORD_20260417.md](DEPLOYMENT_READINESS_RECORD_20260417.md) | 2026-04-17 部署準備、前端選型與分析/策略/AI 驗收紀錄 |
 | [CODE_FIX_GUIDE.md](CODE_FIX_GUIDE.md) | 代碼修復與架構維護規範 |
 | [DOCUMENTATION_GOVERNANCE_PLAN.md](DOCUMENTATION_GOVERNANCE_PLAN.md) | 文件治理與清理規範 (核心守則) |
 | [DEVELOPMENT_TOOLS.md](DEVELOPMENT_TOOLS.md) | 目錄產生等 PowerShell 開發腳本說明 |

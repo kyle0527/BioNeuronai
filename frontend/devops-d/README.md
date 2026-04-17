@@ -4,32 +4,40 @@ A high-performance developer operations dashboard for BioNeuronAI that enables r
 
 ## 🔌 API Connection
 
-This dashboard connects to the **real BioNeuronAI API** at:
+This dashboard connects to the local BioNeuronAI FastAPI server by default:
 ```
-https://api.bioneuronai.com
+http://localhost:8000
 ```
 
 ### Configuration
 
 The API base URL is configured in `src/lib/api.ts` and can be overridden using environment variables:
 
-- **Default**: `https://api.bioneuronai.com`
+- **Default**: `http://localhost:8000`
 - **Override**: Set `VITE_API_BASE_URL` in a `.env` file
 
 Example `.env` file (optional):
 ```env
-VITE_API_BASE_URL=https://api.bioneuronai.com
+VITE_API_BASE_URL=http://localhost:8000
 ```
 
 ### Available Endpoints
 
-- `GET /status` - System health and status
-- `GET /news` - Latest news feed
-- `POST /pretrade` - Pre-trade analysis
-- `POST /chat` - AI chat interface
-- `POST /trade/start` - Start trading operations
-- `POST /trade/stop` - Stop trading operations
-- `POST /backtest/*` - Backtesting operations
+- `GET /api/v1/status` - System health and status
+- `POST /api/v1/news` - Latest news feed
+- `POST /api/v1/pretrade` - Pre-trade analysis
+- `POST /api/v1/chat` - AI chat interface
+- `POST /api/v1/trade/start` - Start trading operations
+- `POST /api/v1/trade/stop` - Stop trading operations
+- `GET /api/v1/backtest/catalog` - Backtest data catalog
+- `GET /api/v1/backtest/inspect` - Backtest data inspection
+- `POST /api/v1/backtest/simulate` - Backtest simulation
+- `POST /api/v1/backtest/run` - Run replay backtest
+- `GET /api/v1/backtest/runs` - List replay runs
+
+## Current Project Status
+
+As of 2026-04-17, this is the first frontend selected for deployment readiness work. `frontend/admin-da` and `frontend/trading` remain in the repository but are deferred until the backend endpoints and WebSocket paths they need are verified.
 
 ## 🚀 Features
 

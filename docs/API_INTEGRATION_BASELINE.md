@@ -657,11 +657,11 @@ Binance API key / secret 不是一般登入帳密，而是交易授權憑證。
 
 - 寫死在 `config/trading_config.py`
 
-### 12.3 專案現況的具體問題
+### 12.3 專案現況
 
-目前 `config/trading_config.py` 內存在寫死的 Binance demo key / secret。
+`config/trading_config.py` 曾存在寫死的 Binance demo key / secret；目前已改為讀取環境變數。
 
-這在後續應視為需移除的技術債，而不是長期方案。
+後續仍需維持原則：任何真實 `.env` 或 API credential 都不得提交或貼入文件；若曾外流，需直接輪換。
 
 ---
 
@@ -669,7 +669,7 @@ Binance API key / secret 不是一般登入帳密，而是交易授權憑證。
 
 ### 13.1 基本原則
 
-CLI、REST API、三個前端 UI（`frontend/devops-d`、`frontend/admin-da`、`frontend/trading`）都不應各自重寫一套業務流程。
+CLI、REST API、前端 UI 都不應各自重寫一套業務流程。2026-04-17 的部署決策是先只推進 `frontend/devops-d`；`frontend/admin-da` 與 `frontend/trading` 保留原始碼，暫不列入第一階段部署驗收。
 
 ### 13.2 正確做法
 
@@ -749,19 +749,20 @@ trading / core / analysis / data
 - 延後次要端點
 - 將 `_trade_task` / `_trade_engine` 全域狀態封裝進管理類別
 
-### ✅ 第 5 階段：前端 UI 整合（已完成 2026-04-12）
+### 第 5 階段：前端 UI 整合（2026-04-17 更新：先推進 `devops-d`）
 
 目標：
 - 前端 UI 接入單一穩定 endpoint，不知道內部細節
 
 工作：
-- ✅ `frontend/devops-d/` — DevOps 監控面板（系統、新聞、回測、Chat、Pre-Trade、交易控制）
-- ✅ `frontend/admin-da/` — 管理後台（風控儀表板、稽核日誌、盤前清單）
-- ✅ `frontend/trading/` — 交易操作介面（即時監控、WebSocket、價格預警）
-- ✅ 三個前端均已移除 `@github/spark` 依賴，使用 `localStorage` 取代 `useKV`
-- ✅ 全部對接 `http://localhost:8000/api/v1`，TypeScript 型別對應 `src/schemas/api.py`
-- ✅ 三個前端 `npm run build` 均成功（Exit Code 0）
+- ✅ `frontend/devops-d/` — 第一階段前端主線；已補齊 `src/lib`、新增 API client / request logger context、完成 `npm.cmd run build`
+- ✅ `frontend/devops-d/package-lock.json` — 已建立 dependency lockfile
+- ✅ 根目錄 `.gitignore` — 已修正 `lib/` / `lib64/` 忽略規則，避免誤忽略 `frontend/devops-d/src/lib/`
+- ⏸️ `frontend/admin-da/` — 暫緩；保留原始碼，後端端點與 WebSocket 需另行驗收
+- ⏸️ `frontend/trading/` — 暫緩；保留原始碼，WebSocket 與交易監控 API 需另行驗收
 - ✅ 前端原始碼已移入 `BioNeuronai/frontend/`（不含 node_modules/dist）
+- [ ] 後端 API `http://localhost:8000` 需完成 runtime smoke test
+- [ ] CORS `allow_origins` 需依部署環境收斂
 
 ---
 
@@ -917,8 +918,9 @@ trading / core / analysis / data
 ### 18.5 FastAPI WebSocket
 
 方向重點：
-- `frontend/trading/` 已透過 `useWebSocket` 直連 `/ws/trade`，可即時接收交易狀態推播
-- 若要擴充至 admin-da 或 devops-d，再加對應 WebSocket 端點
+- `frontend/trading/` 保留 WebSocket hook，但 2026-04-17 已決定暫緩，不列入第一階段部署驗收
+- 第一階段先以 `frontend/devops-d/` 的 REST API 操作面作為主入口
+- 後續若恢復 `trading` 或 `admin-da`，需先確認 `/ws/trade` 與相關 WebSocket 端點
 
 可參考：
 - https://fastapi.tiangolo.com/advanced/websockets/
@@ -970,19 +972,20 @@ trading / core / analysis / data
 - [ ] `SOP` 回測驗證步驟補完（`analysis/daily_report/__init__.py` 仍有待補強）
 - [ ] `phase_router.py` 認知複雜度問題修正
 
-### ✅ 批次 E：前端 UI 整合（已完成 2026-04-12）
+### 批次 E：前端 UI 整合（2026-04-17 更新：先推進 `devops-d`）
 
-- ✅ `frontend/devops-d/` 整合完成 — 系統狀態、新聞、回測、Chat、Pre-Trade、交易控制、API Playground
-- ✅ `frontend/admin-da/` 整合完成 — 風控儀表板、稽核日誌、盤前清單
-- ✅ `frontend/trading/` 整合完成 — 即時概覽、WebSocket 交易監控、價格預警
-- ✅ 三個前端均已移除 `@github/spark` 依賴（`useKV` → `localStorage`），`npm run build` 全部 Exit Code 0
+- ✅ `frontend/devops-d/` 作為第一階段主線 — 系統狀態、新聞、回測、Chat、Pre-Trade、交易控制、API Playground
+- ✅ `frontend/devops-d/` 已補齊 `src/lib/api.ts`、`src/lib/utils.ts`、`src/lib/RequestLoggerContext.tsx`
+- ✅ `frontend/devops-d/` 已完成 `npm.cmd install` 與 `npm.cmd run build`
+- ⏸️ `frontend/admin-da/` 暫緩 — 保留原始碼，後端端點與 WebSocket 需另行驗收
+- ⏸️ `frontend/trading/` 暫緩 — 保留原始碼，WebSocket 交易監控需另行驗收
 - ✅ 前端原始碼移入 `BioNeuronai/frontend/`（不含 node_modules/dist）
-- ✅ CORS `allow_origins` 待後續依部署環境收斂（目前 `*` 或 localhost）
+- [ ] CORS `allow_origins` 待後續依部署環境收斂（目前 `*`）
 - [ ] `api/app.py` WebSocket 端點補全（`trading/` 前端已有 `/ws/trade` hook，後端端點需確認）
 
 ---
 
 本文件建立日期：2026-03-28
-最後更新：2026-04-13（批次 E 完成：三個前端 UI 整合進 `frontend/`）
+最後更新：2026-04-17（批次 E 改為只推進 `frontend/devops-d`；補充部署準備紀錄）
 適用版本：以目前工作樹為準
 維護原則：若後續架構方向變更，應更新本文件而非另立互相衝突的新規格

@@ -89,3 +89,4 @@ target-version = "py39"
 asyncio_mode = "auto"
 testpaths = ["tests"]
 python_files = ["test_*.py", "*_test.py"]
+norecursedirs = ["archived", "tools", "node_modules", ".git", "dist", "build", "frontend"]

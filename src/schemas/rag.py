@@ -9,7 +9,7 @@ RAG (Retrieval-Augmented Generation) 相關 Schema
 from typing import List, Dict, Optional, Any
 from datetime import datetime
 from enum import Enum
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from .enums import RiskLevel
 
@@ -123,9 +123,8 @@ class RAGNewsItem(BaseModel):
     relevance_score: float = Field(default=0.0, ge=0.0, le=1.0)
     duration_hours: Optional[float] = Field(default=None, ge=0.0, description="消息持續時間（小時）")
     related_news_count: int = Field(default=0, ge=0, description="相關新聞數量")
-    
-    class Config:
-        use_enum_values = True
+
+    model_config = ConfigDict(use_enum_values=True)
 
 
 class PreTradeCheckRequest(BaseModel):
@@ -162,9 +161,8 @@ class PreTradeCheckResponse(BaseModel):
     # 來源統計
     internal_checks: int = Field(default=0, ge=0)
     external_searches: int = Field(default=0, ge=0)
-    
-    class Config:
-        use_enum_values = True
+
+    model_config = ConfigDict(use_enum_values=True)
 
 
 class SearchResult(BaseModel):
@@ -177,9 +175,8 @@ class SearchResult(BaseModel):
     authority_score: float = Field(default=0.5, ge=0.0, le=1.0)
     relevance_score: float = Field(default=0.0, ge=0.0, le=1.0)
     published_at: Optional[datetime] = None
-    
-    class Config:
-        use_enum_values = True
+
+    model_config = ConfigDict(use_enum_values=True)
 
 
 class RetrievalQuery(BaseModel):
@@ -194,8 +191,7 @@ class RetrievalQuery(BaseModel):
     time_range_hours: Optional[int] = Field(default=None, ge=1, le=720)
     filters: Dict[str, Any] = Field(default_factory=dict)
 
-    class Config:
-        use_enum_values = True
+    model_config = ConfigDict(use_enum_values=True)
 
 
 class RetrievalResult(BaseModel):
@@ -219,8 +215,7 @@ class RetrievalResult(BaseModel):
             "metadata": self.metadata,
         }
 
-    class Config:
-        use_enum_values = True
+    model_config = ConfigDict(use_enum_values=True)
 
 
 class KnowledgeDocumentSchema(BaseModel):
@@ -234,9 +229,8 @@ class KnowledgeDocumentSchema(BaseModel):
     tags: List[str] = Field(default_factory=list)
     metadata: Dict[str, Any] = Field(default_factory=dict)
     score: float = Field(default=0.0, ge=0.0, le=1.0)
-    
-    class Config:
-        use_enum_values = True
+
+    model_config = ConfigDict(use_enum_values=True)
 
 
 # ========== 事件系統 Schema (Event System - 2026-01-25 新增) ==========
@@ -299,10 +293,10 @@ class EventContext(BaseModel):
     def get_effective_score(self) -> float:
         """計算有效評分 (考慮衰減和可信度)"""
         return self.event_score * self.decay_factor * self.source_confidence
-    
-    class Config:
-        use_enum_values = True
-        json_schema_extra = {
+
+    model_config = ConfigDict(
+        use_enum_values=True,
+        json_schema_extra={
             "examples": [
                 {
                     "event_score": -5.0,
@@ -311,10 +305,11 @@ class EventContext(BaseModel):
                     "decay_factor": 0.8,
                     "source_confidence": 0.9,
                     "affected_symbols": ["BTCUSDT", "ETHUSDT"],
-                    "timestamp": "2026-01-25T10:30:00"
+                    "timestamp": "2026-01-25T10:30:00",
                 }
             ]
-        }
+        },
+    )
 
 
 class EventRule(BaseModel):
@@ -360,12 +355,12 @@ class EventRule(BaseModel):
         description="事件衰減時間 (小時)"
     )
     affected_symbols: Optional[List[str]] = Field(
-        default=None, 
+        default=None,
         description="影響的交易對，None=影響全部"
     )
-    
-    class Config:
-        json_schema_extra = {
+
+    model_config = ConfigDict(
+        json_schema_extra={
             "examples": [
                 {
                     "event_type": "HACK",
@@ -373,10 +368,11 @@ class EventRule(BaseModel):
                     "termination_keywords": ["recovered", "patched", "secured"],
                     "base_score": -0.8,
                     "decay_hours": 48,
-                    "affected_symbols": None
+                    "affected_symbols": None,
                 }
             ]
-        }
+        },
+    )
 
 
 # 導出清單

@@ -34,6 +34,14 @@ except ImportError:
     EVENT_SYSTEM_AVAILABLE = False
     _imported_get_rule_evaluator = None
 
+# 導入 EventContext 供 step4 建構真實物件
+try:
+    from schemas.rag import EventContext
+    _EVENT_CONTEXT_AVAILABLE = True
+except ImportError:
+    EventContext = None  # type: ignore[assignment,misc]
+    _EVENT_CONTEXT_AVAILABLE = False
+
 get_rule_evaluator = cast(Optional[Callable[[], Any]], _imported_get_rule_evaluator)
 
 # 導入策略選擇器與交易對選擇器 (Step 5/6/9)
@@ -422,18 +430,27 @@ class TradingPlanController:
                 result["event_score"] = event_score
                 result["active_events"] = active_events
                 
-                # 構建 EventContext 供 strategy_fusion 使用
-                if EVENT_SYSTEM_AVAILABLE and active_events:
+                # 構建 EventContext 物件供 strategy_fusion 使用
+                if EVENT_SYSTEM_AVAILABLE and active_events and _EVENT_CONTEXT_AVAILABLE:
                     # 找出最主要的事件類型
                     primary_event = max(active_events, key=lambda e: abs(e.get('score', 0)))
-                    
-                    result["event_context"] = {
-                        "event_score": event_score,
-                        "event_type": primary_event.get('event_type', 'UNKNOWN'),
-                        "intensity": abs(primary_event.get('score', 0)),
-                        "decay_factor": 1.0,  # 可以從 metadata 計算
-                        "source_confidence": primary_event.get('source_confidence', 0.5)
-                    }
+                    raw_score = abs(primary_event.get('score', 0))
+                    # 將數值分數轉為強度字串 (與 news_adapter._score_to_intensity 一致)
+                    if raw_score >= 7:
+                        intensity_str = "EXTREME"
+                    elif raw_score >= 4:
+                        intensity_str = "HIGH"
+                    elif raw_score >= 2:
+                        intensity_str = "MEDIUM"
+                    else:
+                        intensity_str = "LOW"
+                    result["event_context"] = EventContext(
+                        event_score=event_score,
+                        event_type=primary_event.get('event_type', 'UNKNOWN'),
+                        intensity=intensity_str,
+                        decay_factor=1.0,
+                        source_confidence=primary_event.get('source_confidence', 0.5),
+                    )
                     
                     logger.info(f"  ✓ 事件分數: {event_score:+.3f}")
                     logger.info(f"  ✓ 活躍事件: {len(active_events)} 個")

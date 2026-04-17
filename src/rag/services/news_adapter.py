@@ -304,7 +304,7 @@ class NewsAdapter:
         except Exception as e:
             logger.debug(f"事件檢測失敗: {e}")
     
-    def get_event_context(self, symbol: str) -> Optional[Dict[str, Any]]:
+    def get_event_context(self, symbol: str) -> "Optional[EventContext]":
         """
         獲取事件上下文 - 供 strategy_fusion 使用
         
@@ -312,9 +312,9 @@ class NewsAdapter:
             symbol: 交易對符號
             
         Returns:
-            EventContext 兼容的字典，或 None
+            EventContext 物件，或 None
         """
-        if not self._rule_evaluator:
+        if not self._rule_evaluator or not SCHEMAS_AVAILABLE:
             return None
         
         try:
@@ -324,18 +324,18 @@ class NewsAdapter:
             if not active_events:
                 return None
 
-            # 構建 EventContext 兼容的返回值
+            # 構建 EventContext 物件 (而非字典)
             primary_event = active_events[0] if active_events else {}
 
-            return {
-                "event_score": event_score,
-                "event_type": primary_event.get("event_type"),
-                "intensity": self._score_to_intensity(event_score),
-                "decay_factor": 1.0,  # 待從數據庫計算
-                "source_confidence": 0.7,
-                "affected_symbols": [symbol],
-                "timestamp": datetime.now(),
-            }
+            return EventContext(
+                event_score=event_score,
+                event_type=primary_event.get("event_type"),
+                intensity=self._score_to_intensity(event_score),
+                decay_factor=1.0,
+                source_confidence=0.7,
+                affected_symbols=[symbol],
+                timestamp=datetime.now(),
+            )
         except Exception as e:
             logger.error(f"獲取事件上下文失敗: {e}")
             return None

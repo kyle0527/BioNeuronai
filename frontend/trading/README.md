@@ -1,3 +1,7 @@
+> **⏸ 部署狀態：暫緩（第二階段）**
+> 本前端為交易操作儀板（Trading Dashboard），原始碼保留但目前不作為部署目標。
+> 第一階段僅推進 `frontend/devops-d/`。詳見 [部署準備紀錄](../../docs/DEPLOYMENT_READINESS_RECORD_20260417.md)。
+
 # BioNeuronAI Trading Operations Dashboard
 
 A modern, professional trading operations dashboard for the BioNeuronAI project. Built with React, TypeScript, and Tailwind CSS, featuring real-time data visualization, backtesting capabilities, AI chat assistance, and trade execution controls.
