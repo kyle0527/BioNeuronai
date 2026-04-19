@@ -66,6 +66,9 @@ datasets/
 
 # Runtime data directories (運行時數據，不納入版本控制)
 /data/
+!/data/.gitkeep
+/logs/
+!/logs/.gitkeep
 
 # Backtest outputs
 backtest_results/
