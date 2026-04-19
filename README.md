@@ -126,6 +126,9 @@ AI 推論:      CPU ~50-120ms/次（T=16），GPU ~5-15ms/次
 #### 1. 安裝依賴
 ```bash
 pip install -e .
+
+# 選填：強化學習模組（rl_fusion_agent）
+pip install -e ".[rl]"
 ```
 
 #### 2. 取得模型權重（Git LFS）
@@ -226,7 +229,9 @@ BINANCE_API_KEY=xxx BINANCE_API_SECRET=yyy \
 |------|------|--------|
 | `BINANCE_API_KEY` | Binance API 金鑰 | — |
 | `BINANCE_API_SECRET` | Binance API Secret | — |
-| `USE_TESTNET` | 是否使用測試網 | `true` |
+| `BINANCE_TESTNET` | 是否使用測試網 | `true` |
+| `CRYPTOPANIC_API_TOKEN` | 新聞 API token | `free` |
+| `ALLOWED_ORIGINS` | CORS 允許來源（逗號分隔，正式部署必填） | `*` |
 | `SYMBOL` | 預設交易對 | `BTCUSDT` |
 
 ### 架構說明
