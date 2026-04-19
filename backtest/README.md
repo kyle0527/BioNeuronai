@@ -109,18 +109,37 @@ backtest/
 
 1. `data_stream.py` 讀取歷史資料
 2. `MockBinanceConnector` 將目前 bar 與模擬帳戶狀態提供給上層
-3. 帳戶 / 訂單 / 倉位狀態目前由 `src/bioneuronai/trading/virtual_account.py` 維護
+3. 帳戶 / 訂單 / 倉位狀態由 `MockBinanceConnector` 內部維護（回測環境不使用 `virtual_account.py`）
 4. 上層策略 / 交易流程自行決定是否送出訂單
 5. replay 層接收訂單後模擬執行
 6. `runtime_store.py` 保存整次 run 的結果
+
+### 整合 TradingEngine 完整管線
+
+若需要在回測中執行 `TradingEngine` 的完整策略管線（含 AI 推理、`StrategySelector`、事件上下文），使用 `run_with_trading_engine()`：
+
+```python
+from backtest.backtest_engine import BacktestEngine
+from bioneuronai.core.trading_engine import TradingEngine
+
+engine = BacktestEngine(symbol="BTCUSDT", start_date="2025-01-01")
+trading_engine = TradingEngine(testnet=True, enable_ai_model=False)
+
+result = engine.run_with_trading_engine(
+    trading_engine=trading_engine,
+    auto_trade=True,
+)
+```
+
+此方法自動替換 connector，回測結束後還原，不影響後續正式交易使用。
 
 ## 現況提醒
 
 - 目前正式資料集中可辨識的是 `ETHUSDT` 的多個 interval
 - `backtest/` 現在除了評估正式 `TradingEngine` 主線，也可被高階策略競爭層拿來評估單一策略實例
 - `StrategyArena` 與 `StrategyPortfolioOptimizer` 已改成使用正式 replay，而不是隨機假績效
-- 訂單 / 帳戶狀態的第一層事實來源已移到 `src/bioneuronai/trading/virtual_account.py`
-- `backtest/` 已開始透過 connector/query API 讀取帳戶快照，而不是只直接存取 `VirtualAccount` 內部欄位
+- 回測環境的訂單 / 帳戶狀態由 `MockBinanceConnector` 內部維護；`virtual_account.py` 僅用於實盤交易
+- `backtest/` 透過 connector query API 讀取帳戶快照
 - 目前固定策略層仍有真實限制：
   - `TrendFollowing` / `SwingTrading` 已可交易，但仍待進一步收斂 pending order 與策略狀態同步
   - `PairTrading` 次資產資料已補齊，目前可正式 replay
@@ -130,10 +149,10 @@ backtest/
 
 ## 相關文件
 
-- [USER_MANUAL.md](/c:/D/E/BioNeuronai/backtest/docs/USER_MANUAL.md)
-- [CURRENT_STATUS.md](/c:/D/E/BioNeuronai/backtest/docs/CURRENT_STATUS.md)
-- [DEPRECATIONS.md](/c:/D/E/BioNeuronai/backtest/docs/DEPRECATIONS.md)
-- [INTEGRATION_PLAN.md](/c:/D/E/BioNeuronai/backtest/docs/INTEGRATION_PLAN.md)
-- [data/README.md](/c:/D/E/BioNeuronai/backtest/data/README.md)
-- [runtime/README.md](/c:/D/E/BioNeuronai/backtest/runtime/README.md)
-- [vendor/README.md](/c:/D/E/BioNeuronai/backtest/vendor/README.md)
+- [docs/CURRENT_STATUS.md](docs/CURRENT_STATUS.md)
+- [docs/DEPRECATIONS.md](docs/DEPRECATIONS.md)
+- [docs/INTEGRATION_PLAN.md](docs/INTEGRATION_PLAN.md)
+- [data/README.md](data/README.md)
+- [runtime/README.md](runtime/README.md)
+- [vendor/README.md](vendor/README.md)
+- [回測系統指南](../docs/BACKTEST_SYSTEM_GUIDE.md)

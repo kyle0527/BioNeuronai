@@ -63,6 +63,9 @@ pip install pydantic>=2.0.0 numpy>=1.24.0 pandas>=2.0.0 websocket-client request
 
 # 完整依賴 (包含 AI 模型)
 pip install -r requirements-crypto.txt
+
+# 選填：強化學習模組 (rl_fusion_agent)
+pip install -e ".[rl]"
 ```
 
 若 `torch` 未安裝，執行 `status` 時 `TradingEngine` 會顯示警告，但不影響沒有用到 AI 推理的非實盤動作。

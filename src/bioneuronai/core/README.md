@@ -60,9 +60,11 @@ src/bioneuronai/core/
 - 實時市場數據處理（K 線、訂單簿）
 - 自動風險管理（止損 / 止盈 / 爆倉防護）
 - 新聞情緒即時整合（`CryptoNewsAnalyzer`）
+- RAG 事件上下文整合（`NewsAdapter.get_event_context()`）
 - 市場微結構分析（`MarketMicrostructure`）
+- 平倉後策略權重更新：`notify_trade_closed(strategy_name, realized_pnl, entry_price, stop_loss_price)`
 
-**整合組件**: `StrategySelector` · `AIStrategyFusion` · `BinanceFuturesConnector` · `DatabaseManager` · `RiskManager` · `RegimeAnalysis`
+**整合組件**: `StrategySelector` · `AIStrategyFusion` · `NewsAdapter` · `BinanceFuturesConnector` · `DatabaseManager` · `RiskManager` · `RegimeAnalysis`
 
 ---
 
@@ -166,18 +168,29 @@ from bioneuronai.core import (
 
 ### 交易引擎
 ```python
-import asyncio
 from bioneuronai.core import TradingEngine
 
-async def main():
-    engine = TradingEngine()
-    await engine.start_trading()
+engine = TradingEngine(testnet=True, enable_ai_model=False)
 
-    signal = engine.generate_signal("BTCUSDT")
-    if signal:
-        result = await engine.execute_trade(signal)
+# 開始 WebSocket 監控（每次 ticker 更新自動呼叫策略管線）
+engine.start_monitoring("BTCUSDT")
 
-asyncio.run(main())
+# 手動產生交易信號
+signal = engine.generate_trading_signal(
+    symbol="BTCUSDT",
+    current_price=50000.0,
+    klines=klines,
+)
+if signal:
+    engine.execute_trade(signal)
+
+# 平倉後更新策略權重（實際損益 → AI Fusion 學習）
+engine.notify_trade_closed(
+    strategy_name="trend_following",
+    realized_pnl=85.0,
+    entry_price=49800.0,
+    stop_loss_price=49200.0,
+)
 ```
 
 ### AI 推理

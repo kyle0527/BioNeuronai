@@ -123,6 +123,14 @@ except ImportError:
     PreTradeCheckSystem = None  # type: ignore
     logger.warning("RAG 新聞檢查模組不可用")
 
+# NewsAdapter (RAG 事件上下文)
+try:
+    from rag.services.news_adapter import get_news_adapter as _get_news_adapter
+    NEWS_ADAPTER_AVAILABLE = True
+except ImportError:
+    _get_news_adapter = None  # type: ignore
+    NEWS_ADAPTER_AVAILABLE = False
+
 #  AI 
 try:
     from .inference_engine import (
@@ -273,14 +281,23 @@ class TradingEngine:
         
         # RAG 交易前檢查系統
         self.news_checker = None
-        self.enable_rag_news_check = True  # 
+        self.enable_rag_news_check = True  #
         if RAG_NEWS_CHECKER_AVAILABLE and PreTradeCheckSystem is not None:
             try:
                 self.news_checker = PreTradeCheckSystem()
                 logger.info("✅ 交易前檢查系統已初始化")
             except Exception as e:
                 logger.warning(f"交易前檢查系統初始化失敗: {e}")
-        
+
+        # NewsAdapter — 提供 EventContext 供策略層使用
+        self.news_adapter: Optional[Any] = None
+        if NEWS_ADAPTER_AVAILABLE and _get_news_adapter is not None:
+            try:
+                self.news_adapter = _get_news_adapter()
+                logger.info("✅ NewsAdapter 已初始化")
+            except Exception as e:
+                logger.warning(f"NewsAdapter 初始化失敗: {e}")
+
         logger.info(" ")
     
     # ========== AI  ==========
@@ -622,11 +639,24 @@ class TradingEngine:
             if not klines or len(klines) < 20:
                 return None
 
+            # 從 NewsAdapter 取得事件上下文，傳入策略層
+            event_context = None
+            event_score = 0.0
+            if self.news_adapter is not None:
+                try:
+                    event_context = self.news_adapter.get_event_context(symbol)
+                    if event_context is not None:
+                        event_score = float(getattr(event_context, "event_score", 0.0))
+                except Exception as _ec_err:
+                    logger.debug("EventContext 取得失敗: %s", _ec_err)
+
             final_signal = self.generate_trading_signal(
                 symbol=symbol,
                 current_price=current_price,
                 klines=klines,
                 display_ai=True,
+                event_score=event_score,
+                event_context=event_context,
             )
             
             if final_signal:
@@ -1177,16 +1207,6 @@ class TradingEngine:
                 }
                 
                 self.risk_manager.record_trade(trade_info)
-                if hasattr(self.strategy, "record_trade_result"):
-                    self.strategy.record_trade_result(  # type: ignore[union-attr]
-                        str(getattr(signal, "strategy_name", "strategy_selector")),
-                        {
-                            "r_multiple": 0.0,
-                            "confidence": signal.confidence,
-                            "pnl": 0.0,
-                            "symbol": signal.symbol,
-                        },
-                    )
                 self._save_trade_to_file(trade_info)
                 
                 logger.info(f"  ID: {order_result.order_id}")
@@ -1197,6 +1217,41 @@ class TradingEngine:
         except Exception as e:
             logger.error(f" : {e}", exc_info=True)
     
+    def notify_trade_closed(
+        self,
+        strategy_name: str,
+        realized_pnl: float,
+        entry_price: float,
+        stop_loss_price: Optional[float] = None,
+        symbol: str = "",
+    ) -> None:
+        """平倉後呼叫，以實際損益更新策略權重。
+
+        Args:
+            strategy_name: 產生信號的策略名稱
+            realized_pnl: 實際損益（USDT）
+            entry_price: 進場價格
+            stop_loss_price: 止損價格（用於計算 R multiple）
+            symbol: 交易對符號
+        """
+        if stop_loss_price and entry_price and abs(entry_price - stop_loss_price) > 0:
+            risk = abs(entry_price - stop_loss_price)
+            r_multiple = realized_pnl / risk
+        else:
+            r_multiple = 1.0 if realized_pnl > 0 else -1.0
+
+        trade_result = {
+            "r_multiple": r_multiple,
+            "pnl": realized_pnl,
+            "symbol": symbol,
+        }
+        if hasattr(self.strategy, "record_trade_result"):
+            self.strategy.record_trade_result(strategy_name, trade_result)  # type: ignore[union-attr]
+            logger.info(
+                "策略權重已更新: %s | R=%.2f | PnL=%.2f",
+                strategy_name, r_multiple, realized_pnl,
+            )
+
     def _is_cost_effective(
         self,
         signal: TradingSignal,

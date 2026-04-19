@@ -145,7 +145,7 @@ AI 主鏈分為兩層：
 
 - `model/my_100m_model.pth` 是主交易模型，但仍依賴 `archived/pytorch_100m_model.py::HundredMillionModel` legacy 相容路徑。
 - `model/tiny_llm_100m.pth` 本機存在，但目前未被 git 追蹤；乾淨部署環境可能缺 chat/NLP 權重。
-- `strategy_fusion.py` 期待 `EventContext` 物件，但部分上游仍傳 dict，事件調權路徑需修正或暫時關閉。
+- ✅ `strategy_fusion.py` `EventContext` dict/object 型別落差已修正（2026-04-19）：`_adjust_weights_by_event()` 與 `generate_fusion_signal()` 現已支援 dict→EventContext 自動轉換。
 - 目前本機沒有 Python runtime，無法完成模型載入 smoke test。
 
 AI 模組部署判斷：程式結構已有，但尚未完成模型載入、推論、latency、輸出品質的實跑驗收。
@@ -186,8 +186,8 @@ Docker compose 仍需驗證：
    - `chat`
 3. 實測 `TradingEngine(enable_ai_model=True)` 初始化。
 4. 實測 `load_ai_model("my_100m_model")`。
-5. 修正或封住 `EventContext` dict/object 型別落差。
-6. 建立 `logs/`，確認 compose bind mount 可用。
+5. ✅ `EventContext` dict/object 型別落差已修正（2026-04-19）。
+6. ✅ `logs/` 與 `data/` 已建立並納入 git；compose bind mount 可用（2026-04-19）。
 7. 將 API CORS 從 `allow_origins=["*"]` 收斂為 staging 來源。
 8. 建立最小 `tests/` 或 smoke script。
 

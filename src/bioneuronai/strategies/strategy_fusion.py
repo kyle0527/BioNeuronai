@@ -534,16 +534,24 @@ class AIStrategyFusion:
     
     def _adjust_weights_by_event(self, event_context: EventContext):
         """根據事件類型動態調整策略權重
-        
+
         不同類型的事件適合不同的策略：
         - 突發事件 (WAR/HACK): 趨勢策略權重提高
         - 政策事件 (REGULATION): 觀望為主，降低所有權重
         - 宏觀事件 (MACRO): 趨勢和突破策略權重提高
-        
+
         Args:
             event_context: 事件上下文
         """
-        if not event_context or not event_context.event_type:
+        if not event_context:
+            return
+        # 防護：上游若傳 dict，轉為 EventContext 再使用
+        if isinstance(event_context, dict):
+            try:
+                event_context = EventContext(**event_context)
+            except Exception:
+                return
+        if not event_context.event_type:
             return
         
         event_type = event_context.event_type.upper()
@@ -623,6 +631,12 @@ class AIStrategyFusion:
         )
         
         # 0. 處理事件上下文，計算有效的 event_score
+        # 若上游傳入 dict，統一轉為 EventContext 物件
+        if isinstance(event_context, dict):
+            try:
+                event_context = EventContext(**event_context)
+            except Exception:
+                event_context = None
         effective_event_score = event_score
         if event_context:
             effective_event_score = event_context.get_effective_score()
