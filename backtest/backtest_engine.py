@@ -416,6 +416,55 @@ class BacktestEngine:
         
         print("=" * 70 + "\n")
     
+    def run_with_trading_engine(
+        self,
+        trading_engine: Any,
+        auto_trade: bool = False,
+        progress_interval: int = 1000,
+        print_summary: bool = True,
+    ) -> "BacktestResult":
+        """使用 TradingEngine 完整策略管道（含 AI 推理、策略選擇器）運行回測。
+
+        自動把 trading_engine.connector 替換成 MockBinanceConnector，
+        回測結束後還原，不影響後續正式交易使用。
+
+        Args:
+            trading_engine: 已初始化的 TradingEngine 實例
+            auto_trade: 是否自動將信號送交 execute_trade（會記錄模擬成交）
+            progress_interval: 每 N 根 K 線列印一次進度
+            print_summary: 完成後是否列印統計摘要
+        """
+        original_connector = trading_engine.connector
+        trading_engine.connector = self.connector
+        # 讓 _reset_state 可以 reset InferenceEngine buffer
+        self._inference_engine = getattr(trading_engine, "inference_engine", None)
+
+        try:
+            def _strategy_callback(bar: KlineBar, connector: MockBinanceConnector) -> None:
+                klines_raw = connector.get_klines(bar.symbol, self.config.interval, 200)
+                if not klines_raw or len(klines_raw) < 20:
+                    return
+                klines = trading_engine._convert_klines_to_dict(klines_raw)
+                signal = trading_engine.generate_trading_signal(
+                    symbol=bar.symbol,
+                    current_price=bar.close,
+                    klines=klines,
+                )
+                if (
+                    signal is not None
+                    and getattr(signal, "action", "HOLD") not in (None, "HOLD")
+                    and auto_trade
+                ):
+                    trading_engine.execute_trade(signal)
+
+            return self.run(
+                _strategy_callback,
+                progress_interval=progress_interval,
+                print_summary=print_summary,
+            )
+        finally:
+            trading_engine.connector = original_connector
+
     def get_connector(self) -> MockBinanceConnector:
         """獲取 Mock 連接器 - 用於替換 TradingEngine 的連接器"""
         return self.connector
