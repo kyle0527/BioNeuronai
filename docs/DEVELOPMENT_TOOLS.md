@@ -278,7 +278,8 @@ addopts = "-v --tb=short"
 2. ✅ **配置 Python 環境**
    ```bash
    pip install -r requirements-crypto.txt
-   pip install -r requirements-dev.txt
+   pip install -e ".[dev]"        # 開發工具 (pytest, black, ruff, mypy)
+   pip install -e ".[rl]"         # 選填：強化學習模組
    ```
 
 3. ✅ **安裝 Git 工具組**

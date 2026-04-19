@@ -78,6 +78,36 @@ print(f"交易次數: {len(result.trades)}")
 print(f"總損益: {result.stats.get('total_pnl', 0):.2f} USDT")
 ```
 
+### 方法 2：`run_with_trading_engine()` — 完整策略管道回測
+
+若需要在回測中執行完整的 `TradingEngine` 管線（含 AI 推理、`StrategySelector`、特徵工程、事件上下文），使用此方法即可，無需手動接線：
+
+```python
+from backtest.backtest_engine import BacktestEngine
+from bioneuronai.core.trading_engine import TradingEngine
+
+trading_engine = TradingEngine(testnet=True, enable_ai_model=False)
+
+engine = BacktestEngine(
+    symbol="BTCUSDT",
+    interval="1h",
+    start_date="2025-01-01",
+    end_date="2025-03-31",
+    initial_balance=10000.0,
+)
+
+# 自動替換 connector → MockBinanceConnector，結束後還原
+result = engine.run_with_trading_engine(
+    trading_engine=trading_engine,
+    auto_trade=True,       # False = 只觀察信號，不模擬下單
+    print_summary=True,
+)
+```
+
+`run_with_trading_engine()` 會在每根 K 線呼叫 `trading_engine.generate_trading_signal()`，
+`auto_trade=True` 時再將信號送交 `execute_trade()` 記錄模擬成交。
+InferenceEngine 的滾動特徵視窗也會在每次 `run()` 開始時自動 reset，避免跨 episode 污染。
+
 ---
 
 ## 4. 核心資料流與組件

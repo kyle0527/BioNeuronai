@@ -60,11 +60,11 @@
 | 項目 | 說明 | 優先 |
 |------|------|------|
 | Backend runtime 未實跑 | `python` / `py` 不可用，Docker daemon 無法連線 | P0 |
-| `EventContext` 型別落差 | `strategy_fusion.py` 期待 `EventContext` 物件，部分上游仍組 dict | P0 |
+| ✅ `EventContext` 型別落差 | `strategy_fusion.py` 現已支援 `dict→EventContext` 自動轉換（2026-04-19 修復） | ~~P0~~ ✅ |
 | 最小測試缺口 | `pyproject.toml` 指向 `tests/`，但目前未找到正式測試目錄 | P0 |
 | 模型 artifact 驗收 | `my_100m_model.pth` 仍走 legacy 相容載入；chat model 權重交付需確認 | P1 |
 | API 安全 | `api/app.py` CORS 仍為 `allow_origins=["*"]`，正式部署前需收斂 | P1 |
-| Docker compose bind mount | `${LOGS_DIR:-./logs}` 需先確保本機 `logs/` 存在 | P1 |
+| ✅ Docker compose bind mount | `logs/` 與 `data/` 目錄已建立並納入 git（2026-04-19） | ~~P1~~ ✅ |
 
 ### ✅ T1：外部 API 呼叫散落在 analysis/ 模組（已完成 — 2026-04-13）
 
