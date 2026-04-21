@@ -1,8 +1,19 @@
 # 分析模組 — 每日報告系統 (Daily Report)
 
 > **路徑**: `src/bioneuronai/analysis/daily_report/`  
-> **更新日期**: 2026-04-01  
-> **文件焦點**: 子模組內部流程與 API（系統分層請看上層 `analysis/README.md`）
+> **更新日期**: 2026-04-20
+> **文件焦點**: 子模組內部流程與 API（系統分層請看上層 [analysis README](../README.md)）
+
+## 目錄
+
+1. [子模組職責](#子模組職責)
+2. [檔案結構](#檔案結構)
+3. [主入口與流程](#主入口與流程)
+4. [實作現況](#實作現況)
+5. [輸出](#輸出)
+6. [維護邊界](#維護邊界)
+
+---
 
 ## 子模組職責
 
@@ -48,9 +59,9 @@ daily_report/
 
 ---
 
-## 實作現況（已對齊程式碼）
+## 實作現況
 
-1. 資料模型採用 `DailyMarketCondition`、`DailyRiskLimits`（非舊名稱）
+1. 資料模型採用 `DailyMarketCondition`、`DailyRiskLimits`
 2. `NewsSentimentAnalyzer` 需注入可用 `CryptoNewsAnalyzer`，初始化失敗會拋錯
 3. `StrategyPlanner.perform_plan_backtest()` 仍為 `NOT_IMPLEMENTED`
 4. `ReportGenerator` 預設資料夾為 `sop_automation_data/`
@@ -62,15 +73,12 @@ daily_report/
 1. 結構化結果：`sop_automation_data/sop_check_YYYYMMDD_HHMMSS.json`
 2. 文字報告：`generate_daily_report()` / `run_full_report()`
 
----
+## 維護邊界
 
-## 已移除的老舊/錯誤內容
-
-1. 舊模型名稱與舊欄位命名
-2. 「失敗時自動 mock/fallback」等與現況不符敘述
-3. 固定行數、固定檔案數等易過時資訊
-4. 與現行方法不一致的步驟說明
+1. 這層只描述 daily report 的流程編排與公開方法；新聞規則與關鍵字資料結構請放在各自子模組 README。
+2. 不在此文件放固定總行數或覆蓋率，避免和實際檔案漂移。
+3. 若 `perform_plan_backtest()` 完成實作，需同步更新「實作現況」與輸出說明。
 
 ---
 
-> 上層架構說明：`src/bioneuronai/analysis/README.md`
+> 上層架構說明：[analysis README](../README.md)

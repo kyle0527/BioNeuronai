@@ -1,8 +1,19 @@
 # 分析模組 (Analysis)
 
 > **路徑**: `src/bioneuronai/analysis/`  
-> **更新日期**: 2026-04-01  
+> **更新日期**: 2026-04-20
 > **狀態**: 依目前程式碼重新對齊（上層聚焦架構；子模組細節請看各子 README）
+
+## 目錄
+
+1. [模組定位](#模組定位)
+2. [目錄與責任切分](#目錄與責任切分)
+3. [對外導出](#對外導出以程式碼為準)
+4. [執行入口](#執行入口)
+5. [文件分工](#文件分工)
+6. [子模組文件](#子模組文件)
+
+---
 
 ## 模組定位
 
@@ -34,17 +45,17 @@ analysis/
 ### 1) `news/`（新聞理解）
 - 負責新聞抓取、情緒/事件判讀、規則評估、預測驗證。
 - 分析結果可寫入 RAG（`ingest_news_analysis_with_status`），銜接知識檢索路徑。
-- 細節見：`news/README.md`
+- 細節見：[news README](news/README.md)
 
 ### 2) `keywords/`（語意特徵）
 - 負責關鍵字匹配、重要性分數、情緒偏向與權重學習。
 - 提供查詢介面（`KeywordManager`/`MarketKeywords`）與學習介面（`KeywordLearner`）。
-- 細節見：`keywords/README.md`
+- 細節見：[keywords README](keywords/README.md)
 
 ### 3) `daily_report/`（流程編排）
 - 負責每日 SOP 分析流程（市場環境 + 交易計劃）與報告輸出。
 - 整合 `news`、市場資料、策略與風控模組。
-- 細節見：`daily_report/README.md`
+- 細節見：[daily_report README](daily_report/README.md)
 
 ### 4) `feature_engineering.py`（數值特徵）
 - 成交量分布、清算熱力圖、市場微觀結構特徵。
@@ -61,8 +72,10 @@ analysis/
 `analysis/__init__.py` 目前對外整合導出：
 1. `daily_report`：`SOPAutomationSystem`、`MarketEnvironmentCheck`、`TradingPlanCheck`、`DailyMarketCondition`、`StrategyPerformance`、`DailyRiskLimits`、`TradingPairsPriority`、`DailyReport`
 2. `keywords`：`Keyword`、`KeywordMatch`、`PredictionRecord`、`KeywordLoader`、`KeywordManager`、`get_keyword_manager`、`MarketKeywords`、`KeywordLearner`
-3. `news`：`CryptoNewsAnalyzer`、`NewsArticle`、`NewsAnalysisResult`、`get_news_analyzer`、`RuleBasedEvaluator`、`get_rule_evaluator`、`EventRule`、`NewsPredictionLoop`
+3. `news`：`CryptoNewsAnalyzer`、`NewsArticle`、`NewsAnalysisResult`、`get_news_analyzer`、`RuleBasedEvaluator`、`get_rule_evaluator`、`NewsPredictionLoop`
 4. 直屬檔案：`feature_engineering.py` 與 `market_regime.py` 的公開類型
+
+補充：`analysis.news` 子模組本身有匯出 `EventRule`，但 `analysis/__init__.py` 目前沒有把它提升到 `bioneuronai.analysis` 頂層。
 
 ---
 
@@ -82,17 +95,16 @@ python -m bioneuronai.analysis --kw
 
 ---
 
-## 本次移除的老舊/錯誤敘述
+## 文件分工
 
-1. 舊資料模型名稱（`MarketCondition`、`RiskParameters`）
-2. 過時的固定檔案數、行數、覆蓋率描述
-3. 與現況不符的 API 導出清單
-4. 上層 README 過度描述子模組內部實作細節
+1. 本文件只維護 analysis 層定位、子模組責任與對外整合入口。
+2. 子模組方法、欄位、資料路徑與限制放在各子目錄 README。
+3. 不在本文件維護固定行數、覆蓋率或過細的內部方法清單。
 
 ---
 
 ## 子模組文件
 
-1. `src/bioneuronai/analysis/daily_report/README.md`
-2. `src/bioneuronai/analysis/keywords/README.md`
-3. `src/bioneuronai/analysis/news/README.md`
+1. [daily_report README](daily_report/README.md)
+2. [keywords README](keywords/README.md)
+3. [news README](news/README.md)

@@ -1,6 +1,15 @@
 # RAG Services — 外部數據服務層
 
-> **版本**: v2.1 | **更新日期**: 2026-04-05
+> **版本**: v2.1 | **更新日期**: 2026-04-20
+
+---
+
+## 目錄
+
+1. [模組定位](#模組定位)
+2. [目錄結構](#目錄結構)
+3. [news_adapter.py — 新聞適配器](#news_adapterpy-新聞適配器)
+4. [依賴關係](#依賴關係)
 
 ---
 
@@ -15,7 +24,7 @@
 ```
 services/
 ├── __init__.py            # 匯出 NewsAdapter + ingest_news_analysis
-└── news_adapter.py        # 新聞適配器（含唯一入庫入口）
+└── news_adapter.py        # 新聞適配器（482 行，含唯一入庫入口）
 ```
 
 ---
@@ -24,18 +33,21 @@ services/
 
 將 `bioneuronai.analysis.news.CryptoNewsAnalyzer` 封裝為 RAG 相容介面，支援延遲初始化。
 
-### NewsSearchResult 資料類
+### NewsSearchResult 型別
 
-新聞搜索結果，與 RAG `RetrievalResult` 相容：
+`NewsSearchResult` 目前是 `schemas.rag.RAGNewsItem` 的 type alias，不是本地重複定義的 dataclass。
 
 | 欄位 | 類型 | 說明 |
 |------|------|------|
 | `title` | str | 新聞標題 |
-| `snippet` | str | 摘要 |
+| `summary` | str | 摘要 |
 | `url` | str | 來源 URL |
 | `source` | str | 來源名稱 |
+| `published_at` | datetime | 發布時間 |
+| `sentiment` | `NewsSentiment` | 情緒分類 |
+| `sentiment_score` | float | 情緒分數 |
+| `category` | `NewsCategory` | 新聞分類 |
 | `relevance_score` | float | 相關性分數 |
-| `sentiment` | float | 情緒分數 |
 
 ### NewsAdapter 類別
 
@@ -57,7 +69,7 @@ services/
 ### 工廠函數
 
 ```python
-from src.rag.services import (
+from rag.services import (
     get_news_adapter,
     ingest_news_analysis,
     ingest_news_analysis_with_status,

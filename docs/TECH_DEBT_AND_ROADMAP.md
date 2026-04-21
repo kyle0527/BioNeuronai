@@ -53,18 +53,18 @@
 **目前部署判斷：**
 - `frontend/devops-d/` 作為第一階段前端主線，已完成 npm install / build 驗證。
 - `frontend/admin-da/` 與 `frontend/trading/` 暫緩，不列入第一階段部署驗收。
-- 分析模組、策略模組、AI/模型主鏈已有主體，但尚未完成 backend runtime 與模型載入 smoke test。
-- 本機目前沒有可用 Python runtime，Docker daemon 也未啟動，因此不能宣稱 backend 已完成部署驗收。
+- 分析模組、策略模組、AI/模型主鏈已有主體；2026-04-18 已完成 Python smoke tests、CLI status、API status handler、主交易模型載入與 mock 推論。
+- Docker daemon 仍未啟動，因此不能宣稱 Docker backend 部署驗收完成。
 
 **新增 P0/P1 阻塞：**
 | 項目 | 說明 | 優先 |
 |------|------|------|
-| Backend runtime 未實跑 | `python` / `py` 不可用，Docker daemon 無法連線 | P0 |
-| ✅ `EventContext` 型別落差 | `strategy_fusion.py` 現已支援 `dict→EventContext` 自動轉換（2026-04-19 修復） | ~~P0~~ ✅ |
-| 最小測試缺口 | `pyproject.toml` 指向 `tests/`，但目前未找到正式測試目錄 | P0 |
-| 模型 artifact 驗收 | `my_100m_model.pth` 仍走 legacy 相容載入；chat model 權重交付需確認 | P1 |
-| API 安全 | `api/app.py` CORS 仍為 `allow_origins=["*"]`，正式部署前需收斂 | P1 |
-| ✅ Docker compose bind mount | `logs/` 與 `data/` 目錄已建立並納入 git（2026-04-19） | ~~P1~~ ✅ |
+| Docker runtime 未實跑 | Docker daemon 無法連線，尚不能 build / run backend container | P0 |
+| 端到端驗收缺口 | pretrade / backtest / chat 尚未完成完整 smoke | P0 |
+| ✅ `EventContext` 型別落差 | `NewsAdapter` 已回傳 `EventContext` 物件，`strategy_fusion.py` 已支援 `dict→EventContext` 自動轉換；仍需驗證 pretrade → strategy fusion 消費鏈 | P1 |
+| 模型 artifact 驗收 | `my_100m_model.pth` 可載入；chat model 權重交付仍需確認 | P1 |
+| API 安全 | CORS 預設已收斂為 localhost 白名單；正式部署前仍需設定 staging/production origins 與交易 API auth | P1 |
+| Docker compose 驗證 | `logs/` 與 `data/` 目錄已建立並納入 git；`docker compose config` 會展開 `.env` secrets，不可分享原文，仍需 Docker daemon 實跑驗證 | P1 |
 
 ### ✅ T1：外部 API 呼叫散落在 analysis/ 模組（已完成 — 2026-04-13）
 

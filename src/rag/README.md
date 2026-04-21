@@ -1,6 +1,6 @@
 # RAG 模組 — 檢索增強生成系統
 
-> **版本**: v2.1 | **更新日期**: 2026-04-05
+> **版本**: v2.1 | **更新日期**: 2026-04-20
 
 ---
 
@@ -53,21 +53,21 @@
 
 ```
 src/rag/
-├── __init__.py                  # 模組入口 (205 行)，統一匯出 + 工廠函數
+├── __init__.py                  # 模組入口 (250 行)，統一匯出 + 工廠函數
 ├── README.md                    # 本文件
 ├── core/
 │   ├── __init__.py              # 匯出核心類別
-│   ├── embeddings.py            # 向量嵌入服務 (288 行)
-│   ├── retriever.py             # 統一檢索器 (337 行)
+│   ├── embeddings.py            # 向量嵌入服務 (311 行)
+│   ├── retriever.py             # 統一檢索器 (411 行)
 │   └── README.md
 ├── internal/
 │   ├── __init__.py              # 匯出知識庫類別
-│   ├── knowledge_base.py        # 內部知識庫 (461 行)
-│   ├── faiss_index.py           # FAISS 向量索引 (197 行)
+│   ├── knowledge_base.py        # 內部知識庫 (576 行)
+│   ├── faiss_index.py           # FAISS 向量索引 (217 行)
 │   └── README.md
 ├── services/
 │   ├── __init__.py              # 匯出服務類別
-│   ├── news_adapter.py          # 新聞適配器 (358 行)
+│   ├── news_adapter.py          # 新聞適配器 (482 行)
 │   └── README.md
 └── monitoring/
     ├── __init__.py              # RAG 監控器 (273 行)
@@ -82,21 +82,21 @@ src/rag/
 
 | 檔案 | 行數 | 主要類別 | 說明 |
 |------|------|----------|------|
-| `embeddings.py` | 288 | `EmbeddingService`, `EmbeddingModel`, `EmbeddingResult` | 支持本地模型 + OpenAI API，含快取機制 |
-| `retriever.py` | 337 | `UnifiedRetriever`, `RetrievalQuery`, `RetrievalResult`, `RetrievalSource` | 整合 7 種數據源的統一檢索 |
+| `embeddings.py` | 311 | `EmbeddingService`, `EmbeddingModel`, `EmbeddingResult` | 支持本地模型 + OpenAI API，含快取機制 |
+| `retriever.py` | 411 | `UnifiedRetriever`, `RetrievalQuery`, `RetrievalResult`, `RetrievalSource` | 整合多種數據源的統一檢索 |
 
 ### Internal — 內部知識庫
 
 | 檔案 | 行數 | 主要類別 | 說明 |
 |------|------|----------|------|
-| `knowledge_base.py` | 461 | `InternalKnowledgeBase`, `KnowledgeDocument`, `DocumentType` | 文檔 CRUD + 語義搜索 + 持久化 |
-| `faiss_index.py` | 197 | `VectorIndex` | FAISS 向量索引，不可用時降級為 NumPy |
+| `knowledge_base.py` | 576 | `InternalKnowledgeBase`, `KnowledgeDocument`, `DocumentType` | 文檔 CRUD + 語義搜索 + 持久化 |
+| `faiss_index.py` | 217 | `VectorIndex` | FAISS 向量索引，不可用時降級為 NumPy |
 
 ### Services — 外部數據橋接
 
 | 檔案 | 行數 | 主要類別 | 說明 |
 |------|------|----------|------|
-| `news_adapter.py` | 358 | `NewsAdapter`, `NewsSearchResult` | CryptoNewsAnalyzer 的 RAG 相容封裝 |
+| `news_adapter.py` | 482 | `NewsAdapter`, `NewsSearchResult` | CryptoNewsAnalyzer 的 RAG 相容封裝 |
 
 ### Monitoring — 系統監控
 
@@ -138,7 +138,7 @@ RetrievalResult[] ──→ RAGMonitor.log_retrieval()
 ### 建立檢索器
 
 ```python
-from src.rag import create_unified_retriever
+from rag import create_unified_retriever
 
 retriever = create_unified_retriever()
 ```
@@ -146,7 +146,7 @@ retriever = create_unified_retriever()
 ### 執行檢索
 
 ```python
-from src.rag.core import RetrievalQuery, RetrievalSource
+from rag.core import RetrievalQuery, RetrievalSource
 
 query = RetrievalQuery(
     query="BTC 大額轉帳風險",
@@ -169,7 +169,7 @@ results = retriever.retrieve_for_trading(symbol="BTCUSDT")
 ### 管理知識庫
 
 ```python
-from src.rag.internal import InternalKnowledgeBase, KnowledgeDocument, DocumentType
+from rag.internal import InternalKnowledgeBase, KnowledgeDocument, DocumentType
 
 kb = InternalKnowledgeBase()
 kb.add_document(KnowledgeDocument(
@@ -184,7 +184,7 @@ kb.add_document(KnowledgeDocument(
 ### 查看監控
 
 ```python
-from src.rag.monitoring import get_monitor
+from rag.monitoring import get_monitor
 
 monitor = get_monitor()
 monitor.print_stats()
@@ -204,7 +204,7 @@ monitor.print_stats()
 ### 核心匯出
 
 ```python
-from src.rag import (
+from rag import (
     # Core
     EmbeddingService, EmbeddingModel, EmbeddingResult,
     UnifiedRetriever, RetrievalResult, RetrievalQuery, RetrievalSource,
@@ -221,7 +221,7 @@ from src.rag import (
 
 ## 可用性旗標
 
-`__init__.py` 定義了 5 個布林旗標，指示各依賴模組是否可用：
+`__init__.py` 定義了 4 個布林旗標，指示各依賴模組是否可用：
 
 | 旗標 | 依賴 | 說明 |
 |------|------|------|
@@ -231,7 +231,7 @@ from src.rag import (
 | `NEWS_ADAPTER_AVAILABLE` | rag.services | 新聞適配器 |
 
 ```python
-from src.rag import CORE_AVAILABLE, ANALYSIS_AVAILABLE
+from rag import CORE_AVAILABLE, ANALYSIS_AVAILABLE
 if CORE_AVAILABLE:
     retriever = create_unified_retriever()
 ```
@@ -256,8 +256,8 @@ RAG 模組與 bioneuronai 的以下模組整合：
 |------|------|
 | **版本** | 2.1 |
 | **Python 檔案** | 10 個 |
-| **總行數** | ~2,183 行 |
-| **類別數** | 14 個 |
+| **總行數** | 2,587 行 |
+| **類別數** | 11 個 |
 | **嵌入後端** | 本地 (sentence-transformers) / OpenAI API |
 | **向量索引** | FAISS (可選，降級為 NumPy) |
 | **監控** | 線程安全，單例模式 |

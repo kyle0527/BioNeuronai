@@ -1,7 +1,16 @@
 # 交易模組 (Trading)
 
 **路徑**: `src/bioneuronai/trading/`  
-**更新日期**: 2026-04-05
+**更新日期**: 2026-04-20
+
+---
+
+## 目錄
+
+1. [目前定位](#目前定位)
+2. [後續方向](#後續方向)
+3. [目前已落地的內容](#目前已落地的內容)
+4. [注意](#注意)
 
 ---
 
@@ -16,10 +25,10 @@
 
 上述高階規劃功能已移至：
 
-- `src/bioneuronai/planning/plan_controller.py`
-- `src/bioneuronai/planning/market_analyzer.py`
-- `src/bioneuronai/planning/pair_selector.py`
-- `src/bioneuronai/planning/pretrade_automation.py`
+- [plan_controller.py](../planning/plan_controller.py)
+- [market_analyzer.py](../planning/market_analyzer.py)
+- [pair_selector.py](../planning/pair_selector.py)
+- [pretrade_automation.py](../planning/pretrade_automation.py)
 
 ---
 
@@ -43,7 +52,7 @@
 
 ## 目前已落地的內容
 
-- [virtual_account.py](/c:/D/E/BioNeuronai/src/bioneuronai/trading/virtual_account.py)
+- [virtual_account.py](virtual_account.py)
 
 這個檔案目前承接 replay / mock execution 所需的第一層交易事實：
 

@@ -1,6 +1,16 @@
 # RAG Core — 核心檢索與嵌入模組
 
-> **版本**: v2.1 | **更新日期**: 2026-04-05
+> **版本**: v2.1 | **更新日期**: 2026-04-20
+
+---
+
+## 目錄
+
+1. [模組定位](#模組定位)
+2. [目錄結構](#目錄結構)
+3. [embeddings.py — 向量嵌入服務](#embeddingspy-向量嵌入服務)
+4. [retriever.py — 統一檢索器](#retrieverpy-統一檢索器)
+5. [公開介面](#公開介面)
 
 ---
 
@@ -15,8 +25,8 @@
 ```
 core/
 ├── __init__.py          # 匯出核心類別
-├── embeddings.py        # 向量嵌入服務 (287 行)
-└── retriever.py         # 統一檢索器 (338 行)
+├── embeddings.py        # 向量嵌入服務 (311 行)
+└── retriever.py         # 統一檢索器 (411 行)
 ```
 
 ---
@@ -53,7 +63,7 @@ core/
 嵌入結果：`text`, `embedding`, `model`, `dimensions`, `created_at`, `metadata`。
 
 ```python
-from src.rag.core import EmbeddingService, EmbeddingModel
+from rag.core import EmbeddingService, EmbeddingModel
 
 service = EmbeddingService(model=EmbeddingModel.LOCAL_MINILM)
 result = service.embed("BTC 今日走勢分析")
@@ -96,7 +106,7 @@ result = service.embed("BTC 今日走勢分析")
 > 2026-03-29：`RetrievalSource`、`RetrievalQuery`、`RetrievalResult` 已從 `retriever.py` 移除重複定義，統一由 `schemas/rag.py` 提供（Single Source of Truth）。`INTERNAL_KB` 值名稱整合為 `INTERNAL_KNOWLEDGE`。
 
 ```python
-from src.rag.core import UnifiedRetriever, RetrievalQuery, RetrievalSource
+from rag.core import UnifiedRetriever, RetrievalQuery, RetrievalSource
 
 retriever = UnifiedRetriever()
 query = RetrievalQuery(
@@ -112,7 +122,7 @@ results = retriever.retrieve(query)
 ## 公開介面
 
 ```python
-from src.rag.core import (
+from rag.core import (
     EmbeddingService, EmbeddingModel, EmbeddingResult,
     UnifiedRetriever, RetrievalResult, RetrievalQuery, RetrievalSource,
 )

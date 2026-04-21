@@ -2,19 +2,19 @@
 
 **路徑**: `src/bioneuronai/strategies/`  
 **版本**: v2.1
-**更新日期**: 2026-04-05
+**更新日期**: 2026-04-20
 **架構層級**: Layer 2 — 策略層
 
 ---
 
-## 📋 目錄
+## 目錄
 
 1. [模組概述](#模組概述)
 2. [架構總覽](#架構總覽)
 3. [三層策略體系](#三層策略體系)
 4. [基礎策略](#基礎策略)
 5. [策略融合](#策略融合)
-6. [策略選擇器](#策略選擇器)
+6. [策略選擇器](#策略選擇器-selector-子模組)
 7. [策略進化系統](#策略進化系統)
 8. [導出 API](#導出-api)
 9. [使用示例](#使用示例)
@@ -22,7 +22,7 @@
 
 ---
 
-## 🎯 模組概述
+## 模組概述
 
 策略模組是 BioNeuronai 的核心競爭力所在，實現了從基礎交易策略到 AI 融合再到策略競爭與優化的多層體系。包含 **6 種基礎策略**、AI 融合系統、智能選擇器與高階競爭框架。
 
@@ -37,25 +37,25 @@
 
 ---
 
-## 🏗️ 架構總覽
+## 架構總覽
 
 ```
 src/bioneuronai/strategies/
 ├── __init__.py                    # 模組入口 (102 行)
-├── base_strategy.py               # 策略抽象基類 (778 行)
+├── base_strategy.py               # 策略抽象基類 (950 行)
 │
-├── trend_following.py             # 趨勢跟隨策略 (1,192 行)
-├── swing_trading.py               # 波段交易策略 (1,338 行)
-├── mean_reversion.py              # 均值回歸策略 (1,295 行)
-├── breakout_trading.py            # 突破交易策略 (1,194 行)
+├── trend_following.py             # 趨勢跟隨策略 (1,202 行)
+├── swing_trading.py               # 波段交易策略 (1,357 行)
+├── mean_reversion.py              # 均值回歸策略 (1,357 行)
+├── breakout_trading.py            # 突破交易策略 (1,265 行)
 ├── direction_change_strategy.py   # 方向變化策略 DC (2026-03-09)
 ├── pair_trading_strategy.py       # 配對交易策略 (2026-03-09)
 │
-├── strategy_fusion.py             # AI 策略融合 (1,159 行)
-├── strategy_arena.py              # 策略競技場 GA (642 行)
-├── phase_router.py                # 階段路由器 (947 行)
-├── portfolio_optimizer.py         # 組合優化器 (590 行)
-├── rl_fusion_agent.py             # RL 融合代理 (669 行)
+├── strategy_fusion.py             # AI 策略融合 (1,180 行)
+├── strategy_arena.py              # 策略競技場 GA (713 行)
+├── phase_router.py                # 階段路由器 (970 行)
+├── portfolio_optimizer.py         # 組合優化器 (668 行)
+├── rl_fusion_agent.py             # RL 融合代理 (667 行)
 │
 └── selector/                      # 策略選擇子模組
     ├── __init__.py                # 子模組入口
@@ -68,7 +68,7 @@ src/bioneuronai/strategies/
 
 ---
 
-## 🏛️ 三層策略體系
+## 三層策略體系
 
 ```
 ╔══════════════════════════════════════════════════════╗
@@ -107,9 +107,9 @@ src/bioneuronai/strategies/
 
 ---
 
-## 📊 基礎策略
+## 基礎策略
 
-### `base_strategy.py` — 策略抽象基類 (779 行)
+### `base_strategy.py` — 策略抽象基類 (950 行)
 
 所有策略的 ABC 基類，定義統一接口與交易生命週期（analyze_market → entry → manage_position → exit → risk_control）。
 
@@ -167,9 +167,9 @@ src/bioneuronai/strategies/
 
 ---
 
-## 🤖 策略融合
+## 策略融合
 
-### `strategy_fusion.py` — AI 策略融合系統 (1,144 行)
+### `strategy_fusion.py` — AI 策略融合系統 (1,180 行)
 
 整合**主要單資產基礎策略**的信號，動態加權融合輸出最終交易決策。依市場體制（MarketRegime）自動調整各策略權重。
 
@@ -207,7 +207,7 @@ class MarketRegime:
 
 ---
 
-## 🔍 策略選擇器 (`selector/` 子模組)
+## 策略選擇器 (`selector/` 子模組)
 
 `selector/` 是 `strategies/` 內部的**下一層子模組**，責任比上層 README 更聚焦。  
 上層 `strategies/README.md` 只保留架構摘要與定位；`selector/` 的檔案職責、型別邊界、主路徑 / 替代實作、詳細接口與限制，請直接看子模組文件：
@@ -248,9 +248,9 @@ selection = await selector.select_optimal_strategy(ohlcv_data)
 
 ---
 
-## 🧬 策略進化系統
+## 策略進化系統
 
-### StrategyArena — 策略競技場 (`strategy_arena.py`, 629 行)
+### StrategyArena — 策略競技場 (`strategy_arena.py`, 713 行)
 
 「養蠱式」遺傳算法驅動的單策略參數優化，讓策略互相競爭、優勝劣汰、自動進化。
 
@@ -277,7 +277,7 @@ selection = await selector.select_optimal_strategy(ohlcv_data)
 - 可對 6 種基礎策略分別進行 GA 評估
 - 但固定策略層目前仍在調整，因此競爭結果已可信、但可辨識度仍有限
 
-### PhaseRouter — 階段路由器 (`phase_router.py`, 948 行)
+### PhaseRouter — 階段路由器 (`phase_router.py`, 970 行)
 
 依交易時段與市場事件（極端波動、新聞發布等）動態切換策略。
 
@@ -302,7 +302,7 @@ selection = await selector.select_optimal_strategy(ohlcv_data)
 - 尚未接入正式 `TradingEngine` 主線
 - 與目前 `TradeSetup` 資料模型仍有欄位對齊工作未完成
 
-### PortfolioOptimizer — 組合優化器 (`portfolio_optimizer.py`, 591 行)
+### PortfolioOptimizer — 組合優化器 (`portfolio_optimizer.py`, 668 行)
 
 整合 `PhaseRouter` + `StrategyArena`，以遺傳算法尋找全局最優多階段策略組合。
 
@@ -318,7 +318,7 @@ selection = await selector.select_optimal_strategy(ohlcv_data)
 - 仍未接入正式主交易主線
 - 實際效果仍受固定策略層可交易性限制
 
-### RLFusionAgent — 強化學習融合代理 (`rl_fusion_agent.py`, 670 行)
+### RLFusionAgent — 強化學習融合代理 (`rl_fusion_agent.py`, 667 行)
 
 PPO 強化學習代理，自主學習如何融合多策略信號做出最佳交易決策。
 
@@ -336,7 +336,7 @@ torch.nn           # 策略網絡
 
 ---
 
-## 📦 導出 API
+## 導出 API
 
 ```python
 from bioneuronai.strategies import (
@@ -369,16 +369,14 @@ from bioneuronai.strategies import (
     MarketEvaluator,
     get_recommended_strategy,
 
-    # 進化系統
-    StrategyArena,
-    TradingPhaseRouter,
-    TradingPhase,
 )
 ```
 
+補充：`StrategyArena`、`ArenaConfig`、`StrategyPortfolioOptimizer`、`OptimizationObjective` 目前未從 `bioneuronai.strategies.__init__` 頂層匯出，需從各自子模組匯入。
+
 ---
 
-## 💡 使用示例
+## 使用示例
 
 ### 基礎策略
 ```python
@@ -396,7 +394,7 @@ if setup is not None:
 from bioneuronai.strategies import DirectionChangeStrategy
 
 dc = DirectionChangeStrategy(theta=0.005)  # 0.5% 閾值
-analysis = dc.analyze(ohlcv_data)
+analysis = dc.analyze_market(ohlcv_data)
 print(f"DC 趨勢方向: {analysis.trend_direction}, OS 比率: {analysis.overshoot_ratio}")
 ```
 
@@ -442,7 +440,7 @@ print(f"最優候選: {best.name}, Sharpe: {best.sharpe_ratio:.2f}, Trades: {bes
 
 ---
 
-## 📚 相關文檔
+## 相關文檔
 
 - **策略進化指南**: [STRATEGY_EVOLUTION_GUIDE.md](../../../archived/docs_v2_1_legacy/STRATEGY_EVOLUTION_GUIDE.legacy_20260406.md)
 - **策略快速參考**: [STRATEGIES_QUICK_REFERENCE.md](../../../archived/docs_v2_1_legacy/STRATEGIES_QUICK_REFERENCE.legacy_20260406.md)

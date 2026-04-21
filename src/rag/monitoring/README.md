@@ -1,6 +1,16 @@
 # RAG Monitoring — 系統監控模組
 
-> **版本**: v2.1 | **更新日期**: 2026-04-05
+> **版本**: v2.1 | **更新日期**: 2026-04-20
+
+---
+
+## 目錄
+
+1. [模組定位](#模組定位)
+2. [目錄結構](#目錄結構)
+3. [核心類別](#核心類別)
+4. [全域函數](#全域函數)
+5. [整合方式](#整合方式)
 
 ---
 
@@ -62,7 +72,7 @@ monitoring/
 | `reset_monitor()` | 重置全域監控器 |
 
 ```python
-from src.rag.monitoring import get_monitor
+from rag.monitoring import get_monitor
 
 monitor = get_monitor()
 monitor.print_stats()  # 輸出監控報告

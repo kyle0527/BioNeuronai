@@ -1,6 +1,16 @@
 # RAG Internal — 內部知識庫模組
 
-> **版本**: v2.1 | **更新日期**: 2026-04-05
+> **版本**: v2.1 | **更新日期**: 2026-04-20
+
+---
+
+## 目錄
+
+1. [模組定位](#模組定位)
+2. [目錄結構](#目錄結構)
+3. [knowledge_base.py — 內部知識庫](#knowledge_basepy-內部知識庫)
+4. [faiss_index.py — 向量索引](#faiss_indexpy-向量索引)
+5. [公開介面](#公開介面)
 
 ---
 
@@ -65,7 +75,7 @@ internal/
 5. 市場狀態判斷
 
 ```python
-from src.rag.internal import InternalKnowledgeBase, KnowledgeDocument, DocumentType
+from rag.internal import InternalKnowledgeBase, KnowledgeDocument, DocumentType
 
 kb = InternalKnowledgeBase()
 doc = KnowledgeDocument(
@@ -98,7 +108,7 @@ FAISS 向量索引的包裝器，提供高效的向量檢索能力。**自動降
 ### 工廠函數
 
 ```python
-from src.rag.internal.faiss_index import create_index
+from rag.internal.faiss_index import create_index
 
 index = create_index(dimension=384, use_gpu=False)
 ```
@@ -108,7 +118,7 @@ index = create_index(dimension=384, use_gpu=False)
 ## 公開介面
 
 ```python
-from src.rag.internal import (
+from rag.internal import (
     InternalKnowledgeBase, KnowledgeDocument, DocumentType,
 )
 ```

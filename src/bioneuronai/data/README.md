@@ -2,27 +2,25 @@
 
 **路徑**: `src/bioneuronai/data/`  
 **版本**: v2.1
-**更新日期**: 2026-03-29  
+**更新日期**: 2026-04-20
 **架構層級**: Layer 0 — 基礎設施層
 
 ---
 
-## 📋 目錄
+## 目錄
 
 1. [模組概述](#模組概述)
 2. [架構總覽](#架構總覽)
 3. [核心文件](#核心文件)
 4. [數據庫系統](#數據庫系統)
 5. [API 連接器](#api-連接器)
-6. [外部數據抓取](#外部數據抓取)
-7. [匯率服務](#匯率服務)
-8. [使用示例](#使用示例)
-9. [性能與設計](#性能與設計)
-10. [相關文檔](#相關文檔)
+6. [使用示例](#使用示例)
+7. [性能與設計](#性能與設計)
+8. [相關文檔](#相關文檔)
 
 ---
 
-## 🎯 模組概述
+## 模組概述
 
 數據基礎設施模組是 BioNeuronai 系統的最底層，負責所有外部數據的接入、內部數據的持久化與查詢。上層模組（core、trading、analysis、strategies）皆依賴本模組提供的數據服務。
 
@@ -40,30 +38,34 @@ from bioneuronai.data import (
     ExchangeRateService,       # 即時匯率服務
     DatabaseManager,           # 統一數據庫管理器
     get_database_manager,      # 數據庫管理器工廠函式
+    NewsDataFetcher,           # 同步新聞資料抓取器
+    SyncExternalDataFetcher,   # 同步外部市場資料抓取器
 )
 ```
 
 ---
 
-## 🏗️ 架構總覽
+## 架構總覽
 
 ```
 src/bioneuronai/data/
-├── __init__.py                 # 模組入口 (22 行)
-├── binance_futures.py          # Binance Futures API 連接器 (457 行)
-├── database_manager.py         # 統一數據庫管理器 (1,352 行)
-├── database.py                 # 舊版數據庫接口 - 已廢棄，僅供參考 (781 行)
-├── exchange_rate_service.py    # 即時匯率服務 (308 行)
-└── web_data_fetcher.py         # 外部市場數據抓取器 (453 行)
+├── __init__.py                 # 模組入口 (28 行)
+├── binance_futures.py          # Binance Futures API 連接器 (573 行)
+├── database_manager.py         # 統一數據庫管理器 (1,396 行)
+├── database.py                 # 舊版數據庫接口 - 已廢棄，僅供參考 (786 行)
+├── exchange_rate_service.py    # 即時匯率服務 (377 行)
+├── web_data_fetcher.py         # 非同步外部市場數據抓取器 (453 行)
+├── news_data_fetcher.py        # 同步新聞資料抓取器 (211 行)
+└── sync_external_fetcher.py    # 同步外部市場資料抓取器 (229 行)
                                   ─────────────────────
-                                  合計 ~3,373 行
+                                  合計 4,053 行
 ```
 
 ---
 
-## 📁 核心文件
+## 核心文件
 
-### `binance_futures.py` — Binance Futures API 連接器 (457 行)
+### `binance_futures.py` — Binance Futures API 連接器 (573 行)
 
 全功能 Binance 期貨 API 連接器，涵蓋 REST 查詢、WebSocket 實時推送、認證簽名與自動重連。
 
@@ -95,7 +97,7 @@ connector.close_all_connections()        # 關閉所有 WebSocket 連接
 
 ---
 
-### `database_manager.py` — 統一數據庫管理器 (1,352 行)
+### `database_manager.py` — 統一數據庫管理器 (1,396 行)
 
 主要數據持久化核心，管理 11 張資料表，取代已廢棄的 `database.py`。
 
@@ -125,7 +127,7 @@ connector.close_all_connections()        # 關閉所有 WebSocket 連接
 
 ---
 
-### `database.py` — 舊版數據庫接口 (781 行)
+### `database.py` — 舊版數據庫接口 (786 行)
 
 > ⚠️ **已廢棄 (Deprecated)**：本檔案不再主動維護，**新開發請一律使用 `DatabaseManager`**。  
 > 保留原因：管理 3 張尚未遷移至 `database_manager.py` 的獨立資料表（`trading_pairs`、`strategy_weights`、`account_snapshots`），且未匯出至 `__init__.py`。
@@ -134,7 +136,7 @@ connector.close_all_connections()        # 關閉所有 WebSocket 連接
 
 ---
 
-### `exchange_rate_service.py` — 即時匯率服務 (308 行)
+### `exchange_rate_service.py` — 即時匯率服務 (377 行)
 
 不落庫的即時匯率查詢與轉換服務，具備三級數據源自動回退。
 
@@ -176,7 +178,25 @@ connector.close_all_connections()        # 關閉所有 WebSocket 連接
 
 ---
 
-## 🗄️ 數據庫系統
+### `news_data_fetcher.py` — 同步新聞資料抓取器 (211 行)
+
+同步封裝 CryptoPanic API 與 RSS feed 讀取，供 `analysis.news.CryptoNewsAnalyzer` 注入使用。這個檔案的重點是把外部 HTTP 呼叫留在 data 層，避免 analysis 模組直接散落 `requests.get()`。
+
+**主要類**:
+- `NewsDataFetcher`
+
+---
+
+### `sync_external_fetcher.py` — 同步外部市場資料抓取器 (229 行)
+
+同步封裝 Fear & Greed、Yahoo Finance、Binance Spot 等外部資料來源，供 daily report / market data 流程注入使用。
+
+**主要類**:
+- `SyncExternalDataFetcher`
+
+---
+
+## 數據庫系統
 
 ### 數據庫表結構
 
@@ -215,7 +235,7 @@ trading.db
 
 ---
 
-## 🔌 API 連接器
+## API 連接器
 
 ### Binance Futures REST API
 
@@ -240,7 +260,7 @@ trading.db
 
 ---
 
-## 💡 使用示例
+## 使用示例
 
 ### 1. API 連接
 ```python
@@ -363,7 +383,7 @@ asyncio.run(main())
 
 ---
 
-## 📊 性能與設計
+## 性能與設計
 
 | 特性 | 說明 |
 |------|------|
@@ -373,11 +393,11 @@ asyncio.run(main())
 | 批量處理 | `asyncio.gather()` 並行抓取 4 個外部數據源 |
 | 雙重備份 | SQLite + JSONL 並行存儲（可透過 `backup_enabled` 開關） |
 | 非同步 | 外部數據使用 `asyncio` + `aiohttp`，支持重試與超時 |
-| optional dependency | `requests` / `aiohttp` 不存在時優雅降級，不崩潰 |
+| 依賴保護 | 外部 HTTP 失敗時以明確錯誤或空結果回報，由上層決定是否中止 |
 
 ---
 
-## 📚 相關文檔
+## 相關文檔
 
 - **使用手冊**: [USAGE_GUIDE.md](./USAGE_GUIDE.md)
 - **數據庫升級指南**: [DATABASE_UPGRADE_GUIDE.md](../../../docs/DATABASE_UPGRADE_GUIDE.md)
@@ -387,6 +407,6 @@ asyncio.run(main())
 
 ---
 
-**最後更新**: 2026 年 2 月 15 日
+**最後更新**: 2026 年 4 月 19 日
 
 > 📖 上層目錄：[src/bioneuronai/README.md](../README.md)

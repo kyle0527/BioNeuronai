@@ -1,8 +1,19 @@
 # 分析模組 — 新聞分析系統 (News)
 
 > **路徑**: `src/bioneuronai/analysis/news/`  
-> **更新日期**: 2026-04-01  
-> **文件焦點**: 子模組內部能力、Analysis -> RAG 寫入、事件規則與驗證循環（系統分層請看上層 `analysis/README.md`）
+> **更新日期**: 2026-04-20
+> **文件焦點**: 子模組內部能力、Analysis -> RAG 寫入、事件規則與驗證循環（系統分層請看上層 [analysis README](../README.md)）
+
+## 目錄
+
+1. [子模組職責](#子模組職責)
+2. [檔案結構](#檔案結構)
+3. [對外導出](#對外導出依-__init__py)
+4. [核心元件](#核心元件)
+5. [現行資料路徑](#現行資料路徑)
+6. [維護邊界](#維護邊界)
+
+---
 
 ## 子模組職責
 
@@ -81,13 +92,12 @@ news/
 
 ---
 
-## 已移除的老舊/錯誤內容
+## 維護邊界
 
-1. 舊行數/檔案數統計
-2. 與現況不符的入庫流程描述
-3. 舊 API 名稱（如過時事件分數入口）
-4. 與目前 `analyzer/evaluator/prediction_loop` 不一致的方法清單
+1. 這層只描述新聞分析、事件評估、預測驗證與 RAG 入庫。
+2. `EventRule` 與 `EventContext` 的資料結構以 `schemas.rag` 為準，不在此重新定義。
+3. 若 `NewsAdapter` 入庫介面或狀態碼改變，需同步更新本文件與 `rag/services/README.md`。
 
 ---
 
-> 上層架構說明：`src/bioneuronai/analysis/README.md`
+> 上層架構說明：[analysis README](../README.md)

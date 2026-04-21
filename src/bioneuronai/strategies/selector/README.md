@@ -1,24 +1,27 @@
 # 策略選擇器子模組 (`selector/`)
 
 **路徑**: `src/bioneuronai/strategies/selector/`  
+**更新日期**: 2026-04-20
 **架構層級**: `strategies/` 內的策略選擇子模組  
 **定位**: 根據市場體制、波動率、策略適配度與可選事件資訊，輸出策略推薦或詳細策略組合結果
 
 ---
 
-## 📑 目錄
+## 目錄
 
-1. 模組概述
-2. 目前實際職責
-3. 檔案結構
-4. 主要資料流
-5. 核心類與函式
-6. Schema 與型別邊界
-7. 主路徑與替代實作
-8. 使用方式
-9. 對外導出 API
-10. 與其他模組的關係
-11. 已知限制
+1. [模組概述](#模組概述)
+2. [目前實際職責](#目前實際職責)
+3. [檔案結構](#檔案結構)
+4. [主要資料流](#主要資料流)
+5. [核心類與函式](#核心類與函式)
+6. [StrategySelector](#strategyselector)
+7. [MarketEvaluator](#marketevaluator)
+8. [Schema 與型別邊界](#schema-與型別邊界)
+9. [主路徑與替代實作](#主路徑與替代實作)
+10. [使用方式](#使用方式)
+11. [對外導出 API](#對外導出-api)
+12. [與其他模組的關係](#與其他模組的關係)
+13. [已知限制](#已知限制)
 
 ---
 
@@ -527,9 +530,9 @@ recommendation = get_recommended_strategy(
 
 - [src/bioneuronai/strategies/__init__.py](C:/D/E/BioNeuronai/src/bioneuronai/strategies/__init__.py)
 - [src/bioneuronai/trading/__init__.py](C:/D/E/BioNeuronai/src/bioneuronai/trading/__init__.py)
-- [src/bioneuronai/trading/plan_controller.py](C:/D/E/BioNeuronai/src/bioneuronai/trading/plan_controller.py)
+- [src/bioneuronai/planning/plan_controller.py](C:/D/E/BioNeuronai/src/bioneuronai/planning/plan_controller.py)
 
-其中 [plan_controller.py](C:/D/E/BioNeuronai/src/bioneuronai/trading/plan_controller.py) 已經在步驟 5 / 6 使用 `StrategySelector`，所以這個子模組不是孤立實驗碼，而是主流程的一部分。
+其中 [plan_controller.py](C:/D/E/BioNeuronai/src/bioneuronai/planning/plan_controller.py) 已經在步驟 5 / 6 使用 `StrategySelector`，所以這個子模組不是孤立實驗碼，而是主流程的一部分。
 
 ---
 
@@ -537,7 +540,7 @@ recommendation = get_recommended_strategy(
 
 1. `configs.py` 有 10 種模板，但 `_strategies` 目前只實例化 4 種真實策略類。
 
-2. `event_context` 目前型別仍以 `Any` / 可選導入處理，邊界沒有完全收緊。
+2. `event_context` 在 public signature 仍允許 `Any`，但主流程已可接受 `schemas.rag.EventContext`，且上游若傳入 dict，`AIStrategyFusion` 已支援轉換為 `EventContext`。
 
 3. selector 目前同時承擔：
    - 市場體制識別
@@ -546,7 +549,7 @@ recommendation = get_recommended_strategy(
    - 績效摘要  
    功能偏多，後續若再擴充，需注意不要讓 `core.py` 繼續膨脹。
 
-4. 舊版 `trading/strategy_selector.py` 已移除，閱讀或維護時以 `strategies/selector/` 為唯一實作來源。
+4. 策略選擇唯一實作來源是 `strategies/selector/`，不要在 `trading/` 下新增第二套選擇器。
 
 ---
 

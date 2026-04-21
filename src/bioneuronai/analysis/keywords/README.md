@@ -1,8 +1,20 @@
 # 分析模組 — 關鍵字系統 (Keywords)
 
 > **路徑**: `src/bioneuronai/analysis/keywords/`  
-> **更新日期**: 2026-04-01  
-> **文件焦點**: 子模組內部 API、資料流與持久化（分層說明請看上層 `analysis/README.md`）
+> **更新日期**: 2026-04-20
+> **文件焦點**: 子模組內部 API、資料流與持久化（分層說明請看上層 [analysis README](../README.md)）
+
+## 目錄
+
+1. [子模組職責](#子模組職責)
+2. [檔案結構](#檔案結構)
+3. [角色分工](#角色分工)
+4. [對外導出](#對外導出依-__init__py)
+5. [資料來源與存儲](#資料來源與存儲)
+6. [實作現況](#實作現況)
+7. [維護邊界](#維護邊界)
+
+---
 
 ## 子模組職責
 
@@ -70,21 +82,18 @@ keywords/
 
 ---
 
-## 實作現況（已對齊程式碼）
+## 實作現況
 
-1. `KeywordManager` 與 `KeywordLearner` 為兩條責任線，不再混為單一元件
+1. `KeywordManager` 與 `KeywordLearner` 為兩條責任線
 2. `static_utils.py` 與 `manager.py` 方法對應已一致
 3. `__init__.py` 導出已含 `KeywordLearner`
 
----
+## 維護邊界
 
-## 已移除的老舊/錯誤內容
-
-1. 舊版行數/總行數陳述
-2. 舊分工說法（查詢與學習責任混淆）
-3. 舊路徑或舊 API 名稱
-4. 與現行方法清單不一致的描述
+1. 這層只描述 keyword 子模組的資料流、角色分工與持久化位置。
+2. 關鍵字 JSON schema 若有新增欄位，需同步更新 `models.py` 與本文件。
+3. 不在此文件維護全 analysis 層架構，避免和上層 README 重複。
 
 ---
 
-> 上層架構說明：`src/bioneuronai/analysis/README.md`
+> 上層架構說明：[analysis README](../README.md)

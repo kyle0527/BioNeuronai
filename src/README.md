@@ -1,129 +1,72 @@
 # src/ — BioNeuronai 原始碼
 
-> **更新日期**: 2026-02-15
+> 更新日期：2026-04-20
+
+`src/` 是專案的 Python 原始碼與少量 runtime data 入口。這一層只說明主要 package 的定位與依賴方向；具體類別、方法、行數與操作範例請看各子目錄 README。
 
 ---
 
 ## 目錄
 
-- [模組總覽](#模組總覽)
-- [模組詳細](#模組詳細)
-  - [bioneuronai/ — 核心交易系統](#bioneuronai--核心交易系統)
-  - [nlp/ — 自研語言模型工具包](#nlp--自研語言模型工具包)
-  - [rag/ — 檢索增強生成系統](#rag--檢索增強生成系統)
-  - [schemas/ — Pydantic 資料模型](#schemas--pydantic-資料模型)
-- [模組間依賴](#模組間依賴)
-- [程式碼統計](#程式碼統計)
+1. [頂層結構](#頂層結構)
+2. [模組定位](#模組定位)
+3. [依賴方向](#依賴方向)
+4. [文件層級](#文件層級)
 
 ---
 
-## 模組總覽
+## 頂層結構
 
-`src/` 包含 BioNeuronai 交易系統的全部原始碼，分為 4 個頂層模組：
-
-```
+```text
 src/
-├── bioneuronai/     # 核心交易系統（5 層架構）
-├── nlp/             # 自研語言模型工具包
+├── bioneuronai/     # 核心交易系統
+├── schemas/         # 共用 Pydantic schema / enum
 ├── rag/             # 檢索增強生成系統
-├── schemas/         # Pydantic 資料模型定義
+├── nlp/             # 語言模型、ChatEngine 與訓練工具
+├── data/            # runtime / knowledge-base 資料
 └── __init__.py
 ```
 
 ---
 
-## 模組詳細
+## 模組定位
 
-### bioneuronai/ — 核心交易系統
-
-BioNeuronai 的主體模組，實現完整的加密貨幣量化交易系統。
-
-| 子模組 | 說明 |
-|--------|------|
-| `core/` | 核心基礎設施（市場分析、計畫控制、外部數據） |
-| `data/` | 數據層（資料庫管理、Binance 連接器、Web 數據） |
-| `strategies/` | 策略層（11 種交易策略 + 策略引擎） |
-| `risk_management/` | 風險管理（倉位管理、風控引擎） |
-| `trading/` | 交易執行（回測引擎、自動化、SOP） |
-| `analysis/` | 分析層（新聞分析、關鍵字系統、自我改善） |
-
-📖 [詳細文檔](bioneuronai/README.md)
+| 模組 | 角色 | 詳細文件 |
+|------|------|----------|
+| `bioneuronai/` | 交易系統主體：core、data、analysis、planning、strategies、risk、api、cli | [bioneuronai README](bioneuronai/README.md) |
+| `schemas/` | 跨模組共用資料模型、enum 與型別基準 | [schemas README](schemas/README.md) |
+| `rag/` | embedding、retriever、internal knowledge base、news adapter、monitoring | [rag README](rag/README.md) |
+| `nlp/` | TinyLLM、ChatEngine、分詞器、訓練、量化與模型工具 | [nlp README](nlp/README.md) |
+| `data/` | `src/data/bioneuronai/...` runtime data，不是主要 Python package | 依資料內容查看 |
 
 ---
 
-### nlp/ — 自研語言模型工具包
+## 依賴方向
 
-獨立的 LLM 開發工具包，提供 100M 參數 GPT 風格 Transformer 的完整訓練、微調、量化到部署工具鏈。
-
-| 功能 | 說明 |
-|------|------|
-| 核心模型 | TinyLLM (100M params, 12 層, 768 維) |
-| 分詞器 | BPE + 英中雙語 |
-| 優化 | LoRA 微調 / 8-bit & 4-bit 量化 |
-| 可靠性 | Monte Carlo Dropout + 幻覺檢測 + 誠實生成 |
-| 導出 | ONNX / TorchScript |
-
-📖 [詳細文檔](nlp/README.md)
-
----
-
-### rag/ — 檢索增強生成系統
-
-整合向量嵌入、語義檢索、內部知識庫和外部數據源的 RAG 系統。
-
-| 子模組 | 說明 |
-|--------|------|
-| `core/` | 嵌入服務 + 統一檢索器 |
-| `internal/` | 內部知識庫 + FAISS 向量索引 |
-| `services/` | 新聞適配器 + 交易前檢查 |
-| `monitoring/` | 請求追蹤 + 延遲統計 |
-
-📖 [詳細文檔](rag/README.md)
-
----
-
-### schemas/ — Pydantic 資料模型
-
-基於 Pydantic v2 的統一資料模型定義，作為整個系統的 Single Source of Truth。
-
-| 統計 | 數量 |
-|------|------|
-| Schema 檔案 | 17 個 |
-| 枚舉定義 | 37 個 |
-| Pydantic 模型 | 75+ 個 |
-| 自訂型別 | 23 個 |
-| Schema 版本 | 2.1 |
-
-📖 [詳細文檔](schemas/README.md)
-
----
-
-## 模組間依賴
-
-```
-schemas/  ←──────── (所有模組共用)
-    ▲
-    │
-bioneuronai/  ←──── 核心業務邏輯
-    ▲
-    │
-rag/  ────────────── 檢索增強（依賴 bioneuronai + schemas）
-    
-nlp/  ────────────── 獨立模組（訓練腳本從 bioneuronai 匯入）
+```text
+schemas
+  ↑
+  ├── bioneuronai
+  ├── rag
+  └── nlp
 ```
 
----
+重點：
 
-## 程式碼統計
-
-| 模組 | Python 檔案數 | 總行數 |
-|------|---------------|--------|
-| `bioneuronai/` | 23 | ~8,500 |
-| `nlp/` | 19 | ~7,800 |
-| `rag/` | 10 | ~2,200 |
-| `schemas/` | 19 | ~5,800 |
-| **合計** | **71** | **~24,300** |
+1. `schemas` 是共用資料定義來源。
+2. `bioneuronai` 是交易主體。
+3. `rag` 會使用 `schemas`，並橋接 `bioneuronai.analysis`。
+4. `nlp` 提供語言模型與 ChatEngine，CLI/API 可使用其中的對話能力。
+5. `src/data/` 是資料目錄，不等同於 `src/bioneuronai/data/` 程式模組。
 
 ---
 
-> 📖 上層目錄：[根目錄 README](../README.md)
+## 文件層級
+
+1. 本文件只維護 `src/` 的概念導覽。
+2. 子 package README 維護模組分工與重要主線。
+3. 更深層 README 維護檔案、API、資料路徑與限制。
+
+---
+
+> 上層目錄：[根目錄 README](../README.md)
