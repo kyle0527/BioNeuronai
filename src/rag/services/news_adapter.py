@@ -89,6 +89,11 @@ class NewsAdapter:
     
     將 CryptoNewsAnalyzer 的功能封裝為 RAG 兼容的接口，
     供 UnifiedRetriever 使用。
+
+    與 daily_report.news_sentiment.NewsSentimentAnalyzer 的分工：
+    - NewsAdapter：面向 RAG / UnifiedRetriever，輸出 RetrievalResult / EventContext，並負責新聞知識入庫
+    - NewsSentimentAnalyzer：面向 daily_report，輸出簡化的日報分析 dict
+    - 兩者都包裝 CryptoNewsAnalyzer，但目的不同，不應互相取代
     
     設計原則 (CODE_FIX_GUIDE.md):
     - 不重複定義已存在的類型，使用 schemas

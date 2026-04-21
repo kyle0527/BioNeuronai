@@ -16,7 +16,7 @@ import sys
 from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
@@ -58,11 +58,101 @@ from schemas.api import (  # noqa: E402
 logger = logging.getLogger(__name__)
 
 
+class TradeManager:
+    """封裝 API 層的交易引擎與背景監控 task。"""
+
+    def __init__(self) -> None:
+        self._trade_task: Optional[asyncio.Task[Any]] = None
+        self._trade_engine: Optional[Any] = None
+
+    @property
+    def engine(self) -> Optional[Any]:
+        return self._trade_engine
+
+    @property
+    def task(self) -> Optional[asyncio.Task[Any]]:
+        return self._trade_task
+
+    def is_running(self) -> bool:
+        return self._trade_task is not None and not self._trade_task.done()
+
+    async def start(self, req: TradeStartRequest) -> str:
+        """啟動交易監控並回傳使用中的環境名稱。"""
+        if self.is_running():
+            raise RuntimeError("交易已在運行中")
+
+        from bioneuronai.core.trading_engine import TradingEngine
+
+        api_key = req.api_key or os.getenv("BINANCE_API_KEY", "")
+        api_secret = req.api_secret or os.getenv("BINANCE_API_SECRET", "")
+
+        self._trade_engine = TradingEngine(
+            api_key=api_key,
+            api_secret=api_secret,
+            testnet=req.testnet,
+        )
+
+        async def _monitor() -> None:
+            if self._trade_engine is None:
+                return
+            await asyncio.to_thread(self._trade_engine.start_monitoring, req.symbol)
+
+        self._trade_task = asyncio.create_task(_monitor())
+        return "測試網" if req.testnet else "正式網"
+
+    async def stop(self) -> None:
+        """停止交易監控並清理引擎引用。"""
+        if self._trade_task is not None and not self._trade_task.done():
+            self._trade_task.cancel()
+            self._trade_task = None
+
+        if self._trade_engine is not None and hasattr(self._trade_engine, "stop_monitoring"):
+            try:
+                await asyncio.to_thread(self._trade_engine.stop_monitoring)
+            except Exception:
+                pass
+
+        self._trade_engine = None
+
+    async def get_current_price(self, symbol: str) -> Optional[float]:
+        """透過目前交易引擎查詢即時價格。"""
+        if self._trade_engine is None:
+            return None
+        get_price = getattr(self._trade_engine, "_get_current_price", None)
+        if get_price is None:
+            return None
+        try:
+            price = await asyncio.to_thread(get_price, symbol)
+            return float(price) if price else None
+        except Exception:
+            return None
+
+    async def get_virtual_portfolio(self) -> list[dict]:
+        """取得虛擬帳戶投資組合快照。"""
+        if self._trade_engine is None:
+            return []
+        try:
+            account = getattr(self._trade_engine, "virtual_account", None)
+            if account is None:
+                return []
+            get_portfolio = getattr(account, "get_portfolio", None)
+            if get_portfolio is None:
+                return []
+            raw = await asyncio.to_thread(get_portfolio)
+            return raw if isinstance(raw, list) else []
+        except Exception:
+            return []
+
+
+_trade_manager = TradeManager()
+
+
 # ── Lifespan ──────────────────────────────────────────────────────────────────
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("BioNeuronai API 啟動中 ...")
     yield
+    await _trade_manager.stop()
     logger.info("BioNeuronai API 關閉")
 
 
@@ -379,37 +469,15 @@ async def pretrade_check(req: PreTradeRequest):
 
 # ── Trade Control ─────────────────────────────────────────────────────────────
 
-_trade_task = None
-_trade_engine = None
-
 
 @app.post("/api/v1/trade/start", response_model=ApiResponse, tags=["trading"])
 async def start_trade(req: TradeStartRequest):
     """啟動交易監控"""
-    global _trade_task, _trade_engine
-
-    if _trade_task and not _trade_task.done():
+    if _trade_manager.is_running():
         return ApiResponse(success=False, message="交易已在運行中")
 
     try:
-        import os
-        from bioneuronai.core.trading_engine import TradingEngine
-
-        # 憑證優先順序：請求注入 → 環境變數
-        api_key = req.api_key or os.getenv("BINANCE_API_KEY", "")
-        api_secret = req.api_secret or os.getenv("BINANCE_API_SECRET", "")
-
-        _trade_engine = TradingEngine(
-            api_key=api_key,
-            api_secret=api_secret,
-            testnet=req.testnet,
-        )
-
-        async def _monitor():
-            await asyncio.to_thread(_trade_engine.start_monitoring, req.symbol)
-
-        _trade_task = asyncio.create_task(_monitor())
-        mode = "測試網" if req.testnet else "正式網"
+        mode = await _trade_manager.start(req)
         return ApiResponse(success=True, message=f"交易監控已啟動 [{mode}] {req.symbol}")
     except Exception as exc:
         return ApiResponse(success=False, message=f"交易啟動失敗: {exc}")
@@ -418,19 +486,7 @@ async def start_trade(req: TradeStartRequest):
 @app.post("/api/v1/trade/stop", response_model=ApiResponse, tags=["trading"])
 async def stop_trade():
     """停止交易監控"""
-    global _trade_task, _trade_engine
-
-    if _trade_task and not _trade_task.done():
-        _trade_task.cancel()
-        _trade_task = None
-
-    if _trade_engine and hasattr(_trade_engine, "stop_monitoring"):
-        try:
-            _trade_engine.stop_monitoring()
-        except Exception:
-            pass
-
-    _trade_engine = None
+    await _trade_manager.stop()
     return ApiResponse(success=True, message="交易監控已停止")
 
 
@@ -494,10 +550,9 @@ async def chat(req: ChatRequest):
 
             ctx = MarketContext(symbol=req.symbol)
             # 嘗試從全域 trade engine 取即時價格（可選）
-            if _trade_engine is not None and hasattr(_trade_engine, "_get_current_price"):
-                price = await asyncio.to_thread(_trade_engine._get_current_price, req.symbol)
-                if price:
-                    ctx.current_price = float(price)
+            price = await _trade_manager.get_current_price(req.symbol)
+            if price is not None:
+                ctx.current_price = price
             market_ctx = ctx
         except Exception as e:
             logger.debug(f"[Chat] 市場上下文取得失敗（不影響對話）: {e}")
@@ -575,9 +630,9 @@ async def _build_dashboard_snapshot() -> dict:
     risk_level = "low"
     risk_pct = 0.0
 
-    if _trade_engine is not None:
+    if _trade_manager.engine is not None:
         try:
-            state = getattr(_trade_engine, "state", None)
+            state = getattr(_trade_manager.engine, "state", None)
             if state and hasattr(state, "risk_percentage"):
                 risk_pct = float(state.risk_percentage)
                 if risk_pct > 20:
@@ -590,7 +645,7 @@ async def _build_dashboard_snapshot() -> dict:
             pass
 
     audit_entries: list[WsAuditLogEntry] = []
-    if _trade_task is not None and not _trade_task.done():
+    if _trade_manager.is_running():
         audit_entries.append(WsAuditLogEntry(
             id="sys-trade-running",
             timestamp=now,
@@ -600,7 +655,7 @@ async def _build_dashboard_snapshot() -> dict:
         ))
 
     checklist_items = [
-        WsPretradeItem(id="c1", label="API 連線正常", completed=_trade_engine is not None, required=True),
+        WsPretradeItem(id="c1", label="API 連線正常", completed=_trade_manager.engine is not None, required=True),
         WsPretradeItem(id="c2", label="風險參數已設定", completed=True, required=True),
         WsPretradeItem(id="c3", label="市場流動性正常", completed=True, required=False),
     ]
@@ -633,14 +688,14 @@ async def get_dashboard():
 async def submit_order(order: TradeOrderRequest):
     """提交交易訂單（admin-da TradingControls 使用）"""
     try:
-        if _trade_engine is None:
+        if _trade_manager.engine is None:
             return ApiResponse(
                 success=False,
                 message="交易引擎未啟動，請先呼叫 POST /api/v1/trade/start",
             )
 
         order_data = order.model_dump(exclude_none=True)
-        place_fn = getattr(_trade_engine, "place_order", None)
+        place_fn = getattr(_trade_manager.engine, "place_order", None)
         if place_fn is not None:
             result = await asyncio.to_thread(place_fn, **order_data)
             return ApiResponse(
@@ -662,10 +717,10 @@ async def submit_order(order: TradeOrderRequest):
 async def close_position(position_id: str):
     """平倉（admin-da 持倉列表使用）"""
     try:
-        if _trade_engine is None:
+        if _trade_manager.engine is None:
             return ApiResponse(success=False, message="交易引擎未啟動")
 
-        close_fn = getattr(_trade_engine, "close_position", None)
+        close_fn = getattr(_trade_manager.engine, "close_position", None)
         if close_fn is not None:
             result = await asyncio.to_thread(close_fn, position_id)
             return ApiResponse(
@@ -694,15 +749,9 @@ async def ws_trade(websocket: WebSocket):
     try:
         while True:
             price = 0.0
-            if _trade_engine is not None:
-                try:
-                    get_price = getattr(_trade_engine, "_get_current_price", None)
-                    if get_price is not None:
-                        p = await asyncio.to_thread(get_price, symbol)
-                        if p:
-                            price = float(p)
-                except Exception:
-                    pass
+            current_price = await _trade_manager.get_current_price(symbol)
+            if current_price is not None:
+                price = current_price
 
             await websocket.send_json({"type": "price_update", "symbol": symbol, "price": price})
             await asyncio.sleep(2)
@@ -719,17 +768,7 @@ async def ws_analytics(websocket: WebSocket):
     try:
         while True:
             portfolio: list[dict] = []
-            if _trade_engine is not None:
-                try:
-                    account = getattr(_trade_engine, "virtual_account", None)
-                    if account is not None:
-                        get_portfolio = getattr(account, "get_portfolio", None)
-                        if get_portfolio is not None:
-                            raw = await asyncio.to_thread(get_portfolio)
-                            if isinstance(raw, list):
-                                portfolio = raw
-                except Exception:
-                    pass
+            portfolio = await _trade_manager.get_virtual_portfolio()
 
             await websocket.send_json({"type": "portfolio_update", "portfolio": portfolio})
             await asyncio.sleep(5)

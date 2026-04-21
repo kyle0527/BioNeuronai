@@ -58,7 +58,7 @@ news/
 ### `CryptoNewsAnalyzer` (`analyzer.py`)
 
 主要公開方法：
-1. `analyze_news(symbol="BTCUSDT", hours=24)`
+1. `analyze_news(symbol="BTCUSDT", hours=None)`
 2. `get_quick_summary(symbol="BTCUSDT")`
 3. `should_trade(symbol="BTCUSDT")`
 4. `evaluate_pending_news()`
@@ -67,6 +67,7 @@ news/
 1. `analyze_news()` 完成分析後會呼叫 `_ingest_analysis_to_rag()`
 2. `_ingest_analysis_to_rag()` 透過 `rag.services.news_adapter.ingest_news_analysis_with_status(...)`
 3. 入庫狀態以 `OK / NO_DATA / ERROR` 區分，失敗記錄但不阻斷主分析流程
+4. `hours=None` 時會依上次成功抓取時間自適應計算時間窗；只有在呼叫端明確指定時才使用固定小時數
 
 ### `RuleBasedEvaluator` (`evaluator.py`)
 

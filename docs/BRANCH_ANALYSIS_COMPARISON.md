@@ -119,10 +119,10 @@
 
 這代表「外部 API 集中在 `data/` 層」的架構原則還沒完全落地。
 
-### 3.3 REST API 交易狀態仍使用全域變數
+### 3.3 REST API 交易狀態
 
-- `api/app.py` 仍使用 `_trade_task`、`_trade_engine` 等全域狀態。
-- 這在單機可用，但還沒有收斂成管理類別。
+- 此比較結論已於 2026-04-21 修正：`api/app.py` 現在使用 `TradeManager` 封裝交易引擎與背景 task。
+- 舊的 `_trade_task`、`_trade_engine` 模組級全域狀態已移除。
 
 位置：`src/bioneuronai/api/app.py`
 
@@ -136,7 +136,7 @@
 
 目前尚未完成的是：
 
-- `UnifiedRetriever.retrieve_for_trading()` 尚未成為 `pretrade` / `strategy_fusion` 的正式消費入口。
+- `UnifiedRetriever.retrieve_for_trading()` 已接入 `pretrade`，但 `strategy_fusion` 端仍未直接由 RAG 檢索結果填充。
 - `EventContext` 仍未由 RAG 檢索結果自動填充。
 
 ---

@@ -684,6 +684,99 @@ class TradingPhaseRouter:
             return TradeActionPhase.EXIT
         return TradeActionPhase.HOLD
 
+    def _resolve_action_phase(
+        self,
+        current_phase: TradingPhase,
+        market_data: Dict[str, Any],
+        has_position: bool,
+        action_phase: Optional[TradeActionPhase],
+    ) -> TradeActionPhase:
+        """決定本次路由的交易動作階段。"""
+        if action_phase is not None:
+            return action_phase
+        if not has_position:
+            return TradeActionPhase.ENTRY
+        return self._infer_hold_or_exit(current_phase, market_data)
+
+    def _resolve_phase_context(
+        self,
+        current_time: datetime,
+        market_data: Dict[str, Any],
+    ) -> Tuple[TradingPhase, Optional[MarketCondition], float]:
+        """解析當前交易階段與其上下文。"""
+        market_condition = market_data.get('market_condition')
+        volatility = market_data.get('volatility', 0.5)
+        has_news = market_data.get('has_news_event', False)
+        news_time = market_data.get('news_event_time')
+
+        current_phase = self.identify_phase(
+            current_time=current_time,
+            has_news_event=has_news,
+            news_event_time=news_time,
+            volatility=volatility,
+        )
+        return current_phase, market_condition, volatility
+
+    def _build_market_analysis(
+        self,
+        strategy: BaseStrategy,
+        market_data: Dict[str, Any],
+    ) -> Tuple[Dict[str, Any], Any]:
+        """執行策略分析並回傳 OHLCV 與分析結果。"""
+        ohlcv_data = market_data.get('ohlcv', np.array([]))  # type: ignore
+        market_analysis = strategy.analyze_market(ohlcv_data)
+        if isinstance(market_analysis, dict):
+            symbol = str(market_data.get("symbol", "") or "").strip()
+            if symbol:
+                market_analysis.setdefault("symbol", symbol)
+        return market_analysis, ohlcv_data
+
+    def _generate_phase_signal(
+        self,
+        strategy: BaseStrategy,
+        config: PhaseConfig,
+        market_data: Dict[str, Any],
+        action_allowed: bool,
+    ) -> Optional[TradeSetup]:
+        """根據當前階段與策略生成交易信號。"""
+        if not action_allowed:
+            return None
+
+        market_analysis, ohlcv_data = self._build_market_analysis(strategy, market_data)
+        signal = strategy.evaluate_entry_conditions(market_analysis, ohlcv_data)
+        if signal:
+            signal = self._adjust_signal_for_phase(signal, config)
+        return signal
+
+    def _build_decision_payload(
+        self,
+        current_time: datetime,
+        current_phase: TradingPhase,
+        action_phase: TradeActionPhase,
+        strategy: BaseStrategy,
+        signal: Optional[TradeSetup],
+        config: PhaseConfig,
+        market_condition: Optional[MarketCondition],
+        volatility: float,
+    ) -> Dict[str, Any]:
+        """組裝 PhaseRouter 的最終決策結果。"""
+        return {
+            'timestamp': current_time.isoformat(),
+            'phase': current_phase.value,
+            'action_phase': action_phase.value,
+            'strategy_used': strategy.__class__.__name__,
+            'ai_selection_enabled': self.enable_ai_selection,
+            'signal': signal,
+            'config': {
+                'position_size_multiplier': config.position_size_multiplier,
+                'risk_multiplier': config.risk_multiplier,
+                'preferred_actions': [a.value for a in config.preferred_actions],
+                'forbidden_actions': [a.value for a in config.forbidden_actions],
+            },
+            'market_condition': market_condition.value if market_condition else None,
+            'volatility': volatility,
+        }
+
     def route_trading_decision(
         self,
         current_time: datetime,
@@ -707,70 +800,55 @@ class TradingPhaseRouter:
         Returns:
             交易決策結果
         """
-        
+
         # 1. 識別當前階段
-        market_condition = market_data.get('market_condition')
-        volatility = market_data.get('volatility', 0.5)
-        has_news = market_data.get('has_news_event', False)
-        news_time = market_data.get('news_event_time')
-        
-        current_phase = self.identify_phase(
+        current_phase, market_condition, volatility = self._resolve_phase_context(
             current_time=current_time,
-            has_news_event=has_news,
-            news_event_time=news_time,
-            volatility=volatility,
+            market_data=market_data,
         )
-        
+
         # 2. 更新階段狀態
         if self.current_state is None or self.current_state.current_phase != current_phase:
             self._transition_to_phase(current_phase, current_time)
-        
+
         # 3. 自動推斷交易動作階段
-        if action_phase is None:
-            if not has_position:
-                action_phase = TradeActionPhase.ENTRY
-            else:
-                action_phase = self._infer_hold_or_exit(current_phase, market_data)
-        
+        resolved_action_phase = self._resolve_action_phase(
+            current_phase=current_phase,
+            market_data=market_data,
+            has_position=has_position,
+            action_phase=action_phase,
+        )
+
         # 4. 獲取階段配置和策略（AI 選擇最優策略）
         config = self.phase_configs[current_phase]
-        strategy = self.get_strategy_for_phase(current_phase, action_phase)
-        
+        strategy = self.get_strategy_for_phase(current_phase, resolved_action_phase)
+
         # 5. 檢查階段動作限制
         action_allowed = self._check_action_allowed(config, has_position, position_direction)
-        
+
         # 6. 生成交易信號
-        if action_allowed:
-            ohlcv_data = market_data.get('ohlcv', np.array([]))  # type: ignore
-            market_analysis = strategy.analyze_market(ohlcv_data)
-            signal = strategy.evaluate_entry_conditions(market_analysis, ohlcv_data)
-            
-            if signal:
-                signal = self._adjust_signal_for_phase(signal, config)
-        else:
-            signal = None
-        
+        signal = self._generate_phase_signal(
+            strategy=strategy,
+            config=config,
+            market_data=market_data,
+            action_allowed=action_allowed,
+        )
+
         # 7. 構建決策結果（包含 AI 策略編排信息）
-        decision = {
-            'timestamp': current_time.isoformat(),
-            'phase': current_phase.value,
-            'action_phase': action_phase.value,
-            'strategy_used': strategy.__class__.__name__,
-            'ai_selection_enabled': self.enable_ai_selection,
-            'signal': signal,
-            'config': {
-                'position_size_multiplier': config.position_size_multiplier,
-                'risk_multiplier': config.risk_multiplier,
-                'preferred_actions': [a.value for a in config.preferred_actions],
-                'forbidden_actions': [a.value for a in config.forbidden_actions],
-            },
-            'market_condition': market_condition.value if market_condition else None,
-            'volatility': volatility,
-        }
-        
+        decision = self._build_decision_payload(
+            current_time=current_time,
+            current_phase=current_phase,
+            action_phase=resolved_action_phase,
+            strategy=strategy,
+            signal=signal,
+            config=config,
+            market_condition=market_condition,
+            volatility=volatility,
+        )
+
         logger.info(
             f"📍 階段路由: {current_phase.value} | "
-            f"動作: {action_phase.value} | "
+            f"動作: {resolved_action_phase.value} | "
             f"策略: {strategy.__class__.__name__} | "
             f"AI選擇: {'✓' if self.enable_ai_selection else '✗'}"
         )
@@ -830,18 +908,24 @@ class TradingPhaseRouter:
         if not signal:
             return None
         
-        # 調整倉位大小 (Pydantic v2 model)
-        signal.position_size *= config.position_size_multiplier  # type: ignore[attr-defined]
+        # 調整倉位大小
+        signal.total_position_size *= config.position_size_multiplier
         
-        # 調整止損價格 (基於風險倍數)
-        # 注意: TradeSetup 使用 stop_loss_price 而非 stop_loss_pct
-        # 使用 abs() 避免浮點數精確比較
+        # 調整止損與止盈距離 (基於風險倍數)
         if abs(config.risk_multiplier - 1.0) > 1e-9:
-            # 計算止損距離並應用風險倍數
-            entry_price = signal.entry_price_target  # type: ignore[attr-defined]
-            stop_distance = abs(entry_price - signal.stop_loss_price)  # type: ignore[attr-defined]
+            entry_price = float(signal.entry_price)
+            stop_distance = abs(entry_price - float(signal.stop_loss))
             adjusted_distance = stop_distance * config.risk_multiplier
-            signal.stop_loss_price = entry_price - adjusted_distance  # type: ignore[attr-defined]
+            if signal.direction == "long":
+                signal.stop_loss = entry_price - adjusted_distance
+                signal.take_profit_1 = entry_price + adjusted_distance * 2
+                signal.take_profit_2 = entry_price + adjusted_distance * 4
+                signal.take_profit_3 = entry_price + adjusted_distance * 6
+            else:
+                signal.stop_loss = entry_price + adjusted_distance
+                signal.take_profit_1 = entry_price - adjusted_distance * 2
+                signal.take_profit_2 = entry_price - adjusted_distance * 4
+                signal.take_profit_3 = entry_price - adjusted_distance * 6
         
         return signal
     

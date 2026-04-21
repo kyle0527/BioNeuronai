@@ -747,7 +747,7 @@ trading / core / analysis / data
 工作：
 - 保留高價值端點
 - 延後次要端點
-- 將 `_trade_task` / `_trade_engine` 全域狀態封裝進管理類別
+- 已於 2026-04-21 將 `_trade_task` / `_trade_engine` 全域狀態封裝進 `TradeManager`
 
 ### 第 5 階段：前端 UI 整合（2026-04-17 更新：先推進 `devops-d`）
 
@@ -962,15 +962,15 @@ trading / core / analysis / data
 
 - ✅ `api/app.py` 健康檢查清理：移除 `BacktestEngine`、`PlanController` 殭屍 import（端點已移除，掃描無留存意義）
 - ✅ `schedule>=1.2.0` 確認已在 `pyproject.toml`（文件記載有誤，實際無需修改）
-- [ ] `api/app.py` 全域狀態封裝（`_trade_task` / `_trade_engine` → `TradeManager` 類別）
+- [x] `api/app.py` 全域狀態封裝（`_trade_task` / `_trade_engine` → `TradeManager` 類別）
 - [ ] `daily_report/strategy_planner.py`、`risk_manager.py` 直接 `requests.get()` → 移入 `data/` 封裝
 
 ### 批次 D：功能補完（部分完成）
 
 - ✅ `market_analyzer.py` 新聞情緒接入：`calculate_comprehensive_sentiment()` 第 4 項由 `0.0` 硬值替換為 `CryptoNewsAnalyzer.analyze_news()` 實際呼叫（權重 15%，失敗靜默略過）
 - ✅ CLI `evolve` 命令：新增 `python main.py evolve`，`StrategyArena` 遺傳演算法入口，支援 `--symbol / --generations / --population / --output`
-- [ ] `SOP` 回測驗證步驟補完（`analysis/daily_report/__init__.py` 仍有待補強）
-- [ ] `phase_router.py` 認知複雜度問題修正
+- [x] `SOP` 回測驗證步驟補完（`analysis/daily_report/__init__.py` 已接上正式 replay backtest）
+- [x] `phase_router.py` 認知複雜度問題修正
 
 ### 批次 E：前端 UI 整合（2026-04-17 更新：先推進 `devops-d`）
 

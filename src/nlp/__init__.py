@@ -22,7 +22,6 @@ __all__ = [
     "get_create_chat_engine",
     "get_bpe_tokenizer",
     "get_bilingual_tokenizer",
-    "get_rag_system",
 ]
 
 # 延遲導入以避免循環依賴
@@ -48,5 +47,12 @@ def get_bilingual_tokenizer():
 
 def get_rag_system():
     """取得 RAGSystem 類別（已廢棄，請使用 src/rag/ 模組）"""
+    import warnings
+
+    warnings.warn(
+        "nlp.get_rag_system() 僅供舊版相容，請改用 src/rag/ 模組。",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     from .rag_system import RAGSystem
     return RAGSystem

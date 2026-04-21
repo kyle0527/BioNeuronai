@@ -1,9 +1,10 @@
 """
 RAG (Retrieval-Augmented Generation) 系統
 ========================================
-⚠️ **已廢棄 (DEPRECATED)** ⚠️
+⚠️ **已廢棄 / 相容歸檔 (DEPRECATED / ARCHIVED-COMPAT)** ⚠️
 
 此實現已被 `src/rag/` 模組取代。
+本檔案只保留給舊程式相容使用，不屬於任何現行主流程。
 
 新代碼請使用:
     from rag.core import EmbeddingService, UnifiedRetriever
@@ -11,7 +12,7 @@ RAG (Retrieval-Augmented Generation) 系統
 
 遷移指南: 請參考 MIGRATION_RAG.md
 
-此檔案將在 2026-04-26 後移除。
+此檔案已進入 archive-only 狀態；除非為了舊版相容，不應再新增功能或新引用。
 
 ---
 
@@ -30,10 +31,12 @@ import warnings
 
 warnings.warn(
     "nlp.rag_system.RAGSystem 已廢棄，請使用 src/rag/ 模組。"
-    "詳見 MIGRATION_RAG.md",
+    "本檔案僅供舊版相容，詳見 MIGRATION_RAG.md",
     DeprecationWarning,
     stacklevel=2
 )
+
+ARCHIVED_COMPAT_ONLY = True
 
 import hashlib  # noqa: E402
 import json  # noqa: E402

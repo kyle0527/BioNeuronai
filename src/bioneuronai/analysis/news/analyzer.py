@@ -22,6 +22,7 @@ import hashlib
 import logging
 import threading
 from datetime import datetime, timedelta
+from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple, cast
 from collections import Counter
 
@@ -186,6 +187,11 @@ class CryptoNewsAnalyzer:
         'PEPE': ['pepe'],
     }
     
+    _ADAPTIVE_WINDOW_DEFAULT_HOURS = 24
+    _ADAPTIVE_WINDOW_MIN_HOURS = 1
+    _ADAPTIVE_WINDOW_MAX_HOURS = 168
+    _ADAPTIVE_WINDOW_OVERLAP_MINUTES = 5
+
     def __init__(
         self,
         enable_rag_ingest: bool = True,
@@ -214,11 +220,10 @@ class CryptoNewsAnalyzer:
                 self._news_fetcher = None
 
         # 新聞記錄文件路徑
-        self._news_records_dir = os.path.join(
-            os.path.dirname(__file__), '..', '..', '..', '..', 'data', 'bioneuronai', 'trading', 'sop'
-        )
-        self._news_records_file = os.path.join(self._news_records_dir, 'news_records.json')
-        os.makedirs(self._news_records_dir, exist_ok=True)
+        self._news_records_dir = Path(__file__).parent.parent.parent.parent / "data" / "bioneuronai" / "trading" / "sop"
+        self._news_records_file = self._news_records_dir / "news_records.json"
+        self._news_fetch_state_file = self._news_records_dir / "news_fetch_state.json"
+        self._news_records_dir.mkdir(exist_ok=True, parents=True)
 
         logger.info("✅ CryptoNewsAnalyzer 初始化完成")
     
@@ -226,19 +231,25 @@ class CryptoNewsAnalyzer:
     # 主要公開 API
     # ========================================
     
-    def analyze_news(self, symbol: str = "BTCUSDT", hours: int = 24) -> NewsAnalysisResult:
+    def analyze_news(
+        self,
+        symbol: str = "BTCUSDT",
+        hours: Optional[int] = None,
+    ) -> NewsAnalysisResult:
         """
         分析加密貨幣新聞
         
         Args:
             symbol: 交易對，如 BTCUSDT
-            hours: 分析時間範圍
+            hours: 分析時間範圍；None 表示使用自適應時間窗
         
         Returns:
             NewsAnalysisResult 分析結果
         """
+        window_hours, cutoff = self._resolve_analysis_window(symbol, hours)
+
         # 檢查快取
-        cache_key = f"{symbol}_{hours}"
+        cache_key = f"{symbol}_{hours if hours is not None else 'adaptive'}"
         with self._lock:
             if cache_key in self._cache:
                 result, cached_at = self._cache[cache_key]
@@ -249,19 +260,78 @@ class CryptoNewsAnalyzer:
         coin = symbol.replace("USDT", "").replace("USD", "")
         
         # 獲取新聞
-        articles = self._fetch_news(coin, hours)
+        articles = self._fetch_news(coin, cutoff=cutoff)
         
         # 分析新聞
         result = self._analyze_articles(symbol, articles)
 
         # Analysis -> RAG 知識入庫（B.6）
-        self._ingest_analysis_to_rag(result=result, symbol=symbol, hours=hours)
+        self._ingest_analysis_to_rag(result=result, symbol=symbol, hours=window_hours)
+
+        if articles:
+            self._save_last_fetch_time(symbol, datetime.now())
         
         # 更新快取
         with self._lock:
             self._cache[cache_key] = (result, datetime.now())
         
         return result
+
+    def _resolve_analysis_window(
+        self,
+        symbol: str,
+        hours: Optional[int],
+    ) -> Tuple[int, datetime]:
+        """解析分析時間窗；未指定時使用上次成功抓取時間自適應。"""
+        if hours is not None:
+            normalized_hours = max(self._ADAPTIVE_WINDOW_MIN_HOURS, min(int(hours), self._ADAPTIVE_WINDOW_MAX_HOURS))
+            return normalized_hours, datetime.now() - timedelta(hours=normalized_hours)
+
+        last_fetch = self._get_last_fetch_time(symbol)
+        if last_fetch is None:
+            default_hours = self._ADAPTIVE_WINDOW_DEFAULT_HOURS
+            return default_hours, datetime.now() - timedelta(hours=default_hours)
+
+        cutoff = last_fetch - timedelta(minutes=self._ADAPTIVE_WINDOW_OVERLAP_MINUTES)
+        elapsed_hours = max(
+            self._ADAPTIVE_WINDOW_MIN_HOURS,
+            int((datetime.now() - cutoff).total_seconds() / 3600) + 1,
+        )
+        normalized_hours = min(elapsed_hours, self._ADAPTIVE_WINDOW_MAX_HOURS)
+        return normalized_hours, cutoff
+
+    def _get_last_fetch_time(self, symbol: str) -> Optional[datetime]:
+        """讀取指定交易對上次成功抓取新聞的時間。"""
+        if not self._news_fetch_state_file.exists():
+            return None
+
+        try:
+            with open(self._news_fetch_state_file, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            timestamp = data.get(symbol)
+            if not timestamp:
+                return None
+            return datetime.fromisoformat(timestamp)
+        except Exception as e:
+            logger.debug(f"讀取新聞抓取狀態失敗: {e}")
+            return None
+
+    def _save_last_fetch_time(self, symbol: str, fetched_at: datetime) -> None:
+        """保存指定交易對上次成功抓取新聞的時間。"""
+        state: Dict[str, str] = {}
+        if self._news_fetch_state_file.exists():
+            try:
+                with open(self._news_fetch_state_file, 'r', encoding='utf-8') as f:
+                    state = cast(Dict[str, str], json.load(f))
+            except Exception as e:
+                logger.debug(f"讀取既有抓取狀態失敗，將覆寫: {e}")
+
+        state[symbol] = fetched_at.isoformat()
+        try:
+            with open(self._news_fetch_state_file, 'w', encoding='utf-8') as f:
+                json.dump(state, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            logger.debug(f"保存新聞抓取狀態失敗: {e}")
 
     def _ingest_analysis_to_rag(
         self,
@@ -295,9 +365,9 @@ class CryptoNewsAnalyzer:
         except Exception as e:
             logger.warning(f"新聞分析結果入庫失敗（不中斷主流程）: {e}")
     
-    def get_quick_summary(self, symbol: str = "BTCUSDT") -> str:
+    def get_quick_summary(self, symbol: str = "BTCUSDT", hours: Optional[int] = None) -> str:
         """獲取快速摘要"""
-        result = self.analyze_news(symbol, hours=24)
+        result = self.analyze_news(symbol, hours=hours)
         
         sentiment_emoji = {
             'positive': '🟢',
@@ -308,7 +378,7 @@ class CryptoNewsAnalyzer:
         emoji = sentiment_emoji.get(result.overall_sentiment, '⚪')
         
         summary = f"""
-📰 {symbol} 新聞分析 (24小時)
+📰 {symbol} 新聞分析 ({result.signal_valid_hours}小時有效)
 
 📊 統計: {result.total_articles} 則新聞
 {emoji} 情緒: {result.overall_sentiment.upper()} (分數: {result.sentiment_score:+.2f})
@@ -329,14 +399,14 @@ class CryptoNewsAnalyzer:
         
         return summary
     
-    def should_trade(self, symbol: str = "BTCUSDT") -> Tuple[bool, str]:
+    def should_trade(self, symbol: str = "BTCUSDT", hours: Optional[int] = None) -> Tuple[bool, str]:
         """
         判斷是否適合交易
         
         Returns:
             (是否可交易, 原因)
         """
-        result = self.analyze_news(symbol, hours=12)
+        result = self.analyze_news(symbol, hours=hours)
         
         # 檢查危險事件
         danger_events = [EVENT_SECURITY]
@@ -359,7 +429,7 @@ class CryptoNewsAnalyzer:
         Returns:
             統計結果 {'evaluated': 5, 'bullish': 3, 'bearish': 2}
         """
-        if not os.path.exists(self._news_records_file):
+        if not self._news_records_file.exists():
             logger.info("沒有待評估的新聞記錄")
             return {'evaluated': 0}
         
@@ -414,30 +484,37 @@ class CryptoNewsAnalyzer:
     # 新聞獲取方法
     # ========================================
     
-    def _fetch_news(self, coin: str, hours: int) -> List[NewsArticle]:
+    def _fetch_news(self, coin: str, cutoff: datetime) -> List[NewsArticle]:
         """獲取新聞"""
-        articles = []
-        
-        # 來源 1: CryptoPanic API
-        articles.extend(self._fetch_from_cryptopanic(coin))
-        
-        # 來源 2: RSS Feeds
-        articles.extend(self._fetch_from_rss(coin))
-        
-        # 時間過濾
-        cutoff = datetime.now() - timedelta(hours=hours)
-        articles = [a for a in articles if a.published_at >= cutoff]
-        
-        # 去重
-        seen_titles = set()
-        unique_articles = []
-        for article in articles:
-            title_key = article.title.lower()[:50]
-            if title_key not in seen_titles:
-                seen_titles.add(title_key)
-                unique_articles.append(article)
-        
+        articles = self._collect_articles(coin)
+        recent_articles = self._filter_articles_by_time(articles, cutoff)
+        unique_articles = self._deduplicate_articles(recent_articles)
         logger.info(f"✅ 獲取 {len(unique_articles)} 則 {coin} 新聞")
+        return unique_articles
+
+    def _collect_articles(self, coin: str) -> List[NewsArticle]:
+        """聚合各來源新聞。"""
+        articles: List[NewsArticle] = []
+        articles.extend(self._fetch_from_cryptopanic(coin))
+        articles.extend(self._fetch_from_rss(coin))
+        return articles
+
+    @staticmethod
+    def _filter_articles_by_time(articles: List[NewsArticle], cutoff: datetime) -> List[NewsArticle]:
+        """依時間窗過濾文章。"""
+        return [article for article in articles if article.published_at >= cutoff]
+
+    @staticmethod
+    def _deduplicate_articles(articles: List[NewsArticle]) -> List[NewsArticle]:
+        """對文章做標題級去重。"""
+        seen_titles = set()
+        unique_articles: List[NewsArticle] = []
+        for article in sorted(articles, key=lambda item: item.published_at, reverse=True):
+            title_key = article.title.lower()[:50]
+            if title_key in seen_titles:
+                continue
+            seen_titles.add(title_key)
+            unique_articles.append(article)
         return unique_articles
     
     def _fetch_from_cryptopanic(self, coin: str) -> List[NewsArticle]:

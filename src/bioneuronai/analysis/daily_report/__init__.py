@@ -161,8 +161,10 @@ class SOPAutomationSystem:
         results["overall_assessment"] = overall_assessment
         
         # 保存結果
-        self.report_generator.save_check_results(results)
-        
+        storage_status = self.report_generator.save_check_results(results)
+        results["report_storage"] = {"json_path": storage_status.get("file_path")}
+        results["knowledge_base_writeback"] = storage_status.get("knowledge_base", {})
+
         completion_time = datetime.now()
         duration = (completion_time - start_time).total_seconds()
         
@@ -206,7 +208,7 @@ class SOPAutomationSystem:
             if self.news_sentiment_analyzer is None:
                 raise RuntimeError("新聞分析器未初始化，請確認 CryptoNewsAnalyzer 可正常載入")
 
-            news_analysis = self.news_sentiment_analyzer.perform_ai_news_analysis("BTCUSDT", 24)
+            news_analysis = self.news_sentiment_analyzer.perform_ai_news_analysis("BTCUSDT")
             check.news_analysis = news_analysis
 
             sentiment_score = news_analysis.get('sentiment_score', 0.0)
@@ -397,11 +399,42 @@ class SOPAutomationSystem:
             # 基於策略信心和適用性評分
             strategy_score = final_strategy.get("confidence", 0.5) * 10
             suitability_score = suitability.get("score", 5.0)
+            backtest_status = str(backtest_results.get("status", "UNKNOWN")).upper()
+            backtest_adjustment = 0.0
             
             # 綜合評分
             score = (strategy_score + suitability_score) / 2
-            
+             
             # 判斷狀態
+            recommendations = []
+            if backtest_status == "COMPLETED":
+                total_return = float(backtest_results.get("total_return") or 0.0)
+                sharpe_ratio = float(backtest_results.get("sharpe_ratio") or 0.0)
+                max_drawdown = float(backtest_results.get("max_drawdown") or 0.0)
+                trade_count = int(backtest_results.get("trade_count") or 0)
+
+                if total_return > 0:
+                    backtest_adjustment += 0.5
+                else:
+                    backtest_adjustment -= 1.0
+                    recommendations.append("回測報酬未轉正，建議重新檢查策略與風控設定")
+
+                if sharpe_ratio >= 1.0:
+                    backtest_adjustment += 0.5
+                elif trade_count > 0:
+                    backtest_adjustment -= 0.5
+                    recommendations.append("回測夏普比率偏低，策略穩定性仍需驗證")
+
+                if max_drawdown > 10.0:
+                    backtest_adjustment -= 0.5
+                    recommendations.append("回測最大回撤偏高，需收斂槓桿與停損設定")
+            elif backtest_status == "NO_DATA":
+                recommendations.append("缺少可用 replay 資料，無法完成回測驗證")
+            elif backtest_status == "FAILED":
+                recommendations.append("回測驗證執行失敗，請先排除 replay/runtime 問題")
+
+            score = max(0.0, min(10.0, score + backtest_adjustment))
+
             if score >= 8.0:
                 status = "READY"
                 risk_level = "LOW"
@@ -414,10 +447,7 @@ class SOPAutomationSystem:
             else:
                 status = "NOT_READY"
                 risk_level = "HIGH"
-            
-            recommendations = []
-            if backtest_results.get("status") == "NOT_IMPLEMENTED":
-                recommendations.append("建議實現回測系統以提高決策準確度")
+
             if suitability.get("status") == "ACCEPTABLE":
                 recommendations.append("市場適配度一般，建議謹慎執行")
             

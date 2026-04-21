@@ -108,9 +108,11 @@
 - `rag/core/embeddings.py` 在缺少 `sentence-transformers` 時，已改為 deterministic hashed embedding 並輸出警告
 
 **剩餘未完成：**
-- `UnifiedRetriever.retrieve_for_trading()` 仍未在交易前檢查中呼叫
 - `strategy_fusion.py` 的 `EventContext` 仍未從 RAG 知識庫填充
-- `report_generator.py` 尚未將每日報告存入 `knowledge_base`（`MARKET_ANALYSIS` 類型）
+
+**已於 2026-04-21 完成：**
+- `UnifiedRetriever.retrieve_for_trading()` 已接入 `pretrade`
+- `report_generator.py` 已將每日報告寫回 `knowledge_base`（`MARKET_ANALYSIS` 類型）
 
 **後續接通方案（最小可行）：**
 ```
@@ -149,21 +151,16 @@ news/
 
 ### T5：新聞抓取時間邏輯（中優先）
 
-**問題：** 所有新聞抓取都硬編碼 `hours=24`，沒有「從上次分析到現在」的累積邏輯。
+**原問題：** 所有新聞抓取都硬編碼 `hours=24`，沒有「從上次分析到現在」的累積邏輯。
 
 **影響：**
 - 若 1 小時內執行兩次分析，第二次仍拿整整 24 小時的新聞（重複）
 - 若超過 24 小時沒執行，中間的新聞可能遺漏
 
-**修復方向：**
-```python
-# 在 InternalKnowledgeBase 或獨立的 AnalysisStateStore 記錄
-last_analysis_time: datetime
-
-# 抓取時
-hours_since_last = (datetime.now() - last_analysis_time).total_seconds() / 3600
-news = analyzer.analyze_news(symbol, hours=max(1, min(48, hours_since_last)))
-```
+**現況（2026-04-21）：**
+- `CryptoNewsAnalyzer.analyze_news(..., hours=None)` 已改為自適應時間窗
+- 會根據上次成功抓取時間決定 cutoff，並保留少量 overlap 避免漏資料
+- 若顯式傳入 `hours`，仍以呼叫者指定值為準
 
 ---
 
@@ -177,16 +174,19 @@ news = analyzer.analyze_news(symbol, hours=max(1, min(48, hours_since_last)))
 
 **建議：** 在兩個檔案頂部加上明確注釋說明「本檔為 CryptoNewsAnalyzer 之 X 用途適配器，勿新增第三個 wrapper」。
 
+**現況（2026-04-21）：**
+- `analysis/daily_report/news_sentiment.py` 與 `rag/services/news_adapter.py` 已補上角色註解
+
 ---
 
 ### T7：其他遺留項目
 
 | 項目 | 位置 | 優先 |
 |------|------|------|
-| `api/app.py` 全域狀態未封裝 | `_trade_task`/`_trade_engine` → 應封裝為 `TradeManager` | 低 |
-| `analysis/daily_report/__init__.py` | Backtest 驗證步驟未完成 | 低 |
-| `phase_router.py` 認知複雜度過高 | 單一函式邏輯過多 | 低 |
-| `nlp/rag_system.py` | legacy 腳本仍留存，非正式主線 | 低 |
+| `api/app.py` 全域狀態未封裝 | 已修正為 `TradeManager` | 已完成 |
+| `analysis/daily_report/__init__.py` | Backtest 驗證步驟未完成 | 已完成 |
+| `phase_router.py` 認知複雜度過高 | 已拆分主入口輔助函式 | 已完成 |
+| `nlp/rag_system.py` | legacy 腳本仍留存，非正式主線 | 相容歸檔保留 |
 
 ---
 

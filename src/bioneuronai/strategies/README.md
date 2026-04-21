@@ -299,8 +299,8 @@ selection = await selector.select_optimal_strategy(ohlcv_data)
 
 **目前狀態**:
 - 編排框架已存在
-- 尚未接入正式 `TradingEngine` 主線
-- 與目前 `TradeSetup` 資料模型仍有欄位對齊工作未完成
+- 已可選接入正式 `TradingEngine` 主線（`strategy_type="phase_router"`）
+- `TradeSetup` 欄位已補齊主線所需對齊，但整體仍屬第二階段可選能力，非預設主線
 
 ### PortfolioOptimizer — 組合優化器 (`portfolio_optimizer.py`, 668 行)
 
@@ -332,7 +332,7 @@ stable-baselines3  # PPO 算法實現
 torch.nn           # 策略網絡
 ```
 > `SB3_AVAILABLE` 旗標控制，未安裝時降級為規則型融合，不影響核心運作。  
-> 目前此模組仍屬研究型能力，未接正式主交易主線。
+> 目前此模組仍屬研究型能力；已可選接入 `TradingEngine`（`strategy_type="rl_fusion"`），但需 `stable-baselines3` 與已訓練模型檔才會啟用，否則自動回退既有主線。
 
 ---
 

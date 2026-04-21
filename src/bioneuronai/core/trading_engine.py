@@ -38,6 +38,28 @@ except ImportError:
     StrategySelector = None  # type: ignore[assignment,misc]
     STRATEGY_SELECTOR_AVAILABLE = False
 
+try:
+    from ..strategies.phase_router import TradingPhaseRouter
+    PHASE_ROUTER_AVAILABLE = True
+except ImportError:
+    TradingPhaseRouter = None  # type: ignore[assignment,misc]
+    PHASE_ROUTER_AVAILABLE = False
+
+try:
+    from ..strategies.rl_fusion_agent import (
+        RLMetaAgent,
+        StrategySignal as RLStrategySignal,
+        MarketState as RLMarketState,
+        SB3_AVAILABLE as RL_SB3_AVAILABLE,
+    )
+    RL_META_AGENT_AVAILABLE = True
+except ImportError:
+    RLMetaAgent = None  # type: ignore[assignment,misc]
+    RLStrategySignal = None  # type: ignore[assignment,misc]
+    RLMarketState = None  # type: ignore[assignment,misc]
+    RL_SB3_AVAILABLE = False
+    RL_META_AGENT_AVAILABLE = False
+
 # 位置數據模型（創建缺失的 Position 類別）
 @dataclass
 class Position:
@@ -184,6 +206,9 @@ class TradingEngine:
         # 
         self.connector = BinanceFuturesConnector(api_key, api_secret, testnet)
         self.risk_manager = RiskManager()  # RiskManager不需要參數
+        self.strategy_type = str(strategy_type or "fusion").strip().lower()
+        self.enable_phase_router = self.strategy_type == "phase_router"
+        self.enable_rl_meta_agent = self.strategy_type == "rl_fusion"
         
         # 正式策略主線：StrategySelector + AIStrategyFusion
         if not STRATEGY_SELECTOR_AVAILABLE or StrategySelector is None:
@@ -197,6 +222,15 @@ class TradingEngine:
             "✅ 使用新策略主線: StrategySelector%s",
             " + AI Fusion" if getattr(self.strategy, "ai_fusion_available", False) else "",
         )
+        self.phase_router: Optional[Any] = None
+        if self.enable_phase_router and PHASE_ROUTER_AVAILABLE and TradingPhaseRouter is not None:
+            try:
+                self.phase_router = TradingPhaseRouter(timeframe="1m", enable_ai_selection=True)
+                logger.info("✅ PhaseRouter 已接入 TradingEngine 主線")
+            except Exception as e:
+                logger.warning(f"PhaseRouter 初始化失敗，將回退 StrategySelector: {e}")
+
+        self.rl_meta_agent: Optional[Any] = None
         
         self.cost_calculator = TradingCostCalculator(
             vip_level=0,
@@ -218,6 +252,8 @@ class TradingEngine:
         _project_root = Path(__file__).parent.parent.parent.parent
         self.data_dir = _project_root / "data" / "bioneuronai" / "trading" / "engine"
         self.data_dir.mkdir(parents=True, exist_ok=True)
+        if self.enable_rl_meta_agent:
+            self.rl_meta_agent = self._initialize_rl_meta_agent()
         
         # 初始化數據庫管理器
         self.db_manager: DatabaseManager = get_database_manager(
@@ -299,6 +335,31 @@ class TradingEngine:
                 logger.warning(f"NewsAdapter 初始化失敗: {e}")
 
         logger.info(" ")
+
+    def _initialize_rl_meta_agent(self) -> Optional[Any]:
+        """初始化 RL Meta-Agent；僅在模型與依賴齊備時啟用。"""
+        if not RL_META_AGENT_AVAILABLE or RLMetaAgent is None or not RL_SB3_AVAILABLE:
+            logger.warning("RL Meta-Agent 不可用，將維持既有策略主線")
+            return None
+
+        model_path = self.data_dir / "rl_models"
+        model_file = model_path / "ppo_strategy_fusion.zip"
+        if not model_file.exists():
+            logger.warning("RL 模型不存在，略過 RL Meta-Agent 接入: %s", model_file)
+            return None
+
+        try:
+            num_strategies = len(getattr(self.strategy, "_strategies", {})) or 5
+            agent = RLMetaAgent(
+                num_strategies=num_strategies,
+                model_path=model_path,
+                training_mode=False,
+            )
+            logger.info("✅ RL Meta-Agent 已接入 TradingEngine 主線")
+            return agent
+        except Exception as e:
+            logger.warning(f"RL Meta-Agent 初始化失敗，將回退既有主線: {e}")
+            return None
     
     # ========== AI  ==========
     
@@ -722,11 +783,25 @@ class TradingEngine:
         if ohlcv_data.size == 0 or len(ohlcv_data) < 20:
             return None
 
+        phase_router_signal = self._generate_phase_router_signal(
+            symbol=symbol,
+            current_price=current_price,
+            ohlcv_data=ohlcv_data,
+            event_context=event_context,
+        )
+        if phase_router_signal is not None:
+            return phase_router_signal
+
         payload = self.strategy.get_actionable_signal(  # type: ignore[union-attr]
             ohlcv_data=ohlcv_data,
             symbol=symbol,
             event_score=event_score,
             event_context=event_context,
+        )
+        payload = self._apply_rl_meta_agent(
+            payload=payload,
+            symbol=symbol,
+            ohlcv_data=ohlcv_data,
         )
         if not payload or not payload.get("should_trade"):
             return None
@@ -749,6 +824,15 @@ class TradingEngine:
             stop_loss_value = float(stop_loss)
 
         confidence = float(payload.get("confidence") or payload.get("setup_confidence") or 0.5)
+        payload_metadata = dict(payload.get("metadata") or {})
+        payload_metadata.setdefault("source", "strategy_selector")
+        payload_metadata.update(
+            {
+                "direction": direction,
+                "contributing_strategies": payload.get("contributing_strategies", []),
+                "consensus_strength": payload.get("consensus_strength"),
+            }
+        )
 
         return TradingSignal(
             symbol=symbol,
@@ -764,14 +848,285 @@ class TradingEngine:
                 f"新策略主線: {payload.get('strategy_name', 'strategy_selector')} | "
                 f"{payload.get('fusion_method', 'selector')}"
             ),
+            metadata=payload_metadata,
+            timestamp=datetime.now(),
+        )
+
+    def _generate_phase_router_signal(
+        self,
+        symbol: str,
+        current_price: float,
+        ohlcv_data: np.ndarray,
+        event_context: Optional[Any] = None,
+    ) -> Optional[TradingSignal]:
+        """在 TradingEngine 主流程中可選地使用 PhaseRouter。"""
+        if not getattr(self, "enable_phase_router", False) or getattr(self, "phase_router", None) is None:
+            return None
+
+        try:
+            market_data = self._build_phase_router_market_data(
+                symbol=symbol,
+                ohlcv_data=ohlcv_data,
+                event_context=event_context,
+            )
+            first_position = self.positions[0] if getattr(self, "positions", None) else None
+            decision = self.phase_router.route_trading_decision(  # type: ignore[union-attr]
+                current_time=datetime.now(),
+                market_data=market_data,
+                has_position=first_position is not None,
+                position_direction=first_position.side.lower() if first_position else None,
+            )
+            return self._convert_phase_router_decision_to_signal(
+                decision=decision,
+                symbol=symbol,
+                current_price=current_price,
+            )
+        except Exception as e:
+            logger.warning(f"PhaseRouter 主線執行失敗，回退 StrategySelector: {e}")
+            return None
+
+    def _build_phase_router_market_data(
+        self,
+        symbol: str,
+        ohlcv_data: np.ndarray,
+        event_context: Optional[Any] = None,
+    ) -> Dict[str, Any]:
+        """為 PhaseRouter 建立最小市場資料上下文。"""
+        volatility = self._estimate_ohlcv_volatility(ohlcv_data)
+        news_timestamp = getattr(event_context, "timestamp", None) if event_context is not None else None
+        return {
+            "symbol": symbol,
+            "ohlcv": ohlcv_data,
+            "volatility": volatility,
+            "has_news_event": event_context is not None,
+            "news_event_time": news_timestamp,
+        }
+
+    def _convert_phase_router_decision_to_signal(
+        self,
+        decision: Optional[Dict[str, Any]],
+        symbol: str,
+        current_price: float,
+    ) -> Optional[TradingSignal]:
+        """將 PhaseRouter 的決策轉為正式 TradingSignal。"""
+        if not decision:
+            return None
+
+        setup = decision.get("signal")
+        if setup is None:
+            return None
+
+        signal_type = self._direction_to_signal_type(str(getattr(setup, "direction", "")).lower())
+        if signal_type is None:
+            return None
+
+        strength = getattr(getattr(setup, "signal_strength", None), "value", 3)
+        confirmations = float(getattr(setup, "entry_confirmations", 0) or 0)
+        required_confirmations = float(getattr(setup, "required_confirmations", 1) or 1)
+        confidence = max(
+            min(float(strength) / 5.0, 1.0),
+            min(confirmations / max(required_confirmations, 1.0), 1.0),
+        )
+        entry_price = float(getattr(setup, "entry_price", current_price) or current_price)
+        take_profit = getattr(setup, "take_profit_1", None)
+        stop_loss = getattr(setup, "stop_loss", None)
+
+        target_price = None
+        if take_profit and self._is_valid_target_price(signal_type, entry_price, float(take_profit)):
+            target_price = float(take_profit)
+
+        stop_loss_value = None
+        if stop_loss and self._is_valid_stop_loss(signal_type, entry_price, float(stop_loss)):
+            stop_loss_value = float(stop_loss)
+
+        return TradingSignal(
+            symbol=symbol,
+            signal_type=signal_type,
+            confidence=max(0.0, min(1.0, confidence)),
+            entry_price=entry_price,
+            target_price=target_price,
+            stop_loss=stop_loss_value,
+            take_profit=float(take_profit) if take_profit else None,
+            position_size=getattr(setup, "total_position_size", None),
+            strategy_name="phase_router",
+            reason=(
+                f"PhaseRouter: {decision.get('phase', 'unknown')} / "
+                f"{decision.get('action_phase', 'entry')} / "
+                f"{decision.get('strategy_used', 'router')}"
+            ),
             metadata={
-                "source": "strategy_selector",
-                "direction": direction,
-                "contributing_strategies": payload.get("contributing_strategies", []),
-                "consensus_strength": payload.get("consensus_strength"),
+                "source": "phase_router",
+                "phase": decision.get("phase"),
+                "action_phase": decision.get("action_phase"),
+                "strategy_used": decision.get("strategy_used"),
             },
             timestamp=datetime.now(),
         )
+
+    def _apply_rl_meta_agent(
+        self,
+        payload: Optional[Dict[str, Any]],
+        symbol: str,
+        ohlcv_data: np.ndarray,
+    ) -> Optional[Dict[str, Any]]:
+        """讓 RL Meta-Agent 以可選方式後處理 selector / fusion 輸出。"""
+        if (
+            payload is None
+            or not payload.get("should_trade")
+            or getattr(self, "rl_meta_agent", None) is None
+            or RLStrategySignal is None
+            or RLMarketState is None
+        ):
+            return payload
+
+        try:
+            strategy_signals = self.strategy.get_strategy_signals(  # type: ignore[union-attr]
+                ohlcv_data,
+                symbol=symbol,
+            )
+            rl_action = self.rl_meta_agent.predict(  # type: ignore[union-attr]
+                strategy_signals=self._build_rl_strategy_signals(strategy_signals),
+                market_state=self._build_rl_market_state(symbol, ohlcv_data),
+                current_position=self._build_rl_current_position(symbol),
+            )
+        except Exception as e:
+            logger.warning(f"RL Meta-Agent 推論失敗，回退既有主線: {e}")
+            return payload
+
+        rl_direction = str(getattr(rl_action, "action_type", "hold")).lower()
+        rl_confidence = float(getattr(rl_action, "confidence", 0.0) or 0.0)
+        if rl_direction == "hold" and rl_confidence >= 0.5:
+            return None
+
+        if rl_direction not in {"long", "short"}:
+            return payload
+
+        merged_payload = dict(payload)
+        merged_payload.setdefault("metadata", {})
+        merged_payload["metadata"] = {
+            **(payload.get("metadata") or {}),
+            "source": "rl_meta_agent",
+            "rl_action": rl_direction,
+            "rl_confidence": rl_confidence,
+        }
+
+        base_direction = str(payload.get("direction", "")).lower()
+        base_confidence = float(payload.get("confidence") or 0.5)
+        if rl_direction != base_direction and rl_confidence >= max(base_confidence, 0.75):
+            merged_payload["direction"] = rl_direction
+            merged_payload["confidence"] = rl_confidence
+            merged_payload["strategy_name"] = "rl_meta_agent"
+            merged_payload["fusion_method"] = "rl_meta_agent_override"
+            return merged_payload
+
+        if rl_direction == base_direction:
+            merged_payload["confidence"] = max(base_confidence, min(0.95, rl_confidence))
+            merged_payload["strategy_name"] = payload.get("strategy_name", "rl_meta_agent")
+            return merged_payload
+
+        return payload
+
+    def _build_rl_strategy_signals(self, strategy_signals: Dict[str, Any]) -> List[Any]:
+        """將 selector 的策略 setup 轉成 RL Agent 可接受的信號。"""
+        converted: List[Any] = []
+        if RLStrategySignal is None:
+            return converted
+
+        for name, setup in strategy_signals.items():
+            if setup is None:
+                converted.append(
+                    RLStrategySignal(
+                        strategy_name=name,
+                        direction="neutral",
+                        strength=0.0,
+                        confidence=0.0,
+                    )
+                )
+                continue
+
+            strength = float(getattr(getattr(setup, "signal_strength", None), "value", 3)) / 5.0
+            confirmations = float(getattr(setup, "entry_confirmations", 0) or 0)
+            required_confirmations = float(getattr(setup, "required_confirmations", 1) or 1)
+            confidence = min(1.0, max(strength, confirmations / max(required_confirmations, 1.0)))
+            converted.append(
+                RLStrategySignal(
+                    strategy_name=name,
+                    direction=str(getattr(setup, "direction", "neutral") or "neutral").lower(),
+                    strength=max(0.0, min(1.0, strength)),
+                    confidence=max(0.0, min(1.0, confidence)),
+                    entry_price=float(getattr(setup, "entry_price", 0.0) or 0.0),
+                    stop_loss=float(getattr(setup, "stop_loss", 0.0) or 0.0),
+                    take_profit=float(getattr(setup, "take_profit_1", 0.0) or 0.0),
+                )
+            )
+
+        return converted
+
+    def _build_rl_market_state(self, symbol: str, ohlcv_data: np.ndarray) -> Any:
+        """為 RL Agent 建立市場狀態摘要。"""
+        if RLMarketState is None:
+            return None
+
+        closes = ohlcv_data[:, 4] if len(ohlcv_data) else np.array([], dtype=float)
+        volumes = ohlcv_data[:, 5] if len(ohlcv_data) else np.array([], dtype=float)
+        price = float(closes[-1]) if closes.size else 0.0
+        trend_strength = 0.0
+        if closes.size >= 2 and closes[0] != 0:
+            trend_strength = max(-1.0, min(1.0, (float(closes[-1]) - float(closes[0])) / float(closes[0])))
+
+        volume_ratio = 0.0
+        if volumes.size >= 2:
+            baseline_volume = float(np.mean(volumes[:-1])) or 1.0
+            volume_ratio = max(0.0, min(1.0, float(volumes[-1]) / max(baseline_volume, 1.0)))
+
+        news_sentiment = 0.0
+        news_duration_hours = 0.0
+        related_news_count = 0
+        if self.news_analyzer:
+            try:
+                analysis = self.news_analyzer.analyze_news(symbol, hours=4)
+                news_sentiment = float(analysis.sentiment_score)
+                news_duration_hours = float(analysis.signal_valid_hours)
+                related_news_count = int(analysis.total_articles)
+            except Exception as e:
+                logger.debug(f"RL 市場狀態新聞分析失敗: {e}")
+
+        return RLMarketState(
+            price=price,
+            volatility=self._estimate_ohlcv_volatility(ohlcv_data),
+            trend_strength=trend_strength,
+            volume_ratio=volume_ratio,
+            news_sentiment=max(-1.0, min(1.0, news_sentiment)),
+            time_of_day=datetime.now().hour / 23.0,
+            news_duration_hours=news_duration_hours,
+            related_news_count=related_news_count,
+        )
+
+    def _build_rl_current_position(self, symbol: str) -> Optional[Dict[str, Any]]:
+        """將當前持倉轉成 RL Agent 可讀格式。"""
+        for position in getattr(self, "positions", []):
+            if position.symbol != symbol:
+                continue
+            side = str(position.side).upper()
+            return {
+                "type": 1 if side == "LONG" else -1 if side == "SHORT" else 0,
+                "size": float(getattr(position, "size", 0.0) or 0.0),
+            }
+        return None
+
+    @staticmethod
+    def _estimate_ohlcv_volatility(ohlcv_data: np.ndarray) -> float:
+        """由 OHLCV 粗估 0-1 區間的波動率。"""
+        if ohlcv_data.size == 0 or len(ohlcv_data) < 2:
+            return 0.0
+        closes = ohlcv_data[:, 4]
+        previous = closes[:-1]
+        current = closes[1:]
+        valid = previous != 0
+        if not np.any(valid):
+            return 0.0
+        returns = (current[valid] - previous[valid]) / previous[valid]
+        return float(max(0.0, min(1.0, np.std(returns) * 10.0)))
 
     def _convert_klines_to_ohlcv(self, klines: List[Dict[str, Any]]) -> np.ndarray:
         """將 K 線 dict 列表轉為 selector 需要的 OHLCV numpy array。"""

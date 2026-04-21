@@ -1,0 +1,20 @@
+{
+  "run_id": "20260421_225850_e8c17709",
+  "mode": "backtest",
+  "status": "completed",
+  "started_at": "2026-04-21T22:58:50.591246",
+  "completed_at": "2026-04-21T22:59:03.406842",
+  "config": {
+    "symbol": "BTCUSDT",
+    "interval": "1h",
+    "balance": 10000.0,
+    "start_date": null,
+    "end_date": null,
+    "warmup_bars": 50,
+    "data_dir": "C:\\D\\E\\BioNeuronai\\backtest\\data\\binance_historical"
+  },
+  "run_dir": "C:\\D\\E\\BioNeuronai\\backtest\\runtime\\20260421_225850_e8c17709",
+  "orders_recorded": 109,
+  "fills_recorded": 109,
+  "error": null
+}

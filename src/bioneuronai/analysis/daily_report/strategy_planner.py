@@ -9,7 +9,8 @@
 
 # 1. 標準庫
 import logging
-from typing import Any, Dict
+from datetime import datetime
+from typing import Any, Dict, Optional
 
 # 2. 本地模組
 from .models import DailyMarketCondition, StrategyPerformance
@@ -407,14 +408,113 @@ class StrategyPlanner:
         Returns:
             回測結果
         """
-        # 未實現：需要整合真實的回測系統
-        logger.warning("⚠️ 回測功能未實現，跳過此步驟")
-        
-        return {
-            "status": "NOT_IMPLEMENTED",
-            "annual_return": None,
-            "max_drawdown": None,
-            "sharpe_ratio": None,
-            "win_rate": None,
-            "note": "回測系統需要實現 - 建議使用 data_downloads/run_backtest.py"
-        }
+        try:
+            from backtest import get_catalog, run_backtest_summary
+
+            catalog = get_catalog()
+            datasets = catalog.get("datasets", [])
+            if not datasets:
+                logger.warning("⚠️ 找不到可用 replay 資料集，略過計劃回測驗證")
+                return {
+                    "status": "NO_DATA",
+                    "symbol": None,
+                    "interval": None,
+                    "annual_return": None,
+                    "total_return": None,
+                    "max_drawdown": None,
+                    "sharpe_ratio": None,
+                    "win_rate": None,
+                    "trade_count": 0,
+                    "run_id": None,
+                    "run_dir": None,
+                    "note": "找不到可用 replay 資料集，無法執行計劃回測驗證",
+                }
+
+            dataset = self._select_backtest_dataset(datasets)
+            symbol = str(dataset.get("symbol", "ETHUSDT"))
+            interval = str(dataset.get("interval", "1h"))
+
+            logger.info("📊 使用 replay backtest 驗證計劃: %s %s", symbol, interval)
+            summary = run_backtest_summary(
+                symbol=symbol,
+                interval=interval,
+                balance=10000.0,
+                warmup_bars=50,
+            )
+            stats = summary.get("stats", {})
+
+            annual_return = self._annualize_total_return(
+                stats.get("total_return"),
+                dataset.get("start_date"),
+                dataset.get("end_date"),
+            )
+
+            return {
+                "status": str(summary.get("status", "completed")).upper(),
+                "symbol": symbol,
+                "interval": interval,
+                "annual_return": annual_return,
+                "total_return": self._safe_number(stats.get("total_return")),
+                "max_drawdown": self._safe_number(stats.get("max_drawdown")),
+                "sharpe_ratio": self._safe_number(stats.get("sharpe_ratio")),
+                "win_rate": self._safe_number(stats.get("win_rate")),
+                "trade_count": int(summary.get("trade_count", stats.get("total_trades", 0)) or 0),
+                "run_id": summary.get("run_id"),
+                "run_dir": summary.get("run_dir"),
+                "note": "已使用正式 replay backtest 完成計劃驗證",
+            }
+        except Exception as exc:
+            logger.error("❌ 計劃回測驗證失敗: %s", exc)
+            return {
+                "status": "FAILED",
+                "symbol": None,
+                "interval": None,
+                "annual_return": None,
+                "total_return": None,
+                "max_drawdown": None,
+                "sharpe_ratio": None,
+                "win_rate": None,
+                "trade_count": 0,
+                "run_id": None,
+                "run_dir": None,
+                "note": f"計劃回測驗證失敗: {exc}",
+            }
+
+    @staticmethod
+    def _select_backtest_dataset(datasets: list[Dict[str, Any]]) -> Dict[str, Any]:
+        """選擇 daily report 使用的回測資料集，優先 1h 與較長資料窗。"""
+        def _score(item: Dict[str, Any]) -> tuple[int, int]:
+            interval = str(item.get("interval", ""))
+            zip_count = int(item.get("zip_count", 0) or 0)
+            return (1 if interval == "1h" else 0, zip_count)
+
+        return max(datasets, key=_score)
+
+    @staticmethod
+    def _annualize_total_return(
+        total_return_pct: Optional[Any],
+        start_date: Optional[Any],
+        end_date: Optional[Any],
+    ) -> Optional[float]:
+        """將 replay 總報酬率（百分比）換算成年化報酬率（百分比）。"""
+        try:
+            if total_return_pct is None or not start_date or not end_date:
+                return None
+
+            start_dt = datetime.strptime(str(start_date), "%Y-%m-%d")
+            end_dt = datetime.strptime(str(end_date), "%Y-%m-%d")
+            days = max((end_dt - start_dt).days, 1)
+            total_return_ratio = float(total_return_pct) / 100.0
+            annualized_ratio = (1.0 + total_return_ratio) ** (365.0 / days) - 1.0
+            return annualized_ratio * 100.0
+        except Exception:
+            return None
+
+    @staticmethod
+    def _safe_number(value: Optional[Any]) -> Optional[float]:
+        try:
+            if value is None:
+                return None
+            return float(value)
+        except Exception:
+            return None

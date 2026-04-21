@@ -117,9 +117,10 @@ __all__ = [
     "get_create_chat_engine",
     "get_bpe_tokenizer",
     "get_bilingual_tokenizer",
-    "get_rag_system",
 ]
 ```
+
+> `get_rag_system()` 仍保留於 `nlp` 模組中，但已是 deprecated 相容入口，不再列為預設導出。
 
 注意：`get_tiny_llm()` 回傳 `TinyLLM` 類別，不是已初始化的模型實例。
 

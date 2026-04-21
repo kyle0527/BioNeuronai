@@ -1,0 +1,41 @@
+{
+  "mode": "replay",
+  "symbol": "BTCUSDT",
+  "interval": "1h",
+  "current_bar_index": 0,
+  "current_open_time": null,
+  "current_price": null,
+  "orders_received": 109,
+  "fills_emitted": 109,
+  "last_updated_at": "2026-04-21T20:43:37.908229",
+  "progress": {
+    "current": 743,
+    "total": 744,
+    "percent": 99.86559139784946
+  },
+  "account_stats": {
+    "initial_balance": 10000.0,
+    "current_balance": 10188.053519970596,
+    "total_equity": 10111.874720264073,
+    "total_return": 1.1187472026407341,
+    "total_trades": 109,
+    "winning_trades": 34,
+    "losing_trades": 20,
+    "win_rate": 31.19266055045872,
+    "total_commission": 197.7725834003497,
+    "total_realized_pnl": 385.826103370946,
+    "max_drawdown": 3.8202303042599075,
+    "peak_balance": 10203.248517694481
+  },
+  "open_orders": 0,
+  "positions": 1,
+  "account_snapshot": {
+    "balance": 10188.053519970596,
+    "available_balance": 5717.483519970596,
+    "total_equity": 10111.874720264073,
+    "unrealized_pnl": -76.17879970652211,
+    "used_margin": 4394.391200293478,
+    "open_orders_count": 0,
+    "positions_count": 1
+  }
+}

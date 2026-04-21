@@ -8,6 +8,7 @@
 """
 
 # 1. 標準庫
+import hashlib
 import json
 import logging
 from datetime import datetime
@@ -29,9 +30,16 @@ class ReportGenerator:
     3. 提供報告摘要
     """
     
-    def __init__(self, data_dir: str = "sop_automation_data"):
+    def __init__(
+        self,
+        data_dir: str = "sop_automation_data",
+        knowledge_base: Optional[Any] = None,
+        kb_storage_path: Optional[str] = None,
+    ):
         self.data_dir = Path(data_dir)
         self.data_dir.mkdir(exist_ok=True)
+        self._knowledge_base = knowledge_base
+        self._kb_storage_path = kb_storage_path
     
     # ========================================
     # 報告生成
@@ -191,7 +199,7 @@ class ReportGenerator:
     # 數據保存
     # ========================================
     
-    def save_check_results(self, results: Dict):
+    def save_check_results(self, results: Dict) -> Dict[str, Any]:
         """
         保存檢查結果為 JSON
         
@@ -205,14 +213,140 @@ class ReportGenerator:
             
             # 轉換為可序列化格式
             serializable_results = self._convert_to_serializable(results)
+            kb_status = self._write_market_analysis_to_knowledge_base(
+                serializable_results,
+                filepath,
+            )
+            serializable_results["report_storage"] = {"json_path": str(filepath)}
+            serializable_results["knowledge_base_writeback"] = kb_status
             
             with open(filepath, 'w', encoding='utf-8') as f:
                 json.dump(serializable_results, f, ensure_ascii=False, indent=2)
             
             logger.info(f"✅ 檢查結果已保存: {filepath}")
+            return {
+                "file_path": str(filepath),
+                "knowledge_base": kb_status,
+            }
             
         except Exception as e:
             raise RuntimeError(f"保存檢查結果失敗: {e}") from e
+
+    def _ensure_knowledge_base(self) -> Optional[Any]:
+        """確保 InternalKnowledgeBase 已初始化。"""
+        if self._knowledge_base is not None:
+            return self._knowledge_base
+
+        try:
+            from rag.internal import InternalKnowledgeBase  # noqa: PLC0415
+
+            storage_path = self._kb_storage_path
+            if not storage_path:
+                project_root = Path(__file__).parent.parent.parent.parent.parent
+                storage_path = str(project_root / "data" / "bioneuronai" / "rag" / "internal")
+
+            self._knowledge_base = InternalKnowledgeBase(
+                storage_path=storage_path,
+                auto_load=True,
+                use_faiss=False,
+            )
+            logger.info("✅ Daily report InternalKnowledgeBase 已初始化")
+        except Exception as exc:
+            logger.warning(f"Daily report 知識庫初始化失敗: {exc}")
+            self._knowledge_base = None
+
+        return self._knowledge_base
+
+    def _write_market_analysis_to_knowledge_base(
+        self,
+        results: Dict[str, Any],
+        filepath: Path,
+    ) -> Dict[str, Any]:
+        """將每日報告分析結果寫回 RAG 知識庫。"""
+        knowledge_base = self._ensure_knowledge_base()
+        if knowledge_base is None:
+            return {
+                "status": "ERROR",
+                "document_id": None,
+                "message": "InternalKnowledgeBase 不可用",
+            }
+
+        try:
+            from rag.internal.knowledge_base import DocumentType  # noqa: PLC0415
+
+            report_time = self._normalize_report_time(results.get("report_time"))
+            report_time_text = report_time.strftime("%Y-%m-%d %H:%M:%S")
+            report_text = self._build_report_text(results, report_time_text)
+            document_id = self._build_market_analysis_doc_id(results, filepath)
+
+            market_env = results.get("market_environment", {})
+            trading_plan = results.get("trading_plan", {})
+            overall = results.get("overall_assessment", {})
+            trading_pairs = trading_plan.get("trading_pairs", []) or []
+
+            knowledge_base.add_document(
+                doc_id=document_id,
+                title=f"Daily Market Report {report_time_text}",
+                content=report_text,
+                doc_type=DocumentType.MARKET_ANALYSIS,
+                tags=[
+                    "daily_report",
+                    "market_analysis",
+                    str(market_env.get("overall_status", "unknown")).lower(),
+                    str(overall.get("plan_status", "unknown")).lower(),
+                ],
+                metadata={
+                    "report_time": report_time.isoformat(),
+                    "report_version": results.get("report_version", "Unknown"),
+                    "report_type": results.get("report_type", "daily_report"),
+                    "json_path": str(filepath),
+                    "market_condition": overall.get("market_condition", "UNKNOWN"),
+                    "plan_status": overall.get("plan_status", "UNKNOWN"),
+                    "crypto_sentiment": market_env.get("crypto_sentiment"),
+                    "selected_strategy": trading_plan.get("selected_strategy"),
+                    "trading_pairs": trading_pairs,
+                    "trading_pair_count": len(trading_pairs),
+                },
+                update_index=True,
+            )
+            knowledge_base.save_to_storage()
+            return {
+                "status": "OK",
+                "document_id": document_id,
+                "message": "每日報告已寫入知識庫",
+            }
+        except Exception as exc:
+            logger.error(f"每日報告知識庫寫入失敗: {exc}")
+            return {
+                "status": "ERROR",
+                "document_id": None,
+                "message": str(exc),
+            }
+
+    @staticmethod
+    def _normalize_report_time(value: Any) -> datetime:
+        """將報告時間標準化為 datetime。"""
+        if isinstance(value, datetime):
+            return value
+        if isinstance(value, str):
+            try:
+                return datetime.fromisoformat(value)
+            except ValueError:
+                return datetime.now()
+        return datetime.now()
+
+    def _build_market_analysis_doc_id(self, results: Dict[str, Any], filepath: Path) -> str:
+        """建立穩定的 daily report 文檔 ID，避免重複漂移。"""
+        report_time = self._normalize_report_time(results.get("report_time"))
+        raw = "|".join(
+            [
+                report_time.isoformat(),
+                str(results.get("report_version", "")),
+                filepath.stem,
+            ]
+        )
+        digest = hashlib.md5(raw.encode("utf-8")).hexdigest()[:16]
+        return f"market_analysis_{report_time.strftime('%Y%m%d_%H%M%S')}_{digest}"
     
     def _convert_to_serializable(self, obj):
         """

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 from datetime import datetime
 from typing import Dict, List, Optional, Tuple, Any
 from dataclasses import dataclass
@@ -50,6 +51,7 @@ class FundamentalCheck:
     no_major_negative: bool = True
     news_check_status: str = "UNKNOWN"
     news_check_message: str = ""
+    rag_context: Optional[Dict[str, Any]] = None
     normal_fund_flow: bool = True
     normal_volume: bool = True
     sufficient_depth: bool = True
@@ -113,8 +115,8 @@ class PreTradeCheckSystem:
         testnet: Optional[bool] = None,
     ) -> None:
         # pretrade_automation.py 位於 src/bioneuronai/planning/，4 層 parent = 專案根目錄
-        _project_root = Path(__file__).parent.parent.parent.parent
-        self.data_dir = _project_root / "data" / "bioneuronai" / "planning" / "pretrade"
+        self._project_root = Path(__file__).parent.parent.parent.parent
+        self.data_dir = self._project_root / "data" / "bioneuronai" / "planning" / "pretrade"
         self.data_dir.mkdir(exist_ok=True, parents=True)
 
         # 儲存注入的憑證（None 表示由 _get_connector 自行解析）
@@ -124,6 +126,8 @@ class PreTradeCheckSystem:
 
         # NewsAdapter 延遲初始化（避免循環 import）
         self._news_adapter: Optional[Any] = None
+        self._knowledge_base: Optional[Any] = None
+        self._trading_retriever: Optional[Any] = None
 
         # 嘗試導入交易模組
         self._import_modules()
@@ -197,6 +201,45 @@ class PreTradeCheckSystem:
             self._news_adapter = None
         return self._news_adapter
 
+    def _get_internal_knowledge_base(self) -> Optional[Any]:
+        """取得 InternalKnowledgeBase 單例，供交易檢索使用。"""
+        if self._knowledge_base is not None:
+            return self._knowledge_base
+        try:
+            from rag.internal import InternalKnowledgeBase  # noqa: PLC0415
+
+            storage_path = self._project_root / "data" / "bioneuronai" / "rag" / "internal"
+            self._knowledge_base = InternalKnowledgeBase(
+                storage_path=str(storage_path),
+                auto_load=True,
+                use_faiss=False,
+            )
+            logger.info("[OK] InternalKnowledgeBase 已延遲初始化")
+        except Exception as exc:
+            logger.warning(f"[WARN] InternalKnowledgeBase 不可用: {exc}")
+            self._knowledge_base = None
+        return self._knowledge_base
+
+    def _get_trading_retriever(self) -> Optional[Any]:
+        """取得 UnifiedRetriever 單例，將 pretrade 接上正式交易檢索入口。"""
+        if self._trading_retriever is not None:
+            return self._trading_retriever
+        try:
+            from rag import UnifiedRetriever  # noqa: PLC0415
+
+            if UnifiedRetriever is None:
+                return None
+
+            self._trading_retriever = UnifiedRetriever(
+                internal_kb=self._get_internal_knowledge_base(),
+                news_api=self._get_news_adapter(),
+            )
+            logger.info("[OK] UnifiedRetriever 已延遲初始化 (pretrade 交易檢索啟用)")
+        except Exception as exc:
+            logger.warning(f"[WARN] UnifiedRetriever 不可用: {exc}")
+            self._trading_retriever = None
+        return self._trading_retriever
+
     def _import_modules(self) -> None:
         """導入所需模組"""
         try:
@@ -223,7 +266,8 @@ class PreTradeCheckSystem:
         Returns:
             Dict: 完整的檢查結果
         """
-        logger.info(f"🎯 開始執行單筆交易前檢查 - {symbol} {intended_action}")
+        normalized_action = self._normalize_action(intended_action)
+        logger.info(f"🎯 開始執行單筆交易前檢查 - {symbol} {normalized_action}")
         
         start_time: datetime = datetime.now()
         results = {
@@ -231,13 +275,13 @@ class PreTradeCheckSystem:
             "sop_version": "1.0", 
             "sop_step": "1.2 單筆交易前檢查",
             "symbol": symbol,
-            "intended_action": intended_action,
+            "intended_action": normalized_action,
             "signal_source": signal_source
         }
         
         # Step 1: 技術信號確認
         logger.info("[INFO] Step 1/5: 技術信號確認")
-        technical_check: TechnicalSignalCheck = self._check_technical_signals(symbol, intended_action)
+        technical_check: TechnicalSignalCheck = self._check_technical_signals(symbol, normalized_action)
         results["technical_signals"] = technical_check
         
         # Step 2: 基本面檢查
@@ -247,12 +291,12 @@ class PreTradeCheckSystem:
         
         # Step 3: 風險計算
         logger.info("⚖️ Step 3/5: 風險計算")
-        risk_calculation: RiskCalculation = self._calculate_risk(symbol, intended_action, technical_check)
+        risk_calculation: RiskCalculation = self._calculate_risk(symbol, normalized_action, technical_check)
         results["risk_calculation"] = risk_calculation
         
         # Step 4: 訂單參數設定
         logger.info("📋 Step 4/5: 訂單參數設定")
-        order_params: OrderParameters = self._configure_order_parameters(symbol, intended_action, risk_calculation)
+        order_params: OrderParameters = self._configure_order_parameters(symbol, normalized_action, risk_calculation)
         results["order_parameters"] = order_params
         
         # Step 5: 最終確認
@@ -342,6 +386,7 @@ class PreTradeCheckSystem:
             news_status = major_news.get("status", NEWS_CHECK_ERROR)
             check.news_check_status = news_status
             check.news_check_message = major_news.get("summary", "")
+            check.rag_context = major_news.get("rag_context")
             check.no_major_negative = not major_news.get("has_major_negative", False)
 
             if news_status == NEWS_CHECK_ERROR:
@@ -350,6 +395,13 @@ class PreTradeCheckSystem:
                 logger.warning(f"     [NO_DATA] 新聞檢查無相關資料: {check.news_check_message}")
             else:
                 logger.info(f"     ✓ 無重大利空: {'是' if check.no_major_negative else '否'}")
+
+            if check.rag_context and check.rag_context.get("status") == "OK":
+                logger.info(
+                    "     ✓ RAG 交易檢索: %s 類別 / %s 筆",
+                    len(check.rag_context.get("categories", [])),
+                    check.rag_context.get("total_hits", 0),
+                )
             
             # 2. 資金流動檢查
             fund_flow = self._check_fund_flow(symbol)
@@ -413,6 +465,102 @@ class PreTradeCheckSystem:
             return float(value)
         except (TypeError, ValueError):
             return default
+
+    @staticmethod
+    def _normalize_action(action: str) -> str:
+        """統一 LONG/SHORT 與 BUY/SELL 語意，避免 CLI 與內部判斷不一致。"""
+        action_upper = str(action).upper()
+        return {
+            "LONG": "BUY",
+            "SHORT": "SELL",
+        }.get(action_upper, action_upper)
+
+    @staticmethod
+    def _event_context_get(event_context: Any, key: str, default: Any = None) -> Any:
+        """兼容 EventContext 物件與 dict 兩種格式。"""
+        if event_context is None:
+            return default
+        if isinstance(event_context, dict):
+            return event_context.get(key, default)
+        return getattr(event_context, key, default)
+
+    @staticmethod
+    def _retrieval_source_value(result: Any) -> str:
+        source = getattr(result, "source", "")
+        return str(getattr(source, "value", source) or "")
+
+    def _retrieve_trading_context(self, symbol: str) -> Dict[str, Any]:
+        """透過 UnifiedRetriever 擷取 pretrade 需要的 RAG 交易上下文。"""
+        retriever = self._get_trading_retriever()
+        if retriever is None:
+            return {
+                "status": "UNAVAILABLE",
+                "total_hits": 0,
+                "categories": [],
+                "sources": [],
+                "top_titles": [],
+            }
+
+        try:
+            grouped_results = retriever.retrieve_for_trading(
+                symbol=symbol,
+                context="pretrade risk liquidity event confirmation",
+                include_news=True,
+                include_web=False,
+                time_hours=24,
+            )
+        except Exception as exc:
+            return {
+                "status": "ERROR",
+                "total_hits": 0,
+                "categories": [],
+                "sources": [],
+                "top_titles": [],
+                "error": str(exc),
+            }
+
+        categories: List[str] = []
+        sources: List[str] = []
+        titles: List[str] = []
+        top_relevance = 0.0
+        total_hits = 0
+
+        for category, items in grouped_results.items():
+            if not items:
+                continue
+            categories.append(category)
+            total_hits += len(items)
+            for item in items:
+                source_value = self._retrieval_source_value(item)
+                if source_value:
+                    sources.append(source_value)
+                title = str(getattr(item, "title", "") or "").strip()
+                if title:
+                    titles.append(title)
+                top_relevance = max(
+                    top_relevance,
+                    self._safe_float(getattr(item, "relevance_score", 0.0)),
+                )
+
+        if total_hits == 0:
+            return {
+                "status": "NO_DATA",
+                "total_hits": 0,
+                "categories": [],
+                "sources": [],
+                "top_titles": [],
+            }
+
+        unique_titles = list(dict.fromkeys(titles))
+        unique_sources = sorted({value for value in sources if value})
+        return {
+            "status": "OK",
+            "total_hits": total_hits,
+            "categories": categories,
+            "sources": unique_sources,
+            "top_titles": unique_titles[:3],
+            "top_relevance": round(top_relevance, 4),
+        }
 
     def _get_dynamic_cost_inputs(self, symbol: str) -> Tuple[Optional[float], Optional[float]]:
         """讀取即時 funding / spread，用於 pretrade 成本評估。"""
@@ -820,6 +968,7 @@ class PreTradeCheckSystem:
         - summary: 狀態說明
         """
         adapter = self._get_news_adapter()
+        rag_context = self._retrieve_trading_context(symbol)
         if adapter is None:
             return {
                 "status": NEWS_CHECK_ERROR,
@@ -830,6 +979,7 @@ class PreTradeCheckSystem:
                 "event_score": 0.0,
                 "articles_count": 0,
                 "rag_available": False,
+                "rag_context": rag_context,
             }
 
         try:
@@ -846,6 +996,7 @@ class PreTradeCheckSystem:
                     "event_score": 0.0,
                     "articles_count": 0,
                     "rag_available": True,
+                    "rag_context": rag_context,
                 }
 
             avg_sentiment = (
@@ -855,8 +1006,8 @@ class PreTradeCheckSystem:
 
             # event_score 來自 RuleBasedEvaluator.get_current_event_score()
             event_score = 0.0
-            if event_context and isinstance(event_context, dict):
-                raw = event_context.get("event_score", 0.0)
+            if event_context:
+                raw = self._event_context_get(event_context, "event_score", 0.0)
                 event_score = raw[0] if isinstance(raw, tuple) else float(raw)
 
             # 判斷重大利空：情緒過低 或 負面事件分數超過閾值
@@ -869,8 +1020,16 @@ class PreTradeCheckSystem:
 
             summary_parts = [f"分析了 {articles_count} 則新聞，平均情緒 {avg_sentiment:.2f}"]
             if event_context:
-                et = event_context.get("event_type", "N/A")
+                et = self._event_context_get(event_context, "event_type", "N/A")
                 summary_parts.append(f"偵測到事件: {et}")
+            if rag_context.get("status") == "OK":
+                summary_parts.append(
+                    f"RAG 檢索命中 {rag_context.get('total_hits', 0)} 筆 / "
+                    f"{len(rag_context.get('categories', []))} 類別"
+                )
+                top_titles = rag_context.get("top_titles", [])
+                if top_titles:
+                    summary_parts.append(f"RAG 重點: {top_titles[0]}")
 
             logger.info(
                 f"[RAG] {symbol} 新聞摘要 | "
@@ -885,6 +1044,7 @@ class PreTradeCheckSystem:
                 "event_score": round(event_score, 4),
                 "articles_count": articles_count,
                 "rag_available": True,
+                "rag_context": rag_context,
             }
         except Exception as exc:
             return {
@@ -896,6 +1056,7 @@ class PreTradeCheckSystem:
                 "event_score": 0.0,
                 "articles_count": 0,
                 "rag_available": True,
+                "rag_context": rag_context,
             }
     
     def _check_fund_flow(self, symbol: str) -> Dict:

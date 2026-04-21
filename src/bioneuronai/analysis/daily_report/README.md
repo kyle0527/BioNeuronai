@@ -63,7 +63,7 @@ daily_report/
 
 1. 資料模型採用 `DailyMarketCondition`、`DailyRiskLimits`
 2. `NewsSentimentAnalyzer` 需注入可用 `CryptoNewsAnalyzer`，初始化失敗會拋錯
-3. `StrategyPlanner.perform_plan_backtest()` 仍為 `NOT_IMPLEMENTED`
+3. `StrategyPlanner.perform_plan_backtest()` 已接上正式 replay backtest，會回傳實際驗證結果
 4. `ReportGenerator` 預設資料夾為 `sop_automation_data/`
 
 ---
@@ -77,7 +77,7 @@ daily_report/
 
 1. 這層只描述 daily report 的流程編排與公開方法；新聞規則與關鍵字資料結構請放在各自子模組 README。
 2. 不在此文件放固定總行數或覆蓋率，避免和實際檔案漂移。
-3. 若 `perform_plan_backtest()` 完成實作，需同步更新「實作現況」與輸出說明。
+3. 若 `perform_plan_backtest()` 的回測來源、摘要欄位或驗證邏輯變更，需同步更新「實作現況」與輸出說明。
 
 ---
 

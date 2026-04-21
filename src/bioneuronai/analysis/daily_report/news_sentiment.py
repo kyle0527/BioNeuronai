@@ -10,7 +10,7 @@
 # 1. 標準庫
 import logging
 from datetime import datetime
-from typing import Dict
+from typing import Dict, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +22,11 @@ class NewsSentimentAnalyzer:
     功能：
     - 整合 CryptoNewsAnalyzer 結果
     - 提取重要事件標籤
+
+    角色定位：
+    - 這是 daily_report 專用 adapter
+    - 它負責把 CryptoNewsAnalyzer 的完整分析結果，整理成 SOP / 日報流程需要的簡化 dict
+    - 它不負責 RAG 檢索介面，也不負責知識庫寫入；這些由 rag/services/news_adapter.py 負責
     """
 
     def __init__(self, news_analyzer):
@@ -36,13 +41,17 @@ class NewsSentimentAnalyzer:
             raise RuntimeError("NewsSentimentAnalyzer 需要已初始化的 CryptoNewsAnalyzer 實例")
         self.news_analyzer = news_analyzer
 
-    def perform_ai_news_analysis(self, symbol: str = "BTCUSDT", hours: int = 24) -> Dict:
+    def perform_ai_news_analysis(
+        self,
+        symbol: str = "BTCUSDT",
+        hours: Optional[int] = None,
+    ) -> Dict:
         """
         執行 AI 新聞分析
 
         Args:
             symbol: 交易對符號
-            hours: 分析時間範圍（小時）
+            hours: 分析時間範圍（小時）；None 表示使用分析器自適應時間窗
 
         Returns:
             新聞分析結果字典

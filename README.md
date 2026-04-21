@@ -4,9 +4,9 @@
 
 **最後更新**: 2026年4月17日
 **版本**: v2.1 (TinyLLM 雙模態 + 訓練系統整合版)
-**代碼質量**: ⚠️ 主鏈可匯入；tests/ 尚未建立，pytest smoke test 有 3 個歸檔腳本錯誤待修
+**代碼質量**: ⚠️ 主鏈可匯入；`tests/test_smoke.py` 已建立並通過，目前仍有部分端到端驗收與部署環境問題待收斂
 
-> **部署準備狀態（2026-04-17）**：目前先只推進 `frontend/devops-d/` 作為第一階段前端；`frontend/admin-da/` 與 `frontend/trading/` 暫緩。分析、策略、AI 主鏈已有主體，但 backend runtime、模型載入與最小 smoke test 尚未完成，因此目前不建議直接部署正式交易環境。詳見 [部署準備紀錄](docs/DEPLOYMENT_READINESS_RECORD_20260417.md)。
+> **部署準備狀態（2026-04-21）**：目前先只推進 `frontend/devops-d/` 作為第一階段前端；`frontend/admin-da/` 與 `frontend/trading/` 暫緩。分析、策略、AI 主鏈與 replay backtest 已有主體，`tests/test_smoke.py` 已建立並通過；但 Docker daemon、憑證相依流程與完整部署驗收仍未完成，因此目前不建議直接部署正式交易環境。詳見 [部署準備紀錄](docs/DEPLOYMENT_READINESS_RECORD_20260417.md)。
 
 ---
 
