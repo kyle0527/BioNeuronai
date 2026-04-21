@@ -212,7 +212,7 @@ class MarketRegime:
 `selector/` 是 `strategies/` 內部的**下一層子模組**，責任比上層 README 更聚焦。  
 上層 `strategies/README.md` 只保留架構摘要與定位；`selector/` 的檔案職責、型別邊界、主路徑 / 替代實作、詳細接口與限制，請直接看子模組文件：
 
-- [selector/README.md](C:/D/E/BioNeuronai/src/bioneuronai/strategies/selector/README.md)
+- [selector/README.md](selector/README.md)
 
 ### 這一層只強調 4 個重點
 
@@ -449,6 +449,6 @@ print(f"最優候選: {best.name}, Sharpe: {best.sharpe_ratio:.2f}, Trades: {bes
 
 ---
 
-**最後更新**: 2026 年 3 月 16 日
+**最後更新**: 2026 年 4 月 20 日
 
 > 📖 上層目錄：[src/bioneuronai/README.md](../README.md)

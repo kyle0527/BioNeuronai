@@ -222,7 +222,7 @@ StrategySelectionResult
 
 ## `StrategySelector`
 
-定義於 [core.py](C:/D/E/BioNeuronai/src/bioneuronai/strategies/selector/core.py)。
+定義於 [core.py](core.py)。
 
 ### 初始化參數
 
@@ -334,7 +334,7 @@ async select_optimal_strategy(
 
 ## `MarketEvaluator`
 
-定義於 [evaluator.py](C:/D/E/BioNeuronai/src/bioneuronai/strategies/selector/evaluator.py)。
+定義於 [evaluator.py](evaluator.py)。
 
 ### 目前主責
 
@@ -481,7 +481,7 @@ recommendation = get_recommended_strategy(
 
 ## 對外導出 API
 
-透過 [__init__.py](C:/D/E/BioNeuronai/src/bioneuronai/strategies/selector/__init__.py) 對外導出的主要項目有：
+透過 [__init__.py](__init__.py) 對外導出的主要項目有：
 
 ### 核心類
 
@@ -528,11 +528,11 @@ recommendation = get_recommended_strategy(
 
 ### 目前已知整合點
 
-- [src/bioneuronai/strategies/__init__.py](C:/D/E/BioNeuronai/src/bioneuronai/strategies/__init__.py)
-- [src/bioneuronai/trading/__init__.py](C:/D/E/BioNeuronai/src/bioneuronai/trading/__init__.py)
-- [src/bioneuronai/planning/plan_controller.py](C:/D/E/BioNeuronai/src/bioneuronai/planning/plan_controller.py)
+- [src/bioneuronai/strategies/__init__.py](../__init__.py)
+- [src/bioneuronai/trading/__init__.py](../../trading/__init__.py)
+- [src/bioneuronai/planning/plan_controller.py](../../planning/plan_controller.py)
 
-其中 [plan_controller.py](C:/D/E/BioNeuronai/src/bioneuronai/planning/plan_controller.py) 已經在步驟 5 / 6 使用 `StrategySelector`，所以這個子模組不是孤立實驗碼，而是主流程的一部分。
+其中 [plan_controller.py](../../planning/plan_controller.py) 已經在步驟 5 / 6 使用 `StrategySelector`，所以這個子模組不是孤立實驗碼，而是主流程的一部分。
 
 ---
 
@@ -555,6 +555,6 @@ recommendation = get_recommended_strategy(
 
 **相關文件**
 
-- [strategies README](C:/D/E/BioNeuronai/src/bioneuronai/strategies/README.md)
-- [API integration baseline](C:/D/E/BioNeuronai/docs/API_INTEGRATION_BASELINE.md)
-- [CODE_FIX_GUIDE](C:/D/E/BioNeuronai/docs/CODE_FIX_GUIDE.md)
+- [strategies README](../README.md)
+- [API integration baseline](../../../../docs/API_INTEGRATION_BASELINE.md)
+- [CODE_FIX_GUIDE](../../../../docs/CODE_FIX_GUIDE.md)
