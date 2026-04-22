@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="UTF-8"><title>Colors — Core</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { padding: 20px; }
+  .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .swatch { border-radius: var(--radius-md); border: 1px solid var(--border); overflow: hidden; }
+  .swatch .chip { height: 60px; }
+  .swatch .meta { padding: 8px 10px; background: var(--card); }
+  .swatch .name { font-size: 11px; font-weight: 600; color: var(--foreground); }
+  .swatch .value { font-family: var(--font-mono); font-size: 10px; color: var(--muted-foreground); margin-top: 2px; }
+</style></head>
+<body>
+<div class="grid">
+  <div class="swatch"><div class="chip" style="background: oklch(0.12 0.01 240)"></div><div class="meta"><div class="name">background</div><div class="value">0.12 0.01 240</div></div></div>
+  <div class="swatch"><div class="chip" style="background: oklch(0.18 0.01 240)"></div><div class="meta"><div class="name">card</div><div class="value">0.18 0.01 240</div></div></div>
+  <div class="swatch"><div class="chip" style="background: oklch(0.25 0.01 240)"></div><div class="meta"><div class="name">muted / border</div><div class="value">0.25 0.01 240</div></div></div>
+  <div class="swatch"><div class="chip" style="background: oklch(0.35 0.02 240)"></div><div class="meta"><div class="name">secondary</div><div class="value">0.35 0.02 240</div></div></div>
+  <div class="swatch"><div class="chip" style="background: oklch(0.65 0.15 200)"></div><div class="meta"><div class="name">primary (cyan)</div><div class="value">0.65 0.15 200</div></div></div>
+  <div class="swatch"><div class="chip" style="background: oklch(0.75 0.15 80)"></div><div class="meta"><div class="name">accent (amber)</div><div class="value">0.75 0.15 80</div></div></div>
+  <div class="swatch"><div class="chip" style="background: oklch(0.95 0 0)"></div><div class="meta"><div class="name">foreground</div><div class="value">0.95 0 0</div></div></div>
+  <div class="swatch"><div class="chip" style="background: oklch(0.6 0.01 240)"></div><div class="meta"><div class="name">muted-foreground</div><div class="value">0.6 0.01 240</div></div></div>
+</div>
+</body></html>

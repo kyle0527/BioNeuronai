@@ -15,11 +15,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Build ta-lib C library from source
+# NOTE: ta-lib 0.4.0 has a Makefile race condition in gen_code when using
+# parallel jobs (-j>1), so we build with -j1 (sequential) to avoid it.
 RUN wget -q https://prdownloads.sourceforge.net/ta-lib/ta-lib-0.4.0-src.tar.gz \
     && tar -xzf ta-lib-0.4.0-src.tar.gz \
     && cd ta-lib \
     && ./configure --prefix=/usr/local \
-    && make -j"$(nproc)" \
+    && make -j1 \
     && make install \
     && cd .. \
     && rm -rf ta-lib ta-lib-0.4.0-src.tar.gz
@@ -37,11 +39,14 @@ RUN pip install --upgrade pip --no-cache-dir \
         "sentence-transformers>=2.0.0" \
         "websocket-client>=1.7.0" \
         "requests>=2.31.0" \
+        "python-dotenv>=1.0.0" \
         "aiohttp>=3.9.0" \
+        "regex>=2023.0.0" \
         "faiss-cpu>=1.7.0" \
         "scikit-learn>=1.3.0" \
         "fastapi>=0.111.0" \
         "uvicorn[standard]>=0.30.0" \
+        "schedule>=1.2.0" \
         ta-lib \
     && pip install --prefix=/install/pkg --no-cache-dir -e ".[visualization,notifications]" 2>/dev/null || true
 

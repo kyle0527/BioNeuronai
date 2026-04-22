@@ -1,6 +1,6 @@
 # BioNeuronai 技術債與開發路線圖
 
-> 更新日期：2026-04-17
+> 更新日期：2026-04-23
 > 本文件彙整多輪分析 session 中發現的所有問題、已完成的修復、以及後續行動計畫。
 
 ## 📑 目錄
@@ -14,6 +14,22 @@
 ---
 
 ## 一、已完成的修復（本 session）
+
+### 前端策略決策（2026-04-22）
+| 前端 | 決策 | 說明 |
+|------|------|------|
+| `frontend/devops-d/` | ✅ **唯一開發目標** | 已驗證 build、覆蓋所有核心 API；集中火力於此 |
+| `frontend/trading/` | ⏸ 暫緩 | 原始碼保留，待 devops-d 穩定後再重啟 |
+| `frontend/admin-da/` | ⏸ 暫緩 | 原始碼保留，待後續階段 |
+
+### Design System 整合（2026-04-22）
+| 項目 | 說明 |
+|------|------|
+| `frontend/design-tokens.css` | 新增；三主題（trading/admin/devops）共用 token 單一來源真相 |
+| `devops-d/src/index.css` 補齊 | 補入 `--warning`、`--info`、`--fg1/2/3`、`--shadow-*`、`--font-*`；補入語意排版（h1-h6 mono、`.num`、`.label-caps`、`.lead`） |
+| `devops-d/index.html` 字體 | `wght@400;500;600` → `wght@400;500;600;700`（補 bold） |
+| `frontend/design-system/preview/` | 新增；16 個 Design System 靜態 HTML 預覽頁（button/badge/card/table/type/icon...）作為開發視覺對照 |
+| `frontend/trading/` 暫不整合 | trading 前端暫緩，tokens 等恢復時再對齊 |
 
 ### P0 架構修復
 | 項目 | 說明 |
@@ -32,6 +48,30 @@
 | 新聞時效欄位 | `NewsAnalysisResult` 已加入 `signal_valid_hours`、`signal_expires_at`、`signal_urgency` |
 | 交易成本與強平邊界 | 交易引擎、策略基底與 `pretrade` 已補成本效益 / 強平安全檢查 |
 | **T1 外部 API 移至 data/ 層** | `analysis/` 模組不再直接呼叫 `requests.get()`；新增 `NewsDataFetcher` 與 `SyncExternalDataFetcher`；`BinanceFuturesConnector` 補充 `get_all_exchange_info()` 與 `get_all_tickers_24hr()` |
+
+### Docker 部署完成（2026-04-22）
+| 項目 | 說明 |
+|------|------|
+| `Dockerfile` ta-lib make 修正 | `make -j$(nproc)` race condition → `make -j1` 序列編譯 |
+| `Dockerfile` pip 清單補齊 | 補入 `python-dotenv>=1.0.0`、`regex>=2023.0.0`、`schedule>=1.2.0`（原漏列） |
+| `docker compose build` 全通 | 8/8 images 全部成功（bioneuronai-api, status, pretrade, backtest, plan, news, simulate, frontend） |
+| `docker compose run --rm status` | 7 個模組全部 `[OK]`（TradingEngine / BinanceFutures / NewsAnalyzer / SOPSystem / PlanController / PreTradeCheck / BacktestEngine）；版本 bioneuronai v2.1 |
+| `docker compose run --rm pretrade` | 5/5 步驟完整執行；Binance 401 為預期行為（testnet key 未設定），不影響架構正確性 |
+| `docker compose up api frontend -d` | `bioneuron-api`（port 8000）+ `bioneuron-frontend`（port 3000）雙容器啟動成功 |
+| REST API healthcheck | `GET /api/v1/status` → HTTP 200，`{"success":true,...}` |
+| 前端 nginx healthcheck | `GET http://localhost:3000` → HTTP 200，719 bytes |
+| `frontend/devops-d/Dockerfile` | 新建；node:20-alpine build → nginx:1.27-alpine serve，multi-stage |
+| `frontend/devops-d/nginx.conf` | 新建；gzip、SPA fallback、assets 1y cache、`/api/` proxy → `bioneuron-api:8000` |
+| `docker-compose.yml` frontend service | 新增 `bioneuron-frontend` service，depends_on api；healthcheck 改為 `wget http://127.0.0.1:80`，避免 `localhost` 先解析到 `::1` 導致誤報 unhealthy |
+
+### 部署驗收續補（2026-04-23）
+| 項目 | 說明 |
+|------|------|
+| `frontend` healthcheck 實測 | `docker compose ps` 已確認 `bioneuron-frontend` 為 `healthy` |
+| chat runtime 修復 | `src/nlp/chat_engine.py` 改為呼叫 `HonestGenerator.generate_with_honesty()`，不再因介面不符而直接回 `生成失敗` |
+| chat CLI / API 驗收 | `python main.py chat --symbol BTCUSDT --language zh` 與 `POST /api/v1/chat` 均已可回應 |
+| live event-context 主線驗收 | 補上 `news_adapter -> trading_engine -> selector -> strategy_fusion` smoke |
+| smoke tests | `python -m pytest tests/test_smoke.py -q` 更新為 `23 passed` |
 
 ### 文件修正
 | 文件 | 修正內容 |
@@ -53,18 +93,20 @@
 **目前部署判斷：**
 - `frontend/devops-d/` 作為第一階段前端主線，已完成 npm install / build 驗證。
 - `frontend/admin-da/` 與 `frontend/trading/` 暫緩，不列入第一階段部署驗收。
-- 分析模組、策略模組、AI/模型主鏈已有主體；2026-04-18 已完成 Python smoke tests、CLI status、API status handler、主交易模型載入與 mock 推論。
-- Docker daemon 仍未啟動，因此不能宣稱 Docker backend 部署驗收完成。
+- 分析模組、策略模組、AI/模型主鏈已有主體；目前已完成 Python smoke tests、CLI status、API status handler、主交易模型載入與 mock 推論。
+- Docker backend / frontend compose 目前已可啟動並通過 healthcheck。
 
-**新增 P0/P1 阻塞：**
+**P0/P1 阻塞（已更新至 2026-04-23）：**
 | 項目 | 說明 | 優先 |
 |------|------|------|
-| Docker runtime 未實跑 | Docker daemon 無法連線，尚不能 build / run backend container | P0 |
-| 端到端驗收缺口 | pretrade / backtest / chat 尚未完成完整 smoke | P0 |
-| ✅ `EventContext` 型別落差 | `NewsAdapter` 已回傳 `EventContext` 物件，`strategy_fusion.py` 已支援 `dict→EventContext` 自動轉換；仍需驗證 pretrade → strategy fusion 消費鏈 | P1 |
-| 模型 artifact 驗收 | `my_100m_model.pth` 可載入；chat model 權重交付仍需確認 | P1 |
-| API 安全 | CORS 預設已收斂為 localhost 白名單；正式部署前仍需設定 staging/production origins 與交易 API auth | P1 |
-| Docker compose 驗證 | `logs/` 與 `data/` 目錄已建立並納入 git；`docker compose config` 會展開 `.env` secrets，不可分享原文，仍需 Docker daemon 實跑驗證 | P1 |
+| ✅ Docker runtime | Docker v29.4.0，`docker compose build` 8/8 全通，容器已啟動 | ~~P0~~ ✅ |
+| ✅ Docker compose 驗證 | `bioneuron-api` + `bioneuron-frontend` 雙容器啟動；兩者目前皆為 `healthy` | ~~P1~~ ✅ |
+| ✅ `EventContext` 型別落差 | 已於 2026-04-19 修正；pretrade 5 步驟完整執行確認 | ~~P1~~ ✅ |
+| ✅ 端到端 chat smoke | `python main.py chat --symbol BTCUSDT --language zh` 與 `POST /api/v1/chat` 已驗證；runtime bug 已修正 | ~~P0~~ ✅ |
+| ✅ live event-context 消費鏈 | `news_adapter -> trading_engine -> selector -> strategy_fusion` smoke 已補上；`pretrade` 非正式 fusion 入口 | ~~P1~~ ✅ |
+| 模型 artifact 驗收 | `my_100m_model.pth` 可載入；`tiny_llm_100m.pth` 未 git 追蹤，乾淨部署環境可能缺 chat 權重；現有 chat 回覆多為低信心保守答案 | P1 |
+| API 安全 | CORS 目前為 localhost 白名單；正式部署前需設定 staging/production origins 與交易 API auth | P1 |
+| Binance testnet key | `.env` 中 API key 無效，`pretrade` balance=0，REJECT；需補 testnet key 才能完整驗收風控 | P1 |
 
 ### ✅ T1：外部 API 呼叫散落在 analysis/ 模組（已完成 — 2026-04-13）
 

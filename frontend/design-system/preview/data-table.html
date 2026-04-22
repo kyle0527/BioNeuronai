@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="UTF-8"><title>Data Table</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { padding: 20px; }
+  table { width: 100%; border-collapse: collapse; }
+  th { text-align:left; padding: 12px; font-size: 11px; font-weight: 600; color: var(--muted-foreground); text-transform: uppercase; letter-spacing: .06em; border-bottom: 1px solid var(--border); }
+  td { padding: 12px; font-size: 13px; border-bottom: 1px solid var(--border); }
+  tr:hover td { background: color-mix(in oklch, var(--muted) 50%, transparent); }
+  .mono { font-family: var(--font-mono); }
+  .badge { display: inline-flex; align-items:center; height: 22px; padding: 0 8px; border-radius: var(--radius-md); border:1px solid; font-family: var(--font-mono); font-size: 11px; font-weight:500; }
+  .ok { background: rgba(34,197,94,0.10); color:#22c55e; border-color: rgba(34,197,94,0.20); }
+  .fail { background: rgba(239,68,68,0.10); color:#ef4444; border-color: rgba(239,68,68,0.20); }
+  .run { background: color-mix(in oklch, oklch(0.65 0.15 200) 10%, transparent); color: oklch(0.75 0.15 200); border-color: color-mix(in oklch, oklch(0.65 0.15 200) 20%, transparent); }
+</style></head>
+<body>
+  <table>
+    <thead><tr>
+      <th>Symbol</th><th>Interval</th><th>Start</th><th>Balance</th><th>Status</th>
+    </tr></thead>
+    <tbody>
+      <tr><td class="mono">BTCUSDT</td><td class="mono">1h</td><td class="mono">2024-01-01</td><td class="mono">$12,408.21</td><td><span class="badge ok">completed</span></td></tr>
+      <tr><td class="mono">ETHUSDT</td><td class="mono">4h</td><td class="mono">2024-02-14</td><td class="mono">$9,982.40</td><td><span class="badge run">running</span></td></tr>
+      <tr><td class="mono">SOLUSDT</td><td class="mono">1h</td><td class="mono">2024-03-01</td><td class="mono">$10,500.00</td><td><span class="badge fail">failed</span></td></tr>
+    </tbody>
+  </table>
+</body></html>

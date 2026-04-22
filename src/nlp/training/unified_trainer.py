@@ -30,7 +30,7 @@ import torch.nn as nn
 from torch.utils.data import DataLoader, Dataset
 
 # ── 路徑設定 ─────────────────────────────────────────────────────────────────
-_ROOT = Path(__file__).resolve().parents[4]   # BioNeuronai/
+_ROOT = Path(__file__).resolve().parents[3]   # BioNeuronai/
 _SRC  = _ROOT / "src"
 for p in [str(_SRC), str(_ROOT)]:
     if p not in sys.path:
@@ -399,7 +399,7 @@ def train(
         dest.parent.mkdir(exist_ok=True)
         # 使用 load_llm() 相容格式，讓 auto_evolve.py 可直接載入
         torch.save({"state_dict": model.state_dict(), "config": model.config.__dict__}, str(dest))
-        print(f"\n[unified_trainer] ✓ 權重已儲存至 {dest}")
+        print(f"\n[unified_trainer] 權重已儲存至 {dest}")
         print("  InferenceEngine 與 ChatEngine 下次啟動時將自動載入此權重。")
     else:
         print(f"\n[unified_trainer] 訓練完成，檢查點在 {output_dir}/")

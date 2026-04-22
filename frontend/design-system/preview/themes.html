@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="UTF-8"><title>Themes</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { padding: 16px; display:grid; grid-template-columns: repeat(3,1fr); gap: 12px; }
+  .theme { border-radius: var(--radius-md); overflow: hidden; border: 1px solid var(--border); }
+  .theme .hd { padding: 10px 12px; font-family: var(--font-mono); font-size: 11px; font-weight: 600; display:flex; justify-content:space-between; }
+  .theme .bd { padding: 12px; display:flex; gap:6px; }
+  .theme .chip { flex:1; height: 36px; border-radius: 4px; }
+  .theme .foot { padding: 10px 12px; font-size: 11px; font-family: var(--font-mono); border-top: 1px solid; }
+  .t-trading { background: oklch(0.18 0.01 240); color: oklch(0.95 0 0); border-color: oklch(0.25 0.01 240); }
+  .t-trading .foot { border-color: oklch(0.25 0.01 240); color: oklch(0.6 0.01 240); }
+  .t-admin { background: oklch(0.18 0.01 250); color: oklch(0.98 0 0); border-color: oklch(0.25 0.01 250); font-family: 'Space Grotesk', sans-serif; }
+  .t-admin .foot { border-color: oklch(0.25 0.01 250); color: oklch(0.65 0.01 250); }
+  .t-devops { background: #fff; color: oklch(0.2 0 0); border-color: oklch(0.9 0 0); }
+  .t-devops .foot { border-color: oklch(0.9 0 0); color: oklch(0.45 0.01 250); }
+</style></head>
+<body>
+  <div class="theme t-trading">
+    <div class="hd"><span>trading</span><span style="color: oklch(0.6 0.01 240)">canonical</span></div>
+    <div class="bd">
+      <div class="chip" style="background: oklch(0.12 0.01 240)"></div>
+      <div class="chip" style="background: oklch(0.25 0.01 240)"></div>
+      <div class="chip" style="background: oklch(0.65 0.15 200)"></div>
+      <div class="chip" style="background: oklch(0.75 0.15 80)"></div>
+    </div>
+    <div class="foot">Inter + JetBrains Mono</div>
+  </div>
+  <div class="theme t-admin">
+    <div class="hd"><span>admin</span><span style="color: oklch(0.65 0.01 250)">indigo</span></div>
+    <div class="bd">
+      <div class="chip" style="background: oklch(0.12 0.01 250)"></div>
+      <div class="chip" style="background: oklch(0.25 0.01 250)"></div>
+      <div class="chip" style="background: oklch(0.55 0.18 250)"></div>
+      <div class="chip" style="background: oklch(0.75 0.15 200)"></div>
+    </div>
+    <div class="foot">Space Grotesk</div>
+  </div>
+  <div class="theme t-devops">
+    <div class="hd"><span>devops</span><span style="color: oklch(0.45 0.01 250)">light</span></div>
+    <div class="bd">
+      <div class="chip" style="background: oklch(0.98 0 0); border:1px solid oklch(0.9 0 0)"></div>
+      <div class="chip" style="background: oklch(0.95 0.01 250)"></div>
+      <div class="chip" style="background: oklch(0.25 0.02 250)"></div>
+      <div class="chip" style="background: oklch(0.75 0.15 200)"></div>
+    </div>
+    <div class="foot">Inter</div>
+  </div>
+</body></html>

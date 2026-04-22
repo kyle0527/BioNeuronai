@@ -69,7 +69,7 @@
 
 ### 1.3 已確認的核心問題
 
-#### 問題 A: pending order 與策略狀態契約仍不完整
+#### 問題 A: pending order 與策略狀態契約已補主缺口，仍需觀察交易品質
 
 影響檔案：
 
@@ -79,18 +79,22 @@
 - `backtest/mock_connector.py`
 - `src/bioneuronai/trading/virtual_account.py`
 
-已實際驗證到的狀況：
+目前狀況：
 
 - 多個策略現在會在正式 replay 下產生真交易。
-- 但 `SwingTradingStrategy` / `TrendFollowingStrategy` 仍會大量重複掛單與累積倉位。
-- 當 entry 使用 `LIMIT` 單且尚未成交時，策略仍可能把自己視為 flat，持續送出新的 entry order。
-- replay 尚未建立完整的「pending entry order -> 策略內部持倉狀態」同步機制。
-- 實際現象包括：
-  - 單月交易數異常膨脹
-  - 同方向持倉快速擴大
-  - 可用餘額被打成負值後仍持續嘗試掛單
+- `SwingTradingStrategy` / `TrendFollowingStrategy` 原本的重複掛單主因已定位並修補：
+  - `BaseStrategy._finalize_analysis_state()` 現在會保留 `ENTRY_READY`
+  - `LIMIT` entry 未成交時會留下 `current_setup`
+  - connector 的 pending/open-position 狀態會在 `run_iteration()` 內同步回策略 state
+  - `VirtualAccount` 會對未成交開倉單預留保證金，避免可用餘額被錯算
+- 對應 smoke 已覆蓋：
+  - pending entry 不再被下一輪分析重置成 `IDLE`
+  - 第二筆超額 pending entry 會因保證金不足被拒絕
 
-這是目前最重要的真問題。
+剩餘工作：
+
+- 持續觀察 `SwingTradingStrategy` / `TrendFollowingStrategy` 在長區間 replay 下的交易數與加碼行為是否已回到合理範圍。
+- 若仍有異常高交易數，下一步會轉向個別策略的 entry 條件與 partial fill/exit 管理。
 
 #### 問題 B: 高階競爭已是真 replay，但仍受到固定策略品質拖累
 

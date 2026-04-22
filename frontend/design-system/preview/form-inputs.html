@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="UTF-8"><title>Form Inputs</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { padding: 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 18px 24px; }
+  label { font-size: 12px; font-weight: 500; display:block; margin-bottom: 6px; }
+  .hint { font-size: 11px; color: var(--muted-foreground); margin-top: 4px; font-family: var(--font-mono); }
+  .input, .select, .ta { width: 100%; height: 36px; background: transparent; border: 1px solid var(--border); border-radius: var(--radius-md); padding: 0 12px; color: var(--foreground); font-family: var(--font-sans); font-size: 14px; }
+  .input:focus, .ta:focus { outline: 3px solid color-mix(in oklch, var(--primary) 50%, transparent); border-color: var(--primary); }
+  .ta { height: 72px; padding: 8px 12px; resize: none; }
+  .seg { display:flex; gap: 6px; }
+  .seg button { flex:1; height:36px; border-radius: var(--radius-md); border: 1px solid var(--border); background: transparent; color: var(--foreground); font-family: var(--font-sans); font-size: 14px; font-weight: 500; cursor: pointer; }
+  .seg button.active { background: oklch(0.65 0.15 200); color: #fff; border-color: transparent; }
+  .check { display:flex; align-items:center; gap:8px; font-size: 13px; }
+  .cb { width:16px; height:16px; border: 1px solid var(--border); border-radius: 4px; background: var(--card); display:inline-flex; align-items:center; justify-content:center; color: #fff; }
+  .cb.on { background: oklch(0.65 0.15 200); border-color: transparent; }
+  .switch { width: 32px; height: 18px; background: var(--muted); border-radius: 9999px; position: relative; }
+  .switch::after { content:''; position:absolute; top:2px; left:2px; width:14px; height:14px; border-radius:50%; background: #fff; }
+  .switch.on { background: oklch(0.65 0.15 200); }
+  .switch.on::after { left: 16px; }
+</style></head>
+<body>
+  <div>
+    <label>Symbol</label>
+    <input class="input" value="BTCUSDT" />
+    <div class="hint">uppercase · no slash</div>
+  </div>
+  <div>
+    <label>Capital (USDT)</label>
+    <input class="input" value="10,000" style="font-family: var(--font-mono);" />
+    <div class="hint">min 100 · max 1,000,000</div>
+  </div>
+  <div>
+    <label>Action</label>
+    <div class="seg"><button class="active">Buy</button><button>Sell</button></div>
+  </div>
+  <div>
+    <label>Language</label>
+    <select class="select"><option>Auto</option><option>English</option><option>中文</option></select>
+  </div>
+  <div style="grid-column: span 2;">
+    <label>Message</label>
+    <textarea class="ta" placeholder="Type your message...">Analyze BTCUSDT sentiment for the last 24 hours.</textarea>
+  </div>
+  <div style="display:flex; gap: 24px; align-items:center;">
+    <div class="check"><span class="cb on">✓</span>Confirm trade</div>
+    <div class="check"><span class="cb"></span>Testnet only</div>
+  </div>
+  <div style="display:flex; gap: 24px; align-items:center;">
+    <div class="check"><span class="switch on"></span>AI fusion</div>
+    <div class="check"><span class="switch"></span>News weighting</div>
+  </div>
+</body></html>

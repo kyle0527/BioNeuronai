@@ -113,8 +113,8 @@ src/bioneuronai/strategies/
 
 所有策略的 ABC 基類，定義統一接口與交易生命週期（analyze_market → entry → manage_position → exit → risk_control）。
 
-> 目前固定策略層最重要的已知問題在這裡：  
-> `run_iteration()` 內的 setup 驗證與 `total_position_size` 計算順序仍需調整，這會影響部分策略的實際出手率。
+> `run_iteration()` 的 pending entry 狀態同步與未成交開倉單保證金預留已補齊。  
+> 目前固定策略層剩下的重點是個別策略的交易品質校正，而不是重複掛單契約缺失。
 
 **核心 Enum / dataclass**:
 - `StrategyState` · `SignalStrength` · `MarketCondition`

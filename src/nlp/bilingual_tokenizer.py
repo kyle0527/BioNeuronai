@@ -99,7 +99,7 @@ class BilingualTokenizer:
                 self.id_to_token[current_id] = word
                 current_id += 1
         
-        print(f"✅ 詞彙表已構建: {len(self.vocab)} tokens")
+        print(f"[tokenizer] 詞彙表已構建: {len(self.vocab)} tokens")
     
     def _get_common_words(self, texts: List[str]) -> List[str]:
         """獲取常用詞"""
@@ -232,7 +232,7 @@ class BilingualTokenizer:
         with open(path_obj, 'w', encoding='utf-8') as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
 
-        print(f"✅ Tokenizer 已保存: {path}")
+        print(f"[tokenizer] Tokenizer 已保存: {path}")
 
     @classmethod
     def load(cls, path: str) -> 'BilingualTokenizer':

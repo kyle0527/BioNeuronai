@@ -3,6 +3,7 @@
 #
 # Services:
 #   api        — REST API server (FastAPI + uvicorn)
+#   frontend   — DevOps Dashboard (nginx serve devops-d)
 #   status     — 快速健康檢查 (CLI)
 #   backtest   — 回測歷史數據 (CLI)
 #   simulate   — 模擬紙交易 (CLI)
@@ -10,6 +11,7 @@
 #
 # 用法範例:
 #   docker compose up api             # 啟動 API server
+#   docker compose up api frontend    # 啟動後端 + 前端
 #   docker compose run --rm status    # CLI 健康檢查
 #   docker compose --profile trade up trade
 # ============================================================
@@ -101,6 +103,25 @@ services:
     command: ["main.py", "trade", "--testnet"]   # 預設指向測試網; 移除 --testnet 改為正式網
     restart: unless-stopped           # 自動重啟，適合長時間運行
     stop_grace_period: 30s
+
+  # ---- DevOps 前端面板 (nginx serve devops-d) ----
+  frontend:
+    build:
+      context: ./frontend/devops-d
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: http://localhost:8000
+    container_name: bioneuron-frontend
+    ports:
+      - "${FRONTEND_PORT:-3000}:80"
+    depends_on:
+      - api
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:80"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
 
 volumes:
   bioneuron-data:

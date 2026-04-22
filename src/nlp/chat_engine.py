@@ -440,17 +440,36 @@ class ChatEngine:
 
             # 使用 HonestGenerator（若可用）
             if self._honest_gen is not None:
-                result = self._honest_gen.generate(
-                    input_ids=input_ids,
-                    max_new_tokens=self.max_new_tokens,
-                    temperature=self.temperature,
-                    top_k=self.top_k,
-                    top_p=self.top_p,
-                    repetition_penalty=self.repetition_penalty,
-                )
-                text = result.get("text", "")
-                confidence = result.get("confidence", 1.0)
-                stopped_reason = result.get("stopped_reason", "")
+                if hasattr(self._honest_gen, "generate_with_honesty"):
+                    result = self._honest_gen.generate_with_honesty(
+                        input_ids=input_ids,
+                        max_length=self.max_new_tokens,
+                        temperature=self.temperature,
+                        top_k=self.top_k,
+                        top_p=self.top_p,
+                        repetition_penalty=self.repetition_penalty,
+                    )
+                    text = result.get("generated_text", "")
+                    confidence = float(
+                        result.get("overall_confidence", 1.0)
+                    )
+                    stopped_reason = str(result.get("stop_reason", ""))
+                elif hasattr(self._honest_gen, "generate"):
+                    result = self._honest_gen.generate(
+                        input_ids=input_ids,
+                        max_new_tokens=self.max_new_tokens,
+                        temperature=self.temperature,
+                        top_k=self.top_k,
+                        top_p=self.top_p,
+                        repetition_penalty=self.repetition_penalty,
+                    )
+                    text = result.get("text", "")
+                    confidence = float(result.get("confidence", 1.0))
+                    stopped_reason = str(result.get("stopped_reason", ""))
+                else:
+                    raise AttributeError(
+                        "HonestGenerator 缺少 generate_with_honesty / generate 介面"
+                    )
             else:
                 with torch.no_grad():
                     output_ids = self.model.generate(
@@ -553,7 +572,6 @@ def create_chat_engine(
     若模型不存在或 torch 未安裝，返回 None。
     """
     try:
-        import torch
         from .tiny_llm import load_llm
         from .bilingual_tokenizer import BilingualTokenizer
 

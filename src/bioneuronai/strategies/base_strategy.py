@@ -325,12 +325,80 @@ class BaseStrategy(ABC):
         )
 
     def _finalize_analysis_state(self) -> None:
-        """分析結束後同步狀態，避免持倉中被誤重置為 idle。"""
-        self.state = (
-            StrategyState.POSITION_OPEN
-            if self.active_trades
-            else StrategyState.IDLE
-        )
+        """分析結束後同步狀態，避免 pending entry / 持倉被誤重置。"""
+        if self.active_trades:
+            self.state = StrategyState.POSITION_OPEN
+            self.current_setup = None
+            return
+
+        if self.current_setup and self.current_setup.is_valid():
+            self.state = StrategyState.ENTRY_READY
+            return
+
+        self.current_setup = None
+        self.state = StrategyState.IDLE
+
+    def _mark_pending_entry(self, setup: TradeSetup) -> None:
+        """記錄待成交進場單，避免下一輪分析再次送出同類 entry。"""
+        self.current_setup = setup
+        self.state = StrategyState.ENTRY_READY
+
+    def _resolve_runtime_symbol(
+        self,
+        market_analysis: Optional[Dict[str, Any]] = None,
+        additional_data: Optional[Dict[str, Any]] = None,
+    ) -> Optional[str]:
+        """盡量從既有分析/附加資料中解析交易對。"""
+        candidate = None
+        if additional_data:
+            candidate = additional_data.get("symbol")
+        if not candidate and market_analysis:
+            candidate = market_analysis.get("symbol")
+        if candidate is None:
+            return None
+
+        symbol = str(candidate).strip()
+        return symbol or None
+
+    def _sync_connector_runtime_state(
+        self,
+        connector: Any,
+        symbol: Optional[str],
+    ) -> Optional[str]:
+        """將 connector 的 pending/open-position 狀態同步回策略狀態。"""
+        if self.active_trades:
+            self.current_setup = None
+            self.state = StrategyState.POSITION_OPEN
+            return None
+
+        if connector is None or not symbol:
+            self._finalize_analysis_state()
+            return None
+
+        try:
+            has_position = bool(
+                connector.has_open_position(symbol)
+            ) if hasattr(connector, "has_open_position") else False
+            has_pending = bool(
+                connector.has_pending_entry_order(symbol)
+            ) if hasattr(connector, "has_pending_entry_order") else False
+        except Exception as exc:
+            logger.warning("同步 connector 策略狀態失敗: %s", exc)
+            self._finalize_analysis_state()
+            return None
+
+        if has_position:
+            self.current_setup = None
+            self.state = StrategyState.POSITION_OPEN
+            return f"connector 已有持倉: {symbol}"
+
+        if has_pending:
+            self.state = StrategyState.ENTRY_READY
+            return f"connector 已有待成交進場單: {symbol}"
+
+        self.current_setup = None
+        self.state = StrategyState.IDLE
+        return None
         
     # ========================
     # 1. 
@@ -883,6 +951,18 @@ class BaseStrategy(ABC):
             if not risk_check['can_trade']:
                 result['signals'].append("")
                 return result
+
+            runtime_symbol = self._resolve_runtime_symbol(
+                market_analysis=market_analysis,
+                additional_data=additional_data,
+            )
+            connector_state = self._sync_connector_runtime_state(
+                connector,
+                runtime_symbol,
+            )
+            result['state'] = self.state.value
+            if connector_state:
+                result['signals'].append(connector_state)
             
             # 4. 
             if self.state == StrategyState.IDLE:
@@ -912,10 +992,15 @@ class BaseStrategy(ABC):
                         # 
                         new_trade: Optional[TradeExecution] = self.execute_entry(setup, connector)
                         if new_trade:
+                            self.current_setup = None
                             self.active_trades[new_trade.trade_id] = new_trade
                             self.state = StrategyState.POSITION_OPEN
                             result['actions_taken'].append(
                                 f": {setup.symbol} {setup.direction} @ {setup.entry_price}"
+                            )
+                        elif self.state == StrategyState.ENTRY_READY:
+                            result['actions_taken'].append(
+                                f": {setup.symbol} {setup.direction} pending"
                             )
                     else:
                         result['signals'].append(

@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="UTF-8"><title>Status Badges</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { padding: 20px; display:flex; flex-direction:column; gap: 12px; }
+  .row { display:flex; gap: 8px; align-items:center; flex-wrap:wrap; }
+  .lbl { font-family: var(--font-mono); font-size: 10px; color: var(--muted-foreground); text-transform: uppercase; letter-spacing: .08em; width: 100px; }
+  .badge { display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: var(--radius-md); border: 1px solid; font-family: var(--font-mono); font-size: 12px; font-weight: 500; }
+  .dot { width: 6px; height: 6px; border-radius: 9999px; margin-right: 6px; }
+  .b-success { background: rgba(34,197,94,0.10); color: #22c55e; border-color: rgba(34,197,94,0.20); }
+  .b-success .dot { background: #22c55e; }
+  .b-error { background: rgba(239,68,68,0.10); color: #ef4444; border-color: rgba(239,68,68,0.20); }
+  .b-error .dot { background: #ef4444; }
+  .b-warn { background: rgba(245,158,11,0.10); color: #f59e0b; border-color: rgba(245,158,11,0.20); }
+  .b-warn .dot { background: #f59e0b; }
+  .b-info { background: color-mix(in oklch, oklch(0.65 0.15 200) 10%, transparent); color: oklch(0.75 0.15 200); border-color: color-mix(in oklch, oklch(0.65 0.15 200) 20%, transparent); }
+  .b-info .dot { background: oklch(0.65 0.15 200); }
+  .b-default { background: var(--muted); color: var(--muted-foreground); border-color: var(--border); }
+  .b-default .dot { background: var(--muted-foreground); }
+  .b-primary { background: oklch(0.65 0.15 200); color: #fff; border-color: transparent; }
+  .b-secondary { background: oklch(0.35 0.02 240); color: oklch(0.95 0 0); border-color: transparent; }
+  .b-outline { background: transparent; color: var(--foreground); border-color: var(--border); }
+</style></head>
+<body>
+  <div class="row"><div class="lbl">status</div>
+    <span class="badge b-success"><span class="dot"></span>healthy</span>
+    <span class="badge b-success"><span class="dot"></span>pass</span>
+    <span class="badge b-error"><span class="dot"></span>failed</span>
+    <span class="badge b-warn"><span class="dot"></span>degraded</span>
+    <span class="badge b-info"><span class="dot"></span>running</span>
+    <span class="badge b-default"><span class="dot"></span>pending</span>
+  </div>
+  <div class="row"><div class="lbl">variants</div>
+    <span class="badge b-primary">primary</span>
+    <span class="badge b-secondary">secondary</span>
+    <span class="badge b-outline">outline</span>
+    <span class="badge b-error" style="background: #ef4444; color:#fff; border-color: transparent;">destructive</span>
+  </div>
+  <div class="row"><div class="lbl">sentiment</div>
+    <span class="badge b-success"><span class="dot"></span>positive</span>
+    <span class="badge b-error"><span class="dot"></span>negative</span>
+    <span class="badge b-warn"><span class="dot"></span>neutral</span>
+  </div>
+</body></html>

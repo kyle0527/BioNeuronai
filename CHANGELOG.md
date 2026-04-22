@@ -1,5 +1,28 @@
 # 更新日誌
 
+## [Maintenance] - 2026-04-23
+
+### 📝 部署驗收與策略主線記錄更新
+
+#### Docker / Compose 驗收補記
+- 修正 `docker-compose.yml` 中 `frontend` healthcheck：`localhost` 改為 `127.0.0.1`
+- 實測確認 `bioneuron-api` 與 `bioneuron-frontend` 皆可達 `healthy`
+- 補記 `GET /api/v1/status`、`GET http://localhost:3000`、`POST /api/v1/chat` 驗證結果
+
+#### Chat 主線修復
+- 修正 `src/nlp/chat_engine.py`：`HonestGenerator` 改走 `generate_with_honesty()`，不再因介面不符直接回 `（生成失敗，請稍後再試）`
+- `python main.py chat --symbol BTCUSDT --language zh` 已完成一輪真實 smoke
+- API `/api/v1/chat` 已完成一輪真實 smoke
+
+#### EventContext 主線驗證
+- 補上正式 live 路徑 smoke：`news_adapter -> trading_engine -> selector -> strategy_fusion`
+- 明確記錄 `pretrade` 不是正式 fusion 消費入口，避免文件誤導
+
+#### 測試記錄
+- `python -m pytest tests/test_smoke.py -q` 更新為 `23 passed`
+
+---
+
 ## [v2.1] - 2026-04-07
 
 ### 🧠 TinyLLM 雙模態架構重設計 + 訓練系統整合

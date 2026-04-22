@@ -192,6 +192,17 @@ class _FakeKnowledgeBase:
         self.saved = True
 
 
+class _PendingOnlyConnector:
+    def __init__(self):
+        self.orders = []
+
+    def has_pending_entry_order(self, symbol: str, side: str | None = None):  # noqa: ARG002
+        return bool(self.orders)
+
+    def has_open_position(self, symbol: str):  # noqa: ARG002
+        return False
+
+
 class _FakeNewsFetcher:
     def __init__(self, items):
         self._items = items
@@ -220,6 +231,107 @@ def test_pretrade_execution_smoke_with_stubbed_dependencies():
     assert result["fundamentals"].rag_context["status"] == "OK"
     assert result["fundamentals"].rag_context["total_hits"] == 2
     assert result["risk_calculation"].overall_status != "ERROR"
+
+
+def test_base_strategy_pending_entry_state_sync_smoke():
+    """待成交進場單應將策略維持在 ENTRY_READY，而不是被分析流程重置成 IDLE。"""
+    import numpy as np
+
+    from bioneuronai.strategies.base_strategy import (
+        BaseStrategy,
+        MarketCondition,
+        PositionManagement,
+        RiskParameters,
+        SignalStrength,
+        StrategyState,
+        TradeSetup,
+    )
+
+    class PendingAwareStrategy(BaseStrategy):
+        def __init__(self):
+            super().__init__(
+                name="Pending Aware",
+                timeframe="1h",
+                risk_params=RiskParameters(max_risk_per_trade_pct=1.0),
+            )
+            self.entry_attempts = 0
+
+        def analyze_market(self, ohlcv_data, additional_data=None):  # noqa: ARG002
+            self.state = StrategyState.ANALYZING
+            self._finalize_analysis_state()
+            return {
+                "symbol": (additional_data or {}).get("symbol", "BTCUSDT"),
+                "current_price": 100.0,
+            }
+
+        def evaluate_entry_conditions(self, market_analysis, ohlcv_data):  # noqa: ARG002
+            return TradeSetup(
+                symbol=market_analysis["symbol"],
+                direction="long",
+                entry_price=100.0,
+                entry_confirmations=3,
+                required_confirmations=3,
+                stop_loss=95.0,
+                take_profit_1=110.0,
+                take_profit_2=115.0,
+                take_profit_3=120.0,
+                risk_reward_ratio=2.5,
+                valid_until=datetime.now() + timedelta(minutes=30),
+                signal_strength=SignalStrength.STRONG,
+                market_condition=MarketCondition.UPTREND,
+            )
+
+        def execute_entry(self, setup, connector):
+            self.entry_attempts += 1
+            connector.orders.append(
+                {
+                    "symbol": setup.symbol,
+                    "side": "BUY",
+                    "status": "NEW",
+                }
+            )
+            self._mark_pending_entry(setup)
+            return None
+
+        def manage_position(self, trade, current_price, ohlcv_data):  # noqa: ARG002
+            return PositionManagement()
+
+        def evaluate_exit_conditions(self, trade, current_price, ohlcv_data):  # noqa: ARG002
+            return False, ""
+
+        def execute_exit(self, trade, reason, connector, partial_exit=False, exit_portion=1.0):  # noqa: ARG002
+            return True
+
+    strategy = PendingAwareStrategy()
+    connector = _PendingOnlyConnector()
+    ohlcv = np.array(
+        [
+            [0, 100.0, 101.0, 99.0, 100.0, 10.0],
+            [1, 100.0, 102.0, 99.0, 101.0, 11.0],
+        ],
+        dtype=float,
+    )
+
+    first = strategy.run_iteration(
+        ohlcv_data=ohlcv,
+        current_price=101.0,
+        account_balance=10000.0,
+        connector=connector,
+        additional_data={"symbol": "BTCUSDT"},
+    )
+    second = strategy.run_iteration(
+        ohlcv_data=ohlcv,
+        current_price=101.0,
+        account_balance=10000.0,
+        connector=connector,
+        additional_data={"symbol": "BTCUSDT"},
+    )
+
+    assert strategy.entry_attempts == 1
+    assert strategy.state == StrategyState.ENTRY_READY
+    assert strategy.current_setup is not None
+    assert "pending" in " ".join(first["actions_taken"]).lower()
+    assert any("待成交進場單" in msg for msg in second["signals"])
 
 
 def test_strategy_planner_backtest_smoke():
@@ -362,6 +474,84 @@ def test_event_context_trading_chain_smoke():
     assert signal.signal_type == TradeSignalType.BUY
     assert captured["event_context"] is event_context
     assert captured["event_score"] == event_context.event_score
+
+
+def test_live_event_context_consumer_chain_smoke():
+    """正式 live 路徑應可從 news_adapter 經 trading_engine 傳到 strategy_fusion。"""
+    from bioneuronai.core.trading_engine import TradingEngine
+    from bioneuronai.strategies.selector.core import StrategySelector
+    from schemas.rag import EventContext
+    from schemas.enums import SignalType as TradeSignalType
+
+    captured = {}
+
+    class _FakeFusion:
+        def generate_fusion_signal(self, ohlcv_data, additional_data=None, event_score=0.0, event_context=None):  # noqa: ARG002
+            captured["event_context"] = event_context
+            captured["event_score"] = event_score
+            return SimpleNamespace(
+                should_trade=True,
+                consensus_direction="long",
+                confidence_score=0.81,
+                consensus_strength=0.75,
+                contributing_strategies=["trend_following"],
+                has_conflict=False,
+                fusion_method_used=SimpleNamespace(value="market_adaptive"),
+                selected_setup=None,
+            )
+
+    class _FakeNewsAdapter:
+        def get_event_context(self, symbol: str):
+            captured["symbol"] = symbol
+            return EventContext(
+                event_score=1.8,
+                event_type="MACRO",
+                intensity="HIGH",
+                affected_symbols=[symbol],
+            )
+
+    selector = StrategySelector.__new__(StrategySelector)
+    selector._ai_fusion = _FakeFusion()
+
+    engine = TradingEngine.__new__(TradingEngine)
+    engine.strategy = selector
+    engine.news_adapter = _FakeNewsAdapter()
+    engine.enable_phase_router = False
+    engine.enable_ai_model = False
+    engine.ai_model_loaded = False
+    engine.inference_engine = None
+    engine.signals_history = []
+    engine._get_klines = lambda symbol, interval="1m", limit=200: [  # noqa: ARG005
+        {
+            "open_time": index,
+            "open": 100 + index,
+            "high": 101 + index,
+            "low": 99 + index,
+            "close": 100.5 + index,
+            "volume": 1000 + index,
+        }
+        for index in range(25)
+    ]
+    engine._display_signal_info = lambda *args, **kwargs: None
+    engine._generate_phase_router_signal = lambda **kwargs: None
+    engine._apply_rl_meta_agent = lambda payload, symbol, ohlcv_data: payload  # noqa: ARG005
+    engine._fuse_signals = lambda strategy_signal, ai_signal, symbol, current_price: strategy_signal  # noqa: ARG005
+    engine._convert_klines_to_ohlcv = TradingEngine._convert_klines_to_ohlcv.__get__(engine, TradingEngine)
+    engine._direction_to_signal_type = TradingEngine._direction_to_signal_type.__get__(engine, TradingEngine)
+    engine._is_valid_target_price = TradingEngine._is_valid_target_price.__get__(engine, TradingEngine)
+    engine._is_valid_stop_loss = TradingEngine._is_valid_stop_loss.__get__(engine, TradingEngine)
+    engine._generate_strategy_signal = TradingEngine._generate_strategy_signal.__get__(engine, TradingEngine)
+    engine.generate_trading_signal = TradingEngine.generate_trading_signal.__get__(engine, TradingEngine)
+    engine._process_market_data = TradingEngine._process_market_data.__get__(engine, TradingEngine)
+
+    signal = engine._process_market_data({"c": "125.0"}, "BTCUSDT")
+
+    assert signal is not None
+    assert signal.signal_type == TradeSignalType.BUY
+    assert captured["symbol"] == "BTCUSDT"
+    assert captured["event_context"] is not None
+    assert captured["event_context"].event_type == "MACRO"
+    assert captured["event_score"] == captured["event_context"].event_score
 
 
 def test_phase_router_trading_engine_integration_smoke():
@@ -660,3 +850,75 @@ def test_chat_cli_fallback_smoke(monkeypatch, capsys):
 
     output = capsys.readouterr().out
     assert "規則模式" in output
+
+
+def test_virtual_account_pending_entry_reserves_margin_smoke():
+    """未成交開倉單應預留保證金，避免可用餘額被錯算成還能繼續掛單。"""
+    from bioneuronai.trading.virtual_account import VirtualAccount
+
+    account = VirtualAccount(initial_balance=100.0, leverage=1)
+
+    first = account.place_order(
+        symbol="BTCUSDT",
+        side="BUY",
+        order_type="LIMIT",
+        quantity=0.5,
+        price=100.0,
+    )
+    second = account.place_order(
+        symbol="BTCUSDT",
+        side="BUY",
+        order_type="LIMIT",
+        quantity=0.6,
+        price=100.0,
+    )
+
+    assert first.status.value == "NEW"
+    assert second.status.value == "REJECTED"
+    assert account.get_available_balance() < 50.0
+
+
+def test_chat_engine_honest_generator_path_smoke():
+    """ChatEngine 應支援 HonestGenerator.generate_with_honesty 介面。"""
+    import torch
+
+    from nlp.chat_engine import ChatEngine
+
+    class _DummyModel(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self._p = torch.nn.Parameter(torch.zeros(1))
+
+        def forward(self, input_ids):  # pragma: no cover
+            return input_ids
+
+    class _DummyTokenizer:
+        special_token_ids = {"eos_token": 0}
+
+        def encode(self, text, max_length=1024, truncation=True):  # noqa: ARG002
+            return torch.tensor([[1, 2, 3]], dtype=torch.long)
+
+        def decode(self, ids):  # noqa: ARG002
+            return "decoded"
+
+    class _FakeHonestGenerator:
+        def generate_with_honesty(self, input_ids, max_length=100, **kwargs):  # noqa: ARG002
+            return {
+                "generated_text": "市場結構偏多，但需嚴格控風險。",
+                "overall_confidence": 0.73,
+                "stop_reason": "",
+            }
+
+    engine = ChatEngine(
+        model=_DummyModel(),
+        tokenizer=_DummyTokenizer(),
+        language="zh",
+        max_new_tokens=32,
+    )
+    engine._honest_gen = _FakeHonestGenerator()
+
+    text, confidence, stopped_reason = engine._generate("test prompt")
+
+    assert text == "市場結構偏多，但需嚴格控風險。"
+    assert abs(confidence - 0.73) < 1e-9
+    assert stopped_reason == ""

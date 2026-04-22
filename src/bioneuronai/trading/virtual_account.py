@@ -272,6 +272,28 @@ class VirtualAccount:
         """計算手續費"""
         fee_rate = self.taker_fee if is_taker else self.maker_fee
         return quantity * price * fee_rate
+
+    def _estimate_order_reservation(self, order: VirtualOrder) -> float:
+        """估算未成交開倉單需要暫時保留的保證金與手續費。"""
+        if order.reduce_only or order.status != OrderStatus.NEW:
+            return 0.0
+
+        reference_price = (
+            order.price
+            or order.stop_price
+            or self._current_prices.get(order.symbol, 0.0)
+        )
+        if reference_price <= 0 or order.quantity <= 0:
+            return 0.0
+
+        is_taker = order.order_type != OrderType.LIMIT
+        commission = self._calculate_commission(
+            order.quantity,
+            reference_price,
+            is_taker=is_taker,
+        )
+        required_margin = (order.quantity * reference_price) / self.leverage
+        return required_margin + commission
     
     def place_order(
         self,
@@ -322,6 +344,18 @@ class VirtualAccount:
             logger.warning(f"⚠️ 訂單拒絕: 無效數量 {quantity} {symbol}")
             self.order_history.append(order)
             return order
+
+        if order_type_enum != OrderType.MARKET and not reduce_only:
+            self._update_available_balance()
+            reservation_required = self._estimate_order_reservation(order)
+            if reservation_required > self.available_balance:
+                order.status = OrderStatus.REJECTED
+                logger.warning(
+                    "⚠️ 訂單拒絕: 待成交開倉單保證金不足 "
+                    f"(需要 {reservation_required:.2f}, 可用 {self.available_balance:.2f})"
+                )
+                self.order_history.append(order)
+                return order
         
         # 市價單立即撮合
         if order_type_enum == OrderType.MARKET:
@@ -338,6 +372,7 @@ class VirtualAccount:
             logger.info(f"🎯 條件單設置: {side} {quantity} {symbol} 觸發價 {stop_price}")
         
         self.order_history.append(order)
+        self._update_available_balance()
         return order
     
     def _execute_market_order(self, order: VirtualOrder):
@@ -639,12 +674,16 @@ class VirtualAccount:
         """更新可用餘額"""
         # 計算已用保證金
         used_margin = sum(pos.margin for pos in self.positions.values())
+        reserved_margin = sum(
+            self._estimate_order_reservation(order)
+            for order in self.open_orders.values()
+        )
         
         # 計算未實現盈虧
         unrealized_pnl = sum(pos.unrealized_pnl for pos in self.positions.values())
         
-        # 可用餘額 = 餘額 + 未實現盈虧 - 已用保證金
-        self.available_balance = self.balance + unrealized_pnl - used_margin
+        # 可用餘額 = 餘額 + 未實現盈虧 - 已用保證金 - 未成交開倉單保留額度
+        self.available_balance = self.balance + unrealized_pnl - used_margin - reserved_margin
     
     def get_balance(self) -> float:
         """獲取餘額"""
@@ -784,6 +823,7 @@ class VirtualAccount:
         if order_id in self.open_orders:
             self.open_orders[order_id].status = OrderStatus.CANCELED
             del self.open_orders[order_id]
+            self._update_available_balance()
             logger.info(f"❌ 訂單已取消: {order_id}")
             return True
         return False

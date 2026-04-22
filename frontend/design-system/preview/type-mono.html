@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="UTF-8"><title>Type — Mono / Numeric</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { padding: 24px; }
+  .row { display:grid; grid-template-columns: 120px 1fr auto; gap: 16px; align-items: baseline; margin-bottom: 12px; }
+  .tag { font-family: var(--font-mono); font-size: 10px; color: var(--muted-foreground); text-transform: uppercase; letter-spacing: .08em; }
+  .spec { font-family: var(--font-mono); font-size: 10px; color: var(--muted-foreground); }
+  .big { font-family: var(--font-mono); font-size: 32px; font-weight: 700; letter-spacing: -0.02em; }
+  .med { font-family: var(--font-mono); font-size: 18px; font-weight: 600; }
+  .code { font-family: var(--font-mono); font-size: 12px; background: var(--muted); padding: 2px 6px; border-radius: 4px; }
+</style></head>
+<body>
+  <div class="row"><div class="tag">metric</div><div class="big">$43,127.82</div><div class="spec">Mono 32 / 700</div></div>
+  <div class="row"><div class="tag">delta +</div><div class="med" style="color:#22c55e;">+1.82%</div><div class="spec">Mono 18 / 600 • success</div></div>
+  <div class="row"><div class="tag">delta −</div><div class="med" style="color:#ef4444;">−0.96%</div><div class="spec">Mono 18 / 600 • destructive</div></div>
+  <div class="row"><div class="tag">symbol</div><div class="med">BTCUSDT</div><div class="spec">Mono 18 / 600</div></div>
+  <div class="row"><div class="tag">inline code</div><div><span class="code">trading_engine</span> running • <span class="code">POST /api/v1/plan</span></div><div class="spec">Mono 12</div></div>
+</body></html>

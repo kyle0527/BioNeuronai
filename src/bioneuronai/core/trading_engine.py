@@ -17,9 +17,6 @@ from bioneuronai.analysis.news import CryptoNewsAnalyzer
 from bioneuronai.analysis.feature_engineering import MarketMicrostructure
 from bioneuronai.analysis.market_regime import RegimeAnalysis
 
-# AI 引擎相關導入 - 使用別名避免衝突
-from bioneuronai.core.inference_engine import TradingSignal as AITradingSignal
-from bioneuronai.core.inference_engine import SignalType
 from bioneuronai.data.binance_futures import OrderResult
 from bioneuronai.analysis.news import NewsAnalysisResult
 from schemas.enums import SignalType as TradeSignalType  # 交易信號的 BUY/SELL/HOLD 枚舉
@@ -126,11 +123,12 @@ logger: logging.Logger = logging.getLogger(__name__)
 # trading_engine 不直接配置 root logger 或建立 FileHandler
 # 日誌配置由 CLI 入口 (cli/main.py) 統一管理
 
-# 
+# 新聞分析器（延遲初始化）
 try:
-    from ..analysis import get_news_analyzer  # noqa: F401
+    from ..analysis import get_news_analyzer as _get_news_analyzer
     NEWS_ANALYZER_AVAILABLE = True
 except ImportError:
+    _get_news_analyzer = None  # type: ignore[assignment]
     NEWS_ANALYZER_AVAILABLE = False
     logger.warning(" ")
 
@@ -156,25 +154,30 @@ except ImportError:
 #  AI 
 try:
     from .inference_engine import (
-        InferenceEngine, 
+        InferenceEngine,
         TradingSignal as AITradingSignal,
-        SignalType  # noqa: F401
     )
     INFERENCE_ENGINE_AVAILABLE = True
 except ImportError:
+    InferenceEngine = None  # type: ignore[assignment,misc]
+    AITradingSignal = None  # type: ignore[assignment,misc]
     INFERENCE_ENGINE_AVAILABLE = False
     logger.warning("[AI] AI Inference Engine not loaded")
 
-# 
+# 特徵模組（延遲實例化）
 try:
     from ..analysis import (
-        MarketDataProcessor,  # noqa: F401
-        MarketRegimeDetector,  # noqa: F401
-        VolumeProfileCalculator,  # noqa: F401
-        LiquidationHeatmapCalculator  # noqa: F401
+        MarketDataProcessor,
+        MarketRegimeDetector,
+        VolumeProfileCalculator,
+        LiquidationHeatmapCalculator,
     )
     FEATURE_MODULES_AVAILABLE = True
 except ImportError:
+    MarketDataProcessor = None  # type: ignore[assignment,misc]
+    MarketRegimeDetector = None  # type: ignore[assignment,misc]
+    VolumeProfileCalculator = None  # type: ignore[assignment,misc]
+    LiquidationHeatmapCalculator = None  # type: ignore[assignment,misc]
     FEATURE_MODULES_AVAILABLE = False
     logger.warning(" ")
 
@@ -286,12 +289,10 @@ class TradingEngine:
         
         if FEATURE_MODULES_AVAILABLE:
             try:
-                from ..analysis import (
-                    MarketDataProcessor,
-                    MarketRegimeDetector,
-                    VolumeProfileCalculator,
-                    LiquidationHeatmapCalculator
-                )
+                assert MarketDataProcessor is not None
+                assert MarketRegimeDetector is not None
+                assert VolumeProfileCalculator is not None
+                assert LiquidationHeatmapCalculator is not None
                 self.market_data_processor = MarketDataProcessor()
                 self.regime_detector = MarketRegimeDetector()
                 self.volume_profile_calculator = VolumeProfileCalculator()
@@ -307,10 +308,9 @@ class TradingEngine:
         # 
         self.news_analyzer: Optional[CryptoNewsAnalyzer] = None
         self.enable_news_analysis = True
-        if NEWS_ANALYZER_AVAILABLE:
+        if NEWS_ANALYZER_AVAILABLE and _get_news_analyzer is not None:
             try:
-                from ..analysis import get_news_analyzer
-                self.news_analyzer = get_news_analyzer()
+                self.news_analyzer = _get_news_analyzer()
                 logger.info(" ")
             except Exception as e:
                 logger.warning(f" : {e}")

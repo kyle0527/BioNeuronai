@@ -881,11 +881,13 @@ class TrendFollowingStrategy(BaseStrategy):
                     
                     logger.info(f": {stop_order.get('orderId')}")
                 else:
+                    self._mark_pending_entry(setup)
                     return None
             
             execution.highest_price_since_entry = execution.actual_entry_price
             execution.lowest_price_since_entry = execution.actual_entry_price
             
+            self.current_setup = None
             self.state = StrategyState.POSITION_OPEN
             return execution
             

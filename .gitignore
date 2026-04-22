@@ -102,8 +102,15 @@ trading_plans/
 simulation_report.log
 news_output.txt
 out.txt
+out_remote_ui.html
 ruff_report.txt
 .tmp_symbols.txt
+BioNeuronai.code-workspace
+package-lock.json
+output/
+backtest/runtime/*
+!backtest/runtime/README.md
+src/data/bioneuronai/trading/sop/news_fetch_state.json
 
 # Legacy directories (已移至 /data/)
 training_data/

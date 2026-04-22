@@ -177,7 +177,7 @@ class Trainer:
                 if eval_loss < self.best_loss:
                     self.best_loss = eval_loss
                     self._save_checkpoint("best_model")
-                    print(f"✓ 保存最佳模型 (損失: {eval_loss:.4f})")
+                    print(f"[trainer] 保存最佳模型 (損失: {eval_loss:.4f})")
         
         total_time = time.time() - start_time
         print("\n" + "=" * 80)
@@ -412,7 +412,7 @@ class Trainer:
         history_path = self.output_dir / "training_history.json"
         with open(history_path, 'w', encoding='utf-8') as f:
             json.dump(self.train_history, f, indent=2, ensure_ascii=False)
-        print(f"\n✓ 訓練歷史已保存至: {history_path}")
+        print(f"\n[trainer] 訓練歷史已保存至: {history_path}")
 
 
 def create_real_dataloader(
@@ -503,7 +503,7 @@ def main():
         print(f"\n📖 載入 tokenizer: {tokenizer_path}")
         tokenizer = BilingualTokenizer.load(str(tokenizer_path))
     else:
-        print("\n⚠️  未找到 tokenizer，請先執行 build_vocab.py：")
+        print("\n[trainer] 未找到 tokenizer，請先執行 build_vocab.py：")
         print("   python -m nlp.training.build_vocab")
         return
     
@@ -535,8 +535,8 @@ def main():
         ("什麼是AI？", "AI是人工智慧。"),
     ]
     
-    print(f"\n📊 訓練數據: {len(train_data)} 樣本")
-    print(f"📊 評估數據: {len(eval_data)} 樣本")
+    print(f"\n[trainer] 訓練數據: {len(train_data)} 樣本")
+    print(f"[trainer] 評估數據: {len(eval_data)} 樣本")
     
     # 創建數據加載器
     train_dataloader = create_real_dataloader(
@@ -582,13 +582,13 @@ def main():
         eval_dataloader=eval_dataloader
     )
     
-    print("\n🚀 開始訓練...")
+    print("\n[trainer] 開始訓練...")
     print("=" * 60)
     
     # 開始訓練
     trainer.train()
     
-    print("\n✅ 訓練完成！")
+    print("\n[trainer] 訓練完成！")
     print(f"   模型保存在: {train_config.output_dir}")
     print("\n💡 提示: 使用更多數據和更長訓練可以獲得更好的效果")
     print("   建議使用 training/train_with_ai_teacher.py 進行完整訓練")
