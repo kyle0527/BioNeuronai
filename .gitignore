@@ -110,6 +110,9 @@ package-lock.json
 output/
 backtest/runtime/*
 !backtest/runtime/README.md
+
+# Binance historical kline downloads (大型資料，不納入版控)
+backtest/data/binance_historical/
 src/data/bioneuronai/trading/sop/news_fetch_state.json
 
 # Legacy directories (已移至 /data/)
