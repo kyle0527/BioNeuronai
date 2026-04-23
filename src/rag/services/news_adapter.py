@@ -89,11 +89,6 @@ class NewsAdapter:
     
     將 CryptoNewsAnalyzer 的功能封裝為 RAG 兼容的接口，
     供 UnifiedRetriever 使用。
-
-    與 daily_report.news_sentiment.NewsSentimentAnalyzer 的分工：
-    - NewsAdapter：面向 RAG / UnifiedRetriever，輸出 RetrievalResult / EventContext，並負責新聞知識入庫
-    - NewsSentimentAnalyzer：面向 daily_report，輸出簡化的日報分析 dict
-    - 兩者都包裝 CryptoNewsAnalyzer，但目的不同，不應互相取代
     
     設計原則 (CODE_FIX_GUIDE.md):
     - 不重複定義已存在的類型，使用 schemas
@@ -239,29 +234,34 @@ class NewsAdapter:
             return []
     
     def _extract_symbol(self, query: str) -> str:
-        """從查詢中提取幣種符號"""
-        # 常見幣種映射
-        query_upper = query.upper()
-        
+        """從查詢中提取幣種符號
+
+        若傳入完整交易對（如 BTCUSDT），直接回傳，
+        避免 Binance API 收到不完整 symbol 導致 400 錯誤。
+        """
+        query_upper = query.upper().strip()
+
+        # 完整交易對直接回傳
+        if query_upper.endswith("USDT") or query_upper.endswith("BUSD"):
+            return query_upper
+
+        # 常見幣種映射（關鍵字 → 完整交易對）
         coin_keywords = {
-            "BTC": ["BTC", "BITCOIN", "BTCUSDT"],
-            "ETH": ["ETH", "ETHEREUM", "ETHUSDT"],
-            "BNB": ["BNB", "BINANCE", "BNBUSDT"],
-            "SOL": ["SOL", "SOLANA", "SOLUSDT"],
-            "XRP": ["XRP", "RIPPLE", "XRPUSDT"],
+            "BTCUSDT": ["BTC", "BITCOIN"],
+            "ETHUSDT": ["ETH", "ETHEREUM"],
+            "BNBUSDT": ["BNB", "BINANCE"],
+            "SOLUSDT": ["SOL", "SOLANA"],
+            "XRPUSDT": ["XRP", "RIPPLE"],
         }
-        
-        for coin, keywords in coin_keywords.items():
+
+        for symbol, keywords in coin_keywords.items():
             for kw in keywords:
                 if kw in query_upper:
-                    return coin
-        
-        # 嘗試從 XXXUSDT 格式提取
-        if "USDT" in query_upper:
-            return query_upper.replace("USDT", "").strip()
-        
-        # 默認返回原始查詢的第一個詞
-        return query.split()[0] if query else "BTC"
+                    return symbol
+
+        # 其他情況補上 USDT 後綴
+        first_word = query.split()[0].upper() if query else "BTC"
+        return first_word + "USDT"
     
     def _calculate_relevance(self, article: Any, query: str) -> float:
         """計算文章與查詢的相關性分數"""

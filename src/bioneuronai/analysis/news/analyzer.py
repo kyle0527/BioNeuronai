@@ -749,11 +749,13 @@ class CryptoNewsAnalyzer:
         try:
             from config.trading_config import resolve_binance_testnet
             from ...data.binance_futures import BinanceFuturesConnector
+            # 確保是完整交易對（如 BTCUSDT 而非 BTC）
+            full_symbol = symbol if symbol.endswith("USDT") else symbol + "USDT"
             _testnet = resolve_binance_testnet(default=True)
             connector = BinanceFuturesConnector(testnet=_testnet)
-            price_data = connector.get_ticker_price(symbol)
+            price_data = connector.get_ticker_price(full_symbol)
             if price_data:
-                logger.info(f"獲取 {symbol} 當前價格: ${price_data.price:,.2f}")
+                logger.info(f"獲取 {full_symbol} 當前價格: ${price_data.price:,.2f}")
                 return price_data.price
         except Exception as e:
             logger.debug(f"無法獲取 {symbol} 價格: {e}")
@@ -1107,7 +1109,9 @@ class CryptoNewsAnalyzer:
     def _evaluate_single_news(self, record: Dict) -> Optional[Dict]:
         """評估單則新聞"""
         try:
-            symbol = record.get('symbol') or (record['target_coin'] + 'USDT')
+            raw_symbol = record.get('symbol') or (record['target_coin'] + 'USDT')
+            # 確保是完整交易對
+            symbol = raw_symbol if raw_symbol.endswith("USDT") else raw_symbol + "USDT"
             
             from config.trading_config import resolve_binance_testnet
             from ...data.binance_futures import BinanceFuturesConnector

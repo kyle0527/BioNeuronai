@@ -304,7 +304,7 @@ class BinanceFuturesConnector:
             {"symbol": "BTCUSDT", "bidPrice": "...", "bidQty": "...",
              "askPrice": "...", "askQty": "..."}
         """
-        return self._make_request("GET", "/fapi/v1/bookTicker", {"symbol": symbol})
+        return self._make_request("GET", "/fapi/v1/ticker/bookTicker", {"symbol": symbol})
 
     def get_premium_index(self, symbol: str) -> Optional[Dict]:
         """取得即時資金費率與標記價格
