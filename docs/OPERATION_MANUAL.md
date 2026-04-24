@@ -101,6 +101,11 @@ BINANCE_TESTNET=true
 python main.py status
 ```
 
+> 💡 **進階操作提示**：
+> 關於以下功能的更詳細參數（如 `--walk-forward` 樣本內外驗證、`--max-items` 新聞自適應抓取），請參閱我們最新編寫的專業子手冊：
+> - 📊 [分析模組操作手冊 (ANALYSIS_MODULE_USER_MANUAL.md)](ANALYSIS_MODULE_USER_MANUAL.md)：涵蓋 `news`, `plan`, `pretrade`。
+> - ⚔️ [策略模組操作手冊 (STRATEGY_MODULE_USER_MANUAL.md)](STRATEGY_MODULE_USER_MANUAL.md)：涵蓋 `strategy-backtest` 等競技場指令。
+
 ### `plan`
 **依賴子系統**：`planning/plan_controller.py`
 **用途**：產出 10 步驟高階分析。

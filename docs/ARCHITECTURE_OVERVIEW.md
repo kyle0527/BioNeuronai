@@ -99,7 +99,7 @@ cd frontend/devops-d  &&  npm run dev   # → http://localhost:5173
 ### 2.2 核心交易層
 
 - `src/bioneuronai/core/trading_engine.py`: 專案執行中樞，整合 AI 推理、策略融合、資料庫落檔等。
-- `src/bioneuronai/core/inference_engine.py`: 負責提煉 1024 維特徵，維護 16 步滾動特徵視窗，並透過目前正式交易 checkpoint（`model/my_100m_model.pth`）輸出交易訊號；若 checkpoint 為舊版 MLP，則走相容載入路徑。
+- `src/bioneuronai/core/inference_engine.py`: 負責提煉 1024 維特徵，維護 16 步滾動特徵視窗。*(註：目前正式交易主線預設關閉載入 `model/my_100m_model.pth`，該深度學習模型處於待命狀態，實際決策依靠演算法進行動態融合。)*
 
 ### 2.3 策略層 (`strategies/`)
 
@@ -166,8 +166,8 @@ flowchart LR
 1. **User / CLI** 啟動 `plan` 或 `trade`。
 2. **`planning/`** 進行市場大盤分析、關鍵字搜尋，產出交易對與計劃建議。
 3. **`core.TradingEngine`** 啟動主流程，由 `data/` 抓取當下 K 線。
-4. **`core.InferenceEngine`** 生成 1024 維特徵，透過 TinyLLM 的 16 步 Transformer Attention 輸出 AI 訊號（512 維）。
-5. **`strategies/selector` + `strategies/strategy_fusion`** 綜合 AI 與固定策略訊號。
+4. **`core.InferenceEngine`** 生成特徵 *(註：深度神經網路模型預設為待命不介入)*。
+5. **`strategies/selector` + `strategies/strategy_fusion`** 進行動態策略融合。這裡的「AI Fusion」主要透過啟發式演算法，結合勝率 (`win_rate`)、市場體制與新聞分數 (`event_score`) 來動態調整傳統策略權重。
 6. **`risk_management`** 決定倉位與風險阻擋。
 7. **`trading.VirtualAccount`** 在 replay / mock 路徑下紀錄持倉、餘額與掛單事實。
 8. **`data.DatabaseManager`** 可負責寫入操作紀錄與歷史，但不應在此文件中寫成所有狀態都已完全統一由資料庫接管。
