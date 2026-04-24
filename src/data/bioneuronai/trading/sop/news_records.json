@@ -105,5 +105,29 @@
     "sentiment": "neutral",
     "evaluated": false,
     "evaluation_window_hours": 24
+  },
+  {
+    "news_id": "f0909d464d832ef7",
+    "title": "Bitcoin-holder Metaplanet raises $50 million to buy more BTC",
+    "url": "https://www.coindesk.com/markets/2026/04/24/bitcoin-holder-metaplanet-raises-usd50-million-in-zero-interest-bonds-to-buy-more-btc",
+    "source": "www.coindesk.com",
+    "keywords": [
+      "bitcoin",
+      "bitcoin",
+      "holder",
+      "metaplanet",
+      "raises",
+      "million",
+      "buy",
+      "btc"
+    ],
+    "target_coin": "BTC",
+    "symbol": "BTCUSDT",
+    "timestamp": "2026-04-24T08:02:38",
+    "price_at_news": 77856.6,
+    "category": "general",
+    "sentiment": "neutral",
+    "evaluated": false,
+    "evaluation_window_hours": 24
   }
 ]
