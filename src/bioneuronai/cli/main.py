@@ -7,6 +7,7 @@ BioNeuronai CLI - 統一命令入口
 
 命令總覽:
     backtest  --symbol ETHUSDT --interval 1h --start-date 2025-01-01
+    strategy-backtest --symbol BTCUSDT --interval 1h
     simulate  --symbol BTCUSDT --balance 100000 --bars 200
     trade     --symbol BTCUSDT --testnet
     plan      [--output report.json]
@@ -23,6 +24,7 @@ import argparse
 import logging
 import sys
 import json
+from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
@@ -168,9 +170,16 @@ def cmd_plan(args: argparse.Namespace) -> None:
 
         controller = TradingPlanController()
         print("  [模式] TradingPlanController (10-Step)\n")
+        klines = _load_plan_klines(args)
+        account_balance = float(getattr(args, "balance", 10000.0))
+        symbol = getattr(args, "symbol", "BTCUSDT")
 
         async def _run_plan() -> dict:
-            return await controller.create_comprehensive_plan()
+            return await controller.create_comprehensive_plan(
+                klines=klines,
+                account_balance=account_balance,
+                symbol=symbol,
+            )
 
         report = asyncio.run(_run_plan())
         print("  [OK] 10 步驟計劃生成完畢")
@@ -189,6 +198,35 @@ def cmd_plan(args: argparse.Namespace) -> None:
         with open(output_path, "w", encoding="utf-8") as f:
             json.dump(report, f, ensure_ascii=False, indent=2, default=str)
         print(f"  報告已儲存至: {output_path}")
+
+
+def _load_plan_klines(args: argparse.Namespace) -> list[dict]:
+    """從正式 replay 資料根目錄載入 plan 所需的最近 K 線。"""
+    symbol = getattr(args, "symbol", "BTCUSDT")
+    interval = getattr(args, "interval", "1h")
+    limit = int(getattr(args, "klines_limit", 300))
+    data_dir = getattr(args, "data_dir", None)
+
+    try:
+        from backtest import HistoricalDataStream
+
+        stream = HistoricalDataStream(
+            symbol=symbol,
+            interval=interval,
+            data_dir=data_dir,
+            speed_multiplier=0,
+        )
+        target_open_time = int(datetime.now().timestamp() * 1000)
+        klines = stream.get_klines_until_time(target_open_time, limit=limit)
+        if klines:
+            print(f"  K線資料: {symbol} {interval} / {len(klines)} bars\n")
+        else:
+            print(f"  [WARN] 找不到 K線資料: {symbol} {interval}\n")
+        return klines
+    except Exception as exc:
+        logger.warning("plan K線資料載入失敗: %s", exc)
+        print(f"  [WARN] K線資料載入失敗: {exc}\n")
+        return []
 
 
 def _print_plan_report(report: dict) -> None:
@@ -576,6 +614,113 @@ def cmd_backtest(args: argparse.Namespace) -> None:
     print(f"{'='*60}\n")
 
 
+def cmd_strategy_backtest(args: argparse.Namespace) -> None:
+    """逐一跑正式策略實例，保存模擬進出場與成交紀錄。"""
+    print(f"\n{'='*60}")
+    print(f"  BioNeuronai Strategy Backtest  {args.symbol} / {args.interval}")
+    print(f"{'='*60}")
+    print("  模式       : 歷史 K 線 + MockBinanceConnector 模擬撮合")
+    print("  真實下單   : 否")
+    print(f"  尾端平倉   : {'是' if args.close_open_positions_on_end else '否'}")
+
+    try:
+        from backtest import run_strategy_suite_backtest
+
+        result = run_strategy_suite_backtest(
+            symbol=args.symbol,
+            interval=args.interval,
+            balance=args.balance,
+            start_date=args.start_date,
+            end_date=args.end_date,
+            data_dir=args.data_dir,
+            warmup_bars=args.warmup_bars,
+            close_open_positions_on_end=args.close_open_positions_on_end,
+            execution_mode=args.execution_mode,
+            parameter_overrides=args.params,
+            commission_bps=args.commission_bps,
+            slippage_bps=args.slippage_bps,
+            walk_forward=args.walk_forward,
+        )
+    except FileNotFoundError:
+        logger.error(
+            "找不到 %s / %s 的歷史數據，請先執行 tools/data_download/ 下載",
+            args.symbol,
+            args.interval,
+        )
+        sys.exit(1)
+    except Exception as exc:
+        logger.error("策略回測執行失敗: %s", exc)
+        sys.exit(1)
+
+    if args.output:
+        output_path = Path(args.output)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(
+            json.dumps(result, indent=2, ensure_ascii=False, default=str),
+            encoding="utf-8",
+        )
+        print(f"  輸出檔案   : {output_path}")
+
+    print(f"\n  策略模板   : {result['total_templates']}")
+    print(f"  可執行策略 : {result['executable_count']}")
+    print(f"  失敗/不可跑: {result['unavailable_count']}")
+    print(f"  執行模式   : {result.get('execution_mode')}")
+    print(f"  手續費     : {result.get('commission_bps', 4.0):.1f} bps  "
+          f"滑點: {result.get('slippage_bps', 1.0):.1f} bps")
+    if result.get("parameter_overrides_applied"):
+        print(f"  已覆蓋參數 : {', '.join(result['parameter_overrides_applied'])}")
+    print(f"\n  {'策略':22} {'引擎':14} {'交易':>6} {'報酬%':>10} "
+          f"{'勝率%':>8} {'夏普':>7} {'索提':>7} {'卡爾瑪':>7} "
+          f"{'獲利因子':>9}  Runtime")
+    print(f"  {'-'*115}")
+    for item in result["ranking"]:
+        stats = item.get("stats", {})
+        pf_raw = stats.get("profit_factor")
+        pf_str = f"{float(pf_raw):>9.2f}" if pf_raw is not None and pf_raw != float("inf") else f"{'\u221e':>9}"
+        print(
+            f"  {item['template_key'][:22]:22} "
+            f"{str(item.get('execution_engine', ''))[:14]:14} "
+            f"{int(item.get('trade_count', 0)):>6} "
+            f"{float(stats.get('total_return') or 0):>10.4f} "
+            f"{float(stats.get('win_rate') or 0):>8.2f} "
+            f"{float(stats.get('sharpe_ratio') or 0):>7.2f} "
+            f"{float(stats.get('sortino_ratio') or 0):>7.2f} "
+            f"{float(stats.get('calmar_ratio') or 0):>7.2f} "
+            f"{pf_str}  "
+            f"{item.get('run_dir')}"
+        )
+
+    # Walk-forward IS vs OOS 比較表
+    wf = result.get("walk_forward")
+    if wf and wf.get("enabled"):
+        print(f"\n  Walk-Forward IS/OOS 比較")
+        print(f"  IS 期間: {wf.get('is_period')}  OOS 期間: {wf.get('oos_period')}")
+        oos_ranking = {item['template_key']: item for item in wf.get('oos_ranking', [])}
+        print(f"  {'':22} {'IS 報酬%':>10} {'OOS 報酬%':>10} {'IS Sharpe':>10} {'OOS Sharpe':>11}")
+        print(f"  {'-'*65}")
+        for item in result["ranking"]:
+            tk = item['template_key']
+            is_st = item.get("stats", {})
+            oos_item = oos_ranking.get(tk, {})
+            oos_st = oos_item.get("stats", {})
+            print(
+                f"  {tk[:22]:22} "
+                f"{float(is_st.get('total_return') or 0):>10.4f} "
+                f"{float(oos_st.get('total_return') or 0):>10.4f} "
+                f"{float(is_st.get('sharpe_ratio') or 0):>10.2f} "
+                f"{float(oos_st.get('sharpe_ratio') or 0):>11.2f}"
+            )
+    elif wf and not wf.get("enabled"):
+        print(f"\n  Walk-forward 未啟用: {wf.get('reason', '')}")
+
+    if result["unavailable"]:
+        print("\n  未完成策略:")
+        for item in result["unavailable"]:
+            print(f"  - {item['template_key']}: {item['reason']}")
+
+    print(f"{'='*60}\n")
+
+
 def cmd_simulate(args: argparse.Namespace) -> None:
     """正式 replay simulate CLI，保存 runtime artifacts。"""
     print(f"\n{'='*60}")
@@ -663,6 +808,49 @@ def cmd_backtest_runs(args: argparse.Namespace) -> None:
     print(f"{'='*60}\n")
 
 
+def cmd_collect_signal_data(args: argparse.Namespace) -> None:
+    """收集 unified_trainer 所需的 signal JSONL 訓練資料。"""
+    print(f"\n{'='*60}")
+    print(f"  Collect Signal Training Data  {args.symbol} / {args.interval}")
+    print(f"{'='*60}")
+
+    try:
+        from backtest import collect_signal_training_data
+
+        result = collect_signal_training_data(
+            symbol=args.symbol,
+            interval=args.interval,
+            balance=args.balance,
+            start_date=getattr(args, "start_date", None),
+            end_date=getattr(args, "end_date", None),
+            data_dir=getattr(args, "data_dir", None),
+            warmup_bars=args.warmup_bars,
+            seq_len=args.seq_len,
+            output_path=getattr(args, "output", None),
+            max_samples=args.max_samples,
+        )
+    except FileNotFoundError:
+        logger.error(
+            "找不到 %s / %s 的歷史數據，請先執行 tools/data_download/ 下載",
+            args.symbol,
+            args.interval,
+        )
+        sys.exit(1)
+    except Exception as exc:
+        logger.error("signal 訓練資料收集失敗: %s", exc)
+        sys.exit(1)
+
+    if result.get("error"):
+        logger.error(result["error"])
+        sys.exit(1)
+
+    print(f"  Samples     : {result.get('samples_collected', 0)}")
+    print(f"  Skipped     : {result.get('skipped_samples', 0)}")
+    print(f"  Seq Len     : {result.get('seq_len', args.seq_len)}")
+    print(f"  Output Path : {result.get('output_path', 'N/A')}")
+    print(f"{'='*60}\n")
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # CLI 路由（argparse）
 # ══════════════════════════════════════════════════════════════════════════════
@@ -678,12 +866,14 @@ def _build_parser() -> argparse.ArgumentParser:
 命令範例:
   python main.py backtest  --symbol ETHUSDT --interval 1h --start-date 2025-01-01
   python main.py simulate  --symbol BTCUSDT --interval 15m --balance 50000 --bars 300
+  python main.py collect-signal-data --symbol BTCUSDT --interval 1h
   python main.py backtest-data --symbol ETHUSDT --interval 1h
   python main.py trade     --testnet
   python main.py plan      --output daily_plan.json
   python main.py news      --symbol BTCUSDT --max-items 5
   python main.py pretrade  --symbol BTCUSDT --action long
   python main.py status
+  python main.py strategy-backtest --symbol BTCUSDT --interval 1h
         """,
     )
 
@@ -708,6 +898,45 @@ def _build_parser() -> argparse.ArgumentParser:
                     help="歷史資料根目錄  (預設: 自動尋找 repo 內資料)")
     bp.set_defaults(func=cmd_backtest)
 
+    # ── strategy-backtest ───────────────────────────────────────────────────
+    sbp = subparsers.add_parser(
+        "strategy-backtest",
+        help="逐一評估策略實例，保存模擬進出場/成交紀錄",
+    )
+    sbp.add_argument("--symbol", default="BTCUSDT", metavar="SYMBOL",
+                     help="交易對  (預設: BTCUSDT)")
+    sbp.add_argument("--interval", default="1h", metavar="INTERVAL",
+                     help="K線週期  (預設: 1h)")
+    sbp.add_argument("--start-date", default=None, dest="start_date", metavar="YYYY-MM-DD",
+                     help="起始日期  (預設: 最早可用)")
+    sbp.add_argument("--end-date", default=None, dest="end_date", metavar="YYYY-MM-DD",
+                     help="結束日期  (預設: 最新可用)")
+    sbp.add_argument("--balance", type=float, default=10000.0, metavar="AMOUNT",
+                     help="初始資金  (預設: 10000)")
+    sbp.add_argument("--warmup-bars", type=int, default=100, metavar="N",
+                     help="預熱 K 線數量  (預設: 100)")
+    sbp.add_argument("--data-dir", default=None, dest="data_dir", metavar="PATH",
+                     help="歷史資料根目錄  (預設: 自動尋找 repo 內資料)")
+    sbp.add_argument("--output", default=None, metavar="FILE",
+                     help="輸出策略比較 JSON 檔案  (可選)")
+    sbp.add_argument("--params", default=None, metavar="FILE",
+                     help="策略參數覆蓋 JSON 檔案，可覆蓋 entry/exit/risk 參數")
+    sbp.add_argument("--execution-mode", default="template_rules",
+                     choices=["template_rules", "hybrid"],
+                     help="template_rules=10 個模板全跑；hybrid=有實體策略類時優先跑策略類")
+    sbp.add_argument("--keep-open-positions", action="store_false",
+                     dest="close_open_positions_on_end",
+                     help="回測結束時不強制平倉；預設會平倉以形成完整進出紀錄")
+    sbp.add_argument("--commission-bps", type=float, default=4.0, dest="commission_bps",
+                     metavar="BPS",
+                     help="Taker 手續費（基點，4 bps = 0.04%%）  (預設: 4.0)")
+    sbp.add_argument("--slippage-bps", type=float, default=1.0, dest="slippage_bps",
+                     metavar="BPS",
+                     help="每筆成交滑點（基點，1 bp = 0.01%%）  (預設: 1.0)")
+    sbp.add_argument("--walk-forward", action="store_true", dest="walk_forward",
+                     help="開啟 Walk-Forward IS/OOS 驗證（需一同提供 --start-date 和 --end-date）")
+    sbp.set_defaults(func=cmd_strategy_backtest, close_open_positions_on_end=True, walk_forward=False)
+
     # ── simulate ──────────────────────────────────────────────────────────────
     sp = subparsers.add_parser("simulate", help="紙交易模擬 (next_tick 推進，不產生真實訂單)")
     sp.add_argument("--symbol", default="BTCUSDT", metavar="SYMBOL",
@@ -725,6 +954,33 @@ def _build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--data-dir", default=None, dest="data_dir", metavar="PATH",
                     help="歷史資料根目錄  (預設: 自動尋找 repo 內資料)")
     sp.set_defaults(func=cmd_simulate)
+
+    # ── collect-signal-data ──────────────────────────────────────────────────
+    csdp = subparsers.add_parser(
+        "collect-signal-data",
+        help="收集 unified_trainer 所需的 signal JSONL 訓練資料",
+    )
+    csdp.add_argument("--symbol", default="BTCUSDT", metavar="SYMBOL",
+                      help="交易對  (預設: BTCUSDT)")
+    csdp.add_argument("--interval", default="1h", metavar="INTERVAL",
+                      help="K線週期  (預設: 1h)")
+    csdp.add_argument("--balance", type=float, default=10000.0, metavar="AMOUNT",
+                      help="回放時使用的初始資金  (預設: 10000)")
+    csdp.add_argument("--start-date", default=None, dest="start_date", metavar="YYYY-MM-DD",
+                      help="起始日期  (預設: 最早可用)")
+    csdp.add_argument("--end-date", default=None, dest="end_date", metavar="YYYY-MM-DD",
+                      help="結束日期  (預設: 最新可用)")
+    csdp.add_argument("--data-dir", default=None, dest="data_dir", metavar="PATH",
+                      help="歷史資料根目錄  (預設: 自動尋找 repo 內資料)")
+    csdp.add_argument("--warmup-bars", type=int, default=100, metavar="N",
+                      help="特徵提取前預熱 K 線數量  (預設: 100)")
+    csdp.add_argument("--seq-len", type=int, default=16, metavar="N",
+                      help="每筆樣本的時間步數  (預設: 16)")
+    csdp.add_argument("--max-samples", type=int, default=50000, metavar="N",
+                      help="最多收集幾筆樣本  (預設: 50000)")
+    csdp.add_argument("--output", default=None, metavar="FILE",
+                      help="輸出 JSONL 檔案路徑  (預設: data/signal_history.jsonl)")
+    csdp.set_defaults(func=cmd_collect_signal_data)
 
     # ── backtest-data ────────────────────────────────────────────────────────
     bdp = subparsers.add_parser("backtest-data", help="列出可用歷史回放資料")
@@ -760,6 +1016,16 @@ def _build_parser() -> argparse.ArgumentParser:
 
     # ── plan ──────────────────────────────────────────────────────────────────
     pp = subparsers.add_parser("plan", help="生成每日 SOP 交易計劃")
+    pp.add_argument("--symbol", default="BTCUSDT", metavar="SYMBOL",
+                    help="交易對  (預設: BTCUSDT)")
+    pp.add_argument("--interval", default="1h", metavar="INTERVAL",
+                    help="K線週期  (預設: 1h)")
+    pp.add_argument("--klines-limit", type=int, default=300, dest="klines_limit", metavar="N",
+                    help="載入最近幾根 K線供計劃分析使用  (預設: 300)")
+    pp.add_argument("--balance", type=float, default=10000.0, metavar="AMOUNT",
+                    help="計劃使用的帳戶資金  (預設: 10000)")
+    pp.add_argument("--data-dir", default=None, dest="data_dir", metavar="PATH",
+                    help="歷史資料根目錄  (預設: 自動尋找 repo 內資料)")
     pp.add_argument("--output", default=None, metavar="FILE",
                     help="輸出 JSON 檔案路徑  (可選)")
     pp.set_defaults(func=cmd_plan)

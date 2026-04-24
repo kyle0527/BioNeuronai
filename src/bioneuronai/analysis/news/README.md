@@ -38,6 +38,13 @@ news/
 └── README.md
 ```
 
+檔案對照：
+1. [__init__.py](__init__.py)
+2. [models.py](models.py)
+3. [analyzer.py](analyzer.py)
+4. [evaluator.py](evaluator.py)
+5. [prediction_loop.py](prediction_loop.py)
+
 ---
 
 ## 對外導出（依 `__init__.py`）
@@ -68,6 +75,20 @@ news/
 2. `_ingest_analysis_to_rag()` 透過 `rag.services.news_adapter.ingest_news_analysis_with_status(...)`
 3. 入庫狀態以 `OK / NO_DATA / ERROR` 區分，失敗記錄但不阻斷主分析流程
 4. `hours=None` 時會依上次成功抓取時間自適應計算時間窗；只有在呼叫端明確指定時才使用固定小時數
+5. 文章流程包含抓取、時間窗過濾、去重、相關性判斷、情緒分析、事件偵測、權重更新
+
+### `models.py`
+
+主要資料模型：
+1. `NewsArticle`
+2. `NewsAnalysisResult`
+
+其中 `NewsAnalysisResult` 目前包含：
+1. 文章統計
+2. 情緒方向與分數
+3. 交易建議
+4. signal validity / expiry 欄位
+5. `to_dict()` 輸出
 
 ### `RuleBasedEvaluator` (`evaluator.py`)
 
@@ -75,6 +96,7 @@ news/
 1. `EventRule` 以 `schemas.rag` 為單一事實來源（SSOT）
 2. 規則載入順序：`config/event_rules.json` -> `DEFAULT_RULES` -> `custom_rules`
 3. 提供 `get_current_event_score(symbol=None)` 供上層風險檢查
+4. 透過 event DB 讀寫 active events 與 resolved events
 
 ### `NewsPredictionLoop` (`prediction_loop.py`)
 
@@ -83,6 +105,11 @@ news/
 2. 結果回饋關鍵字權重
 3. `PredictionScheduler` 提供排程驗證能力
 
+細分：
+1. `NewsPrediction` / `ValidationResult` 是本檔自己的資料模型
+2. `log_prediction()`、`validate_pending_predictions()`、`get_statistics()` 是主要對外方法
+3. `PredictionScheduler` 只是排程封裝，不是主分析入口
+
 ---
 
 ## 現行資料路徑
@@ -90,6 +117,10 @@ news/
 1. 新聞記錄：`data/bioneuronai/trading/sop/news_records.json`
 2. 預測資料：`news_predictions/predictions.jsonl`
 3. 事件記憶：`data/bioneuronai/trading/runtime/trading.db`（由 `DatabaseManager` 管理）
+
+## 子模組邊界
+
+這個資料夾目前沒有更深一層的 README 子文件，因此本文件直接維護到檔案與主類別層級。
 
 ---
 

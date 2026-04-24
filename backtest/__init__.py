@@ -19,7 +19,15 @@ from bioneuronai.trading import VirtualAccount
 from .backtest_engine import BacktestEngine, BacktestConfig, quick_backtest, create_mock_connector
 from .catalog import get_catalog
 from .runtime_store import ReplayRunRecorder, list_runs, load_run
-from .service import get_runtime_run, list_runtime_runs, run_backtest_summary, run_simulation_summary
+from .service import (
+    build_selector_performance_weights,
+    collect_signal_training_data,
+    get_runtime_run,
+    list_runtime_runs,
+    run_backtest_summary,
+    run_simulation_summary,
+    run_strategy_suite_backtest,
+)
 from .web import load_backtest_ui_html
 
 __all__ = [
@@ -42,6 +50,9 @@ __all__ = [
     "load_run",
     "run_backtest_summary",
     "run_simulation_summary",
+    "run_strategy_suite_backtest",
+    "build_selector_performance_weights",
+    "collect_signal_training_data",
     "list_runtime_runs",
     "get_runtime_run",
     "BACKTEST_DATA_DIR",

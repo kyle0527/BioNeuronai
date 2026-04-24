@@ -151,9 +151,33 @@ class StrategySelector:
         self._performance_history: Dict[str, List[Dict]] = {
             name: [] for name in self._strategies
         }
+
+        # 回測績效權重（由 load_performance_weights() 注入）
+        self._performance_weights: Dict[str, float] = {}
+        self._performance_blend_alpha: float = 0.3
     
     # ========== 推薦 API (來自 v2，簡化版) ==========
-    
+
+    def load_performance_weights(
+        self,
+        weights: Dict[str, float],
+        blend_alpha: float = 0.3,
+    ) -> None:
+        """從回測績效注入策略權重，與市場體制權重混合使用。
+
+        Args:
+            weights:     ``{strategy_type_value: normalized_weight}``，
+                         來自 ``build_selector_performance_weights()``。
+            blend_alpha: 績效權重混合比例 (0=純市場體制, 1=純績效，預設 0.3)。
+        """
+        self._performance_weights = dict(weights)
+        self._performance_blend_alpha = max(0.0, min(1.0, blend_alpha))
+        logger.info(
+            "📊 已載入績效權重: %s，混合比例 alpha=%.2f",
+            weights,
+            self._performance_blend_alpha,
+        )
+
     def recommend_strategy(
         self,
         ohlcv_data: np.ndarray,
@@ -247,7 +271,18 @@ class StrategySelector:
         total = sum(weights.values())
         if total > 0:
             weights = {k: v/total for k, v in weights.items()}
-        
+
+        # Blend with backtest performance weights if available
+        if self._performance_weights and self._performance_blend_alpha > 0:
+            alpha = self._performance_blend_alpha
+            for key in list(weights.keys()):
+                perf_w = self._performance_weights.get(key, 0.0)
+                weights[key] = (1 - alpha) * weights[key] + alpha * perf_w
+            # Re-normalize
+            total = sum(weights.values())
+            if total > 0:
+                weights = {k: v / total for k, v in weights.items()}
+
         return weights
     
     def _identify_avoid_strategies(

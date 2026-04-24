@@ -240,12 +240,22 @@ class BilingualTokenizer:
         with open(path, 'r', encoding='utf-8') as f:
             data = json.load(f)
 
-        tokenizer = cls(vocab_size=data["vocab_size"])
-        tokenizer.vocab = data["vocab"]
-        # JSON 鍵為字串，還原為整數
-        tokenizer.id_to_token = {int(k): v for k, v in data["id_to_token"].items()}
-        tokenizer.special_tokens = data["special_tokens"]
-        tokenizer.special_token_ids = data["special_token_ids"]
+        # 向下相容舊版僅存 vocab 的 JSON 格式，避免訓練入口第一次啟動就重寫詞彙檔。
+        vocab = data.get("vocab", data)
+        vocab_size = data.get("vocab_size", max(len(vocab), 30000))
+
+        tokenizer = cls(vocab_size=vocab_size)
+        tokenizer.vocab = vocab
+
+        id_to_token = data.get("id_to_token")
+        if id_to_token is None:
+            tokenizer.id_to_token = {int(v): k for k, v in tokenizer.vocab.items()}
+        else:
+            # JSON 鍵為字串，還原為整數
+            tokenizer.id_to_token = {int(k): v for k, v in id_to_token.items()}
+
+        tokenizer.special_tokens = data.get("special_tokens", tokenizer.special_tokens)
+        tokenizer.special_token_ids = data.get("special_token_ids", tokenizer.special_token_ids)
 
         tokenizer.pad_token_id = tokenizer.special_token_ids.get("pad_token", 0)
         tokenizer.unk_token_id = tokenizer.special_token_ids.get("unk_token", 1)

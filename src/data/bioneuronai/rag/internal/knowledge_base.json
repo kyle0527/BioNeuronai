@@ -2196,6 +2196,174 @@
         "ingested_at": "2026-04-13T00:35:10.411733",
         "ingested_by": "NewsAdapter"
       }
+    },
+    {
+      "id": "news_btcusdt_80d37e500cf4468f",
+      "title": "Bitcoin chases monthly high above $80K as nearly all BTC price metrics turn bullish",
+      "content": "<p style=\"float:right; margin:0 0 10px 15px; width:240px;\"><img src=\"https://images.cointelegraph.com/images/528_aHR0cHM6Ly9zMy5jb2ludGVsZWdyYXBoLmNvbS91cGxvYWRzLzIwMjYtMDQvMDE5ZGI1YTktZmFiNS03NzI2LWI",
+      "doc_type": "news_archive",
+      "created_at": "2026-04-23T16:58:18.867083",
+      "updated_at": "2026-04-23T16:58:18.867083",
+      "tags": [
+        "news",
+        "btcusdt",
+        "cointelegraph.com"
+      ],
+      "metadata": {
+        "symbol": "BTCUSDT",
+        "news_source": "cointelegraph.com",
+        "url": "https://cointelegraph.com/news/bitcoin-chases-monthly-high-above-dollar80k-as-nearly-all-btc-price-metrics-turn-bullish?utm_source=rss_feed&utm_medium=rss&utm_campaign=rss_partner_inbound",
+        "published_at": "2026-04-23T00:30:00",
+        "analysis_hours": 24,
+        "overall_sentiment_score": 0.369,
+        "article_sentiment": "positive",
+        "article_sentiment_score": 1.0,
+        "importance_score": 9.14,
+        "relevance_score": 2.0,
+        "key_events": [],
+        "ingested_at": "2026-04-23T16:58:18.867040",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_btcusdt_b2e6af839a458d55",
+      "title": "Price predictions 4/22: BTC, ETH, XRP, BNB, SOL, DOGE, HYPE, ADA, BCH, XMR",
+      "content": "<p style=\"float:right; margin:0 0 10px 15px; width:240px;\"><img src=\"https://images.cointelegraph.com/images/528_aHR0cHM6Ly9zMy5jb2ludGVsZWdyYXBoLmNvbS91cGxvYWRzLzIwMjYtMDQvMDE5ZGI1YzYtODZiZS03MzEzLWE",
+      "doc_type": "news_archive",
+      "created_at": "2026-04-23T16:58:18.867111",
+      "updated_at": "2026-04-23T16:58:18.867111",
+      "tags": [
+        "news",
+        "btcusdt",
+        "cointelegraph.com"
+      ],
+      "metadata": {
+        "symbol": "BTCUSDT",
+        "news_source": "cointelegraph.com",
+        "url": "https://cointelegraph.com/news/price-predictions-4-22-btc-eth-xrp-bnb-sol-doge-hype-ada-bch-xmr?utm_source=rss_feed&utm_medium=rss&utm_campaign=rss_partner_inbound",
+        "published_at": "2026-04-22T23:37:05",
+        "analysis_hours": 24,
+        "overall_sentiment_score": 0.369,
+        "article_sentiment": "neutral",
+        "article_sentiment_score": 0.369,
+        "importance_score": 8.21,
+        "relevance_score": 2.0,
+        "key_events": [],
+        "ingested_at": "2026-04-23T16:58:18.867040",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_btcusdt_62b1550dcc971ab1",
+      "title": "US Government Runs a Bitcoin Node, But Not Mining BTC: US Admiral",
+      "content": "The commander of U.S. forces in the Pacific said the military is investigating Bitcoin’s ability to “secure and protect networks.”",
+      "doc_type": "news_archive",
+      "created_at": "2026-04-23T20:23:59.954710",
+      "updated_at": "2026-04-23T20:23:59.954711",
+      "tags": [
+        "news",
+        "btcusdt",
+        "decrypt.co"
+      ],
+      "metadata": {
+        "symbol": "BTCUSDT",
+        "news_source": "decrypt.co",
+        "url": "https://decrypt.co/365221/us-government-runs-bitcoin-node-not-mining-btc",
+        "published_at": "2026-04-22T21:46:02",
+        "analysis_hours": 24,
+        "overall_sentiment_score": 0.273,
+        "article_sentiment": "neutral",
+        "article_sentiment_score": 0.273,
+        "importance_score": 7.44,
+        "relevance_score": 2.0,
+        "key_events": [],
+        "ingested_at": "2026-04-23T20:23:59.954567",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_btcusdt_9bb795f2675efb54",
+      "title": "Bitcoin buyers show ‘renewed conviction’ with BTC price push toward $79K",
+      "content": "<p style=\"float:right; margin:0 0 10px 15px; width:240px;\"><img src=\"https://images.cointelegraph.com/images/528_aHR0cHM6Ly9zMy5jb2ludGVsZWdyYXBoLmNvbS91cGxvYWRzLzIwMjYtMDIvMDE5YzMyZDgtNWZlZC03OTAzLTk",
+      "doc_type": "news_archive",
+      "created_at": "2026-04-23T20:23:59.954634",
+      "updated_at": "2026-04-23T20:23:59.954635",
+      "tags": [
+        "news",
+        "btcusdt",
+        "cointelegraph.com"
+      ],
+      "metadata": {
+        "symbol": "BTCUSDT",
+        "news_source": "cointelegraph.com",
+        "url": "https://conpletus.cointelegraph.com/news/bitcoin-buyers-renewed-conviction-btc-price-push-toward-79k?utm_source=rss_feed&utm_medium=rss&utm_campaign=rss_partner_inbound",
+        "published_at": "2026-04-23T11:16:01",
+        "analysis_hours": 24,
+        "overall_sentiment_score": 0.273,
+        "article_sentiment": "neutral",
+        "article_sentiment_score": 0.273,
+        "importance_score": 8.64,
+        "relevance_score": 2.0,
+        "key_events": [],
+        "ingested_at": "2026-04-23T20:23:59.954567",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_btcusdt_921e1a80744e5002",
+      "title": "Bitcoin chases monthly high above $80K as nearly all BTC price metrics turn bullish",
+      "content": "<p style=\"float:right; margin:0 0 10px 15px; width:240px;\"><img src=\"https://images.cointelegraph.com/images/528_aHR0cHM6Ly9zMy5jb2ludGVsZWdyYXBoLmNvbS91cGxvYWRzLzIwMjYtMDQvMDE5ZGI1YTktZmFiNS03NzI2LWI",
+      "doc_type": "news_archive",
+      "created_at": "2026-04-23T20:23:59.954664",
+      "updated_at": "2026-04-23T20:23:59.954665",
+      "tags": [
+        "news",
+        "btcusdt",
+        "cointelegraph.com"
+      ],
+      "metadata": {
+        "symbol": "BTCUSDT",
+        "news_source": "cointelegraph.com",
+        "url": "https://conpletus.cointelegraph.com/news/bitcoin-chases-monthly-high-above-dollar80k-as-nearly-all-btc-price-metrics-turn-bullish?utm_source=rss_feed&utm_medium=rss&utm_campaign=rss_partner_inbound",
+        "published_at": "2026-04-23T00:30:00",
+        "analysis_hours": 24,
+        "overall_sentiment_score": 0.273,
+        "article_sentiment": "positive",
+        "article_sentiment_score": 1.0,
+        "importance_score": 9.14,
+        "relevance_score": 2.0,
+        "key_events": [],
+        "ingested_at": "2026-04-23T20:23:59.954567",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_btcusdt_bcd04ac5fe3b62a0",
+      "title": "Price predictions 4/22: BTC, ETH, XRP, BNB, SOL, DOGE, HYPE, ADA, BCH, XMR",
+      "content": "<p style=\"float:right; margin:0 0 10px 15px; width:240px;\"><img src=\"https://images.cointelegraph.com/images/528_aHR0cHM6Ly9zMy5jb2ludGVsZWdyYXBoLmNvbS91cGxvYWRzLzIwMjYtMDQvMDE5ZGI1YzYtODZiZS03MzEzLWE",
+      "doc_type": "news_archive",
+      "created_at": "2026-04-23T20:23:59.954690",
+      "updated_at": "2026-04-23T20:23:59.954690",
+      "tags": [
+        "news",
+        "btcusdt",
+        "cointelegraph.com"
+      ],
+      "metadata": {
+        "symbol": "BTCUSDT",
+        "news_source": "cointelegraph.com",
+        "url": "https://conpletus.cointelegraph.com/news/price-predictions-4-22-btc-eth-xrp-bnb-sol-doge-hype-ada-bch-xmr?utm_source=rss_feed&utm_medium=rss&utm_campaign=rss_partner_inbound",
+        "published_at": "2026-04-22T23:37:05",
+        "analysis_hours": 24,
+        "overall_sentiment_score": 0.273,
+        "article_sentiment": "neutral",
+        "article_sentiment_score": 0.273,
+        "importance_score": 8.21,
+        "relevance_score": 2.0,
+        "key_events": [],
+        "ingested_at": "2026-04-23T20:23:59.954567",
+        "ingested_by": "NewsAdapter"
+      }
     }
   ]
 }

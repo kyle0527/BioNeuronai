@@ -6,7 +6,7 @@
 **版本**: v2.1 (TinyLLM 雙模態 + 訓練系統整合版)
 **代碼質量**: ✅ 23/23 smoke tests passed (2026-04-23)
 
-> **部署狀態（2026-04-23）**：`bioneuron-api`（port 8000）與 `bioneuron-frontend`（port 3000）雙容器已部署並 healthy。`frontend/devops-d/` 為第一階段前端主線；`frontend/admin-da/` 與 `frontend/trading/` 暫緩。系統已達 internal staging 驗收標準；正式交易部署前仍需 Binance testnet key 設定與完整回測驗收。詳見 [部署準備紀錄](docs/DEPLOYMENT_READINESS_RECORD_20260417.md)。
+> **部署狀態（2026-04-23）**：`bioneuron-api`（port 8000）與 `bioneuron-frontend`（port 3000）雙容器已部署並 healthy。`frontend/devops-d/` 為第一階段前端主線；`frontend/admin-da/` 與 `frontend/trading/` 暫緩。Binance mainnet read-only API key 已設定（`BINANCE_TESTNET=false`）；pretrade 5/5 步驟無錯誤執行（REJECT 原因：Futures 錢包餘額 $0，非程式問題）。系統已達 internal staging 驗收標準；正式交易部署前仍需 Futures 帳戶充值、CORS origin 設定與完整回測驗收。詳見 [部署準備紀錄](docs/DEPLOYMENT_READINESS_RECORD_20260417.md)。
 
 ---
 
@@ -148,7 +148,7 @@ cp .env.example .env
 # 編輯 .env：
 BINANCE_API_KEY=your_api_key
 BINANCE_API_SECRET=your_secret_key
-BINANCE_TESTNET=true  # 建議先使用測試網
+BINANCE_TESTNET=false  # false = 正式網路（mainnet）；true = 測試網
 ```
 
 #### 4. 運行交易系統（CLI 入口）
@@ -258,16 +258,23 @@ Swagger UI：`http://localhost:8000/docs`
 | 方法 | 端點 | 說明 |
 |------|------|------|
 | `GET` | `/api/v1/status` | 系統健康狀態 |
-| `POST` | `/api/v1/plan` | 10 步驟交易計劃 |
 | `POST` | `/api/v1/news` | 新聞情緒分析 |
-| `POST` | `/api/v1/pretrade` | 交易前 6 點 RAG 檢查 |
-| `POST` | `/api/v1/backtest` | 歷史回測（背景工作） |
-| `POST` | `/api/v1/simulate` | 紙交易模擬（背景工作） |
-| `GET` | `/api/v1/jobs/{id}` | 查詢背景工作進度 |
+| `POST` | `/api/v1/pretrade` | 交易前 5 步驟 RAG 檢查 |
+| `POST` | `/api/v1/backtest/run` | 歷史回測（同步執行） |
+| `POST` | `/api/v1/backtest/simulate` | 紙交易模擬 |
+| `GET` | `/api/v1/backtest/catalog` | 可用回測資料清單 |
+| `GET` | `/api/v1/backtest/inspect` | 回測資料詳細資訊 |
+| `GET` | `/api/v1/backtest/runs` | 回測執行記錄列表 |
+| `GET` | `/api/v1/backtest/runs/{run_id}` | 單筆回測結果 |
+| `GET` | `/backtest/ui` | 回測 Web UI |
+| `POST` | `/api/v1/binance/validate` | 驗證 Binance API 金鑰 |
 | `POST` | `/api/v1/trade/start` | 啟動實盤交易 |
 | `POST` | `/api/v1/trade/stop` | 停止實盤交易 |
 | `POST` | `/api/v1/chat` | 雙語 AI 對話（繁中/英，多輪記憶） |
-| `DELETE` | `/api/v1/chat/{id}` | 清除指定對話歷史 |
+| `DELETE` | `/api/v1/chat/{conversation_id}` | 清除指定對話歷史 |
+| `GET` | `/api/v1/dashboard` | 儀板即時資料 |
+| `POST` | `/api/v1/orders` | 建立訂單 |
+| `DELETE` | `/api/v1/positions/{position_id}` | 刪除持倉記錄 |
 
 ### 範例
 

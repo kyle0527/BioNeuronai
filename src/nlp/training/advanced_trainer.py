@@ -11,6 +11,7 @@ from torch.cuda.amp import autocast, GradScaler
 from pathlib import Path
 import sys
 import json
+import math
 import time
 from typing import Dict, cast
 from dataclasses import dataclass, asdict
@@ -94,8 +95,11 @@ class Trainer:
         )
         
         # 學習率調度器
-        total_steps = len(train_dataloader) * train_config.max_epochs // train_config.gradient_accumulation_steps
-        self.scheduler = self._create_scheduler(total_steps)
+        self.total_steps = max(
+            1,
+            math.ceil(len(train_dataloader) * train_config.max_epochs / train_config.gradient_accumulation_steps),
+        )
+        self.scheduler = self._create_scheduler(self.total_steps)
         
         # 混合精度訓練
         self.scaler = GradScaler() if train_config.use_amp else None
@@ -125,7 +129,7 @@ class Trainer:
         if self.config.lr_scheduler_type == "cosine":
             return optim.lr_scheduler.CosineAnnealingLR(
                 self.optimizer,
-                T_max=total_steps - self.config.warmup_steps,
+                T_max=max(1, total_steps - self.config.warmup_steps),
                 eta_min=1e-6
             )
         elif self.config.lr_scheduler_type == "linear":
@@ -159,7 +163,7 @@ class Trainer:
         print(f"最大 Epoch: {self.config.max_epochs}")
         print(f"學習率: {self.config.learning_rate}")
         print(f"使用混合精度: {self.config.use_amp}")
-        print(f"總步數: {len(self.train_dataloader) * self.config.max_epochs // self.config.gradient_accumulation_steps}")
+        print(f"總步數: {self.total_steps}")
         print("=" * 80)
         
         start_time = time.time()
@@ -279,7 +283,15 @@ class Trainer:
             num_batches += 1
 
             # ── 梯度累積 & 優化器步進 ──────────────────────────────────────────
-            if (batch_idx + 1) % self.config.gradient_accumulation_steps == 0:
+            is_accumulation_boundary = (batch_idx + 1) % self.config.gradient_accumulation_steps == 0
+            is_last_batch = (batch_idx + 1) == len(self.train_dataloader)
+            if is_accumulation_boundary or is_last_batch:
+                next_step = self.global_step + 1
+                if self.global_step < self.config.warmup_steps:
+                    lr = self._warmup_lr(next_step)
+                    for param_group in self.optimizer.param_groups:
+                        param_group['lr'] = lr
+
                 if self.config.max_grad_norm > 0:
                     if self.config.use_amp:
                         assert self.scaler is not None
@@ -295,18 +307,14 @@ class Trainer:
                 else:
                     self.optimizer.step()
 
-                if self.global_step < self.config.warmup_steps:
-                    lr = self._warmup_lr(self.global_step)
-                    for param_group in self.optimizer.param_groups:
-                        param_group['lr'] = lr
-                else:
+                if next_step >= self.config.warmup_steps:
                     self.scheduler.step()
 
                 self.optimizer.zero_grad()
-                self.global_step += 1
+                self.global_step = next_step
 
                 # ── 記錄 ──────────────────────────────────────────────────────
-                if self.global_step % self.config.logging_steps == 0:
+                if self.global_step % self.config.logging_steps == 0 or is_last_batch:
                     avg_loss = total_loss / num_batches
                     avg_lm = total_lm_loss / num_batches
                     avg_sig = total_signal_loss / num_batches

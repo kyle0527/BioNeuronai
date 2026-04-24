@@ -23,10 +23,16 @@
 
 ```text
 risk_management/
-├── __init__.py          # 匯出 7 個符號 (30 行)
-├── position_manager.py  # 風險參數 + 倉位管理 (1,029 行)
+├── __init__.py          # 匯出 risk_management 主符號
+├── position_manager.py  # 風險參數 + 倉位管理
 └── README.md
 ```
+
+檔案對照：
+1. [__init__.py](__init__.py)
+2. [position_manager.py](position_manager.py)
+
+這個資料夾目前沒有更深一層的 README 子文件，因此本文件直接維護到檔案與主類別層級。
 
 ---
 

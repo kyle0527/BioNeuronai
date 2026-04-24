@@ -81,6 +81,13 @@ src/bioneuronai/strategies/selector/
 └── types.py
 ```
 
+檔案對照：
+1. [__init__.py](__init__.py)
+2. [core.py](core.py)
+3. [evaluator.py](evaluator.py)
+4. [configs.py](configs.py)
+5. [types.py](types.py)
+
 各檔案職責如下：
 
 ### `__init__.py`
@@ -173,6 +180,10 @@ src/bioneuronai/strategies/selector/
 
 - 通用 schema 來自 `src/schemas/`
 - 子模組只在本地保留真正模組專屬的內部結構
+
+## 子模組邊界
+
+這個資料夾目前沒有更深一層的 README 子文件，因此本文件直接維護到檔案、主類別與資料流層級。
 
 ---
 

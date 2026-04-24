@@ -6,6 +6,7 @@ import type { FallbackProps } from "react-error-boundary";
 
 export const ErrorFallback = ({ error, resetErrorBoundary }: FallbackProps) => {
   if (import.meta.env.DEV) throw error;
+  const message = error instanceof Error ? error.message : String(error);
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
@@ -21,7 +22,7 @@ export const ErrorFallback = ({ error, resetErrorBoundary }: FallbackProps) => {
         <div className="bg-card border rounded-lg p-4 mb-6">
           <h3 className="font-semibold text-sm text-muted-foreground mb-2">Error Details:</h3>
           <pre className="text-xs text-destructive bg-muted/50 p-3 rounded border overflow-auto max-h-32">
-            {error.message}
+            {message}
           </pre>
         </div>
         

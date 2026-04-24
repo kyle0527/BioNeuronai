@@ -1,5 +1,67 @@
 # 更新日誌
 
+## [Docs] - 2026-04-24
+
+### 📚 策略融合未來路線圖文件系列建立
+
+#### 背景
+經過業界方案研究（QuantConnect Multi-Alpha、ML4T、Bridgewater 體制切換、RL Agent 論文），
+確認現有 `StrategySelector + AIStrategyFusion` 架構的根本限制：
+各策略仍獨立投票，僅有比重差異，缺少「學習策略間歷史可靠性」的機制。
+
+#### 新增文件（4 份，均在 `docs/`）
+
+| 文件 | 內容 |
+|------|------|
+| `STRATEGY_FUSION_ROADMAP_OVERVIEW.md` | 總覽：架構圖、4方案對比表、術語對照、現有程式碼資產清單 |
+| `STRATEGY_FUSION_PLAN_B_ML_METALEARNER.md` | 方案B：25-35特徵設計、LightGBM Meta-Learner 完整程式碼骨架、TimeSeriesSplit 防洩漏設計 |
+| `STRATEGY_FUSION_PLAN_C_REGIME_ROUTING.md` | 方案C：5體制定義、`HardRouter` 完整程式碼、3-bar 確認緩衝機制 |
+| `STRATEGY_FUSION_PLAN_D_RL_AGENT.md` | 方案D：27維觀察空間、複合獎勵函數、Shadow Mode 設計、與現有 `rl_fusion_agent.py` 骨架對應 |
+
+#### 4 種方案簡述
+
+- **方案 A（現狀）**：加權投票 `FusionMethod.MARKET_ADAPTIVE`，已在生產運行
+- **方案 B（ML Meta-Learner）**：LightGBM 學習「哪個策略組合在何種市場最可靠」，預估 2-3 週
+- **方案 C（硬性體制路由）**：體制確認後強制切換策略組合，最快落地（3-5 天），**推薦優先實作**
+- **方案 D（RL Agent）**：PPO 自主學習融合規則，長期研究路線（6-10 週），以 Shadow Mode 先驗證
+
+#### 待辦事項（由使用者決定優先順序）
+- [ ] 方案 C：新增 `HardRouter` 類別至 `src/bioneuronai/strategies/selector/`
+- [ ] 方案 B：建立 `tools/train_meta_learner.py` + `MLMetaLearner` 類別
+- [ ] 方案 D：補完 `rl_fusion_agent.py`（接入真實 840+ K線資料）
+
+---
+
+## [v4.1] - 2026-04-24
+
+### ⚙️ BacktestService 費率參數、Walk-Forward IS/OOS、策略選擇器 Blend 升級
+
+#### BacktestConfig 費率換算（`backtest/service.py`）
+- 新增 `commission_bps`、`slippage_bps` 參數（整數點基）
+- 換算邏輯：`taker_fee = commission_bps / 10_000`，`maker_fee = commission_bps / 20_000`，`slippage_rate = slippage_bps / 10_000`
+- 新增 `walk_forward_enabled`（bool）+ `walk_forward_is_ratio`（float，預設 0.7）
+
+#### Walk-Forward IS/OOS（`backtest/service.py`）
+- `run_backtest()` 中當 `walk_forward_enabled=True` 時，自動切分資料為 IS（訓練集）+ OOS（驗證集）
+- OOS 區間的 Sharpe、最大回撤獨立回傳，防止對訓練集過擬合
+- `build_selector_performance_weights()` 現在同時計算 IS 與 OOS 績效比較
+
+#### StrategySelector blend 邏輯（`src/bioneuronai/strategies/selector/core.py`）
+- 新增 `load_performance_weights(weights, blend_alpha=0.3)` 公開方法
+- `_calculate_strategy_weights()` 末尾加入：
+  `blended = alpha × perf_weight + (1 - alpha) × regime_weight`
+- `blend_alpha` 預設 0.3，可由 API/CLI 傳入
+
+#### API + CLI 擴充（`src/schemas/api.py`、`src/bioneuronai/api/app.py`、`src/bioneuronai/cli/main.py`）
+- `BacktestRequest` 新增 3 個 Field：`commission_bps`、`slippage_bps`、`walk_forward_enabled`
+- CLI `backtest` 指令表格新增費率欄位 + Walk-Forward 輸出區段
+- API 端點正確傳遞 3 個新參數至 `BacktestService`
+
+#### 匯出修正（`backtest/__init__.py`）
+- 補上 `build_selector_performance_weights`、`WalkForwardResult` 的公開匯出
+
+---
+
 ## [Maintenance] - 2026-04-23
 
 ### 📝 部署驗收與策略主線記錄更新

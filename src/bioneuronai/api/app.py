@@ -39,6 +39,7 @@ from bioneuronai.api.models import (  # noqa: E402
     NewsRequest,
     PreTradeRequest,
     SimulateRequest,
+    StrategyBacktestRequest,
     StatusResponse,
     TradeStartRequest,
 )
@@ -403,6 +404,32 @@ async def run_backtest(req: BacktestRequest):
         return ApiResponse(success=True, message="backtest 完成", data=data)
     except Exception as exc:
         return ApiResponse(success=False, message=f"backtest 失敗: {exc}")
+
+
+@app.post("/api/v1/backtest/strategy-run", response_model=ApiResponse, tags=["backtest"])
+async def run_strategy_backtest(req: StrategyBacktestRequest):
+    """執行策略模組競爭 / 策略模板回放。"""
+    try:
+        from backtest import run_strategy_suite_backtest
+
+        data = await asyncio.to_thread(
+            run_strategy_suite_backtest,
+            symbol=req.symbol,
+            interval=req.interval,
+            balance=req.balance,
+            start_date=req.start_date,
+            end_date=req.end_date,
+            warmup_bars=req.warmup_bars,
+            close_open_positions_on_end=req.close_open_positions_on_end,
+            execution_mode=req.execution_mode,
+            parameter_overrides=req.parameter_overrides,
+            commission_bps=req.commission_bps,
+            slippage_bps=req.slippage_bps,
+            walk_forward=req.walk_forward,
+        )
+        return ApiResponse(success=True, message="strategy backtest 完成", data=data)
+    except Exception as exc:
+        return ApiResponse(success=False, message=f"strategy backtest 失敗: {exc}")
 
 
 @app.get("/api/v1/backtest/runs", response_model=ApiResponse, tags=["backtest"])

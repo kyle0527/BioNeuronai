@@ -12,6 +12,18 @@ export interface UseWebSocketOptions {
 
 export type WebSocketStatus = 'connecting' | 'connected' | 'disconnected' | 'error'
 
+function resolveWebSocketUrl(url: string): string {
+  if (url.startsWith('ws://') || url.startsWith('wss://')) {
+    return url
+  }
+
+  const apiBase = import.meta.env.VITE_API_BASE_URL as string | undefined
+  const base = apiBase || window.location.origin
+  const resolved = new URL(url, base)
+  resolved.protocol = resolved.protocol === 'https:' ? 'wss:' : 'ws:'
+  return resolved.toString()
+}
+
 export function useWebSocket(url: string, options: UseWebSocketOptions = {}) {
   const {
     onOpen,
@@ -36,7 +48,7 @@ export function useWebSocket(url: string, options: UseWebSocketOptions = {}) {
 
     try {
       setStatus('connecting')
-      const ws = new WebSocket(url)
+      const ws = new WebSocket(resolveWebSocketUrl(url))
 
       ws.onopen = () => {
         setStatus('connected')

@@ -27,6 +27,7 @@
 
 - 目前 replay 也會被高階策略競爭層拿來做正式評估
 - 但 replay 本身仍只是資料重放與模擬執行層，不是策略評分邏輯本身
+- 如果你要的是策略模組操作，請改看 [策略模組操作手冊](C:/D/E/BioNeuronai/docs/STRATEGY_MODULE_USER_MANUAL.md)
 
 ## 資料放哪裡
 

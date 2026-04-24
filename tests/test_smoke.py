@@ -23,6 +23,13 @@ def test_bioneuronai_package_importable():
     import bioneuronai  # noqa: F401
 
 
+def test_backtest_collect_signal_export_smoke():
+    """backtest 套件應匯出 signal 訓練資料收集入口。"""
+    from backtest import collect_signal_training_data
+
+    assert callable(collect_signal_training_data)
+
+
 def test_fastapi_app_importable():
     """FastAPI app 可匯入（不啟動伺服器）。"""
     from bioneuronai.api.app import app
@@ -850,6 +857,60 @@ def test_chat_cli_fallback_smoke(monkeypatch, capsys):
 
     output = capsys.readouterr().out
     assert "規則模式" in output
+
+
+def test_collect_signal_data_cli_parser_smoke():
+    """訓練資料收集命令應存在於正式 CLI。"""
+    from bioneuronai.cli.main import _build_parser
+
+    parser = _build_parser()
+    args = parser.parse_args(
+        [
+            "collect-signal-data",
+            "--symbol", "BTCUSDT",
+            "--interval", "1h",
+            "--seq-len", "16",
+            "--max-samples", "25",
+        ]
+    )
+
+    assert args.command == "collect-signal-data"
+    assert args.symbol == "BTCUSDT"
+    assert args.interval == "1h"
+    assert args.seq_len == 16
+    assert args.max_samples == 25
+    assert callable(args.func)
+
+
+def test_bilingual_tokenizer_legacy_load_smoke(tmp_path):
+    """舊版僅含 vocab 的 tokenizer JSON 仍應可載入。"""
+    import json
+
+    from nlp.bilingual_tokenizer import BilingualTokenizer
+
+    path = tmp_path / "legacy_vocab.json"
+    path.write_text(
+        json.dumps(
+            {
+                "vocab": {
+                    "[PAD]": 0,
+                    "[UNK]": 1,
+                    "[BOS]": 2,
+                    "[EOS]": 3,
+                    "a": 4,
+                }
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+
+    tokenizer = BilingualTokenizer.load(str(path))
+
+    assert tokenizer.vocab["a"] == 4
+    assert tokenizer.pad_token_id == 0
+    assert tokenizer.bos_token_id == 2
+    assert tokenizer.vocab_size >= len(tokenizer.vocab)
 
 
 def test_virtual_account_pending_entry_reserves_margin_smoke():

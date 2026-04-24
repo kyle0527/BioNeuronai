@@ -8,9 +8,10 @@
 ## 目錄
 
 1. [目前定位](#目前定位)
-2. [後續方向](#後續方向)
-3. [目前已落地的內容](#目前已落地的內容)
-4. [注意](#注意)
+2. [實際結構](#實際結構)
+3. [後續方向](#後續方向)
+4. [目前已落地的內容](#目前已落地的內容)
+5. [注意](#注意)
 
 ---
 
@@ -29,6 +30,23 @@
 - [market_analyzer.py](../planning/market_analyzer.py)
 - [pair_selector.py](../planning/pair_selector.py)
 - [pretrade_automation.py](../planning/pretrade_automation.py)
+
+---
+
+## 實際結構
+
+```text
+trading/
+├── __init__.py
+├── virtual_account.py
+└── README.md
+```
+
+檔案對照：
+1. [__init__.py](__init__.py)
+2. [virtual_account.py](virtual_account.py)
+
+這個資料夾目前沒有更深一層的 README 子文件，因此本文件直接維護到檔案與公開介面層級。
 
 ---
 
@@ -80,3 +98,7 @@
 
 - 目前不要再把新的規劃 / 分析 / pretrade 檔案放回此資料夾。
 - 若需要交易計劃與檢查能力，請改用 `bioneuronai.planning`。
+
+---
+
+> 上層目錄：[BioNeuronai README](../README.md)

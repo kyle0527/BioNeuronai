@@ -1,130 +1,77 @@
-# RAG Internal — 內部知識庫模組
+# RAG Internal
 
-> **版本**: v2.1 | **更新日期**: 2026-04-20
+`src/rag/internal/` 管理內部知識庫與向量索引。這一層的責任是把規則、分析結果與歷史內容保存成可檢索的文件，並提供語義搜尋能力給 `rag.core.UnifiedRetriever`。
 
----
+## 資料夾內容
 
-## 目錄
+- `__init__.py`
+  匯出 `InternalKnowledgeBase`、`KnowledgeDocument`、`DocumentType`。
+- `knowledge_base.py`
+  文件模型、文件 CRUD、儲存與搜尋主流程。
+- `faiss_index.py`
+  向量索引包裝器；若 FAISS 不可用會退回 NumPy 線性搜尋。
 
-1. [模組定位](#模組定位)
-2. [目錄結構](#目錄結構)
-3. [knowledge_base.py — 內部知識庫](#knowledge_basepy-內部知識庫)
-4. [faiss_index.py — 向量索引](#faiss_indexpy-向量索引)
-5. [公開介面](#公開介面)
+## 主要檔案
 
----
+### `knowledge_base.py`
 
-## 模組定位
+- `DocumentType`
+  內部知識文件類型列舉。
+- `KnowledgeDocument`
+  知識文件資料類別，提供 `to_dict()` / `from_dict()`。
+- `InternalKnowledgeBase`
+  主要方法：
+  - `add_document(...)`
+  - `add_news_analysis(analysis_result, symbol, hours, source)`
+  - `update_document(doc_id, ...)`
+  - `delete_document(doc_id)`
+  - `get_document(doc_id)`
+  - `search(query, top_k, min_score, doc_types)`
+  - `get_by_type(doc_type)`
+  - `get_by_tags(tags)`
+  - `save_to_storage()`
+  - `get_stats()`
 
-`src/rag/internal/` 管理系統的**內部知識庫**，包括交易規則、策略配置、市場分析報告、歷史交易記錄等文檔，並提供基於向量索引的語義搜索功能。
+這個檔案另外包含：
 
----
+- `_load_default_rules()`
+  啟動時載入預設交易規則。
+- `_build_news_doc_id(...)`
+  為新聞分析結果建立穩定文件 ID，避免重複入庫。
+- `_rebuild_index()`
+  文件集合變動後重建向量索引。
+- `_load_from_storage()`
+  從本地儲存載入現有知識文件。
 
-## 目錄結構
+### `faiss_index.py`
 
-```
-internal/
-├── __init__.py            # 匯出核心類別
-├── knowledge_base.py      # 內部知識庫管理器 (576 行)
-└── faiss_index.py         # FAISS 向量索引包裝器 (217 行)
-```
-
----
-
-## knowledge_base.py — 內部知識庫
-
-### DocumentType 枚舉
-
-| 類型 | 說明 |
-|------|------|
-| `TRADING_RULE` | 交易規則 |
-| `STRATEGY_CONFIG` | 策略配置 |
-| `MARKET_ANALYSIS` | 市場分析 |
-| `HISTORICAL_TRADE` | 歷史交易 |
-| `NEWS_ARCHIVE` | 新聞歸檔 |
-| `CUSTOM` | 自訂類型 |
-
-### InternalKnowledgeBase 類別
-
-| 方法 | 說明 |
-|------|------|
-| `add_document(doc_id, title, content, ...)` | 新增文檔（通用） |
-| `add_news_analysis(symbol, analysis_result, hours, source)` | **新聞分析專用入庫**（2026-03-30 新增），接受 `NewsAnalysisResult`，依 title+source+time 去重，自動補全 metadata，回傳 `List[KnowledgeDocument]` |
-| `update_document(doc_id, ...)` | 更新文檔 |
-| `delete_document(id)` | 刪除文檔 |
-| `get_document(id)` | 取得單一文檔 |
-| `search(query, top_k)` | 語義搜索 |
-| `get_by_type(doc_type)` | 按類型篩選 |
-| `get_by_tags(tags)` | 按標籤篩選 |
-| `save_to_storage()` | 持久化存儲 |
-| `get_stats()` | 統計資訊 |
-
-**去重機制**：`_build_news_doc_id(symbol, title, source, published_at, url)` 以 MD5(symbol|title|source|published_at|url) 產生穩定 ID，避免同一篇新聞重複寫入。
-
-### KnowledgeDocument 資料類
-
-知識文檔：`id`, `title`, `content`, `doc_type`, `tags`, `metadata`, `embedding`, `score`。
-
-### 內建交易規則
-
-知識庫初始化時自動載入 `DEFAULT_TRADING_RULES`（5 條預設規則）：
-1. 風險管理規則
-2. 進場規則
-3. 出場規則
-4. 新聞交易規則
-5. 市場狀態判斷
-
-```python
-from rag.internal import InternalKnowledgeBase, KnowledgeDocument, DocumentType
-
-kb = InternalKnowledgeBase()
-doc = KnowledgeDocument(
-    id="rule-001",
-    title="止損規則",
-    content="單筆交易最大虧損不超過帳戶餘額的 2%",
-    doc_type=DocumentType.TRADING_RULE,
-    tags=["risk", "stop-loss"]
-)
-kb.add_document(doc)
-results = kb.search("止損設定", top_k=3)
-```
-
----
-
-## faiss_index.py — 向量索引
-
-FAISS 向量索引的包裝器，提供高效的向量檢索能力。**自動降級**：若 FAISS 不可用（未安裝），自動退回 NumPy 線性搜索。
-
-### VectorIndex 類別
-
-| 方法 | 說明 |
-|------|------|
-| `add(embeddings)` | 添加向量 |
-| `search(query, k)` | 搜索最近鄰 |
-| `reset()` | 清空索引 |
-| `ntotal()` | 目前索引的向量數 |
-| `get_stats()` | 統計資訊 |
-
-### 工廠函數
-
-```python
-from rag.internal.faiss_index import create_index
-
-index = create_index(dimension=384, use_gpu=False)
-```
-
----
+- `VectorIndex`
+  主要方法：
+  - `add(embeddings)`
+  - `search(query_embedding, k)`
+  - `reset()`
+  - `ntotal()`
+  - `is_using_faiss()`
+  - `get_stats()`
+- `create_index(dimension, use_gpu=False)`
+  建立索引的工廠函式。
 
 ## 公開介面
 
 ```python
 from rag.internal import (
-    InternalKnowledgeBase, KnowledgeDocument, DocumentType,
+    InternalKnowledgeBase,
+    KnowledgeDocument,
+    DocumentType,
 )
 ```
 
----
+## 文件層級
 
-> 📖 相關：[RAG 總覽](../README.md) | [Core 嵌入與檢索](../core/README.md)
->
-> 📖 上層目錄：[src/rag/README.md](../README.md)
+這個資料夾底下沒有更深一層的 README。知識文件模型、入庫流程與向量索引都由本文件直接描述。
+
+## 相關文件
+
+- [RAG 總覽](../README.md)
+- [Core 檢索層](../core/README.md)
+- [Services 服務層](../services/README.md)

@@ -47,25 +47,44 @@ from bioneuronai.data import (
 
 ## 架構總覽
 
-```
+```text
 src/bioneuronai/data/
-├── __init__.py                 # 模組入口 (28 行)
-├── binance_futures.py          # Binance Futures API 連接器 (573 行)
-├── database_manager.py         # 統一數據庫管理器 (1,396 行)
-├── database.py                 # 舊版數據庫接口 - 已廢棄，僅供參考 (786 行)
-├── exchange_rate_service.py    # 即時匯率服務 (377 行)
-├── web_data_fetcher.py         # 非同步外部市場數據抓取器 (453 行)
-├── news_data_fetcher.py        # 同步新聞資料抓取器 (211 行)
-└── sync_external_fetcher.py    # 同步外部市場資料抓取器 (229 行)
-                                  ─────────────────────
-                                  合計 4,053 行
+├── __init__.py                 # 模組入口
+├── binance_futures.py          # Binance Futures API 連接器
+├── database_manager.py         # 統一數據庫管理器
+├── database.py                 # 舊版數據庫接口（保留中）
+├── exchange_rate_service.py    # 即時匯率服務
+├── web_data_fetcher.py         # 非同步外部市場數據抓取器
+├── news_data_fetcher.py        # 同步新聞資料抓取器
+└── sync_external_fetcher.py    # 同步外部市場資料抓取器
 ```
+
+補充檔案：
+1. [USAGE_GUIDE.md](USAGE_GUIDE.md)
+2. `image/` 目前是輔助素材資料夾，不是下一層 README 文件鏈
+
+檔案對照：
+1. [__init__.py](__init__.py)
+2. [binance_futures.py](binance_futures.py)
+3. [database_manager.py](database_manager.py)
+4. [database.py](database.py)
+5. [exchange_rate_service.py](exchange_rate_service.py)
+6. [web_data_fetcher.py](web_data_fetcher.py)
+7. [news_data_fetcher.py](news_data_fetcher.py)
+8. [sync_external_fetcher.py](sync_external_fetcher.py)
+9. [USAGE_GUIDE.md](USAGE_GUIDE.md)
+
+這個資料夾目前沒有更深一層的 README 子文件，因此本文件直接維護到檔案與公開服務層級。
+
+注意：
+1. `web_data_fetcher.py` 存在於資料夾內，但目前不在 `bioneuronai.data.__all__` 的主匯出列表
+2. `database.py` 也不在主匯出列表；新開發應優先使用 `database_manager.py`
 
 ---
 
 ## 核心文件
 
-### `binance_futures.py` — Binance Futures API 連接器 (573 行)
+### `binance_futures.py` — Binance Futures API 連接器
 
 全功能 Binance 期貨 API 連接器，涵蓋 REST 查詢、WebSocket 實時推送、認證簽名與自動重連。
 
@@ -97,7 +116,7 @@ connector.close_all_connections()        # 關閉所有 WebSocket 連接
 
 ---
 
-### `database_manager.py` — 統一數據庫管理器 (1,396 行)
+### `database_manager.py` — 統一數據庫管理器
 
 主要數據持久化核心，管理 11 張資料表，取代已廢棄的 `database.py`。
 
@@ -127,7 +146,7 @@ connector.close_all_connections()        # 關閉所有 WebSocket 連接
 
 ---
 
-### `database.py` — 舊版數據庫接口 (786 行)
+### `database.py` — 舊版數據庫接口
 
 > ⚠️ **已廢棄 (Deprecated)**：本檔案不再主動維護，**新開發請一律使用 `DatabaseManager`**。  
 > 保留原因：管理 3 張尚未遷移至 `database_manager.py` 的獨立資料表（`trading_pairs`、`strategy_weights`、`account_snapshots`），且未匯出至 `__init__.py`。
@@ -136,7 +155,7 @@ connector.close_all_connections()        # 關閉所有 WebSocket 連接
 
 ---
 
-### `exchange_rate_service.py` — 即時匯率服務 (377 行)
+### `exchange_rate_service.py` — 即時匯率服務
 
 不落庫的即時匯率查詢與轉換服務，具備三級數據源自動回退。
 
@@ -155,7 +174,7 @@ connector.close_all_connections()        # 關閉所有 WebSocket 連接
 
 ---
 
-### `web_data_fetcher.py` — 外部市場數據抓取器 (453 行)
+### `web_data_fetcher.py` — 外部市場數據抓取器
 
 基於 `asyncio` + `aiohttp` 的非同步批量外部數據抓取器，為上層分析模組提供市場情緒與宏觀指標。  
 **必須在 `async with` 上下文中使用。**
@@ -178,7 +197,7 @@ connector.close_all_connections()        # 關閉所有 WebSocket 連接
 
 ---
 
-### `news_data_fetcher.py` — 同步新聞資料抓取器 (211 行)
+### `news_data_fetcher.py` — 同步新聞資料抓取器
 
 同步封裝 CryptoPanic API 與 RSS feed 讀取，供 `analysis.news.CryptoNewsAnalyzer` 注入使用。這個檔案的重點是把外部 HTTP 呼叫留在 data 層，避免 analysis 模組直接散落 `requests.get()`。
 
@@ -187,7 +206,7 @@ connector.close_all_connections()        # 關閉所有 WebSocket 連接
 
 ---
 
-### `sync_external_fetcher.py` — 同步外部市場資料抓取器 (229 行)
+### `sync_external_fetcher.py` — 同步外部市場資料抓取器
 
 同步封裝 Fear & Greed、Yahoo Finance、Binance Spot 等外部資料來源，供 daily report / market data 流程注入使用。
 
@@ -398,6 +417,8 @@ asyncio.run(main())
 ---
 
 ## 相關文檔
+
+1. [USAGE_GUIDE.md](USAGE_GUIDE.md)
 
 - **使用手冊**: [USAGE_GUIDE.md](./USAGE_GUIDE.md)
 - **數據庫升級指南**: [DATABASE_UPGRADE_GUIDE.md](../../../docs/DATABASE_UPGRADE_GUIDE.md)

@@ -41,6 +41,7 @@ class BacktestConfig:
     # 回測設置
     speed_multiplier: float = 0.0  # 無延遲模式
     warmup_bars: int = 100  # 預熱期 K線數量
+    close_open_positions_on_end: bool = False
     
     # 風險設置
     max_position_size: float = 1.0
@@ -59,6 +60,7 @@ class BacktestConfig:
             'taker_fee': self.taker_fee,
             'slippage_rate': self.slippage_rate,
             'warmup_bars': self.warmup_bars,
+            'close_open_positions_on_end': self.close_open_positions_on_end,
         }
 
 
@@ -214,7 +216,9 @@ class BacktestEngine:
         self._reset_state()
 
         peak_equity = self.config.initial_balance
+        last_bar: Optional[KlineBar] = None
         for bar in self.connector.data_stream.stream_bars():
+            last_bar = bar
             self._bar_count += 1
             self.connector.update_market_price(bar.symbol, bar.close, high=bar.high, low=bar.low)
             self.connector._current_bar = bar
@@ -227,6 +231,10 @@ class BacktestEngine:
 
             self._run_strategy(strategy, bar)
             peak_equity = self._record_bar(bar, peak_equity, progress_interval)
+
+        if self.config.close_open_positions_on_end and last_bar is not None:
+            self._close_open_positions_at_end()
+            peak_equity = self._record_bar(last_bar, peak_equity, progress_interval)
 
         stats = self._build_stats()
         result = BacktestResult(
@@ -286,13 +294,30 @@ class BacktestEngine:
         peak_equity = max(peak_equity, equity)
         drawdown = (peak_equity - equity) / peak_equity if peak_equity > 0 else 0.0
         self._drawdown_curve.append(drawdown)
-        if self._bar_count % progress_interval == 0:
+        if progress_interval > 0 and self._bar_count % progress_interval == 0:
             current, total, pct = self.connector.data_stream.get_progress()
             logger.info(
                 f"📊 進度: {pct:.1f}% ({current:,}/{total:,}) | "
                 f"權益: {equity:,.2f} | 回撤: {drawdown*100:.2f}%"
             )
         return peak_equity
+
+    def _close_open_positions_at_end(self) -> None:
+        """回測評估用：用最後已知價格把未平倉位轉成可評估的出場紀錄。"""
+        positions = list(self.connector.account.get_all_positions())
+        if not positions:
+            return
+
+        self.connector.account.cancel_all_orders()
+        for position in positions:
+            side = "SELL" if position.side.value == "LONG" else "BUY"
+            self.connector.place_order(
+                symbol=position.symbol,
+                side=side,
+                order_type="MARKET",
+                quantity=position.quantity,
+                reduce_only=True,
+            )
 
     def _build_stats(self) -> Dict[str, Any]:
         stats = self.connector.get_stats()

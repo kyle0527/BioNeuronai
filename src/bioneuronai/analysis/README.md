@@ -10,8 +10,8 @@
 2. [目錄與責任切分](#目錄與責任切分)
 3. [對外導出](#對外導出以程式碼為準)
 4. [執行入口](#執行入口)
-5. [文件分工](#文件分工)
-6. [子模組文件](#子模組文件)
+5. [子模組文件](#子模組文件)
+6. [文件分工](#文件分工)
 
 ---
 
@@ -60,10 +60,16 @@ analysis/
 ### 4) `feature_engineering.py`（數值特徵）
 - 成交量分布、清算熱力圖、市場微觀結構特徵。
 - 給策略/模型層提供結構化向量與摘要。
+- 這是單檔模組，沒有再往下一層的 README。
 
 ### 5) `market_regime.py`（體制判斷）
 - 依 K 線與技術指標識別市場 regime 與波動型態。
 - 產出 regime 結果與策略偏好建議。
+- 這是單檔模組，沒有再往下一層的 README。
+
+### 6) `image/`（素材）
+- 目前是圖像相關素材存放區，不是分析主流程子模組。
+- 目前沒有子 README；`analysis/image/README/` 是素材資料夾名稱，不是 README 文件。
 
 ---
 
@@ -95,16 +101,21 @@ python -m bioneuronai.analysis --kw
 
 ---
 
-## 文件分工
-
-1. 本文件只維護 analysis 層定位、子模組責任與對外整合入口。
-2. 子模組方法、欄位、資料路徑與限制放在各子目錄 README。
-3. 不在本文件維護固定行數、覆蓋率或過細的內部方法清單。
-
----
-
 ## 子模組文件
 
 1. [daily_report README](daily_report/README.md)
 2. [keywords README](keywords/README.md)
 3. [news README](news/README.md)
+
+對照原則：
+1. 本文件停在 analysis 層摘要。
+2. 需要檔案級與方法級資訊時，往下一層 README 走。
+3. 單檔模組如 `feature_engineering.py`、`market_regime.py` 暫不再拆 README。
+
+---
+
+## 文件分工
+
+1. 本文件只維護 analysis 層定位、子模組責任與對外整合入口。
+2. 子模組方法、欄位、資料路徑與限制放在各子目錄 README。
+3. 不在本文件維護固定行數、覆蓋率或過細的內部方法清單。

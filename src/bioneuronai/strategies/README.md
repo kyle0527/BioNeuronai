@@ -39,23 +39,23 @@
 
 ## 架構總覽
 
-```
+```text
 src/bioneuronai/strategies/
-├── __init__.py                    # 模組入口 (102 行)
-├── base_strategy.py               # 策略抽象基類 (950 行)
+├── __init__.py                    # 模組入口
+├── base_strategy.py               # 策略抽象基類
 │
-├── trend_following.py             # 趨勢跟隨策略 (1,202 行)
-├── swing_trading.py               # 波段交易策略 (1,357 行)
-├── mean_reversion.py              # 均值回歸策略 (1,357 行)
-├── breakout_trading.py            # 突破交易策略 (1,265 行)
-├── direction_change_strategy.py   # 方向變化策略 DC (2026-03-09)
-├── pair_trading_strategy.py       # 配對交易策略 (2026-03-09)
+├── trend_following.py             # 趨勢跟隨策略
+├── swing_trading.py               # 波段交易策略
+├── mean_reversion.py              # 均值回歸策略
+├── breakout_trading.py            # 突破交易策略
+├── direction_change_strategy.py   # 方向變化策略 DC
+├── pair_trading_strategy.py       # 配對交易策略
 │
-├── strategy_fusion.py             # AI 策略融合 (1,180 行)
-├── strategy_arena.py              # 策略競技場 GA (713 行)
-├── phase_router.py                # 階段路由器 (970 行)
-├── portfolio_optimizer.py         # 組合優化器 (668 行)
-├── rl_fusion_agent.py             # RL 融合代理 (667 行)
+├── strategy_fusion.py             # AI 策略融合
+├── strategy_arena.py              # 策略競技場 GA
+├── phase_router.py                # 階段路由器
+├── portfolio_optimizer.py         # 組合優化器
+├── rl_fusion_agent.py             # RL 融合代理
 │
 └── selector/                      # 策略選擇子模組
     ├── __init__.py                # 子模組入口
@@ -109,7 +109,7 @@ src/bioneuronai/strategies/
 
 ## 基礎策略
 
-### `base_strategy.py` — 策略抽象基類 (950 行)
+### `base_strategy.py` — 策略抽象基類
 
 所有策略的 ABC 基類，定義統一接口與交易生命週期（analyze_market → entry → manage_position → exit → risk_control）。
 
@@ -169,7 +169,7 @@ src/bioneuronai/strategies/
 
 ## 策略融合
 
-### `strategy_fusion.py` — AI 策略融合系統 (1,180 行)
+### `strategy_fusion.py` — AI 策略融合系統
 
 整合**主要單資產基礎策略**的信號，動態加權融合輸出最終交易決策。依市場體制（MarketRegime）自動調整各策略權重。
 
@@ -220,37 +220,13 @@ class MarketRegime:
 2. 目前主路徑是 `core.py + evaluator.py + configs.py + types.py`。
 3. `evaluator.py` 是 selector 正式主路徑的市場評估器。
 4. 這個子模組已取代較舊的 `trading/strategy_selector.py` 系列，且已被 `plan_controller.py` 實際使用。
-
-### 對外主要接口
-
-```python
-selector = StrategySelector(timeframe="1h")
-recommendation = selector.recommend_strategy(ohlcv_data)
-selection = await selector.select_optimal_strategy(ohlcv_data)
-```
-
-### 為什麼這裡不重複寫完整細節
-
-因為 `selector/README.md` 和本文件是**不同層級**：
-
-- 本文件：`strategies/` 模組總覽
-- 子文件：`selector/` 子模組詳解
-
-因此像以下內容，只保留在子 README：
-
-- `types.py` 的模組專屬型別細節
-- `configs.py` 10 種模板的完整說明
-- `core.py` 的資料流與方法分工
-- `evaluator.py` 的正式主路徑角色
-- selector 與 `schemas/` 的精確邊界
-
-這樣可以避免上下兩層文件重複，並降低後續維護成本。
+5. 詳細接口、資料流與型別邊界請直接看 [selector/README.md](selector/README.md)，不在本層重複展開。
 
 ---
 
 ## 策略進化系統
 
-### StrategyArena — 策略競技場 (`strategy_arena.py`, 713 行)
+### StrategyArena — 策略競技場 (`strategy_arena.py`)
 
 「養蠱式」遺傳算法驅動的單策略參數優化，讓策略互相競爭、優勝劣汰、自動進化。
 
@@ -277,7 +253,7 @@ selection = await selector.select_optimal_strategy(ohlcv_data)
 - 可對 6 種基礎策略分別進行 GA 評估
 - 但固定策略層目前仍在調整，因此競爭結果已可信、但可辨識度仍有限
 
-### PhaseRouter — 階段路由器 (`phase_router.py`, 970 行)
+### PhaseRouter — 階段路由器 (`phase_router.py`)
 
 依交易時段與市場事件（極端波動、新聞發布等）動態切換策略。
 
@@ -302,7 +278,7 @@ selection = await selector.select_optimal_strategy(ohlcv_data)
 - 已可選接入正式 `TradingEngine` 主線（`strategy_type="phase_router"`）
 - `TradeSetup` 欄位已補齊主線所需對齊，但整體仍屬第二階段可選能力，非預設主線
 
-### PortfolioOptimizer — 組合優化器 (`portfolio_optimizer.py`, 668 行)
+### PortfolioOptimizer — 組合優化器 (`portfolio_optimizer.py`)
 
 整合 `PhaseRouter` + `StrategyArena`，以遺傳算法尋找全局最優多階段策略組合。
 
@@ -318,7 +294,7 @@ selection = await selector.select_optimal_strategy(ohlcv_data)
 - 仍未接入正式主交易主線
 - 實際效果仍受固定策略層可交易性限制
 
-### RLFusionAgent — 強化學習融合代理 (`rl_fusion_agent.py`, 667 行)
+### RLFusionAgent — 強化學習融合代理 (`rl_fusion_agent.py`)
 
 PPO 強化學習代理，自主學習如何融合多策略信號做出最佳交易決策。
 
@@ -350,8 +326,8 @@ from bioneuronai.strategies import (
     SwingTradingStrategy,
     MeanReversionStrategy,
     BreakoutTradingStrategy,
-    DirectionChangeStrategy,   # DC 事件驅動策略 (2026-03-09)
-    PairTradingStrategy,       # 統計套利配對策略 (2026-03-09)
+    DirectionChangeStrategy,   # DC 事件驅動策略
+    PairTradingStrategy,       # 統計套利配對策略
 
     # AI 融合（整合主要單資產基礎策略）
     AIStrategyFusion, FusionMethod, FusionSignal, MarketRegime,
@@ -442,6 +418,7 @@ print(f"最優候選: {best.name}, Sharpe: {best.sharpe_ratio:.2f}, Trades: {bes
 
 ## 相關文檔
 
+- **策略模組操作手冊**: [docs/STRATEGY_MODULE_USER_MANUAL.md](C:/D/E/BioNeuronai/docs/STRATEGY_MODULE_USER_MANUAL.md)
 - **策略進化指南**: [STRATEGY_EVOLUTION_GUIDE.md](../../../archived/docs_v2_1_legacy/STRATEGY_EVOLUTION_GUIDE.legacy_20260406.md)
 - **策略快速參考**: [STRATEGIES_QUICK_REFERENCE.md](../../../archived/docs_v2_1_legacy/STRATEGIES_QUICK_REFERENCE.legacy_20260406.md)
 - **策略選擇器子模組**: [selector/README.md](C:/D/E/BioNeuronai/src/bioneuronai/strategies/selector/README.md)

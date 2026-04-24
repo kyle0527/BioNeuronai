@@ -1,45 +1,25 @@
-# src/ — BioNeuronai 原始碼
+# src/
 
-> 更新日期：2026-04-20
-
-`src/` 是專案的 Python 原始碼與少量 runtime data 入口。這一層只說明主要 package 的定位與依賴方向；具體類別、方法、行數與操作範例請看各子目錄 README。
-
----
-
-## 目錄
-
-1. [頂層結構](#頂層結構)
-2. [模組定位](#模組定位)
-3. [依賴方向](#依賴方向)
-4. [文件層級](#文件層級)
-
----
+`src/` 是專案的 Python 原始碼根目錄。這一層只負責說明主要 package 的定位與文件入口，不展開檔案級細節。
 
 ## 頂層結構
 
-```text
-src/
-├── bioneuronai/     # 核心交易系統
-├── schemas/         # 共用 Pydantic schema / enum
-├── rag/             # 檢索增強生成系統
-├── nlp/             # 語言模型、ChatEngine 與訓練工具
-├── data/            # runtime / knowledge-base 資料
-└── __init__.py
-```
-
----
-
-## 模組定位
-
-| 模組 | 角色 | 詳細文件 |
-|------|------|----------|
-| `bioneuronai/` | 交易系統主體：core、data、analysis、planning、strategies、risk、api、cli | [bioneuronai README](bioneuronai/README.md) |
-| `schemas/` | 跨模組共用資料模型、enum 與型別基準 | [schemas README](schemas/README.md) |
-| `rag/` | embedding、retriever、internal knowledge base、news adapter、monitoring | [rag README](rag/README.md) |
-| `nlp/` | TinyLLM、ChatEngine、分詞器、訓練、量化與模型工具 | [nlp README](nlp/README.md) |
-| `data/` | `src/data/bioneuronai/...` runtime data，不是主要 Python package | 依資料內容查看 |
-
----
+- `bioneuronai/`
+  交易系統主體。
+  文件：[bioneuronai/README.md](bioneuronai/README.md)
+- `schemas/`
+  共用資料模型與 enum 邊界。
+  文件：[schemas/README.md](schemas/README.md)
+- `rag/`
+  檢索增強生成子系統。
+  文件：[rag/README.md](rag/README.md)
+- `nlp/`
+  語言模型、對話、分詞器與訓練工具。
+  文件：[nlp/README.md](nlp/README.md)
+- `data/`
+  runtime / knowledge-base / 快取資料目錄，不是主要 Python package README 鏈的一部分。
+- `__init__.py`
+  `src` package 入口。
 
 ## 依賴方向
 
@@ -49,24 +29,30 @@ schemas
   ├── bioneuronai
   ├── rag
   └── nlp
+
+rag
+  ↑
+  └── bioneuronai.analysis
 ```
 
-重點：
+重點是：
 
-1. `schemas` 是共用資料定義來源。
-2. `bioneuronai` 是交易主體。
-3. `rag` 會使用 `schemas`，並橋接 `bioneuronai.analysis`。
-4. `nlp` 提供語言模型與 ChatEngine，CLI/API 可使用其中的對話能力。
-5. `src/data/` 是資料目錄，不等同於 `src/bioneuronai/data/` 程式模組。
-
----
+- `schemas` 是跨模組共用定義來源。
+- `bioneuronai` 是交易系統主線。
+- `rag` 是獨立 package，但會橋接 `bioneuronai.analysis`。
+- `nlp` 提供模型、對話與訓練工具；新的 RAG 主線不在 `nlp` 裡。
+- `src/data/` 是資料目錄，不等於 `src/bioneuronai/data/` 程式模組。
 
 ## 文件層級
 
-1. 本文件只維護 `src/` 的概念導覽。
-2. 子 package README 維護模組分工與重要主線。
-3. 更深層 README 維護檔案、API、資料路徑與限制。
+- 本文件只做頂層導覽。
+- 下一層 README 負責各 package 的模組分工：
+  [bioneuronai/README.md](bioneuronai/README.md)
+  [schemas/README.md](schemas/README.md)
+  [rag/README.md](rag/README.md)
+  [nlp/README.md](nlp/README.md)
+- 若子 package 下面還有 README，應由該 package README 再往下連。
 
----
+## 上層文件
 
-> 上層目錄：[根目錄 README](../README.md)
+- [根目錄 README](../README.md)

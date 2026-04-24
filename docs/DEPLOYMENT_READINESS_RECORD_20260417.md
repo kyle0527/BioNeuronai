@@ -1,7 +1,7 @@
 # BioNeuronai 部署準備紀錄
 
 > 更新日期：2026-04-17  
-> 後續驗證：2026-04-18 / 2026-04-19 / 2026-04-22 / 2026-04-23
+> 後續驗證：2026-04-18 / 2026-04-19 / 2026-04-22 / 2026-04-23 / 2026-04-23（全功能驗收）
 > 範圍：前端選型、部署前盤點、分析模組、策略模組、AI/模型主鏈、環境阻塞  
 > 結論：目前可準備內部 staging / testnet 驗證；尚未達正式交易部署標準。
 >
@@ -78,9 +78,9 @@
 
 仍需處理：
 
-- `UnifiedRetriever.retrieve_for_trading()` 尚未成為 pretrade / strategy fusion 的正式消費入口。
-- `strategy_fusion.py` 的 `EventContext` 還未完全由 RAG knowledge base 填充。
-- daily report 尚未將每日報告寫回 knowledge base。
+- ✅ `UnifiedRetriever.retrieve_for_trading()` 已於 2026-04-21 接入 `pretrade`。
+- ✅ daily report 已將每日報告寫回 `knowledge_base`（2026-04-21）。
+- `strategy_fusion.py` 的 `EventContext` 仍未完全由 RAG knowledge base 填充（T3 部分完成）。
 - `analysis/news/analyzer.py` 仍偏大，後續應拆分以降低維護成本。
 
 分析模組部署判斷：可進入 staging 驗證，但不應視為正式交易前全部完成。
@@ -226,7 +226,7 @@ Docker compose 已完成驗證：
 | `docker compose build` | ✅ | 8/8 images 成功 |
 | `docker compose run --rm status` | ✅ | 7 模組 `[OK]`，版本 v2.1 |
 | `docker compose run --rm pretrade` | ✅ | 5/5 步驟完整執行 |
-| Binance 401 | 預期 | testnet key 未設定，不影響架構正確性 |
+| Binance mainnet 連線 | ✅（2026-04-23 更新） | mainnet key 已設定（`BINANCE_TESTNET=false`）；pretrade 無 401 錯誤；REJECT 因 Futures 餘額 $0（預期行為） |
 | `GET /api/v1/status` | ✅ | HTTP 200，`{"success":true,...}` |
 | `GET http://localhost:3000` | ✅ | HTTP 200，前端 nginx 正常回應 |
 | `python main.py chat --symbol BTCUSDT --language zh` | ✅ | 可完成一輪對話；目前多為低信心保守回應 |
@@ -258,7 +258,8 @@ Docker compose 已完成驗證：
 
 - Docker 啟動、API、前端、chat CLI、chat API、以及 live event-context 消費鏈都已完成基本驗收。
 - 當前剩餘部署前阻塞已收斂為：
-  - Binance testnet key 與帳戶權限
+  - ✅ ~~Binance testnet key 與帳戶權限~~（已設定正式 mainnet read-only key，`BINANCE_TESTNET=false`，pretrade 連線驗證通過）
+  - 正式交易前需在 Futures 錢包轉入資金（目前餘額 $0.00034，REJECT 為預期行為）
   - 正式環境的 CORS / auth 設定
   - chat 模型品質與低信心回應校正
 
@@ -281,4 +282,46 @@ Docker compose 已完成驗證：
 | Docker compose config | 可展開 | 但會把 `.env` secrets 展開到輸出，不可分享原文 |
 | Docker daemon | ✅ 通過 | v29.4.0，`bioneuron-api` + `bioneuron-frontend` 啟動成功 |
 
-更新後判斷：Docker 阻塞已解除，pretrade / chat / live event-context 消費鏈 smoke 均已完成；主要剩餘阻塞為 Binance testnet key 與模型品質校正。
+更新後判斷：Docker 阻塞已解除，pretrade / chat / live event-context 消費鏈 smoke 均已完成；主要剩餘阻塞為模型品質校正與 Futures 錢包充値。
+
+---
+
+## 12. 2026-04-23 全功能驗收結果
+
+### API bug 修正
+
+| bug | 修正方式 | 修正檔案 |
+|-----|----------|----------|
+| `bookTicker` HTTP 404 | `/fapi/v1/bookTicker` → `/fapi/v1/ticker/bookTicker` | `src/bioneuronai/data/binance_futures.py` |
+| `ticker/price?symbol=BTC` HTTP 400（1） | `NewsAdapter._extract_symbol()` 改寫，回傳完整交易對（`BTCUSDT`）而非基礎幣種（`BTC`） | `src/rag/services/news_adapter.py` |
+| `ticker/price?symbol=BTC` HTTP 400（2） | `_evaluate_single_news()` 加入 USDT 後綴防護 | `src/bioneuronai/analysis/news/analyzer.py` |
+
+### 驗收矩陣
+
+| 項目 | 結果 | 備註 |
+|------|------|------|
+| pytest | ✅ 23/23 passed | 執行時間 ~202s |
+| Docker 雙容器 | ✅ healthy | `bioneuron-api`（port 8000）+ `bioneuron-frontend`（port 3000） |
+| CLI status | ✅ 7/7 [OK] | |
+| REST API GET `/` | ✅ 200 | |
+| REST API GET `/api/v1/status` | ✅ 200 | |
+| REST API GET `/api/v1/backtest/catalog` | ✅ 200 | |
+| REST API GET `/api/v1/backtest/runs` | ✅ 200 | |
+| REST API GET `/api/v1/dashboard` | ✅ 200 | |
+| REST API POST `/api/v1/chat` | ✅ 200 | 有回應內容 |
+| REST API POST `/api/v1/news` | ✅ 200 | |
+| Frontend port 3000 | ✅ 200 | nginx 回應正常 |
+| pretrade 5/5 步驟 | ✅ 無 ERROR | REJECT 因 Futures 餘額 $0（預期行為） |
+| Binance mainnet 連線 | ✅ | `fapi.binance.com`，`BINANCE_TESTNET=false`，BTC 即時價格可讀取 |
+| Binance 帳戶餘額 | ✅ 可讀取 | Futures $0.00034（近空，非 bug） |
+| git push | ✅ | `c39e67c..b81974f` → `origin/main`，3 檔修改 |
+
+### 更新後判斷
+
+**全功能驗收完成。**系統已達 internal staging 驗收標準。
+
+目前剩餘阻塞（除非特別說明，否則不影響 staging 起動）：
+1. **Futures 錢包充値** — 目前餘額 $0.00034，進入正式交易前需轉入資金才能通過風控。
+2. **CORS / auth** — staging / production 環境需設定正式圆名與交易 API auth。
+3. **chat 模型品質** — `tiny_llm_100m.pth` 權重仍未入 git LFS；現有回應多為低信心保守答案。
+4. **完整回測** — BTCUSDT / ETHUSDT 定期 + 多時間框架回測矩陣，明確定義通過門滝。

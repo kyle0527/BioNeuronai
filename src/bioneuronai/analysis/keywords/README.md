@@ -39,6 +39,14 @@ keywords/
 └── README.md
 ```
 
+檔案對照：
+1. [__init__.py](__init__.py)
+2. [models.py](models.py)
+3. [loader.py](loader.py)
+4. [manager.py](manager.py)
+5. [static_utils.py](static_utils.py)
+6. [learner.py](learner.py)
+
 ---
 
 ## 角色分工
@@ -51,6 +59,12 @@ keywords/
 
 3. `KeywordLearner`（`learner.py`）
 - 主責延遲驗證與學習資料維護，將結果回饋到關鍵字權重。
+
+4. `KeywordLoader`（`loader.py`）
+- 主責從 `config/keywords/*.json` 或舊版單檔配置載入關鍵字。
+
+5. `models.py`
+- 定義 `Keyword`、`PredictionRecord`、`KeywordMatch`。
 
 ---
 
@@ -87,6 +101,20 @@ keywords/
 1. `KeywordManager` 與 `KeywordLearner` 為兩條責任線
 2. `static_utils.py` 與 `manager.py` 方法對應已一致
 3. `__init__.py` 導出已含 `KeywordLearner`
+4. `KeywordManager` 同時處理：
+   - `find_matches()`
+   - `record_prediction()` / `verify_prediction()`
+   - `get_importance_score()` / `get_sentiment_bias()`
+   - `update_keywords_from_trending()` / `refresh_stale_keywords()`
+5. `KeywordLearner` 主要處理較慢的學習回饋流程：
+   - `log_prediction()`
+   - `validate_and_learn()`
+   - `_update_keyword_weight()`
+   - `get_learning_stats()`
+
+## 子模組邊界
+
+這個資料夾目前沒有更深一層的 README 子文件，因此本文件直接維護到檔案與主類別層級。
 
 ## 維護邊界
 

@@ -107,7 +107,12 @@ class TradingPlanController:
         
         logger.info("交易計劃控制器初始化完成 - 10步驟系統已就緒")
     
-    async def create_comprehensive_plan(self, klines: Optional[List[Dict]] = None, account_balance: float = 10000) -> Dict:
+    async def create_comprehensive_plan(
+        self,
+        klines: Optional[List[Dict]] = None,
+        account_balance: float = 10000,
+        symbol: str = "BTCUSDT",
+    ) -> Dict:
         """
         執行完整的 10步驟交易計劃
         
@@ -133,6 +138,7 @@ class TradingPlanController:
             "risk_level": "UNKNOWN",
             "recommended_pairs": [],
             "execution_ready": False,
+            "symbol": symbol,
             "account_balance": account_balance,
             "has_klines_data": klines is not None and len(klines) > 0
         }
@@ -169,7 +175,7 @@ class TradingPlanController:
             logger.info(f"\n{'='*70}")
             logger.info("步驟 4/10: 基本面情緒分析")
             logger.info(f"{'='*70}")
-            step4_result = await self._step4_sentiment_analysis()
+            step4_result = await self._step4_sentiment_analysis(symbol)
             plan["steps_results"][4] = step4_result
             
             # 提取事件資訊供後續步驟使用

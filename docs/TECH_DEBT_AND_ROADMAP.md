@@ -56,7 +56,7 @@
 | `Dockerfile` pip 清單補齊 | 補入 `python-dotenv>=1.0.0`、`regex>=2023.0.0`、`schedule>=1.2.0`（原漏列） |
 | `docker compose build` 全通 | 8/8 images 全部成功（bioneuronai-api, status, pretrade, backtest, plan, news, simulate, frontend） |
 | `docker compose run --rm status` | 7 個模組全部 `[OK]`（TradingEngine / BinanceFutures / NewsAnalyzer / SOPSystem / PlanController / PreTradeCheck / BacktestEngine）；版本 bioneuronai v2.1 |
-| `docker compose run --rm pretrade` | 5/5 步驟完整執行；Binance 401 為預期行為（testnet key 未設定），不影響架構正確性 |
+| `docker compose run --rm pretrade` | 5/5 步驟完整執行；Binance mainnet key 已設定，無 401 錯誤；REJECT 因 Futures 錢包餘額 $0（預期行為，非程式問題）|
 | `docker compose up api frontend -d` | `bioneuron-api`（port 8000）+ `bioneuron-frontend`（port 3000）雙容器啟動成功 |
 | REST API healthcheck | `GET /api/v1/status` → HTTP 200，`{"success":true,...}` |
 | 前端 nginx healthcheck | `GET http://localhost:3000` → HTTP 200，719 bytes |
@@ -72,6 +72,21 @@
 | chat CLI / API 驗收 | `python main.py chat --symbol BTCUSDT --language zh` 與 `POST /api/v1/chat` 均已可回應 |
 | live event-context 主線驗收 | 補上 `news_adapter -> trading_engine -> selector -> strategy_fusion` smoke |
 | smoke tests | `python -m pytest tests/test_smoke.py -q` 更新為 `23 passed` |
+
+### 2026-04-23 全功能驗收（Binance mainnet + API bug 修正）
+| 項目 | 說明 |
+|------|------|
+| `bookTicker` 404 修正 | `BinanceFuturesConnector.get_book_ticker()` 端點 `/fapi/v1/bookTicker` → `/fapi/v1/ticker/bookTicker` |
+| `symbol=BTC` 400 修正（1） | `NewsAdapter._extract_symbol()` 完整改寫，現在正確回傳完整交易對（`BTCUSDT`）而非基礎幣種（`BTC`） |
+| `symbol=BTC` 400 修正（2） | `analyzer._evaluate_single_news()` 加入 USDT 後綴防護：`symbol = raw if raw.endswith("USDT") else raw + "USDT"` |
+| Binance mainnet 連線確認 | `BINANCE_TESTNET=false`，`fapi.binance.com`，read-only key，BTC 即時價格可讀取（~$78,314），帳戶餘額可讀取（Futures $0.00034026） |
+| pretrade 5/5 無 ERROR | 5 個步驟全部執行完畢，無任何 API 錯誤；REJECT 因 Futures 餘額 $0（預期行為） |
+| pytest 23/23 | `python -m pytest tests/test_smoke.py -q` = `23 passed`，執行時間約 202s |
+| Docker 雙容器 healthy | `bioneuron-api`（port 8000）+ `bioneuron-frontend`（port 3000）皆為 `healthy` |
+| CLI status 7/7 | `python main.py status` 7 個模組全部 `[OK]` |
+| REST API 全端點 200 | GET: `/`、`/api/v1/status`、`/api/v1/backtest/catalog`、`/api/v1/backtest/runs`、`/api/v1/dashboard`；POST: `/api/v1/chat`、`/api/v1/news`——全部 HTTP 200 |
+| Frontend port 3000 | `GET http://localhost:3000` → HTTP 200 |
+| git push | `c39e67c..b81974f` → `origin/main`，3 檔修改已推送（`binance_futures.py`、`analyzer.py`、`news_adapter.py`） |
 
 ### 文件修正
 | 文件 | 修正內容 |
@@ -106,7 +121,7 @@
 | ✅ live event-context 消費鏈 | `news_adapter -> trading_engine -> selector -> strategy_fusion` smoke 已補上；`pretrade` 非正式 fusion 入口 | ~~P1~~ ✅ |
 | 模型 artifact 驗收 | `my_100m_model.pth` 可載入；`tiny_llm_100m.pth` 未 git 追蹤，乾淨部署環境可能缺 chat 權重；現有 chat 回覆多為低信心保守答案 | P1 |
 | API 安全 | CORS 目前為 localhost 白名單；正式部署前需設定 staging/production origins 與交易 API auth | P1 |
-| Binance testnet key | `.env` 中 API key 無效，`pretrade` balance=0，REJECT；需補 testnet key 才能完整驗收風控 | P1 |
+| ✅ Binance mainnet API key | `.env` 已設定正式帳戶 read-only key，`BINANCE_TESTNET=false`；pretrade 5/5 步驟執行無 ERROR；REJECT 原因為 Futures 錢包餘額 $0（非程式問題）。正式交易前需在 Futures 錢包轉入資金 | P1 → ✅ 連線驗證通過 |
 
 ### ✅ T1：外部 API 呼叫散落在 analysis/ 模組（已完成 — 2026-04-13）
 

@@ -245,6 +245,46 @@ class SimulateRequest(BaseModel):
     end_date: Optional[str] = Field(default=None, description="結束日期")
 
 
+class StrategyBacktestRequest(BaseModel):
+    """策略模組競爭 / 回放請求"""
+    symbol: str = Field(default="BTCUSDT", description="交易對")
+    interval: str = Field(default="1h", description="K 線週期")
+    start_date: Optional[str] = Field(default=None, description="起始日期 YYYY-MM-DD")
+    end_date: Optional[str] = Field(default=None, description="結束日期 YYYY-MM-DD")
+    balance: float = Field(default=10000.0, gt=0, description="初始資金")
+    warmup_bars: int = Field(default=100, ge=0, description="預熱 K 線數量")
+    execution_mode: str = Field(
+        default="template_rules",
+        pattern="^(template_rules|hybrid)$",
+        description="template_rules=10 模板全跑，hybrid=有實體策略類時優先跑策略類",
+    )
+    close_open_positions_on_end: bool = Field(
+        default=True,
+        description="回測結束時是否強制平倉未平倉位",
+    )
+    parameter_overrides: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description="策略參數覆蓋，格式同 strategy-backtest --params JSON",
+    )
+    commission_bps: float = Field(
+        default=4.0,
+        ge=0.0,
+        le=100.0,
+        description="Taker 手續費（基點，4 bps = 0.04%，Binance 標準費率）",
+    )
+    slippage_bps: float = Field(
+        default=1.0,
+        ge=0.0,
+        le=50.0,
+        description="每筆成交滑點（基點，1 bp = 0.01%）",
+    )
+    walk_forward: bool = Field(
+        default=False,
+        description="Walk-forward 驗證：需同時提供 start_date 與 end_date；"
+                    "自動在 70%/30% 切割點執行 IS（樣本內）與 OOS（樣本外）兩段回測",
+    )
+
+
 class TradeStartRequest(BaseModel):
     """啟動交易監控請求"""
     symbol: str = Field(default="BTCUSDT", description="交易對")
