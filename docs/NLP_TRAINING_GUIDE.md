@@ -2,16 +2,46 @@
 
 ## 📑 目錄
 
-1. 📁 訓練腳本位置
-2. 🎯 訓練腳本說明
-3. 🚀 快速開始訓練
-4. 📊 訓練數據準備
-5. 🔧 訓練配置優化
-6. 📈 監控訓練進度
-7. 🎯 訓練最佳實踐
-8. 🔗 相關資源
-9. ⚠️ 常見問題
-10. 📞 技術支援
+<!-- toc -->
+
+- [📁 訓練腳本位置](#%F0%9F%93%81-%E8%A8%93%E7%B7%B4%E8%85%B3%E6%9C%AC%E4%BD%8D%E7%BD%AE)
+  * [活躍的訓練模組](#%E6%B4%BB%E8%BA%8D%E7%9A%84%E8%A8%93%E7%B7%B4%E6%A8%A1%E7%B5%84)
+  * [歸檔的訓練資源](#%E6%AD%B8%E6%AA%94%E7%9A%84%E8%A8%93%E7%B7%B4%E8%B3%87%E6%BA%90)
+- [🎯 訓練腳本說明](#%F0%9F%8E%AF-%E8%A8%93%E7%B7%B4%E8%85%B3%E6%9C%AC%E8%AA%AA%E6%98%8E)
+  * [1. advanced_trainer.py ⭐ 推薦使用](#1-advanced_trainerpy-%E2%AD%90-%E6%8E%A8%E8%96%A6%E4%BD%BF%E7%94%A8)
+  * [2. train_with_ai_teacher.py](#2-train_with_ai_teacherpy)
+  * [3. auto_evolve.py](#3-auto_evolvepy)
+  * [4. view_training_history.py](#4-view_training_historypy)
+- [🚀 快速開始訓練](#%F0%9F%9A%80-%E5%BF%AB%E9%80%9F%E9%96%8B%E5%A7%8B%E8%A8%93%E7%B7%B4)
+  * [方案 A（推薦）：統一訓練入口](#%E6%96%B9%E6%A1%88-a%E6%8E%A8%E8%96%A6%E7%B5%B1%E4%B8%80%E8%A8%93%E7%B7%B4%E5%85%A5%E5%8F%A3)
+  * [方案 B：使用 AI 教師知識蒸餾（補充用）](#%E6%96%B9%E6%A1%88-b%E4%BD%BF%E7%94%A8-ai-%E6%95%99%E5%B8%AB%E7%9F%A5%E8%AD%98%E8%92%B8%E9%A4%BE%E8%A3%9C%E5%85%85%E7%94%A8)
+  * [方案 C：使用自定義數據訓練（進階）](#%E6%96%B9%E6%A1%88-c%E4%BD%BF%E7%94%A8%E8%87%AA%E5%AE%9A%E7%BE%A9%E6%95%B8%E6%93%9A%E8%A8%93%E7%B7%B4%E9%80%B2%E9%9A%8E)
+  * [方案 D：增量訓練（基於已有模型）](#%E6%96%B9%E6%A1%88-d%E5%A2%9E%E9%87%8F%E8%A8%93%E7%B7%B4%E5%9F%BA%E6%96%BC%E5%B7%B2%E6%9C%89%E6%A8%A1%E5%9E%8B)
+- [📊 訓練數據準備](#%F0%9F%93%8A-%E8%A8%93%E7%B7%B4%E6%95%B8%E6%93%9A%E6%BA%96%E5%82%99)
+  * [數據格式要求](#%E6%95%B8%E6%93%9A%E6%A0%BC%E5%BC%8F%E8%A6%81%E6%B1%82)
+  * [數據採集建議](#%E6%95%B8%E6%93%9A%E6%8E%A1%E9%9B%86%E5%BB%BA%E8%AD%B0)
+- [🔧 訓練配置優化](#%F0%9F%94%A7-%E8%A8%93%E7%B7%B4%E9%85%8D%E7%BD%AE%E5%84%AA%E5%8C%96)
+  * [GPU 記憶體優化](#gpu-%E8%A8%98%E6%86%B6%E9%AB%94%E5%84%AA%E5%8C%96)
+  * [學習率調度策略](#%E5%AD%B8%E7%BF%92%E7%8E%87%E8%AA%BF%E5%BA%A6%E7%AD%96%E7%95%A5)
+- [📈 監控訓練進度](#%F0%9F%93%88-%E7%9B%A3%E6%8E%A7%E8%A8%93%E7%B7%B4%E9%80%B2%E5%BA%A6)
+  * [TensorBoard 監控](#tensorboard-%E7%9B%A3%E6%8E%A7)
+  * [訓練日誌](#%E8%A8%93%E7%B7%B4%E6%97%A5%E8%AA%8C)
+- [🎯 訓練最佳實踐](#%F0%9F%8E%AF-%E8%A8%93%E7%B7%B4%E6%9C%80%E4%BD%B3%E5%AF%A6%E8%B8%90)
+  * [1. 訓練前檢查清單](#1-%E8%A8%93%E7%B7%B4%E5%89%8D%E6%AA%A2%E6%9F%A5%E6%B8%85%E5%96%AE)
+  * [2. 訓練中監控指標](#2-%E8%A8%93%E7%B7%B4%E4%B8%AD%E7%9B%A3%E6%8E%A7%E6%8C%87%E6%A8%99)
+  * [3. 訓練後評估](#3-%E8%A8%93%E7%B7%B4%E5%BE%8C%E8%A9%95%E4%BC%B0)
+- [🔗 相關資源](#%F0%9F%94%97-%E7%9B%B8%E9%97%9C%E8%B3%87%E6%BA%90)
+  * [模型文件位置](#%E6%A8%A1%E5%9E%8B%E6%96%87%E4%BB%B6%E4%BD%8D%E7%BD%AE)
+  * [工具腳本](#%E5%B7%A5%E5%85%B7%E8%85%B3%E6%9C%AC)
+  * [文檔](#%E6%96%87%E6%AA%94)
+- [⚠️ 常見問題](#%E2%9A%A0%EF%B8%8F-%E5%B8%B8%E8%A6%8B%E5%95%8F%E9%A1%8C)
+  * [Q: 訓練過程中 Loss 不下降？](#q-%E8%A8%93%E7%B7%B4%E9%81%8E%E7%A8%8B%E4%B8%AD-loss-%E4%B8%8D%E4%B8%8B%E9%99%8D)
+  * [Q: Out of Memory 錯誤？](#q-out-of-memory-%E9%8C%AF%E8%AA%A4)
+  * [Q: 訓練速度太慢？](#q-%E8%A8%93%E7%B7%B4%E9%80%9F%E5%BA%A6%E5%A4%AA%E6%85%A2)
+  * [Q: 如何在交易系統中使用訓練的模型？](#q-%E5%A6%82%E4%BD%95%E5%9C%A8%E4%BA%A4%E6%98%93%E7%B3%BB%E7%B5%B1%E4%B8%AD%E4%BD%BF%E7%94%A8%E8%A8%93%E7%B7%B4%E7%9A%84%E6%A8%A1%E5%9E%8B)
+- [📞 技術支援](#%F0%9F%93%9E-%E6%8A%80%E8%A1%93%E6%94%AF%E6%8F%B4)
+
+<!-- tocstop -->
 
 ---
 
@@ -199,7 +229,7 @@ python -m bioneuronai.cli.main collect-signal-data --symbol BTCUSDT --interval 1
 python -m nlp.training.unified_trainer \
     --signal-data data/signal_history.jsonl --epochs 10
 
-# 輸出：model/my_100m_model.pth（正式交易 checkpoint）
+# 輸出：model/my_100m_model.pth（未來 Phase 2 啟用，目前處於 Standby 狀態）
 ```
 
 **完整 CLI 參數：**
@@ -500,7 +530,7 @@ for prompt in test_prompts:
 ## 🔗 相關資源
 
 ### 模型文件位置
-- **交易模型權重**: `model/my_100m_model.pth`（目前正式交易 checkpoint）
+- **交易模型權重**: `model/my_100m_model.pth`（未來 Phase 2 正式交易 checkpoint，目前處於 Standby 狀態）
 - **Chat / TinyLLM 權重**: `model/tiny_llm_100m.pth`
 - **分詞器詞彙**: `model/tokenizer/vocab.json`（由 `build_vocab.py` 產生）
 
@@ -539,9 +569,9 @@ for prompt in test_prompts:
 
 ### Q: 如何在交易系統中使用訓練的模型？
 **A:**
-訓練完成後，`model/my_100m_model.pth` 目前主要供交易訊號推論使用：
+訓練完成後，`model/my_100m_model.pth` 目前主要作為未來（Phase 2）的預測引擎，目前處於 **待命 (Standby)** 狀態：
 
-- **交易訊號推論**：`InferenceEngine` 在 `trading_engine.py` 啟動時自動載入，透過 16 步滾動視窗輸出 512 維訊號向量
+- **交易訊號推論**：目前由「演算法融合」主導，`InferenceEngine` 會載入模型但其權重被設定為較低，為日後的 Meta-Learner 與 RL Agent 做準備。
 - **自然語言對話**：`ChatEngine` 預設載入 `model/tiny_llm_100m.pth`；若要測試其他 TinyLLM checkpoint，需顯式指定
 
 手動驗證：

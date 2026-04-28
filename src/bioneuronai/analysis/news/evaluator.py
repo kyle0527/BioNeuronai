@@ -16,6 +16,7 @@ RuleBasedEvaluator - 新聞大腦
 # 1. 標準庫
 import hashlib
 import logging
+import re
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Protocol, Tuple, cast
 
@@ -264,7 +265,7 @@ class RuleBasedEvaluator:
         # 2. 檢查是否觸發新事件
         for rule in self.rules:
             for keyword in rule.trigger_keywords:
-                if keyword in headline_lower:
+                if re.search(r'\b' + re.escape(keyword) + r'\b', headline_lower):
                     event_info = self._create_event(
                         rule=rule,
                         headline=headline,
@@ -289,7 +290,7 @@ class RuleBasedEvaluator:
         """創建事件並存入資料庫"""
         # 生成事件 ID
         event_id = hashlib.md5(
-            f"{rule.event_type}_{headline}_{datetime.now().isoformat()}".encode()
+            f"{rule.event_type}_{headline}".encode()
         ).hexdigest()[:16]
         
         # 構建終止條件描述
@@ -326,7 +327,7 @@ class RuleBasedEvaluator:
 
         for rule in self.rules:
             for term_keyword in rule.termination_keywords:
-                if term_keyword in headline_lower:
+                if re.search(r'\b' + re.escape(term_keyword) + r'\b', headline_lower):
                     # 找到所有該類型的 ACTIVE 事件並解析
                     active_events = db.get_active_events(event_type=rule.event_type)
                     for event in active_events:

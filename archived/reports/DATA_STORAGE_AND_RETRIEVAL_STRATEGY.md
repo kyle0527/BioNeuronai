@@ -21,7 +21,7 @@
 ```
 ┌─────────────────────────────────────────────────────────┐
 │                     應用層                               │
-│  (TradingEngine, RiskManager, Strategies, etc.)         │
+│  (TradingEngine, risk_management, Strategies, etc.)        │
 └───────────────┬─────────────────────────────────────────┘
                 │
                 ▼

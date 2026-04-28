@@ -9,11 +9,23 @@
 
 ## 📑 目錄
 
-1. 模組依賴關係圖
-2. 分層模組詳細說明
-3. schemas/ 數據結構層
-4. RAG 與 NLP 子系統
-5. 文件總結
+<!-- toc -->
+
+- [1. 模組依賴關係圖](#1-%E6%A8%A1%E7%B5%84%E4%BE%9D%E8%B3%B4%E9%97%9C%E4%BF%82%E5%9C%96)
+  * [核心依賴層級](#%E6%A0%B8%E5%BF%83%E4%BE%9D%E8%B3%B4%E5%B1%A4%E7%B4%9A)
+- [2. 分層模組詳細說明](#2-%E5%88%86%E5%B1%A4%E6%A8%A1%E7%B5%84%E8%A9%B3%E7%B4%B0%E8%AA%AA%E6%98%8E)
+  * [2.1 對外入口 (`bioneuronai/cli/` & `bioneuronai/api/`)](#21-%E5%B0%8D%E5%A4%96%E5%85%A5%E5%8F%A3-bioneuronaicli--bioneuronaiapi)
+  * [2.2 核心大腦 (`bioneuronai/core/`)](#22-%E6%A0%B8%E5%BF%83%E5%A4%A7%E8%85%A6-bioneuronaicore)
+  * [2.3 規劃層 (`bioneuronai/planning/`)](#23-%E8%A6%8F%E5%8A%83%E5%B1%A4-bioneuronaiplanning)
+  * [2.4 策略層 (`bioneuronai/strategies/`)](#24-%E7%AD%96%E7%95%A5%E5%B1%A4-bioneuronaistrategies)
+  * [2.5 帳本與風控 (`bioneuronai/trading/` & `bioneuronai/risk_management/`)](#25-%E5%B8%B3%E6%9C%AC%E8%88%87%E9%A2%A8%E6%8E%A7-bioneuronaitrading--bioneuronairisk_management)
+- [3. schemas/ 數據結構層](#3-schemas-%E6%95%B8%E6%93%9A%E7%B5%90%E6%A7%8B%E5%B1%A4)
+- [4. RAG 與 NLP 子系統](#4-rag-%E8%88%87-nlp-%E5%AD%90%E7%B3%BB%E7%B5%B1)
+  * [4.1 `src/rag/` (內部檢索增強)](#41-srcrag-%E5%85%A7%E9%83%A8%E6%AA%A2%E7%B4%A2%E5%A2%9E%E5%BC%B7)
+  * [4.2 `src/nlp/` (自研微型模型與訓練鏈)](#42-srcnlp-%E8%87%AA%E7%A0%94%E5%BE%AE%E5%9E%8B%E6%A8%A1%E5%9E%8B%E8%88%87%E8%A8%93%E7%B7%B4%E9%8F%88)
+- [5. 文件總結](#5-%E6%96%87%E4%BB%B6%E7%B8%BD%E7%B5%90)
+
+<!-- tocstop -->
 
 ---
 

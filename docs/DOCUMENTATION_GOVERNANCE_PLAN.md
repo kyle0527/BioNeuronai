@@ -9,18 +9,51 @@
 
 ## 📑 目錄
 
-1. 文件目的
-2. 目前已確認的正式現況
-3. 文件治理核心原則
-4. 正式文件集合
-5. 文件分類規則
-6. 何時更新、何時歸檔
-7. 重寫與歸檔操作流程
-8. 撰寫規範
-9. 目前已完成的文件整理
-10. 建議後續工作順序
-11. 文件驗收標準
-12. 交接備註
+<!-- toc -->
+
+- [1. 文件目的](#1-%E6%96%87%E4%BB%B6%E7%9B%AE%E7%9A%84)
+- [2. 目前已確認的正式現況](#2-%E7%9B%AE%E5%89%8D%E5%B7%B2%E7%A2%BA%E8%AA%8D%E7%9A%84%E6%AD%A3%E5%BC%8F%E7%8F%BE%E6%B3%81)
+  * [2.1 正式主版本](#21-%E6%AD%A3%E5%BC%8F%E4%B8%BB%E7%89%88%E6%9C%AC)
+  * [2.2 正式模組分層](#22-%E6%AD%A3%E5%BC%8F%E6%A8%A1%E7%B5%84%E5%88%86%E5%B1%A4)
+  * [2.3 已退出正式主線](#23-%E5%B7%B2%E9%80%80%E5%87%BA%E6%AD%A3%E5%BC%8F%E4%B8%BB%E7%B7%9A)
+  * [2.4 文件處理原則上的現況](#24-%E6%96%87%E4%BB%B6%E8%99%95%E7%90%86%E5%8E%9F%E5%89%87%E4%B8%8A%E7%9A%84%E7%8F%BE%E6%B3%81)
+- [3. 文件治理核心原則](#3-%E6%96%87%E4%BB%B6%E6%B2%BB%E7%90%86%E6%A0%B8%E5%BF%83%E5%8E%9F%E5%89%87)
+  * [3.1 以實際程式與實際驗證結果為準](#31-%E4%BB%A5%E5%AF%A6%E9%9A%9B%E7%A8%8B%E5%BC%8F%E8%88%87%E5%AF%A6%E9%9A%9B%E9%A9%97%E8%AD%89%E7%B5%90%E6%9E%9C%E7%82%BA%E6%BA%96)
+  * [3.2 優先修改既有文件，不新增重複文件](#32-%E5%84%AA%E5%85%88%E4%BF%AE%E6%94%B9%E6%97%A2%E6%9C%89%E6%96%87%E4%BB%B6%E4%B8%8D%E6%96%B0%E5%A2%9E%E9%87%8D%E8%A4%87%E6%96%87%E4%BB%B6)
+  * [3.3 主線文件應少而清楚](#33-%E4%B8%BB%E7%B7%9A%E6%96%87%E4%BB%B6%E6%87%89%E5%B0%91%E8%80%8C%E6%B8%85%E6%A5%9A)
+  * [3.4 大型正式文件一律有目錄](#34-%E5%A4%A7%E5%9E%8B%E6%AD%A3%E5%BC%8F%E6%96%87%E4%BB%B6%E4%B8%80%E5%BE%8B%E6%9C%89%E7%9B%AE%E9%8C%84)
+  * [3.5 歷史版本與舊內容只留在歷史區](#35-%E6%AD%B7%E5%8F%B2%E7%89%88%E6%9C%AC%E8%88%87%E8%88%8A%E5%85%A7%E5%AE%B9%E5%8F%AA%E7%95%99%E5%9C%A8%E6%AD%B7%E5%8F%B2%E5%8D%80)
+  * [3.6 遵守 `docs/CODE_FIX_GUIDE.md`](#36-%E9%81%B5%E5%AE%88-docscode_fix_guidemd)
+- [4. 正式文件集合](#4-%E6%AD%A3%E5%BC%8F%E6%96%87%E4%BB%B6%E9%9B%86%E5%90%88)
+- [5. 文件分類規則](#5-%E6%96%87%E4%BB%B6%E5%88%86%E9%A1%9E%E8%A6%8F%E5%89%87)
+  * [A. 正式主文件](#a-%E6%AD%A3%E5%BC%8F%E4%B8%BB%E6%96%87%E4%BB%B6)
+  * [B. 專題文件](#b-%E5%B0%88%E9%A1%8C%E6%96%87%E4%BB%B6)
+  * [C. 草案 / 規劃文件](#c-%E8%8D%89%E6%A1%88--%E8%A6%8F%E5%8A%83%E6%96%87%E4%BB%B6)
+  * [D. 歸檔文件](#d-%E6%AD%B8%E6%AA%94%E6%96%87%E4%BB%B6)
+- [6. 何時更新、何時歸檔](#6-%E4%BD%95%E6%99%82%E6%9B%B4%E6%96%B0%E4%BD%95%E6%99%82%E6%AD%B8%E6%AA%94)
+  * [6.1 適合直接更新的情況](#61-%E9%81%A9%E5%90%88%E7%9B%B4%E6%8E%A5%E6%9B%B4%E6%96%B0%E7%9A%84%E6%83%85%E6%B3%81)
+  * [6.2 適合先歸檔再重寫的情況](#62-%E9%81%A9%E5%90%88%E5%85%88%E6%AD%B8%E6%AA%94%E5%86%8D%E9%87%8D%E5%AF%AB%E7%9A%84%E6%83%85%E6%B3%81)
+  * [6.3 不應再繼續維護為正式現況文件的典型情況](#63-%E4%B8%8D%E6%87%89%E5%86%8D%E7%B9%BC%E7%BA%8C%E7%B6%AD%E8%AD%B7%E7%82%BA%E6%AD%A3%E5%BC%8F%E7%8F%BE%E6%B3%81%E6%96%87%E4%BB%B6%E7%9A%84%E5%85%B8%E5%9E%8B%E6%83%85%E6%B3%81)
+- [7. 重寫與歸檔操作流程](#7-%E9%87%8D%E5%AF%AB%E8%88%87%E6%AD%B8%E6%AA%94%E6%93%8D%E4%BD%9C%E6%B5%81%E7%A8%8B)
+- [8. 撰寫規範](#8-%E6%92%B0%E5%AF%AB%E8%A6%8F%E7%AF%84)
+  * [8.1 路徑規範](#81-%E8%B7%AF%E5%BE%91%E8%A6%8F%E7%AF%84)
+  * [8.2 版本規範](#82-%E7%89%88%E6%9C%AC%E8%A6%8F%E7%AF%84)
+  * [8.3 內容規範](#83-%E5%85%A7%E5%AE%B9%E8%A6%8F%E7%AF%84)
+  * [8.4 結構規範](#84-%E7%B5%90%E6%A7%8B%E8%A6%8F%E7%AF%84)
+  * [8.5 避免重複規範](#85-%E9%81%BF%E5%85%8D%E9%87%8D%E8%A4%87%E8%A6%8F%E7%AF%84)
+- [9. 目前已完成的文件整理](#9-%E7%9B%AE%E5%89%8D%E5%B7%B2%E5%AE%8C%E6%88%90%E7%9A%84%E6%96%87%E4%BB%B6%E6%95%B4%E7%90%86)
+  * [9.1 已歸檔並重寫](#91-%E5%B7%B2%E6%AD%B8%E6%AA%94%E4%B8%A6%E9%87%8D%E5%AF%AB)
+  * [9.2 已清理的正式主線誤導內容](#92-%E5%B7%B2%E6%B8%85%E7%90%86%E7%9A%84%E6%AD%A3%E5%BC%8F%E4%B8%BB%E7%B7%9A%E8%AA%A4%E5%B0%8E%E5%85%A7%E5%AE%B9)
+  * [9.3 已新增的治理文件](#93-%E5%B7%B2%E6%96%B0%E5%A2%9E%E7%9A%84%E6%B2%BB%E7%90%86%E6%96%87%E4%BB%B6)
+- [10. 建議後續工作順序 (目前文件治理已達標 ✅)](#10-%E5%BB%BA%E8%AD%B0%E5%BE%8C%E7%BA%8C%E5%B7%A5%E4%BD%9C%E9%A0%86%E5%BA%8F-%E7%9B%AE%E5%89%8D%E6%96%87%E4%BB%B6%E6%B2%BB%E7%90%86%E5%B7%B2%E9%81%94%E6%A8%99-%E2%9C%85)
+- [11. 文件驗收標準](#11-%E6%96%87%E4%BB%B6%E9%A9%97%E6%94%B6%E6%A8%99%E6%BA%96)
+  * [11.1 內容正確性](#111-%E5%85%A7%E5%AE%B9%E6%AD%A3%E7%A2%BA%E6%80%A7)
+  * [11.2 結構完整性](#112-%E7%B5%90%E6%A7%8B%E5%AE%8C%E6%95%B4%E6%80%A7)
+  * [11.3 治理一致性](#113-%E6%B2%BB%E7%90%86%E4%B8%80%E8%87%B4%E6%80%A7)
+  * [11.4 版本一致性](#114-%E7%89%88%E6%9C%AC%E4%B8%80%E8%87%B4%E6%80%A7)
+- [12. 交接備註](#12-%E4%BA%A4%E6%8E%A5%E5%82%99%E8%A8%BB)
+
+<!-- tocstop -->
 
 ---
 
@@ -164,16 +197,13 @@
 目前應視為正式主文件集合，優先維護的有：
 
 - `README.md`
-- `docs/README.md`
 - `docs/BIONEURONAI_MASTER_MANUAL.md`
 - `docs/OPERATION_MANUAL.md`
 - `docs/PROJECT_HANDOVER_MAP.md`
 - `docs/BACKTEST_SYSTEM_GUIDE.md`
-- `docs/STRATEGY_COMPETITION_REMEDIATION_PLAN.md`
-- `src/bioneuronai/README.md`
-- `src/bioneuronai/trading/README.md`
-- `backtest/README.md`
-- `backtest/docs/USER_MANUAL.md`
+- `docs/V2.2_ROADMAP_AND_SPEC.md`
+- `docs/DATA_PIPELINE_AND_SCHEMA.md`
+- `docs/TESTING_AND_VALIDATION_GUIDE.md`
 
 這些文件的角色如下：
 
@@ -396,47 +426,12 @@
 
 ---
 
-## 10. 建議後續工作順序
+## 10. 建議後續工作順序 (目前文件治理已達標 ✅)
 
-以下是目前最建議其他 AI 接手的文件工作順序。
+截至 2026-04-25，本專案的 `v2.1` 文件治理已宣告**全面完成**。
+所有的歷史包袱、舊有路徑、重複的架構文件，皆已依照本計畫歸檔完畢。
 
-### 第一優先
-
-1. `docs/ARCHITECTURE_OVERVIEW.md`
-   - 高機率應採「先歸檔，再重寫」
-   - 原因：仍有大量舊 `trading_strategies.py` 與舊 `trading/` 路徑描述
-
-2. `docs/SRC_DIRECTORY_ANALYSIS.md`
-   - 高機率應採「先歸檔，再重寫」
-   - 原因：src 樹狀與目前 `planning/` / `trading/` 分層已有落差
-
-### 第二優先
-
-3. `docs/PROJECT_HANDOVER_MAP.md`
-   - 大方向仍有價值
-   - 但需改掉舊 `trading/` 依賴圖與風控路徑描述
-
-4. `docs/OPERATION_MANUAL.md`
-   - 應保留並更新
-   - 對齊 `planning/`、`trading/`、`backtest/` 新分層
-
-### 第三優先
-
-5. `docs/QUICKSTART_V2.1.md`
-   - 檢查死連結與不存在路徑
-   - 若錯誤比例過高，可考慮歸檔後重寫
-
-6. `docs/BACKTEST_SYSTEM_GUIDE.md`
-   - 已較接近現況
-   - 主要是清理舊歷史描述與補齊當前正式做法
-
-### 第四優先
-
-7. 專題文件逐步校正版本與路徑
-   - `RISK_MANAGEMENT_MANUAL.md`
-   - `RAG_TECHNICAL_MANUAL.md`
-   - `DATA_STORAGE_INTEGRATION.md`
-   - `STRATEGY_EVOLUTION_GUIDE.md`
+後續所有新的開發工作（如分析模組重構、RAG 對接），請直接參閱 **[V2.2_ROADMAP_AND_SPEC.md](V2.2_ROADMAP_AND_SPEC.md)**，並在實作後同步更新對應的 `USER_MANUAL.md`。
 
 ---
 

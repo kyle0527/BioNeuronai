@@ -6,10 +6,19 @@
 
 ## 📑 目錄
 
-1. 系統概覽
-2. CLI 命令行回測
-3. 自定義分析與腳本
-4. 核心資料流
+<!-- toc -->
+
+- [1. 系統概覽](#1-%E7%B3%BB%E7%B5%B1%E6%A6%82%E8%A6%BD)
+  * [核心原則](#%E6%A0%B8%E5%BF%83%E5%8E%9F%E5%89%87)
+- [2. CLI 命令行回測](#2-cli-%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%9B%9E%E6%B8%AC)
+  * [基礎使用](#%E5%9F%BA%E7%A4%8E%E4%BD%BF%E7%94%A8)
+  * [紙交易模擬 (Simulate)](#%E7%B4%99%E4%BA%A4%E6%98%93%E6%A8%A1%E6%93%AC-simulate)
+- [3. 自定義分析與腳本](#3-%E8%87%AA%E5%AE%9A%E7%BE%A9%E5%88%86%E6%9E%90%E8%88%87%E8%85%B3%E6%9C%AC)
+  * [第一步：定義並驅動 BacktestEngine](#%E7%AC%AC%E4%B8%80%E6%AD%A5%E5%AE%9A%E7%BE%A9%E4%B8%A6%E9%A9%85%E5%8B%95-backtestengine)
+  * [方法 2：`run_with_trading_engine()` — 完整策略管道回測](#%E6%96%B9%E6%B3%95-2run_with_trading_engine--%E5%AE%8C%E6%95%B4%E7%AD%96%E7%95%A5%E7%AE%A1%E9%81%93%E5%9B%9E%E6%B8%AC)
+- [4. 核心資料流與組件](#4-%E6%A0%B8%E5%BF%83%E8%B3%87%E6%96%99%E6%B5%81%E8%88%87%E7%B5%84%E4%BB%B6)
+
+<!-- tocstop -->
 
 ---
 

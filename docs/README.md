@@ -5,12 +5,17 @@
 
 ## 📑 目錄
 
-1. 🎯 核心指南 (必讀)
-2. 🗄️ 數據與存儲
-3. 🧠 策略與 RAG 系統
-4. 🛠️ 開發與治理
-5. 📚 歸檔文件
-6. 項目管理
+<!-- toc -->
+
+- [🎯 核心指南 (必讀)](#%F0%9F%8E%AF-%E6%A0%B8%E5%BF%83%E6%8C%87%E5%8D%97-%E5%BF%85%E8%AE%80)
+- [� API 與操作手冊](#%F0%9F%94%8C-api-%E8%88%87%E6%93%8D%E4%BD%9C%E6%89%8B%E5%86%8A)
+- [�🗄️ 數據與存儲](#%F0%9F%97%84%EF%B8%8F-%E6%95%B8%E6%93%9A%E8%88%87%E5%AD%98%E5%84%B2)
+- [🧠 策略與 RAG 系統](#%F0%9F%A7%A0-%E7%AD%96%E7%95%A5%E8%88%87-rag-%E7%B3%BB%E7%B5%B1)
+- [🛠️ 開發與治理](#%F0%9F%9B%A0%EF%B8%8F-%E9%96%8B%E7%99%BC%E8%88%87%E6%B2%BB%E7%90%86)
+- [📚 歸檔文件](#%F0%9F%93%9A-%E6%AD%B8%E6%AA%94%E6%96%87%E4%BB%B6)
+- [項目管理](#%E9%A0%85%E7%9B%AE%E7%AE%A1%E7%90%86)
+
+<!-- tocstop -->
 
 ---
 
@@ -28,13 +33,24 @@
 
 ---
 
-## 🗄️ 數據與存儲
+## � API 與操作手冊
 
 | 文檔 | 說明 |
 |------|------|
-| [DATA_STORAGE_AND_RETRIEVAL_STRATEGY.md](DATA_STORAGE_AND_RETRIEVAL_STRATEGY.md) | 數據庫讀寫與資料流策略 |
-| [DATA_STORAGE_INTEGRATION.md](DATA_STORAGE_INTEGRATION.md) | 數據庫整合邏輯 |
-| [DATABASE_UPGRADE_GUIDE.md](DATABASE_UPGRADE_GUIDE.md) | SQLite 遷移與版本升級指南 |
+| [API_USER_MANUAL.md](API_USER_MANUAL.md) | REST API 完整端點參考（20 REST + 3 WebSocket）|
+| [FRONTEND_DASHBOARD_MANUAL.md](FRONTEND_DASHBOARD_MANUAL.md) | DevOps Dashboard 操作手冊（8 個面板）|
+| [DOCKER_DEPLOYMENT_MANUAL.md](DOCKER_DEPLOYMENT_MANUAL.md) | Docker Compose 部署指南（9 個服務）|
+| [RISK_MANAGEMENT_USER_MANUAL.md](RISK_MANAGEMENT_USER_MANUAL.md) | 風險管理使用手冊（4 個風險等級）|
+| [ANALYSIS_MODULE_USER_MANUAL.md](ANALYSIS_MODULE_USER_MANUAL.md) | 分析模組操作手冊（news / plan / pretrade）|
+| [STRATEGY_MODULE_USER_MANUAL.md](STRATEGY_MODULE_USER_MANUAL.md) | 策略模組操作手冊（strategy-backtest）|
+
+---
+
+## �🗄️ 數據與存儲
+
+| 文檔 | 說明 |
+|------|------|
+| [DATA_PIPELINE_AND_SCHEMA.md](DATA_PIPELINE_AND_SCHEMA.md) | 資料管線、儲存分層與核心 SQLite 綱要 |
 | [BACKTEST_DATA_SOURCE.md](BACKTEST_DATA_SOURCE.md) | 歷史回測數據來源 |
 
 ---
@@ -44,11 +60,12 @@
 | 文檔 | 說明 |
 |------|------|
 | [RAG_TECHNICAL_MANUAL.md](RAG_TECHNICAL_MANUAL.md) | 檢索增強生成 (RAG) 模組技術手冊 |
-| [STRATEGY_COMPETITION_REMEDIATION_PLAN.md](STRATEGY_COMPETITION_REMEDIATION_PLAN.md) | 策略競技場與路由修復計畫 |
-| [EVOLUTION_SYSTEM_PLAN.md](EVOLUTION_SYSTEM_PLAN.md) | AI 策略自動進化框架 (草案) |
-| [KNOWHOW_ANALYSIS.md](KNOWHOW_ANALYSIS.md) | 核心交易交易邏輯與知識庫分析 |
+| [KNOWHOW_ANALYSIS.md](KNOWHOW_ANALYSIS.md) | 核心交易邏輯與知識庫分析 |
 | [NLP_TRAINING_GUIDE.md](NLP_TRAINING_GUIDE.md) | NLP 自然語言處理訓練與微調計畫 |
-| [tech/TINYLLM_MODEL_GUIDE.md](tech/TINYLLM_MODEL_GUIDE.md) | TinyLLM 雙模態模型參數、架構與系統整合詳解 |
+| [STRATEGY_FUSION_ROADMAP_OVERVIEW.md](STRATEGY_FUSION_ROADMAP_OVERVIEW.md) | 策略融合系統未來發展路線圖總覽 |
+| [STRATEGY_FUSION_PLAN_B_ML_METALEARNER.md](STRATEGY_FUSION_PLAN_B_ML_METALEARNER.md) | 方案 B：ML Meta-Learner 堆疊融合 |
+| [STRATEGY_FUSION_PLAN_C_REGIME_ROUTING.md](STRATEGY_FUSION_PLAN_C_REGIME_ROUTING.md) | 方案 C：硬性體制路由 |
+| [STRATEGY_FUSION_PLAN_D_RL_AGENT.md](STRATEGY_FUSION_PLAN_D_RL_AGENT.md) | 方案 D：深度強化學習 Agent |
 
 ---
 
@@ -56,13 +73,11 @@
 
 | 文檔 | 說明 |
 |------|------|
-| [API_INTEGRATION_BASELINE.md](API_INTEGRATION_BASELINE.md) | FastAPI 介面整合作業基準 |
-| [DEPLOYMENT_READINESS_RECORD_20260417.md](DEPLOYMENT_READINESS_RECORD_20260417.md) | 2026-04-17 部署準備、前端選型與分析/策略/AI 驗收紀錄 |
 | [CODE_FIX_GUIDE.md](CODE_FIX_GUIDE.md) | 代碼修復與架構維護規範 |
 | [DOCUMENTATION_GOVERNANCE_PLAN.md](DOCUMENTATION_GOVERNANCE_PLAN.md) | 文件治理與清理規範 (核心守則) |
 | [DEVELOPMENT_TOOLS.md](DEVELOPMENT_TOOLS.md) | 目錄產生等 PowerShell 開發腳本說明 |
-| [TECH_DEBT_AND_ROADMAP.md](TECH_DEBT_AND_ROADMAP.md) | 技術債盤點與未來路線圖 |
-| [ANALYSIS_VERIFICATION_REPORT_20260324.md](ANALYSIS_VERIFICATION_REPORT_20260324.md) | 第三方驗證與整合報告 |
+| [TESTING_AND_VALIDATION_GUIDE.md](TESTING_AND_VALIDATION_GUIDE.md) | 測試哲學、核心測試路徑與 CI Smoke Test |
+| [V2.2_ROADMAP_AND_SPEC.md](V2.2_ROADMAP_AND_SPEC.md) | v2.2 路線圖與功能規格 |
 
 ---
 

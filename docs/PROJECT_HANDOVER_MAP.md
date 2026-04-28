@@ -7,12 +7,32 @@
 
 ## 目錄
 
-1. 模組依賴圖
-2. 實際資料流
-3. 核心檔案
-4. 舊版與過渡區注意事項
-5. 修改優先順序建議
-6. 建議閱讀順序
+<!-- toc -->
+
+- [1. 模組依賴圖](#1-%E6%A8%A1%E7%B5%84%E4%BE%9D%E8%B3%B4%E5%9C%96)
+  * [1.1 對外入口到核心執行鏈](#11-%E5%B0%8D%E5%A4%96%E5%85%A5%E5%8F%A3%E5%88%B0%E6%A0%B8%E5%BF%83%E5%9F%B7%E8%A1%8C%E9%8F%88)
+  * [1.2 契約層與基礎設施依賴](#12-%E5%A5%91%E7%B4%84%E5%B1%A4%E8%88%87%E5%9F%BA%E7%A4%8E%E8%A8%AD%E6%96%BD%E4%BE%9D%E8%B3%B4)
+  * [1.3 策略 / Regime / 特徵工程子系統](#13-%E7%AD%96%E7%95%A5--regime--%E7%89%B9%E5%BE%B5%E5%B7%A5%E7%A8%8B%E5%AD%90%E7%B3%BB%E7%B5%B1)
+- [2. 實際資料流](#2-%E5%AF%A6%E9%9A%9B%E8%B3%87%E6%96%99%E6%B5%81)
+  * [2.1 即時交易資料流](#21-%E5%8D%B3%E6%99%82%E4%BA%A4%E6%98%93%E8%B3%87%E6%96%99%E6%B5%81)
+  * [2.2 盤前計劃資料流](#22-%E7%9B%A4%E5%89%8D%E8%A8%88%E5%8A%83%E8%B3%87%E6%96%99%E6%B5%81)
+  * [2.3 新聞分析到 RAG 入庫資料流](#23-%E6%96%B0%E8%81%9E%E5%88%86%E6%9E%90%E5%88%B0-rag-%E5%85%A5%E5%BA%AB%E8%B3%87%E6%96%99%E6%B5%81)
+  * [2.4 回測資料流](#24-%E5%9B%9E%E6%B8%AC%E8%B3%87%E6%96%99%E6%B5%81)
+  * [2.5 紙交易模擬資料流](#25-%E7%B4%99%E4%BA%A4%E6%98%93%E6%A8%A1%E6%93%AC%E8%B3%87%E6%96%99%E6%B5%81)
+- [3. 核心檔案](#3-%E6%A0%B8%E5%BF%83%E6%AA%94%E6%A1%88)
+  * [3.1 第一層核心](#31-%E7%AC%AC%E4%B8%80%E5%B1%A4%E6%A0%B8%E5%BF%83)
+  * [3.2 第二層核心](#32-%E7%AC%AC%E4%BA%8C%E5%B1%A4%E6%A0%B8%E5%BF%83)
+- [4. 舊版與過渡區注意事項](#4-%E8%88%8A%E7%89%88%E8%88%87%E9%81%8E%E6%B8%A1%E5%8D%80%E6%B3%A8%E6%84%8F%E4%BA%8B%E9%A0%85)
+  * [4.1 新舊並行中的模組群](#41-%E6%96%B0%E8%88%8A%E4%B8%A6%E8%A1%8C%E4%B8%AD%E7%9A%84%E6%A8%A1%E7%B5%84%E7%BE%A4)
+  * [4.2 已退役或明確刪除的模組（切勿作為參考）](#42-%E5%B7%B2%E9%80%80%E5%BD%B9%E6%88%96%E6%98%8E%E7%A2%BA%E5%88%AA%E9%99%A4%E7%9A%84%E6%A8%A1%E7%B5%84%E5%88%87%E5%8B%BF%E4%BD%9C%E7%82%BA%E5%8F%83%E8%80%83)
+  * [4.3 策略子系統目前結構](#43-%E7%AD%96%E7%95%A5%E5%AD%90%E7%B3%BB%E7%B5%B1%E7%9B%AE%E5%89%8D%E7%B5%90%E6%A7%8B)
+- [5. 修改優先順序建議](#5-%E4%BF%AE%E6%94%B9%E5%84%AA%E5%85%88%E9%A0%86%E5%BA%8F%E5%BB%BA%E8%AD%B0)
+  * [5.1 可直接放心修改](#51-%E5%8F%AF%E7%9B%B4%E6%8E%A5%E6%94%BE%E5%BF%83%E4%BF%AE%E6%94%B9)
+  * [5.2 修改前要先確認相依影響](#52-%E4%BF%AE%E6%94%B9%E5%89%8D%E8%A6%81%E5%85%88%E7%A2%BA%E8%AA%8D%E7%9B%B8%E4%BE%9D%E5%BD%B1%E9%9F%BF)
+  * [5.3 先不要當成唯一真相來源](#53-%E5%85%88%E4%B8%8D%E8%A6%81%E7%95%B6%E6%88%90%E5%94%AF%E4%B8%80%E7%9C%9F%E7%9B%B8%E4%BE%86%E6%BA%90)
+- [6. 建議閱讀順序](#6-%E5%BB%BA%E8%AD%B0%E9%96%B1%E8%AE%80%E9%A0%86%E5%BA%8F)
+
+<!-- tocstop -->
 
 ---
 
@@ -34,9 +54,10 @@ flowchart TD
     CLI --> PRETRADE[pretrade]
     CLI --> NEWS[news]
     CLI --> BACKTEST[backtest]
-    CLI --> SIMULATE[simulate]
+    CLI --> STRATBT[strategy-backtest]
+    CLI --> SIMULATE[simulate] (舊版紙交易)
     CLI --> TRADE[trade]
-    CLI --> EVOLVE[evolve]
+    CLI --> EVOLVE[evolve] (過渡期)
     CLI --> CHAT[chat]
 
     PLAN --> TPC[TradingPlanController]
@@ -44,6 +65,7 @@ flowchart TD
     NEWS --> CNA[CryptoNewsAnalyzer]
     TRADE --> TE[TradingEngine]
     BACKTEST --> BTE[BacktestEngine]
+    STRATBT --> SS[StrategySelector/Evaluator]
     SIMULATE --> MOCKSIM[MockBinanceConnector]
     EVOLVE --> ARENA[StrategyArena]
     CHAT --> CE[nlp/chat_engine.ChatEngine]
@@ -73,13 +95,13 @@ flowchart TD
     CNA --> RAGADAPTER[rag.services.news_adapter]
     RAGADAPTER --> IKB[rag.internal.InternalKnowledgeBase]
 
-    IE --> MODEL[model/my_100m_model.pth]
+    IE --> MODEL[model/my_100m_model.pth] (Standby狀態)
     CE --> CHATMODEL[model/tiny_llm_100m.pth]
     IE --> FP[FeaturePipeline]
     FP --> FEAT[1024 維特徵]
 ```
 
-> 補充：目前正式交易訊號由 `InferenceEngine -> model/my_100m_model.pth` 處理；對話功能由 `ChatEngine -> model/tiny_llm_100m.pth` 處理，兩條模型路徑已分離。
+> 補充：目前 AI 預測模型 `model/my_100m_model.pth` 處於待命（Standby）狀態，正式交易決策以「演算法融合」為主；對話功能由 `ChatEngine -> model/tiny_llm_100m.pth` 處理。
 
 ### 1.2 契約層與基礎設施依賴
 

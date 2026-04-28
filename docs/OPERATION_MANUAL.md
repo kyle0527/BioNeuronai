@@ -7,14 +7,32 @@
 
 ## 📑 目錄
 
-1. 系統概述
-2. 安裝與環境設定
-3. Binance API 金鑰設定
-4. CLI 命令完整參考
-5. 設定檔與資料契約說明
-6. 標準操作流程
-7. 常見問題排查
-8. 風險警示
+<!-- toc -->
+
+- [1. 系統概述](#1-%E7%B3%BB%E7%B5%B1%E6%A6%82%E8%BF%B0)
+  * [核心能力](#%E6%A0%B8%E5%BF%83%E8%83%BD%E5%8A%9B)
+- [2. 安裝與環境設定](#2-%E5%AE%89%E8%A3%9D%E8%88%87%E7%92%B0%E5%A2%83%E8%A8%AD%E5%AE%9A)
+  * [前置需求](#%E5%89%8D%E7%BD%AE%E9%9C%80%E6%B1%82)
+  * [安裝步驟](#%E5%AE%89%E8%A3%9D%E6%AD%A5%E9%A9%9F)
+- [3. Binance API 金鑰設定](#3-binance-api-%E9%87%91%E9%91%B0%E8%A8%AD%E5%AE%9A)
+- [4. CLI 命令完整參考](#4-cli-%E5%91%BD%E4%BB%A4%E5%AE%8C%E6%95%B4%E5%8F%83%E8%80%83)
+  * [`status`](#status)
+  * [`plan`](#plan)
+  * [`pretrade`](#pretrade)
+  * [`news`](#news)
+  * [`simulate`](#simulate)
+  * [`trade`](#trade)
+  * [`chat`](#chat)
+- [5. 設定檔與資料契約說明](#5-%E8%A8%AD%E5%AE%9A%E6%AA%94%E8%88%87%E8%B3%87%E6%96%99%E5%A5%91%E7%B4%84%E8%AA%AA%E6%98%8E)
+  * [Data Schemas (`src/schemas/`)](#data-schemas-srcschemas)
+  * [傳統 Config (`config/trading_config.py`)](#%E5%82%B3%E7%B5%B1-config-configtrading_configpy)
+- [6. 標準操作流程 (SOP)](#6-%E6%A8%99%E6%BA%96%E6%93%8D%E4%BD%9C%E6%B5%81%E7%A8%8B-sop)
+- [7. 常見問題排查](#7-%E5%B8%B8%E8%A6%8B%E5%95%8F%E9%A1%8C%E6%8E%92%E6%9F%A5)
+  * [`ModuleNotFoundError: No module named 'bioneuronai'`](#modulenotfounderror-no-module-named-bioneuronai)
+  * [Pydantic 模型驗證失敗](#pydantic-%E6%A8%A1%E5%9E%8B%E9%A9%97%E8%AD%89%E5%A4%B1%E6%95%97)
+- [8. 風險警示](#8-%E9%A2%A8%E9%9A%AA%E8%AD%A6%E7%A4%BA)
+
+<!-- tocstop -->
 
 ---
 
@@ -46,7 +64,7 @@ BioNeuronai (v2.1) 是一套加密貨幣期貨交易系統。
 ## 2. 安裝與環境設定
 
 ### 前置需求
-- Python **3.9** 以上（推薦 3.10 / 3.11）
+- Python **3.9+**（目前驗證版本：3.13.9）
 
 ### 安裝步驟
 
@@ -61,10 +79,10 @@ python -m venv venv
 # 基礎安裝 (執行 plan/pretrade/news)
 pip install pydantic>=2.0.0 numpy>=1.24.0 pandas>=2.0.0 websocket-client requests aiohttp
 
-# 完整依賴 (包含 AI 模型)
-pip install -r requirements-crypto.txt
+# 完整安裝 (包含 AI 模型与所有依賴)
+pip install -e .
 
-# 選填：強化學習模組 (rl_fusion_agent)
+# 選填：額外安裝強化學習模組
 pip install -e ".[rl]"
 ```
 
@@ -74,7 +92,7 @@ pip install -e ".[rl]"
 
 ## 3. Binance API 金鑰設定
 
-依據 `API_INTEGRATION_BASELINE.md`，目前建議以**環境變數與動態載入**為主，不建議直接把金鑰寫死在 `config/` 中的 `.py` 檔內。
+目前建議以**環境變數與動態載入**為主，不建議直接把金鑰寫死在 `config/` 中的 `.py` 檔內。
 
 **設定方式 (.env)**:
 ```bash

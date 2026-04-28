@@ -8,12 +8,22 @@
 
 ## 📑 目錄
 
-1. 🌟 系統總覽
-2. 🗺️ 核心導覽地圖
-3. 🏗️ 架構哲學 (v2.1 核心精神)
-4. 🚀 快速跳轉指南
-5. 📂 模組職責劃分
-6. 💡 開發與維護準則
+<!-- toc -->
+
+- [🌟 1. 系統總覽](#%F0%9F%8C%9F-1-%E7%B3%BB%E7%B5%B1%E7%B8%BD%E8%A6%BD)
+- [🗺️ 2. 核心導覽地圖](#%F0%9F%97%BA%EF%B8%8F-2-%E6%A0%B8%E5%BF%83%E5%B0%8E%E8%A6%BD%E5%9C%B0%E5%9C%96)
+  * [🎯 入門與操作](#%F0%9F%8E%AF-%E5%85%A5%E9%96%80%E8%88%87%E6%93%8D%E4%BD%9C)
+  * [🧠 架構與全景](#%F0%9F%A7%A0-%E6%9E%B6%E6%A7%8B%E8%88%87%E5%85%A8%E6%99%AF)
+  * [🧪 測試與驗證](#%F0%9F%A7%AA-%E6%B8%AC%E8%A9%A6%E8%88%87%E9%A9%97%E8%AD%89)
+- [🏗️ 3. 架構哲學 (v2.1 核心精神)](#%F0%9F%8F%97%EF%B8%8F-3-%E6%9E%B6%E6%A7%8B%E5%93%B2%E5%AD%B8-v21-%E6%A0%B8%E5%BF%83%E7%B2%BE%E7%A5%9E)
+  * [A. 全局單一事實來源 (Single Source of Truth)](#a-%E5%85%A8%E5%B1%80%E5%96%AE%E4%B8%80%E4%BA%8B%E5%AF%A6%E4%BE%86%E6%BA%90-single-source-of-truth)
+  * [B. 決策與執行的分水嶺](#b-%E6%B1%BA%E7%AD%96%E8%88%87%E5%9F%B7%E8%A1%8C%E7%9A%84%E5%88%86%E6%B0%B4%E5%B6%BA)
+  * [C. 狀態管理逐步集中](#c-%E7%8B%80%E6%85%8B%E7%AE%A1%E7%90%86%E9%80%90%E6%AD%A5%E9%9B%86%E4%B8%AD)
+- [🚀 4. 快速跳轉指南](#%F0%9F%9A%80-4-%E5%BF%AB%E9%80%9F%E8%B7%B3%E8%BD%89%E6%8C%87%E5%8D%97)
+- [📂 5. 模組職責劃分](#%F0%9F%93%82-5-%E6%A8%A1%E7%B5%84%E8%81%B7%E8%B2%AC%E5%8A%83%E5%88%86)
+- [💡 6. 開發與維護準則](#%F0%9F%92%A1-6-%E9%96%8B%E7%99%BC%E8%88%87%E7%B6%AD%E8%AD%B7%E6%BA%96%E5%89%87)
+
+<!-- tocstop -->
 
 ---
 
@@ -35,6 +45,12 @@ BioNeuronAI 是一套面向加密貨幣期貨市場的 AI 交易系統。
 ### 🎯 入門與操作
 * **[QUICKSTART_V2.1.md](QUICKSTART_V2.1.md)**: ⭐ 新手必看。教您如何用最快的速度架設 Docker、設定 `.env`、並驗證系統是否正常啟動。
 * **[OPERATION_MANUAL.md](OPERATION_MANUAL.md)**: 🛠️ 實戰必看。收錄所有 CLI 驅動指令（如 `python main.py plan`）、以及如何透過 API 觸發自動化任務。
+* **[FRONTEND_DASHBOARD_MANUAL.md](FRONTEND_DASHBOARD_MANUAL.md)**: 🖥️ DevOps Dashboard 操作手冊。詳細說明 8 個面板（狀態/新聞/預交易/回測/AI對話/交易控制/API測試台/歷史紀錄）的使用方式。
+
+### 🔌 API 與部署
+* **[API_USER_MANUAL.md](API_USER_MANUAL.md)**: 📡 REST API 完整端點參考。涵蓋所有 20 個 REST 端點與 3 個 WebSocket 端點，含請求/回應範例與 PowerShell 指令。
+* **[DOCKER_DEPLOYMENT_MANUAL.md](DOCKER_DEPLOYMENT_MANUAL.md)**: 🐳 Docker Compose 部署指南。說明 9 個服務的啟動方式、`.env` 環境變數設定、Volume 備份與常見問題排除。
+* **[RISK_MANAGEMENT_USER_MANUAL.md](RISK_MANAGEMENT_USER_MANUAL.md)**: 🛡️ 風險管理使用手冊。涵蓋 4 個風險等級（CONSERVATIVE / MODERATE / AGGRESSIVE / HIGH_RISK）、倉位計算邏輯與警報系統說明。
 
 ### 🧠 架構與全景
 * **[ARCHITECTURE_OVERVIEW.md](ARCHITECTURE_OVERVIEW.md)**: 🗺️ 系統全局視野。解釋 v2.1 從資料獲取到訂單送出的全資料流。

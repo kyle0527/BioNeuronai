@@ -2,10 +2,14 @@
 
 ## 📑 目錄
 
-1. 安裝與依賴
-2. 設定環境變數
-3. 驗證系統狀態
-4. 核心功能驗證
+<!-- toc -->
+
+- [📦 1. 安裝與依賴](#%F0%9F%93%A6-1-%E5%AE%89%E8%A3%9D%E8%88%87%E4%BE%9D%E8%B3%B4)
+- [🔑 2. 設定環境變數](#%F0%9F%94%91-2-%E8%A8%AD%E5%AE%9A%E7%92%B0%E5%A2%83%E8%AE%8A%E6%95%B8)
+- [🧪 3. 驗證系統狀態](#%F0%9F%A7%AA-3-%E9%A9%97%E8%AD%89%E7%B3%BB%E7%B5%B1%E7%8B%80%E6%85%8B)
+- [🎯 4. 核心功能驗證](#%F0%9F%8E%AF-4-%E6%A0%B8%E5%BF%83%E5%8A%9F%E8%83%BD%E9%A9%97%E8%AD%89)
+
+<!-- tocstop -->
 
 ## 📦 1. 安裝與依賴
 
@@ -20,7 +24,7 @@ python -m venv venv
 # Linux/Mac: source venv/bin/activate
 
 # 安裝套件
-pip install -r requirements-crypto.txt
+pip install -e .
 ```
 
 ## 🔑 2. 設定環境變數

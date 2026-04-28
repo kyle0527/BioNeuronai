@@ -3,12 +3,40 @@
 
 ## 📑 目錄
 
-1. 🔹 VS Code 擴充功能
-2. 🐍 Python 套件與工具
-3. ⚙️ 開發環境配置
-4. 🎯 使用建議
-5. 📋 版本資訊
-6. 🔗 相關資源
+<!-- toc -->
+
+- [🔹 VS Code 擴充功能](#%F0%9F%94%B9-vs-code-%E6%93%B4%E5%85%85%E5%8A%9F%E8%83%BD)
+  * [✨ AI & 程式碼協助](#%E2%9C%A8-ai--%E7%A8%8B%E5%BC%8F%E7%A2%BC%E5%8D%94%E5%8A%A9)
+  * [🐍 Python 開發](#%F0%9F%90%8D-python-%E9%96%8B%E7%99%BC)
+  * [🧪 Jupyter Notebook](#%F0%9F%A7%AA-jupyter-notebook)
+  * [📝 文檔與標記](#%F0%9F%93%9D-%E6%96%87%E6%AA%94%E8%88%87%E6%A8%99%E8%A8%98)
+  * [🎨 Git 工具](#%F0%9F%8E%A8-git-%E5%B7%A5%E5%85%B7)
+  * [🎯 品質與除錯](#%F0%9F%8E%AF-%E5%93%81%E8%B3%AA%E8%88%87%E9%99%A4%E9%8C%AF)
+  * [🛠️ 專案管理與實用工具](#%F0%9F%9B%A0%EF%B8%8F-%E5%B0%88%E6%A1%88%E7%AE%A1%E7%90%86%E8%88%87%E5%AF%A6%E7%94%A8%E5%B7%A5%E5%85%B7)
+  * [🌍 語言與主題](#%F0%9F%8C%8D-%E8%AA%9E%E8%A8%80%E8%88%87%E4%B8%BB%E9%A1%8C)
+  * [🔧 其他工具](#%F0%9F%94%A7-%E5%85%B6%E4%BB%96%E5%B7%A5%E5%85%B7)
+- [🐍 Python 套件與工具](#%F0%9F%90%8D-python-%E5%A5%97%E4%BB%B6%E8%88%87%E5%B7%A5%E5%85%B7)
+  * [💹 加密貨幣交易核心](#%F0%9F%92%B9-%E5%8A%A0%E5%AF%86%E8%B2%A8%E5%B9%A3%E4%BA%A4%E6%98%93%E6%A0%B8%E5%BF%83)
+  * [🤖 AI & 機器學習](#%F0%9F%A4%96-ai--%E6%A9%9F%E5%99%A8%E5%AD%B8%E7%BF%92)
+  * [📊 資料處理與分析](#%F0%9F%93%8A-%E8%B3%87%E6%96%99%E8%99%95%E7%90%86%E8%88%87%E5%88%86%E6%9E%90)
+  * [🌐 HTTP 客戶端與網頁抓取](#%F0%9F%8C%90-http-%E5%AE%A2%E6%88%B6%E7%AB%AF%E8%88%87%E7%B6%B2%E9%A0%81%E6%8A%93%E5%8F%96)
+  * [📝 日誌與監控](#%F0%9F%93%9D-%E6%97%A5%E8%AA%8C%E8%88%87%E7%9B%A3%E6%8E%A7)
+  * [🎯 實用工具](#%F0%9F%8E%AF-%E5%AF%A6%E7%94%A8%E5%B7%A5%E5%85%B7)
+  * [🛠️ 開發工具](#%F0%9F%9B%A0%EF%B8%8F-%E9%96%8B%E7%99%BC%E5%B7%A5%E5%85%B7)
+- [⚙️ 開發環境配置](#%E2%9A%99%EF%B8%8F-%E9%96%8B%E7%99%BC%E7%92%B0%E5%A2%83%E9%85%8D%E7%BD%AE)
+  * [🔧 Python 建置系統](#%F0%9F%94%A7-python-%E5%BB%BA%E7%BD%AE%E7%B3%BB%E7%B5%B1)
+  * [⚙️ VS Code 工作區設定](#%E2%9A%99%EF%B8%8F-vs-code-%E5%B7%A5%E4%BD%9C%E5%8D%80%E8%A8%AD%E5%AE%9A)
+- [🎯 使用建議](#%F0%9F%8E%AF-%E4%BD%BF%E7%94%A8%E5%BB%BA%E8%AD%B0)
+  * [新手入門順序](#%E6%96%B0%E6%89%8B%E5%85%A5%E9%96%80%E9%A0%86%E5%BA%8F)
+  * [效能最佳化建議](#%E6%95%88%E8%83%BD%E6%9C%80%E4%BD%B3%E5%8C%96%E5%BB%BA%E8%AD%B0)
+  * [代碼品質檢查](#%E4%BB%A3%E7%A2%BC%E5%93%81%E8%B3%AA%E6%AA%A2%E6%9F%A5)
+  * [推薦的開發流程](#%E6%8E%A8%E8%96%A6%E7%9A%84%E9%96%8B%E7%99%BC%E6%B5%81%E7%A8%8B)
+- [📋 版本資訊](#%F0%9F%93%8B-%E7%89%88%E6%9C%AC%E8%B3%87%E8%A8%8A)
+- [🔗 相關資源](#%F0%9F%94%97-%E7%9B%B8%E9%97%9C%E8%B3%87%E6%BA%90)
+  * [📚 開發指南](#%F0%9F%93%9A-%E9%96%8B%E7%99%BC%E6%8C%87%E5%8D%97)
+  * [🏗️ 專案文檔](#%F0%9F%8F%97%EF%B8%8F-%E5%B0%88%E6%A1%88%E6%96%87%E6%AA%94)
+
+<!-- tocstop -->
 
 ---
 
@@ -331,27 +359,25 @@ pytest tests/
 ## 📋 版本資訊
 
 - **Python**: 3.11+
-- **BioNeuronai**: v1.0
-- **專案類型**: 加密貨幣量化交易系統
+- **BioNeuronai**: v2.1
 
 ---
 
 ## 🔗 相關資源
 
 ### 📚 開發指南
-- [用戶手冊](./USER_MANUAL.md)
-- [交易策略指南](./TRADING_STRATEGIES_GUIDE.md)
-- [數據源指南](../archived/docs_v2_1_legacy/DATA_SOURCES_GUIDE.legacy_20260406.md)
+- [V2.2 發展藍圖與規格](./V2.2_ROADMAP_AND_SPEC.md)
+- [操作手冊](./OPERATION_MANUAL.md)
+- [測試與驗證指南](./TESTING_AND_VALIDATION_GUIDE.md)
 - [代碼修復指南](./CODE_FIX_GUIDE.md)
 
 ### 🏗️ 專案文檔
-- [專案結構](../archived/docs_v2_1_legacy/PROJECT_STRUCTURE.legacy_20260406.md)
-- [加密交易 README](../CRYPTO_TRADING_README.md)
-- [SOP 自動化文檔](./CRYPTO_TRADING_SOP.md)
+- [目錄結構分析](./SRC_DIRECTORY_ANALYSIS.md)
+- [架構總覽](./ARCHITECTURE_OVERVIEW.md)
+- [接手地圖](./PROJECT_HANDOVER_MAP.md)
 
 ---
 
 **維護者**: BioNeuronai Team  
 **更新週期**: 每月或重大變更時  
 **問題回報**: 請至 GitHub Issues 提出
-

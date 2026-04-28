@@ -19,6 +19,8 @@ classifiers = [
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Topic :: Office/Business :: Financial :: Investment",
 ]
 requires-python = ">=3.9"
@@ -60,10 +62,6 @@ visualization = [
 notifications = [
     "python-telegram-bot>=20.0",
 ]
-rl = [
-    "gymnasium>=0.28.0",
-    "stable-baselines3>=2.0.0",
-]
 
 [project.urls]
 "Homepage" = "https://github.com/kyle0527/BioNeuronai"
@@ -87,7 +85,34 @@ warn_unused_configs = true
 
 [tool.ruff]
 line-length = 100
-target-version = "py39"
+target-version = "py313"
+exclude = [
+    "archived",
+    "tools",
+    "frontend",
+    "scratch",
+    "evolution_data",
+    "rl_models",
+    "output",
+    "logs",
+    "data_downloads",
+    ".git",
+    ".venv",
+    "venv",
+    "__pycache__",
+    "*.pyc",
+    "node_modules",
+    "dist",
+    "build",
+]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+ignore = [
+    "E501",  # line too long, handled by formatter
+    "E402",  # module level import not at top of file
+    "F401",  # imported but unused (too noisy during dev)
+]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

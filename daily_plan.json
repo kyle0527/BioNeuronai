@@ -1,0 +1,402 @@
+{
+  "id": "plan_20260424_230033",
+  "created_at": "2026-04-24T23:00:33.023134",
+  "status": "COMPLETED",
+  "description": "系統化10步驟交易計劃",
+  "steps_results": {
+    "1": {
+      "status": "SUCCESS",
+      "api_connected": true,
+      "network_latency_ms": 50,
+      "account_verified": true,
+      "available_margin": 10000.0,
+      "websocket_connected": true
+    },
+    "2": {
+      "status": "SUCCESS",
+      "check_mode": "daily",
+      "timestamp": "2026-04-24T23:00:33.900392",
+      "data_sources": [
+        "alternative_me",
+        "coingecko",
+        "defillama"
+      ],
+      "fetch_duration_ms": 1052,
+      "fear_greed_index": {
+        "value": 39,
+        "classification": "Fear",
+        "interpretation": "恐慌 - 市場謹慎"
+      },
+      "global_market": {
+        "total_market_cap_usd": 2682655255301.4644,
+        "total_volume_24h_usd": 94583045331.74138,
+        "btc_dominance_pct": 58.24891843829197,
+        "eth_dominance_pct": 10.41333348842529,
+        "market_cap_change_24h_pct": -0.3182389233651817
+      },
+      "defi_tvl": {
+        "total_tvl_usd": 84094222309.40147,
+        "top_chains": {
+          "ethereum": 45114275674.1568,
+          "bsc": 5592722430.548082,
+          "solana": 5542734881.634514
+        }
+      },
+      "stablecoin_supply": {
+        "total_supply_usd": 272358925989.0,
+        "by_token": {
+          "USDT": 189721966763.0,
+          "USDC": 77799564884.0,
+          "DAI": 4422379609.0,
+          "FDUSD": 415014733.0
+        }
+      },
+      "market_state": {
+        "condition": "MIXED",
+        "recommendation": "綜合策略",
+        "btc_dominance_note": "市場相對平衡"
+      }
+    },
+    "3": {
+      "status": "SUCCESS",
+      "trend": "NEUTRAL",
+      "volatility_level": "LOW",
+      "volatility_value": 7.680319970530282,
+      "market_phase": "DECLINE",
+      "sentiment_score": 0.007504278858513833,
+      "fear_greed_index": 50,
+      "liquidity": "GOOD",
+      "external_factors": [],
+      "confidence": 0.7738816228277325
+    },
+    "4": {
+      "status": "SUCCESS",
+      "news_count": 0,
+      "sentiment_score": 0.0,
+      "sentiment": "NEGATIVE",
+      "keywords_matched": [],
+      "breaking_news_risk": "HIGH",
+      "event_score": -1.0,
+      "active_events": [
+        {
+          "id": 13,
+          "event_id": "8748dd58acad1257",
+          "event_type": "WAR",
+          "headline": "Bitcoin buyers show ‘renewed conviction’ with BTC price push toward $79K",
+          "score": -0.8,
+          "status": "ACTIVE",
+          "termination_condition": "Keywords: ceasefire, peace agreement, truce...",
+          "embedding_id": null,
+          "source": "cointelegraph.com",
+          "source_confidence": 0.7,
+          "affected_symbols": null,
+          "metadata": "matched: war; decay_hours: 72",
+          "created_at": "2026-04-23 12:23:59",
+          "resolved_at": null,
+          "updated_at": "2026-04-23T20:23:59.965282"
+        },
+        {
+          "id": 14,
+          "event_id": "41f85c84cf8e5161",
+          "event_type": "WAR",
+          "headline": "Bitcoin buyers show ‘renewed conviction’ with BTC price push toward $79K",
+          "score": -0.8,
+          "status": "ACTIVE",
+          "termination_condition": "Keywords: ceasefire, peace agreement, truce...",
+          "embedding_id": null,
+          "source": "cointelegraph.com",
+          "source_confidence": 0.7,
+          "affected_symbols": null,
+          "metadata": "matched: war; decay_hours: 72",
+          "created_at": "2026-04-23 12:23:59",
+          "resolved_at": null,
+          "updated_at": "2026-04-23T20:23:59.971523"
+        },
+        {
+          "id": 15,
+          "event_id": "6895a7ff344fc3d3",
+          "event_type": "WAR",
+          "headline": "Bitcoin buyers show ‘renewed conviction’ with BTC price push toward $79K",
+          "score": -0.8,
+          "status": "ACTIVE",
+          "termination_condition": "Keywords: ceasefire, peace agreement, truce...",
+          "embedding_id": null,
+          "source": "cointelegraph.com",
+          "source_confidence": 0.7,
+          "affected_symbols": null,
+          "metadata": "matched: war; decay_hours: 72",
+          "created_at": "2026-04-23 12:23:59",
+          "resolved_at": null,
+          "updated_at": "2026-04-23T20:23:59.978189"
+        },
+        {
+          "id": 16,
+          "event_id": "90b9871af4fb7cbb",
+          "event_type": "WAR",
+          "headline": "Bitcoin buyers show ‘renewed conviction’ with BTC price push toward $79K",
+          "score": -0.8,
+          "status": "ACTIVE",
+          "termination_condition": "Keywords: ceasefire, peace agreement, truce...",
+          "embedding_id": null,
+          "source": "cointelegraph.com",
+          "source_confidence": 0.7,
+          "affected_symbols": null,
+          "metadata": "matched: war; decay_hours: 72",
+          "created_at": "2026-04-23 12:23:59",
+          "resolved_at": null,
+          "updated_at": "2026-04-23T20:23:59.984605"
+        },
+        {
+          "id": 17,
+          "event_id": "af1819747b282e0f",
+          "event_type": "WAR",
+          "headline": "Bitcoin buyers show ‘renewed conviction’ with BTC price push toward $79K",
+          "score": -0.8,
+          "status": "ACTIVE",
+          "termination_condition": "Keywords: ceasefire, peace agreement, truce...",
+          "embedding_id": null,
+          "source": "cointelegraph.com",
+          "source_confidence": 0.7,
+          "affected_symbols": null,
+          "metadata": "matched: war; decay_hours: 72",
+          "created_at": "2026-04-23 12:23:59",
+          "resolved_at": null,
+          "updated_at": "2026-04-23T20:23:59.990600"
+        },
+        {
+          "id": 8,
+          "event_id": "41401558f7d48c8d",
+          "event_type": "WAR",
+          "headline": "Bitcoin buyers show ‘renewed conviction’ with BTC price push toward $79K",
+          "score": -0.8,
+          "status": "ACTIVE",
+          "termination_condition": "Keywords: ceasefire, peace agreement, truce...",
+          "embedding_id": null,
+          "source": "cointelegraph.com",
+          "source_confidence": 0.7,
+          "affected_symbols": null,
+          "metadata": "matched: war; decay_hours: 72",
+          "created_at": "2026-04-23 12:23:09",
+          "resolved_at": null,
+          "updated_at": "2026-04-23T20:23:09.485437"
+        },
+        {
+          "id": 9,
+          "event_id": "1367622b71ae5358",
+          "event_type": "WAR",
+          "headline": "Bitcoin buyers show ‘renewed conviction’ with BTC price push toward $79K",
+          "score": -0.8,
+          "status": "ACTIVE",
+          "termination_condition": "Keywords: ceasefire, peace agreement, truce...",
+          "embedding_id": null,
+          "source": "cointelegraph.com",
+          "source_confidence": 0.7,
+          "affected_symbols": null,
+          "metadata": "matched: war; decay_hours: 72",
+          "created_at": "2026-04-23 12:23:09",
+          "resolved_at": null,
+          "updated_at": "2026-04-23T20:23:09.494038"
+        },
+        {
+          "id": 10,
+          "event_id": "0bdea4752dcb7911",
+          "event_type": "WAR",
+          "headline": "Bitcoin buyers show ‘renewed conviction’ with BTC price push toward $79K",
+          "score": -0.8,
+          "status": "ACTIVE",
+          "termination_condition": "Keywords: ceasefire, peace agreement, truce...",
+          "embedding_id": null,
+          "source": "cointelegraph.com",
+          "source_confidence": 0.7,
+          "affected_symbols": null,
+          "metadata": "matched: war; decay_hours: 72",
+          "created_at": "2026-04-23 12:23:09",
+          "resolved_at": null,
+          "updated_at": "2026-04-23T20:23:09.502269"
+        },
+        {
+          "id": 11,
+          "event_id": "5516242c384f5330",
+          "event_type": "WAR",
+          "headline": "Bitcoin buyers show ‘renewed conviction’ with BTC price push toward $79K",
+          "score": -0.8,
+          "status": "ACTIVE",
+          "termination_condition": "Keywords: ceasefire, peace agreement, truce...",
+          "embedding_id": null,
+          "source": "cointelegraph.com",
+          "source_confidence": 0.7,
+          "affected_symbols": null,
+          "metadata": "matched: war; decay_hours: 72",
+          "created_at": "2026-04-23 12:23:09",
+          "resolved_at": null,
+          "updated_at": "2026-04-23T20:23:09.510333"
+        },
+        {
+          "id": 12,
+          "event_id": "2f60e016ecf5d11e",
+          "event_type": "WAR",
+          "headline": "Bitcoin buyers show ‘renewed conviction’ with BTC price push toward $79K",
+          "score": -0.8,
+          "status": "ACTIVE",
+          "termination_condition": "Keywords: ceasefire, peace agreement, truce...",
+          "embedding_id": null,
+          "source": "cointelegraph.com",
+          "source_confidence": 0.7,
+          "affected_symbols": null,
+          "metadata": "matched: war; decay_hours: 72",
+          "created_at": "2026-04-23 12:23:09",
+          "resolved_at": null,
+          "updated_at": "2026-04-23T20:23:09.517088"
+        }
+      ],
+      "event_context": "event_score=-1.0 event_type='WAR' intensity='LOW' decay_factor=1.0 source_confidence=0.7 affected_symbols=[] timestamp=None"
+    },
+    "5": {
+      "status": "SUCCESS",
+      "strategies": {
+        "MA_Crossover_Trend": {
+          "win_rate": 0.55,
+          "sharpe": 1.2,
+          "profit_factor": 1.4,
+          "max_drawdown": 0.08,
+          "expected_return": 0.15
+        },
+        "RSI_Mean_Reversion": {
+          "win_rate": 0.65,
+          "sharpe": 1.1,
+          "profit_factor": 1.3,
+          "max_drawdown": 0.06,
+          "expected_return": 0.12
+        },
+        "Momentum_Breakout": {
+          "win_rate": 0.5,
+          "sharpe": 1.3,
+          "profit_factor": 1.6,
+          "max_drawdown": 0.12,
+          "expected_return": 0.2
+        },
+        "High_Frequency_Scalp": {
+          "win_rate": 0.75,
+          "sharpe": 2.1,
+          "profit_factor": 1.2,
+          "max_drawdown": 0.04,
+          "expected_return": 0.25
+        },
+        "Grid_Trading": {
+          "win_rate": 0.7,
+          "sharpe": 1.4,
+          "profit_factor": 1.5,
+          "max_drawdown": 0.15,
+          "expected_return": 0.18
+        }
+      },
+      "best_strategy": "High_Frequency_Scalp",
+      "source": "strategies.selector.configs"
+    },
+    "6": {
+      "status": "SUCCESS",
+      "selected_strategy": "高頻剝頭皮",
+      "strategy_type": "scalping",
+      "strategy_weight": 0.7,
+      "confidence_score": 0.5,
+      "fallback_strategy": "MA 交叉趨勢",
+      "strategy_mix": {
+        "高頻剝頭皮": 0.7,
+        "MA 交叉趨勢": 0.15,
+        "RSI 均值回歸": 0.15
+      },
+      "reasoning": "市場體制: sideways_high_vol | 選擇策略: 高頻剝頭皮 | 策略類型: scalping | 評分: 0.00 | 預期報酬: 25.0% | 最大回撤: 4.0%",
+      "expected_performance": {
+        "expected_return": 0.25,
+        "win_rate": 0.75,
+        "profit_factor": 1.2,
+        "sharpe_ratio": 2.1
+      },
+      "source": "strategies.selector.core"
+    },
+    "7": {
+      "status": "SUCCESS",
+      "risk_level": "AGGRESSIVE",
+      "risk_per_trade": 0.03,
+      "daily_max_loss": 0.08,
+      "max_leverage": 5.0,
+      "position_concentration": 0.3,
+      "max_positions": 3,
+      "account_balance": 10000.0,
+      "max_risk_amount": 300.0
+    },
+    "8": {
+      "status": "SUCCESS",
+      "position_sizing_method": "RISK_BASED_KELLY",
+      "recommended_size": 0.0,
+      "recommended_size_btc": 0.0,
+      "max_size": 0.06,
+      "position_value_usdt": 0.0,
+      "required_margin": 0.0,
+      "risk_amount": 0.0,
+      "risk_reward_ratio": 2.0,
+      "kelly_fraction": 0,
+      "entry_price": 50000,
+      "stop_loss": 48500.0,
+      "take_profit": 53000.0,
+      "reserve_margin": 10000.0
+    },
+    "9": {
+      "status": "SUCCESS",
+      "pairs": [
+        {
+          "symbol": "BTCUSDT",
+          "volume_usdt_24h": 0,
+          "price_change_pct": 0,
+          "last_price": 0,
+          "liquidity": "MEDIUM"
+        },
+        {
+          "symbol": "ETHUSDT",
+          "volume_usdt_24h": 0,
+          "price_change_pct": 0,
+          "last_price": 0,
+          "liquidity": "MEDIUM"
+        },
+        {
+          "symbol": "BNBUSDT",
+          "volume_usdt_24h": 0,
+          "price_change_pct": 0,
+          "last_price": 0,
+          "liquidity": "MEDIUM"
+        }
+      ],
+      "backup_pairs": [
+        "SOLUSDT",
+        "ADAUSDT"
+      ],
+      "recommended_pair": "BTCUSDT",
+      "selection_criteria": {
+        "source": "default_fallback"
+      },
+      "source": "default_fallback"
+    },
+    "10": {
+      "status": "SUCCESS",
+      "monitor_active": false,
+      "websocket_ready": false,
+      "websocket_note": "WebSocket 由 BinanceFuturesConnector.subscribe_ticker_stream() 建立，需在 TradingEngine 啟動後才會連線",
+      "alert_rules": [
+        "price_alert",
+        "position_alert",
+        "news_alert"
+      ],
+      "update_interval_ms": 1000,
+      "setup_required": true
+    }
+  },
+  "is_executable": true,
+  "risk_level": "AGGRESSIVE",
+  "recommended_pairs": [],
+  "execution_ready": true,
+  "symbol": "BTCUSDT",
+  "account_balance": 10000.0,
+  "has_klines_data": true,
+  "event_score": -1.0,
+  "event_context": "event_score=-1.0 event_type='WAR' intensity='LOW' decay_factor=1.0 source_confidence=0.7 affected_symbols=[] timestamp=None"
+}

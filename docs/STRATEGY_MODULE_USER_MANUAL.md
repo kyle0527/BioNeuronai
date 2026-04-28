@@ -168,129 +168,24 @@ python main.py strategy-backtest --symbol BTCUSDT --interval 1h
 - 不會真實下單
 - 產生每個策略的 runtime 目錄
 
-### 常用參數
+<!-- toc -->
 
-- `--symbol`
-- `--interval`
-- `--start-date`
-- `--end-date`
-- `--balance`
-- `--warmup-bars`
-- `--execution-mode`
-- `--params`
-- `--output`
-- `--keep-open-positions`
-- `--commission-bps`（Taker 手續費，單位基點，預設 4.0，即 0.04%）
-- `--slippage-bps`（每筆成交滑點，單位基點，預設 1.0，即 0.01%）
-- `--walk-forward`（開啟 Walk-Forward IS/OOS 驗證，需搭配 `--start-date` 與 `--end-date`）
+- [UI 操作](#ui-%E6%93%8D%E4%BD%9C)
+  * [1. 啟動 API](#1-%E5%95%9F%E5%8B%95-api)
+  * [2. 打開 UI](#2-%E6%89%93%E9%96%8B-ui)
+  * [3. UI 裡和策略模組有關的欄位](#3-ui-%E8%A3%A1%E5%92%8C%E7%AD%96%E7%95%A5%E6%A8%A1%E7%B5%84%E6%9C%89%E9%97%9C%E7%9A%84%E6%AC%84%E4%BD%8D)
+  * [4. 執行策略模組](#4-%E5%9F%B7%E8%A1%8C%E7%AD%96%E7%95%A5%E6%A8%A1%E7%B5%84)
+  * [5. UI 裡怎麼看每次執行結果](#5-ui-%E8%A3%A1%E6%80%8E%E9%BA%BC%E7%9C%8B%E6%AF%8F%E6%AC%A1%E5%9F%B7%E8%A1%8C%E7%B5%90%E6%9E%9C)
+- [API 操作](#api-%E6%93%8D%E4%BD%9C)
+  * [執行策略模組](#%E5%9F%B7%E8%A1%8C%E7%AD%96%E7%95%A5%E6%A8%A1%E7%B5%84)
+- [跑完之後去哪裡看結果](#%E8%B7%91%E5%AE%8C%E4%B9%8B%E5%BE%8C%E5%8E%BB%E5%93%AA%E8%A3%A1%E7%9C%8B%E7%B5%90%E6%9E%9C)
+- [建議操作順序](#%E5%BB%BA%E8%AD%B0%E6%93%8D%E4%BD%9C%E9%A0%86%E5%BA%8F)
+  * [第一次跑策略模組](#%E7%AC%AC%E4%B8%80%E6%AC%A1%E8%B7%91%E7%AD%96%E7%95%A5%E6%A8%A1%E7%B5%84)
+  * [要做參數微調時](#%E8%A6%81%E5%81%9A%E5%8F%83%E6%95%B8%E5%BE%AE%E8%AA%BF%E6%99%82)
+- [注意事項](#%E6%B3%A8%E6%84%8F%E4%BA%8B%E9%A0%85)
+- [相關文件](#%E7%9B%B8%E9%97%9C%E6%96%87%E4%BB%B6)
 
-### 常用範例 1：固定期間比較 10 個策略
-
-```powershell
-python main.py strategy-backtest `
-  --symbol BTCUSDT `
-  --interval 1h `
-  --start-date 2026-01-01 `
-  --end-date 2026-04-20 `
-  --balance 10000 `
-  --warmup-bars 100 `
-  --output output\strategy_backtest_BTCUSDT_1h.json
-```
-
-### 常用範例 2：指定費率
-
-```powershell
-python main.py strategy-backtest `
-  --symbol BTCUSDT `
-  --interval 1h `
-  --start-date 2026-01-01 `
-  --end-date 2026-04-20 `
-  --commission-bps 4.0 `
-  --slippage-bps 1.0
-```
-
-### 常用範例 3：開啟 Walk-Forward IS/OOS
-
-```powershell
-python main.py strategy-backtest `
-  --symbol BTCUSDT `
-  --interval 1h `
-  --start-date 2024-01-01 `
-  --end-date 2026-04-20 `
-  --walk-forward
-```
-
-Walk-Forward 會自動以 70/30 比例切分：IS（樣本內）佔前 70%，OOS（樣本外）佔後 30%，並在 CLI 輸出 IS/OOS 對比表。
-
-### 常用範例 4：改用 hybrid 模式
-
-```powershell
-python main.py strategy-backtest `
-  --symbol BTCUSDT `
-  --interval 1h `
-  --execution-mode hybrid
-```
-
-### 常用範例 5：覆蓋單一策略參數
-
-先準備 JSON，例如：
-
-```json
-{
-  "RSI_Mean_Reversion": {
-    "entry_conditions": {
-      "oversold_threshold": 25,
-      "overbought_threshold": 75
-    },
-    "exit_conditions": {
-      "stop_loss": 0.01,
-      "profit_target": 0.02
-    },
-    "risk_parameters": {
-      "position_size": 0.02
-    }
-  }
-}
-```
-
-執行：
-
-```powershell
-python main.py strategy-backtest `
-  --symbol BTCUSDT `
-  --interval 1h `
-  --params strategy_params.json
-```
-
-### CLI 輸出會看到什麼
-
-每次執行後，CLI 會先印出摘要列，再顯示策略比較表格：
-
-```
-  策略模板      : <總數>
-  可執行策略    : <數量>
-  失敗/不可跑   : <數量>
-  執行模式      : template_rules
-  手續費        : 4.0 bps  滑點: 1.0 bps
-```
-
-接著是策略排名表，欄位為：
-
-| 欄位 | 說明 |
-|------|------|
-| 策略名稱 | 最多 22 字元 |
-| 引擎 | 執行引擎類型 |
-| 交易 | 總成交次數 |
-| 報酬% | 總報酬率 |
-| 勝率% | 勝率 |
-| 夏普 | Sharpe Ratio |
-| 索提 | Sortino Ratio |
-| 卡爾瑪 | Calmar Ratio |
-| 獲利因子 | Profit Factor |
-| Runtime | run_dir 路徑 |
-
-若開啟 `--walk-forward`，表格後方另有 **IS/OOS 對比區段**，欄位為：
-策略名稱、IS 報酬%、OOS 報酬%、IS Sharpe、OOS Sharpe。
+<!-- tocstop -->
 
 ---
 
