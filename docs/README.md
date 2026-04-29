@@ -27,9 +27,12 @@
 | [QUICKSTART_V2.1.md](QUICKSTART_V2.1.md) | v2.1 快速開始指南 (Docker + 環境變數) |
 | [OPERATION_MANUAL.md](OPERATION_MANUAL.md) | v2.1 連線、排程與 CLI 實際操作手冊 |
 | [ARCHITECTURE_OVERVIEW.md](ARCHITECTURE_OVERVIEW.md) | 系統整體架構總覽 (資料流與模組分工) |
+| [assets/README.md](assets/README.md) | README 視覺證據、Demo GIF、績效圖表產出清單 |
+| [blog/README.md](blog/README.md) | 技術部落格與設計決策文章入口 |
 | [PROJECT_HANDOVER_MAP.md](PROJECT_HANDOVER_MAP.md) | 模組依賴圖與開發接手地圖 |
 | [SRC_DIRECTORY_ANALYSIS.md](SRC_DIRECTORY_ANALYSIS.md) | `src/` 目錄結構分析 |
 | [BACKTEST_SYSTEM_GUIDE.md](BACKTEST_SYSTEM_GUIDE.md) | 回測系統使用準則 |
+| [CLOUD_TRAINING_RUNBOOK.md](CLOUD_TRAINING_RUNBOOK.md) | 雲端 GPU 訓練準備、dry run、resume 與 artifact 回收流程 |
 
 ---
 
@@ -77,6 +80,7 @@
 | [DOCUMENTATION_GOVERNANCE_PLAN.md](DOCUMENTATION_GOVERNANCE_PLAN.md) | 文件治理與清理規範 (核心守則) |
 | [DEVELOPMENT_TOOLS.md](DEVELOPMENT_TOOLS.md) | 目錄產生等 PowerShell 開發腳本說明 |
 | [TESTING_AND_VALIDATION_GUIDE.md](TESTING_AND_VALIDATION_GUIDE.md) | 測試哲學、核心測試路徑與 CI Smoke Test |
+| [adr/README.md](adr/README.md) | Architecture Decision Records：核心架構決策紀錄 |
 | [V2.2_ROADMAP_AND_SPEC.md](V2.2_ROADMAP_AND_SPEC.md) | v2.2 路線圖與功能規格 |
 
 ---

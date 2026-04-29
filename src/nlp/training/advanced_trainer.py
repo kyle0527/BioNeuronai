@@ -4,17 +4,19 @@
 包含梯度累積、混合精度訓練、學習率調度等高級功能
 """
 
-import torch
-import torch.nn as nn
-import torch.optim as optim
-from torch.cuda.amp import autocast, GradScaler
-from pathlib import Path
 import sys
 import json
 import math
 import time
-from typing import Dict, cast
+import shutil
 from dataclasses import dataclass, asdict
+from pathlib import Path
+from typing import Dict, Optional, Union, cast
+
+import torch
+import torch.nn as nn
+import torch.optim as optim
+from torch.cuda.amp import autocast, GradScaler
 
 sys.path.append(str(Path(__file__).parent.parent))
 
@@ -75,6 +77,7 @@ class Trainer:
         train_dataloader,
         eval_dataloader=None,
         signal_dataloader=None,       # 多任務模式：訊號任務的資料加載器
+        resume_from: Optional[Union[str, Path]] = None,
     ):
         self.model = model
         self.config = train_config
@@ -123,6 +126,9 @@ class Trainer:
         # 創建輸出目錄
         self.output_dir = Path(train_config.output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
+
+        if resume_from:
+            self.resume_from_checkpoint(resume_from)
     
     def _create_scheduler(self, total_steps: int):
         """創建學習率調度器"""
@@ -168,7 +174,7 @@ class Trainer:
         
         start_time = time.time()
         
-        for epoch in range(self.config.max_epochs):
+        for epoch in range(self.current_epoch, self.config.max_epochs):
             self.current_epoch = epoch
             self._train_epoch()
             
@@ -390,30 +396,80 @@ class Trainer:
         
         return cast(torch.Tensor, loss.contiguous())
     
-    def _save_checkpoint(self, name: str):
-        """保存檢查點"""
-        checkpoint_dir = self.output_dir / name
-        checkpoint_dir.mkdir(parents=True, exist_ok=True)
-        
-        # 保存模型
-        torch.save(
-            self.model.state_dict(),
-            checkpoint_dir / "model.pth"
-        )
-        
-        # 保存配置
-        with open(checkpoint_dir / "config.json", 'w', encoding='utf-8') as f:
-            json.dump(self.model.config.to_dict(), f, indent=2, ensure_ascii=False)
-        
-        # 保存訓練狀態
-        torch.save({
+    def _checkpoint_payload(self) -> Dict:
+        payload = {
             'epoch': self.current_epoch,
             'global_step': self.global_step,
             'optimizer_state': self.optimizer.state_dict(),
             'scheduler_state': self.scheduler.state_dict(),
             'best_loss': self.best_loss,
-            'train_config': self.config.to_dict()
-        }, checkpoint_dir / "training_state.pth")
+            'train_config': self.config.to_dict(),
+        }
+        if self.scaler is not None:
+            payload['scaler_state'] = self.scaler.state_dict()
+        return payload
+
+    def _save_checkpoint_dir(self, checkpoint_dir: Path) -> None:
+        """保存檢查點到指定目錄，使用暫存目錄降低中斷造成半寫入的風險。"""
+        tmp_dir = checkpoint_dir.with_name(f"{checkpoint_dir.name}.tmp")
+        if tmp_dir.exists():
+            shutil.rmtree(tmp_dir)
+        tmp_dir.mkdir(parents=True, exist_ok=True)
+        
+        # 保存模型
+        torch.save(
+            self.model.state_dict(),
+            tmp_dir / "model.pth"
+        )
+        
+        # 保存配置
+        with open(tmp_dir / "config.json", 'w', encoding='utf-8') as f:
+            json.dump(self.model.config.to_dict(), f, indent=2, ensure_ascii=False)
+        
+        # 保存訓練狀態
+        torch.save(self._checkpoint_payload(), tmp_dir / "training_state.pth")
+
+        if checkpoint_dir.exists():
+            shutil.rmtree(checkpoint_dir)
+        shutil.move(str(tmp_dir), str(checkpoint_dir))
+
+    def _save_checkpoint(self, name: str):
+        """保存檢查點"""
+        checkpoint_dir = self.output_dir / name
+        self._save_checkpoint_dir(checkpoint_dir)
+        if name.startswith("checkpoint-"):
+            self._save_checkpoint_dir(self.output_dir / "checkpoint_latest")
+
+    def resume_from_checkpoint(self, checkpoint: Union[str, Path]) -> None:
+        """從檢查點恢復模型、optimizer、scheduler 與訓練位置。"""
+        checkpoint_dir = Path(checkpoint)
+        if not checkpoint_dir.exists() and not checkpoint_dir.is_absolute():
+            checkpoint_dir = self.output_dir / checkpoint_dir
+        if not checkpoint_dir.exists():
+            raise FileNotFoundError(f"找不到 checkpoint: {checkpoint_dir}")
+
+        model_path = checkpoint_dir / "model.pth"
+        state_path = checkpoint_dir / "training_state.pth"
+        if not model_path.exists() or not state_path.exists():
+            raise FileNotFoundError(
+                f"checkpoint 缺少 model.pth 或 training_state.pth: {checkpoint_dir}"
+            )
+
+        model_state = torch.load(model_path, map_location=self.device, weights_only=True)
+        self.model.load_state_dict(model_state, strict=False)
+
+        training_state = torch.load(state_path, map_location=self.device, weights_only=False)
+        self.optimizer.load_state_dict(training_state["optimizer_state"])
+        self.scheduler.load_state_dict(training_state["scheduler_state"])
+        self.current_epoch = int(training_state.get("epoch", 0))
+        self.global_step = int(training_state.get("global_step", 0))
+        self.best_loss = float(training_state.get("best_loss", float("inf")))
+        if self.scaler is not None and training_state.get("scaler_state"):
+            self.scaler.load_state_dict(training_state["scaler_state"])
+        print(
+            f"[trainer] 已從 checkpoint 恢復: {checkpoint_dir} "
+            f"(epoch={self.current_epoch}, step={self.global_step})"
+        )
     
     def _save_training_history(self):
         """保存訓練歷史"""

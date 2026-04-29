@@ -1,0 +1,14 @@
+{
+  "mode": "sig-only",
+  "signal_data": "/workspace/data/processed/signal_train.pt",
+  "base_model": "/workspace/model/my_100m_model.pth",
+  "output": "/outputs/sig_run_001",
+  "epochs": 10,
+  "batch": 8,
+  "gradient_accumulation_steps": 4,
+  "learning_rate": 0.0003,
+  "save_steps": 500,
+  "seed": 42,
+  "save_to_model": false,
+  "notes": "Example config for cloud GPU training. The CLI remains the source of truth; keep this file aligned with the submitted job command."
+}

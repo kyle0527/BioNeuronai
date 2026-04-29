@@ -1,0 +1,55 @@
+# ============================================================
+# BioNeuronAI — GPU training image
+#
+# This image is intentionally separate from the runtime API image.
+# Mount datasets, base checkpoints, and outputs at runtime:
+#
+#   docker build -f Dockerfile.train -t bioneuronai-train .
+#   docker run --gpus all --rm \
+#     -v ./data:/workspace/data \
+#     -v ./model:/workspace/model \
+#     -v ./output:/outputs \
+#     bioneuronai-train \
+#     --sig-only --signal-data /workspace/data/processed/signal_train.pt \
+#     --output /outputs/run_001 --no-save
+# ============================================================
+
+ARG PYTORCH_IMAGE=pytorch/pytorch:2.4.1-cuda12.1-cudnn9-runtime
+FROM ${PYTORCH_IMAGE}
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONPATH=/workspace:/workspace/src
+
+WORKDIR /workspace
+
+# TA-Lib is used by parts of the feature/trading stack. Build the native C
+# library once in the training image so cloud jobs do not fail at import time.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        build-essential \
+        ca-certificates \
+        git \
+        wget \
+    && rm -rf /var/lib/apt/lists/* \
+    && wget -q https://prdownloads.sourceforge.net/ta-lib/ta-lib-0.4.0-src.tar.gz \
+    && tar -xzf ta-lib-0.4.0-src.tar.gz \
+    && cd ta-lib \
+    && ./configure --prefix=/usr/local \
+    && make -j1 \
+    && make install \
+    && cd .. \
+    && rm -rf ta-lib ta-lib-0.4.0-src.tar.gz \
+    && ldconfig
+
+COPY pyproject.toml README.md ./
+COPY src/ ./src/
+COPY backtest/ ./backtest/
+COPY config/ ./config/
+COPY tools/training/ ./tools/training/
+COPY main.py ./
+
+RUN python -m pip install --upgrade pip \
+    && python -m pip install --no-cache-dir -e ".[visualization]"
+
+ENTRYPOINT ["python", "-m", "nlp.training.unified_trainer"]
+CMD ["--help"]

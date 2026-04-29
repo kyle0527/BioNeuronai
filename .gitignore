@@ -96,6 +96,7 @@ news_predictions/*.json
 trading_plan_data/*.json
 
 # Trading system generated files
+/daily_plan.json
 trading_system.log
 signals_history/
 trading_plans/

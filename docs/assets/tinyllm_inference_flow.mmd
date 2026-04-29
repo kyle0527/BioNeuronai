@@ -1,0 +1,18 @@
+sequenceDiagram
+    participant K as Kline / Market Data
+    participant F as FeaturePipeline
+    participant W as Rolling Window
+    participant T as TinyLLM Transformer
+    participant S as SignalInterpreter
+    participant R as Risk Layer
+
+    K->>F: OHLCV, order book, news/event context
+    F->>F: normalize + build 1024-d vector
+    F->>W: append latest feature vector
+    W->>W: keep last 16 steps
+    W->>T: numeric sequence tensor
+    T->>T: multi-head attention across time
+    T->>S: signal embedding
+    S->>R: direction, confidence, sizing hint
+    R->>R: Kelly, drawdown, pretrade gates
+    R-->>S: approved / rejected trade intent

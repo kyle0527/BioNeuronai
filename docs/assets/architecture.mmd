@@ -1,0 +1,28 @@
+flowchart TD
+    user[User / External System] --> cli[CLI]
+    user --> dashboard[DevOps Dashboard]
+    dashboard --> api[FastAPI API]
+    cli --> api
+
+    api --> pretrade[Pretrade Automation]
+    api --> backtest[Replay / Backtest]
+    api --> chat[ChatEngine]
+    api --> trade[TradingEngine]
+
+    market[Binance / Historical Klines] --> features[1024-d Feature Pipeline]
+    news[News / External Signals] --> rag[RAG Retriever]
+    rag --> pretrade
+    rag --> trade
+
+    features --> window[16-step Rolling Window]
+    window --> tinyllm[TinyLLM GPT Blocks]
+    tinyllm --> signal[Signal Head]
+    tinyllm --> text[Text Generation Head]
+
+    signal --> selector[Strategy Selector]
+    selector --> fusion[Strategy Fusion]
+    fusion --> risk[Kelly / Drawdown / Exposure Risk]
+    pretrade --> risk
+    risk --> execution[Mock / Testnet / Live Execution]
+    text --> chat
+    backtest --> selector

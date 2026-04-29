@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  docker-operational-validation:
+    name: Docker Operational Validation
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          lfs: false
+
+      - name: Prepare environment file
+        run: |
+          cp .env.example .env
+
+      - name: Build and start API
+        run: |
+          docker compose up -d --build api
+
+      - name: Wait for healthy API container
+        shell: bash
+        run: |
+          for i in {1..60}; do
+            status="$(docker inspect --format='{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' bioneuron-api)"
+            if [ "$status" = "healthy" ]; then
+              exit 0
+            fi
+            docker compose ps
+            sleep 5
+          done
+          docker compose logs api
+          exit 1
+
+      - name: Validate real API status endpoint
+        run: |
+          curl --fail --show-error --silent http://localhost:8000/api/v1/status | tee status.json
+          python - <<'PY'
+          import json
+          payload = json.load(open("status.json", encoding="utf-8"))
+          assert payload["success"] is True
+          assert payload["all_ok"] is True
+          assert all(module["available"] for module in payload["modules"])
+          PY
+
+      - name: Show runtime containers
+        if: always()
+        run: docker compose ps
+
+      - name: Show API logs on failure
+        if: failure()
+        run: docker compose logs api
+
+      - name: Cleanup
+        if: always()
+        run: docker compose down

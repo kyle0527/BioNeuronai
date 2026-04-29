@@ -18,11 +18,16 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
+import os
+import platform
 import random
+import subprocess
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import torch
@@ -114,12 +119,16 @@ class SignalDataset(Dataset):
         seq_len: int = 16,
         n_synthetic: int = 1000,
         allow_synthetic: bool = False,
+        max_samples: Optional[int] = None,
     ) -> None:
         self.seq_len = seq_len
         self.samples: List[Tuple[np.ndarray, np.ndarray]] = []
 
         if data_path and data_path.exists():
-            self._load_jsonl(data_path)
+            if data_path.suffix.lower() == ".pt":
+                self._load_tensor_file(data_path, max_samples=max_samples)
+            else:
+                self._load_jsonl(data_path, max_samples=max_samples)
             if not self.samples:
                 raise ValueError(f"訊號資料檔為空或沒有有效樣本: {data_path}")
         elif allow_synthetic:
@@ -133,7 +142,7 @@ class SignalDataset(Dataset):
                 "或顯式使用 --allow-synthetic-signal-data 進行 smoke test。"
             )
 
-    def _load_jsonl(self, path: Path) -> None:
+    def _load_jsonl(self, path: Path, max_samples: Optional[int] = None) -> None:
         with open(path, encoding="utf-8") as f:
             for line in f:
                 line = line.strip()
@@ -149,6 +158,27 @@ class SignalDataset(Dataset):
                 else:
                     feat = feat[-self.seq_len:]
                 self.samples.append((feat, sig))
+                if max_samples is not None and len(self.samples) >= max_samples:
+                    break
+
+    def _load_tensor_file(self, path: Path, max_samples: Optional[int] = None) -> None:
+        payload = torch.load(path, map_location="cpu", weights_only=False)
+        features = payload["features"]
+        signals = payload["signals"]
+        if isinstance(features, torch.Tensor):
+            features = features.numpy()
+        if isinstance(signals, torch.Tensor):
+            signals = signals.numpy()
+        limit = len(features) if max_samples is None else min(len(features), max_samples)
+        for idx in range(limit):
+            feat = np.asarray(features[idx], dtype=np.float32)
+            sig = np.asarray(signals[idx], dtype=np.float32)
+            if feat.shape[0] < self.seq_len:
+                pad = np.zeros((self.seq_len - feat.shape[0], feat.shape[1]), dtype=np.float32)
+                feat = np.concatenate([pad, feat], axis=0)
+            else:
+                feat = feat[-self.seq_len:]
+            self.samples.append((feat, sig))
 
     def _generate_synthetic(self, n: int) -> None:
         """生成隨機合成資料，僅用於系統驗證，不代表真實訓練品質"""
@@ -209,14 +239,101 @@ def build_signal_dataloader(
     batch_size: int = 8,
     n_synthetic: int = 1000,
     allow_synthetic: bool = False,
+    max_samples: Optional[int] = None,
 ) -> _WrappedLoader:
     ds = SignalDataset(
         data_path,
         seq_len=seq_len,
         n_synthetic=n_synthetic,
         allow_synthetic=allow_synthetic,
+        max_samples=max_samples,
     )
     return _WrappedLoader(DataLoader(ds, batch_size=batch_size, shuffle=True, num_workers=0))
+
+
+def set_training_seed(seed: int) -> None:
+    """固定常見亂數來源，讓雲端 dry run 與短訓練較容易重現。"""
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.benchmark = False
+    torch.backends.cudnn.deterministic = True
+
+
+def _sha256_file(path: Optional[Path]) -> Optional[str]:
+    if path is None or not path.exists() or not path.is_file():
+        return None
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(1024 * 1024), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def _git_commit() -> Optional[str]:
+    try:
+        return subprocess.check_output(
+            ["git", "rev-parse", "HEAD"],
+            cwd=str(_ROOT),
+            text=True,
+            stderr=subprocess.DEVNULL,
+        ).strip()
+    except Exception:
+        return None
+
+
+def _file_info(path: Optional[Path], include_hash: bool = True) -> Dict[str, Any]:
+    if path is None:
+        return {"path": None, "exists": False}
+    info: Dict[str, Any] = {
+        "path": str(path),
+        "exists": path.exists(),
+    }
+    if path.exists() and path.is_file():
+        info["size_bytes"] = path.stat().st_size
+        if include_hash:
+            info["sha256"] = _sha256_file(path)
+    return info
+
+
+def _write_run_manifest(
+    output_dir: Path,
+    *,
+    args: Dict[str, Any],
+    signal_data_path: Optional[Path],
+    base_model_path: Optional[Path],
+    status: str,
+) -> None:
+    output_dir.mkdir(parents=True, exist_ok=True)
+    manifest = {
+        "status": status,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "git_commit": _git_commit(),
+        "platform": {
+            "python": sys.version,
+            "system": platform.platform(),
+            "cuda_available": torch.cuda.is_available(),
+            "cuda_device_count": torch.cuda.device_count() if torch.cuda.is_available() else 0,
+            "torch": torch.__version__,
+        },
+        "arguments": args,
+        "artifacts": {
+            "signal_data": _file_info(signal_data_path),
+            "base_model": _file_info(base_model_path),
+            "output_dir": str(output_dir),
+            "final_model": str(output_dir / "final_model" / "model.pth"),
+            "best_model": str(output_dir / "best_model" / "model.pth"),
+            "checkpoint_latest": str(output_dir / "checkpoint_latest" / "model.pth"),
+        },
+        "environment": {
+            "TRAINING_JOB_ID": os.getenv("TRAINING_JOB_ID"),
+            "CUDA_VISIBLE_DEVICES": os.getenv("CUDA_VISIBLE_DEVICES"),
+        },
+    }
+    with open(output_dir / "run_manifest.json", "w", encoding="utf-8") as f:
+        json.dump(manifest, f, indent=2, ensure_ascii=False)
 
 
 # ============================================================================
@@ -307,6 +424,12 @@ def train(
     output_dir: str = "./output/unified",
     save_to_model: bool = True,
     allow_synthetic_signal_data: bool = False,
+    base_model_path: Optional[Path] = None,
+    resume_from: Optional[Path] = None,
+    max_signal_samples: Optional[int] = None,
+    seed: int = 42,
+    save_steps: int = 500,
+    gradient_accumulation_steps: int = 4,
 ) -> None:
     """
     執行訓練。
@@ -323,7 +446,33 @@ def train(
         allow_synthetic_signal_data:
                           允許用合成 signal 資料做 smoke test；正式訓練請保持 False
     """
-    model, tokenizer = build_model()
+    set_training_seed(seed)
+    model, tokenizer = build_model(base_model_path)
+    output_path = Path(output_dir)
+    manifest_args = {
+        "lm_only": lm_only,
+        "sig_only": sig_only,
+        "epochs": epochs,
+        "batch_size": batch_size,
+        "learning_rate": lr,
+        "signal_data_path": str(signal_data_path) if signal_data_path else None,
+        "output_dir": output_dir,
+        "save_to_model": save_to_model,
+        "allow_synthetic_signal_data": allow_synthetic_signal_data,
+        "base_model_path": str(base_model_path) if base_model_path else None,
+        "resume_from": str(resume_from) if resume_from else None,
+        "max_signal_samples": max_signal_samples,
+        "seed": seed,
+        "save_steps": save_steps,
+        "gradient_accumulation_steps": gradient_accumulation_steps,
+    }
+    _write_run_manifest(
+        output_path,
+        args=manifest_args,
+        signal_data_path=signal_data_path,
+        base_model_path=base_model_path or (_ROOT / "model" / "my_100m_model.pth"),
+        status="started",
+    )
 
     multitask = (not lm_only) and (not sig_only)
 
@@ -335,14 +484,14 @@ def train(
 
     cfg = TrainingConfig(
         batch_size=batch_size,
-        gradient_accumulation_steps=4,
+        gradient_accumulation_steps=gradient_accumulation_steps,
         max_epochs=epochs,
         learning_rate=lr,
         warmup_steps=200,
         lr_scheduler_type="cosine",
         use_amp=torch.cuda.is_available(),
         eval_steps=500,
-        save_steps=500,
+        save_steps=save_steps,
         logging_steps=50,
         output_dir=output_dir,
         multitask=multitask,
@@ -368,6 +517,7 @@ def train(
             seq_len=cfg.signal_seq_len,
             batch_size=batch_size,
             allow_synthetic=allow_synthetic_signal_data,
+            max_samples=max_signal_samples,
         )
         print(f"[unified_trainer] 訊號任務: {len(signal_dl)} batches"
               f"{'（合成資料）' if allow_synthetic_signal_data and signal_data_path is None else ''}")
@@ -385,6 +535,7 @@ def train(
         train_dataloader=train_dl,
         eval_dataloader=val_dl,
         signal_dataloader=signal_dl if multitask else None,
+        resume_from=resume_from,
     )
 
     # sig_only 模式：覆寫 _train_epoch 使用訊號 loss
@@ -403,6 +554,15 @@ def train(
         print("  InferenceEngine 與 ChatEngine 下次啟動時將自動載入此權重。")
     else:
         print(f"\n[unified_trainer] 訓練完成，檢查點在 {output_dir}/")
+
+    _write_run_manifest(
+        output_path,
+        args=manifest_args,
+        signal_data_path=signal_data_path,
+        base_model_path=base_model_path or (_ROOT / "model" / "my_100m_model.pth"),
+        status="completed",
+    )
+    print(f"[unified_trainer] run manifest 已寫入 {output_path / 'run_manifest.json'}")
 
 
 # ============================================================================
@@ -425,6 +585,12 @@ def _parse_args() -> argparse.Namespace:
         action="store_true",
         help="允許在未提供真實 signal JSONL 時使用合成資料進行 smoke test",
     )
+    p.add_argument("--base-model", type=str, default=None, help="基礎 checkpoint 路徑")
+    p.add_argument("--resume", type=str, default=None, help="從 checkpoint 目錄恢復訓練")
+    p.add_argument("--max-signal-samples", type=int, default=None, help="最多讀取幾筆 signal 樣本")
+    p.add_argument("--seed", type=int, default=42, help="訓練亂數種子")
+    p.add_argument("--save-steps", type=int, default=500, help="每幾個 optimizer step 保存 checkpoint")
+    p.add_argument("--grad-accum", type=int, default=4, help="梯度累積步數")
     p.add_argument("--output",   type=str,   default="./output/unified", help="檢查點輸出目錄")
     p.add_argument("--no-save",  action="store_true", help="不覆寫 model/my_100m_model.pth")
     return p.parse_args()
@@ -442,4 +608,10 @@ if __name__ == "__main__":
         output_dir=args.output,
         save_to_model=not args.no_save,
         allow_synthetic_signal_data=args.allow_synthetic_signal_data,
+        base_model_path=Path(args.base_model) if args.base_model else None,
+        resume_from=Path(args.resume) if args.resume else None,
+        max_signal_samples=args.max_signal_samples,
+        seed=args.seed,
+        save_steps=args.save_steps,
+        gradient_accumulation_steps=args.grad_accum,
     )
