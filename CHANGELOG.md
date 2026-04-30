@@ -1,5 +1,36 @@
 # 更新日誌
 
+## [Data] - 2026-04-30
+
+### 📦 雲端訓練資料準備完成（signal data pipeline）
+
+#### 下載歷史 K 線資料
+- 使用 `tools/data_download/download-kline.py` 從 `data.binance.vision` 下載 2020-2023 全年日線資料
+- BTCUSDT 1h daily：1461 個 zip（`backtest/data/binance_historical/data/futures/um/daily/klines/BTCUSDT/1h/2020-01-01_2023-12-31/`）
+- ETHUSDT 1h daily：1461 個 zip（同路徑結構）
+- 合計覆蓋範圍：2020-01-01 ~ 2026-04-01（含既有 2024-2026 資料），共 ~34,141 根 K 線可回放
+
+#### 收集 Signal 訓練樣本
+- `python main.py collect-signal-data --symbol BTCUSDT ... --max-samples 30000` → `data/signal_btc.jsonl`（30,000 筆）
+- `python main.py collect-signal-data --symbol ETHUSDT ... --max-samples 20000` → `data/signal_eth.jsonl`（20,000 筆）
+- 合併：`data/signal_history.jsonl`（50,000 筆，5.18 GB）
+
+#### 打包 Tensor 檔案
+- `python tools/training/prepare_signal_tensors.py --input data/signal_history.jsonl --output-dir data/processed --seq-len 16 --val-ratio 0.1`
+- 輸出：`data/processed/signal_train.pt`（45,000 筆）、`data/processed/signal_val.pt`（5,000 筆）
+- feature_dim=1024、signal_dim=512、seq_len=16
+
+#### Dry-Run 驗證通過
+- `python -m nlp.training.unified_trainer --sig-only --signal-data data/processed/signal_train.pt --max-signal-samples 4 --epochs 1 --batch 2 --grad-accum 1 --save-steps 1 --output output/cloud_dryrun --no-save`
+- ✅ `output/cloud_dryrun/run_manifest.json`（status=completed）
+- ✅ `output/cloud_dryrun/checkpoint_latest/model.pth`
+- ✅ `output/cloud_dryrun/final_model/model.pth`
+- ✅ `model/my_100m_model.pth` 未被修改
+
+**雲端訓練前置工作全部完成，可上傳 `data/processed/signal_train.pt` 至 GCP 執行正式訓練。**
+
+---
+
 ## [Docs] - 2026-04-24
 
 ### 📚 策略融合未來路線圖文件系列建立
