@@ -12,12 +12,28 @@
 - [1. 概述](#1-概述)
 - [2. 風險等級說明](#2-風險等級說明)
 - [3. 風險參數詳解](#3-風險參數詳解)
+  - [四個等級的完整參數對照表](#四個等級的完整參數對照表)
+  - [參數說明](#參數說明)
 - [4. 倉位計算邏輯](#4-倉位計算邏輯)
+  - [PositionSizing 回傳結果](#positionsizing-回傳結果)
+  - [範例計算](#範例計算)
 - [5. 投資組合風險評估](#5-投資組合風險評估)
+  - [PortfolioRisk 指標說明](#portfoliorisk-指標說明)
+  - [VaR 解讀](#var-解讀)
 - [6. 風險警報系統](#6-風險警報系統)
+  - [警報嚴重程度](#警報嚴重程度)
+  - [RiskAlert 欄位](#riskalert-欄位)
+  - [觸發條件範例](#觸發條件範例)
 - [7. 進場前驗核中的風險整合](#7-進場前驗核中的風險整合)
 - [8. 風險設定檔修改指引](#8-風險設定檔修改指引)
+  - [設定檔位置](#設定檔位置)
+  - [修改風險等級（API 方式）](#修改風險等級api-方式)
+  - [自訂參數](#自訂參數)
 - [9. 最佳實踐建議](#9-最佳實踐建議)
+  - [新手上路](#新手上路)
+  - [中階操作](#中階操作)
+  - [高級操作（AGGRESSIVE / HIGH_RISK）](#高級操作aggressive-highrisk)
+  - [風險警報回應指南](#風險警報回應指南)
 - [10. 相關文件](#10-相關文件)
 
 ---
@@ -234,9 +250,22 @@ config/risk_config_optimized.json
 
 ### 修改風險等級（API 方式）
 
-目前沒有專用的「更改風險等級」端點，需透過設定檔或環境變數調整。
+**v2.1 起提供專用端點**：`GET/PUT /api/v1/risk/config`，可直接透過 API 或 Dashboard 的 **Risk Config Panel** 查看與切換風險等級，無需手動編輯設定檔。
 
-**方式一：修改設定檔**
+```http
+# 查看目前風險等級
+GET /api/v1/risk/config
+
+# 更新風險等級（允許值：CONSERVATIVE / MODERATE / AGGRESSIVE / HIGH_RISK）
+PUT /api/v1/risk/config
+Content-Type: application/json
+
+{"risk_level": "CONSERVATIVE"}
+```
+
+如需手動編輯設定檔，亦可：
+
+**方式：修改設定檔**
 
 開啟 `config/risk_config_optimized.json`，找到 `risk_level` 欄位：
 
@@ -329,8 +358,8 @@ result = await manager.calculate_position_size(
 
 | 文件 | 說明 |
 |---|---|
-| [ANALYSIS_MODULE_USER_MANUAL.md](ANALYSIS_MODULE_USER_MANUAL.md) | 分析模組（含技術指標）手冊 |
-| [STRATEGY_MODULE_USER_MANUAL.md](STRATEGY_MODULE_USER_MANUAL.md) | 策略模組使用手冊 |
-| [API_USER_MANUAL.md](API_USER_MANUAL.md) | REST API 端點參考（含 /pretrade 詳細說明） |
-| [BACKTEST_SYSTEM_GUIDE.md](BACKTEST_SYSTEM_GUIDE.md) | 回測驗證風險設定的系統指南 |
-| [FRONTEND_DASHBOARD_MANUAL.md](FRONTEND_DASHBOARD_MANUAL.md) | 前端 Dashboard 中 PreTradePanel 的操作說明 |
+| [09_ANALYSIS_MODULE.md](09_ANALYSIS_MODULE.md) | 分析模組（含技術指標）手冊 |
+| [10_STRATEGY_MODULE.md](10_STRATEGY_MODULE.md) | 策略模組使用手冊 |
+| [05_API_USER_MANUAL.md](05_API_USER_MANUAL.md) | REST API 端點參考（含 /pretrade 詳細說明） |
+| [08_BACKTEST_SYSTEM.md](08_BACKTEST_SYSTEM.md) | 回測驗證風險設定的系統指南 |
+| [06_FRONTEND_DASHBOARD.md](06_FRONTEND_DASHBOARD.md) | 前端 Dashboard 中 PreTradePanel 的操作說明 |

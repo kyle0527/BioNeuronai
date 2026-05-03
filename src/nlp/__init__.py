@@ -15,7 +15,7 @@ NLP (Natural Language Processing) Module
 - training: 訓練腳本（advanced_trainer, auto_evolve, data_manager 等）
 """
 
-__version__ = "1.0.0"
+__version__ = "2.1"
 __all__ = [
     "get_tiny_llm",
     "get_chat_engine",

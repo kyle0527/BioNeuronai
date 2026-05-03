@@ -10,16 +10,43 @@
 
 - [1. 概述](#1-概述)
 - [2. 前置需求](#2-前置需求)
+  - [必要軟體](#必要軟體)
+  - [確認安裝](#確認安裝)
 - [3. 環境變數設定](#3-環境變數設定)
 - [4. 服務架構說明](#4-服務架構說明)
 - [5. 常用部署指令](#5-常用部署指令)
+  - [建置映像](#建置映像)
+  - [啟動核心服務（API + Dashboard）](#啟動核心服務api-dashboard)
+  - [啟動所有 CLI 工作服務](#啟動所有-cli-工作服務)
+  - [啟動交易服務（需明確 profile）](#啟動交易服務需明確-profile)
+  - [停止服務](#停止服務)
+  - [查看服務狀態](#查看服務狀態)
 - [6. 各服務詳細說明](#6-各服務詳細說明)
+  - [api — REST API 伺服器](#api-rest-api-伺服器)
+  - [frontend — React Dashboard](#frontend-react-dashboard)
+  - [status — 系統健康檢查 CLI](#status-系統健康檢查-cli)
+  - [news — 新聞分析 CLI](#news-新聞分析-cli)
+  - [pretrade — 進場前驗核 CLI](#pretrade-進場前驗核-cli)
+  - [plan — 交易計劃生成 CLI](#plan-交易計劃生成-cli)
+  - [backtest — 完整回測 CLI](#backtest-完整回測-cli)
+  - [simulate — Replay 模擬 CLI](#simulate-replay-模擬-cli)
+  - [trade — 交易監控服務](#trade-交易監控服務)
 - [7. Volume 資料持久化](#7-volume-資料持久化)
+  - [查看 Volume 位置](#查看-volume-位置)
+  - [備份資料](#備份資料)
+  - [還原資料](#還原資料)
 - [8. 健康檢查與監控](#8-健康檢查與監控)
+  - [查看所有服務健康狀態](#查看所有服務健康狀態)
+  - [健康檢查設定說明](#健康檢查設定說明)
+  - [即時日誌監控](#即時日誌監控)
 - [9. 映像建置說明](#9-映像建置說明)
+  - [Dockerfile 結構](#dockerfile-結構)
+  - [建置時間最佳化](#建置時間最佳化)
+  - [前端 Build Args](#前端-build-args)
 - [10. 更新部署流程](#10-更新部署流程)
 - [11. 常見問題排除](#11-常見問題排除)
 - [12. 安全考量](#12-安全考量)
+- [相關文件](#相關文件)
 
 ---
 
@@ -72,20 +99,25 @@ FRONTEND_PORT=3000             # 前端 Dashboard 端口
 
 # ===== 交易設定 =====
 TRADE_SYMBOL=BTCUSDT           # 即時交易的預設交易對
-BACKTEST_SYMBOL=ETHUSDT        # 回測預設交易對
+BACKTEST_SYMBOL=BTCUSDT        # 回測預設交易對
 BACKTEST_INTERVAL=1h           # 回測 K 線粒度
-BACKTEST_START=2024-01-01      # 回測開始日期
-BACKTEST_END=2024-03-31        # 回測結束日期
+BACKTEST_START=2020-01-01      # 回測開始日期
+BACKTEST_END=2020-01-03        # 回測結束日期
+BACKTEST_BALANCE=10000         # 回測初始資金
+BACKTEST_WARMUP_BARS=10        # 回測預熱 K 線數量
 
 # ===== 虛擬回測設定 =====
 SIM_BALANCE=10000              # Simulate 虛擬初始資金 (USDT)
-SIM_BARS=300                   # Simulate 使用最近幾根 K 線
+SIM_BARS=200                   # Simulate 使用幾根 K 線
+SIM_START=2020-01-01           # Simulate 開始日期
+SIM_END=2020-01-03             # Simulate 結束日期
 
 # ===== CORS 設定 =====
 ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5173
 
 # ===== 選用 =====
-CRYPTOPANIC_API_KEY=           # CryptoPanic 新聞 API（選填，免費方案有速率限制）
+CRYPTOPANIC_API_TOKEN=free     # CryptoPanic 新聞 API（免費方案可填 free）
+VITE_API_BASE_URL=http://localhost:8000
 LOG_LEVEL=INFO                 # DEBUG / INFO / WARNING / ERROR
 ```
 
@@ -218,7 +250,7 @@ healthcheck:
 | 映像 | 本地 build（multi-stage，包含 nginx） |
 | 端口 | `${FRONTEND_PORT:-3000}:80` |
 | depends_on | `api` healthy |
-| Build args | `VITE_API_BASE_URL=http://localhost:${API_PORT:-8000}` |
+| Build args | `${VITE_API_BASE_URL:-http://localhost:8000}` |
 
 前端容器使用 multi-stage build：
 1. `builder` 階段：Node.js 執行 `npm run build`
@@ -272,7 +304,7 @@ docker compose run --rm plan
 ```bash
 docker compose run --rm backtest
 ```
-執行 `python main.py backtest --symbol ${BACKTEST_SYMBOL} --interval ${BACKTEST_INTERVAL} --start ${BACKTEST_START} --end ${BACKTEST_END}`。
+執行 `python main.py backtest --symbol ${BACKTEST_SYMBOL} --interval ${BACKTEST_INTERVAL} --start-date ${BACKTEST_START} --end-date ${BACKTEST_END} --balance ${BACKTEST_BALANCE} --warmup-bars ${BACKTEST_WARMUP_BARS}`。
 
 ---
 
@@ -281,7 +313,7 @@ docker compose run --rm backtest
 ```bash
 docker compose run --rm simulate
 ```
-執行 `python main.py simulate --symbol ${BACKTEST_SYMBOL} --balance ${SIM_BALANCE} --bars ${SIM_BARS}`。
+執行 `python main.py simulate --symbol ${TRADE_SYMBOL} --interval ${BACKTEST_INTERVAL} --balance ${SIM_BALANCE} --bars ${SIM_BARS} --start-date ${SIM_START} --end-date ${SIM_END}`。
 
 ---
 
@@ -380,7 +412,7 @@ docker compose logs --tail=100 api
 
 ```
 Dockerfile
-├── base stage     — Python 3.13, 基礎依賴
+├── base stage     — Python 3.11, 基礎依賴
 ├── builder stage  — pip install requirements
 └── runtime stage  — 生產環境，複製應用程式碼
 ```
@@ -478,7 +510,7 @@ Invoke-RestMethod "http://localhost:8000/api/v1/status"
 
 | 文件 | 說明 |
 |---|---|
-| [QUICKSTART_V2.1.md](QUICKSTART_V2.1.md) | 新手快速上手（含 Docker 入門） |
-| [API_USER_MANUAL.md](API_USER_MANUAL.md) | REST API 完整端點手冊 |
-| [FRONTEND_DASHBOARD_MANUAL.md](FRONTEND_DASHBOARD_MANUAL.md) | 前端 Dashboard 操作手冊 |
-| [OPERATION_MANUAL.md](OPERATION_MANUAL.md) | CLI 操作手冊（非 Docker 環境） |
+| [03_QUICKSTART.md](03_QUICKSTART.md) | 新手快速上手（含 Docker 入門） |
+| [05_API_USER_MANUAL.md](05_API_USER_MANUAL.md) | REST API 完整端點手冊 |
+| [06_FRONTEND_DASHBOARD.md](06_FRONTEND_DASHBOARD.md) | 前端 Dashboard 操作手冊 |
+| [04_CLI_OPERATION.md](04_CLI_OPERATION.md) | CLI 操作手冊（非 Docker 環境） |

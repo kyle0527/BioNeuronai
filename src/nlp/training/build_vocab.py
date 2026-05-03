@@ -18,7 +18,7 @@ import argparse
 import sys
 from pathlib import Path
 
-_ROOT = Path(__file__).resolve().parents[4]   # BioNeuronai/
+_ROOT = Path(__file__).resolve().parents[3]   # BioNeuronai/
 _SRC  = _ROOT / "src"
 for p in [str(_SRC), str(_ROOT)]:
     if p not in sys.path:

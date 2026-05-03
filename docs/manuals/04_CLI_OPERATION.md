@@ -7,32 +7,34 @@
 
 ## 📑 目錄
 
-<!-- toc -->
-
-- [1. 系統概述](#1-%E7%B3%BB%E7%B5%B1%E6%A6%82%E8%BF%B0)
-  * [核心能力](#%E6%A0%B8%E5%BF%83%E8%83%BD%E5%8A%9B)
-- [2. 安裝與環境設定](#2-%E5%AE%89%E8%A3%9D%E8%88%87%E7%92%B0%E5%A2%83%E8%A8%AD%E5%AE%9A)
-  * [前置需求](#%E5%89%8D%E7%BD%AE%E9%9C%80%E6%B1%82)
-  * [安裝步驟](#%E5%AE%89%E8%A3%9D%E6%AD%A5%E9%A9%9F)
-- [3. Binance API 金鑰設定](#3-binance-api-%E9%87%91%E9%91%B0%E8%A8%AD%E5%AE%9A)
-- [4. CLI 命令完整參考](#4-cli-%E5%91%BD%E4%BB%A4%E5%AE%8C%E6%95%B4%E5%8F%83%E8%80%83)
-  * [`status`](#status)
-  * [`plan`](#plan)
-  * [`pretrade`](#pretrade)
-  * [`news`](#news)
-  * [`simulate`](#simulate)
-  * [`trade`](#trade)
-  * [`chat`](#chat)
-- [5. 設定檔與資料契約說明](#5-%E8%A8%AD%E5%AE%9A%E6%AA%94%E8%88%87%E8%B3%87%E6%96%99%E5%A5%91%E7%B4%84%E8%AA%AA%E6%98%8E)
-  * [Data Schemas (`src/schemas/`)](#data-schemas-srcschemas)
-  * [傳統 Config (`config/trading_config.py`)](#%E5%82%B3%E7%B5%B1-config-configtrading_configpy)
-- [6. 標準操作流程 (SOP)](#6-%E6%A8%99%E6%BA%96%E6%93%8D%E4%BD%9C%E6%B5%81%E7%A8%8B-sop)
-- [7. 常見問題排查](#7-%E5%B8%B8%E8%A6%8B%E5%95%8F%E9%A1%8C%E6%8E%92%E6%9F%A5)
-  * [`ModuleNotFoundError: No module named 'bioneuronai'`](#modulenotfounderror-no-module-named-bioneuronai)
-  * [Pydantic 模型驗證失敗](#pydantic-%E6%A8%A1%E5%9E%8B%E9%A9%97%E8%AD%89%E5%A4%B1%E6%95%97)
-- [8. 風險警示](#8-%E9%A2%A8%E9%9A%AA%E8%AD%A6%E7%A4%BA)
-
-<!-- tocstop -->
+- [1. 系統概述](#1-系統概述)
+  - [核心能力](#核心能力)
+- [2. 安裝與環境設定](#2-安裝與環境設定)
+  - [前置需求](#前置需求)
+  - [安裝步驟](#安裝步驟)
+- [3. Binance API 金鑰設定](#3-binance-api-金鑰設定)
+- [4. CLI 命令完整參考](#4-cli-命令完整參考)
+  - [status](#status)
+  - [plan](#plan)
+  - [pretrade](#pretrade)
+  - [news](#news)
+  - [simulate](#simulate)
+  - [backtest](#backtest)
+  - [backtest-data](#backtest-data)
+  - [backtest-runs](#backtest-runs)
+  - [strategy-backtest](#strategy-backtest)
+  - [collect-signal-data](#collect-signal-data)
+  - [evolve](#evolve)
+  - [trade](#trade)
+  - [chat](#chat)
+- [5. 設定檔與資料契約說明](#5-設定檔與資料契約說明)
+  - [Data Schemas (src/schemas/)](#data-schemas-srcschemas)
+  - [傳統 Config (config/trading_config.py)](#傳統-config-configtradingconfigpy)
+- [6. 標準操作流程 (SOP)](#6-標準操作流程-sop)
+- [7. 常見問題排查](#7-常見問題排查)
+  - [ModuleNotFoundError: No module named 'bioneuronai'](#modulenotfounderror-no-module-named-bioneuronai)
+  - [Pydantic 模型驗證失敗](#pydantic-模型驗證失敗)
+- [8. 風險警示](#8-風險警示)
 
 ---
 
@@ -121,15 +123,15 @@ python main.py status
 
 > 💡 **進階操作提示**：
 > 關於以下功能的更詳細參數（如 `--walk-forward` 樣本內外驗證、`--max-items` 新聞自適應抓取），請參閱我們最新編寫的專業子手冊：
-> - 📊 [分析模組操作手冊 (ANALYSIS_MODULE_USER_MANUAL.md)](ANALYSIS_MODULE_USER_MANUAL.md)：涵蓋 `news`, `plan`, `pretrade`。
-> - ⚔️ [策略模組操作手冊 (STRATEGY_MODULE_USER_MANUAL.md)](STRATEGY_MODULE_USER_MANUAL.md)：涵蓋 `strategy-backtest` 等競技場指令。
+> - 📊 [分析模組操作手冊 (09_ANALYSIS_MODULE.md)](09_ANALYSIS_MODULE.md)：涵蓋 `news`, `plan`, `pretrade`。
+> - ⚔️ [策略模組操作手冊 (10_STRATEGY_MODULE.md)](10_STRATEGY_MODULE.md)：涵蓋 `strategy-backtest` 等競技場指令。
 
 ### `plan`
 **依賴子系統**：`planning/plan_controller.py`
 **用途**：產出 10 步驟高階分析。
-```bash
+```powershell
 python main.py plan
-python main.py plan --output reports/$(date +%F)_plan.json
+python main.py plan --output reports/plan.json
 ```
 
 ### `pretrade`
@@ -148,6 +150,52 @@ python main.py news --symbol BTCUSDT --max-items 10
 ### `simulate`
 **依賴子系統**：`backtest/mock_connector.py`
 **用途**：利用本地歷史資料推送 K 線，模擬實盤行進。
+
+### `backtest`
+**依賴子系統**：`backtest/backtest_engine.py`
+**用途**：以本地歷史 K 線執行完整策略回測，輸出統計指標與回測 runtime。
+```bash
+python main.py backtest --symbol BTCUSDT --interval 1h --start-date 2020-01-01 --end-date 2020-01-03
+python main.py backtest --symbol ETHUSDT --balance 10000
+```
+詳細說明請參閱 [08_BACKTEST_SYSTEM.md](08_BACKTEST_SYSTEM.md)。
+
+### `backtest-data`
+**用途**：列出本地可用的歷史資料（OHLCV）資產與時間範圍。
+```bash
+python main.py backtest-data
+python main.py backtest-data --symbol BTCUSDT --interval 1h
+python main.py backtest-data --json           # JSON 輸出
+```
+
+### `backtest-runs`
+**用途**：列出或查詢已執行的回測結果記錄（replay runtime）。
+```bash
+python main.py backtest-runs                  # 最近 10 筆
+python main.py backtest-runs --limit 20
+python main.py backtest-runs --run-id 20260428_132540_50707287  # 詳細資料
+python main.py backtest-runs --json           # JSON 輸出
+```
+
+### `strategy-backtest`
+**用途**：執行策略競技場（多策略模板競爭回測），支援 walk-forward 驗證、手續費 / 滑點設定。
+> 完整說明（含 `--walk-forward`、`--execution-mode`、`--commission-bps`、`--params` 等進階參數）請參閱 [10_STRATEGY_MODULE.md](10_STRATEGY_MODULE.md)。
+
+### `collect-signal-data`
+**用途**：從本地歷史 K 線產生訊號訓練樣本，輸出為 JSONL 檔供後續模型訓練使用。
+```bash
+python main.py collect-signal-data
+python main.py collect-signal-data --symbol BTCUSDT --interval 1h --output data/signal_history.jsonl
+```
+詳細說明請參閱 [15_DATA_ACQUISITION.md](15_DATA_ACQUISITION.md)。
+
+### `evolve`
+**用途**：對策略參數執行遺傳演算法優化，找出最優策略設定。
+```bash
+python main.py evolve --symbol BTCUSDT
+python main.py evolve --symbol BTCUSDT --interval 1h --generations 20 --population 30
+python main.py evolve --output output/best_strategy.json
+```
 
 ### `trade`
 **依賴子系統**：`core/trading_engine.py` 與 connector / 帳戶狀態層  
@@ -168,7 +216,7 @@ python main.py chat --language en            # 強制英文
 python main.py chat --symbol BTCUSDT         # 附帶即時市場資料注入對話上下文
 ```
 - 輸入 `exit` 或 `quit` 結束對話
-- 若模型未載入，自動降級為關鍵字匹配的規則型回應
+- 若模型未載入，預設報錯並停止；需明確加上 `--allow-rule-based-fallback` 才會進入開發用規則模式
 - 對話知識庫涵蓋：幣安合約機制、訂單類型、風險管理、技術分析、BioNeuronai 系統操作
 
 | 功能 | 需要 torch | 需要 API 金鑰 |

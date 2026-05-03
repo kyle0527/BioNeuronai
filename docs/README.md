@@ -23,16 +23,19 @@
 
 | 文檔 | 說明 |
 |------|------|
-| [BIONEURONAI_MASTER_MANUAL.md](BIONEURONAI_MASTER_MANUAL.md) | ⭐️ 系統主守則：開發與導覽的單一入口 |
-| [QUICKSTART_V2.1.md](QUICKSTART_V2.1.md) | v2.1 快速開始指南 (Docker + 環境變數) |
-| [OPERATION_MANUAL.md](OPERATION_MANUAL.md) | v2.1 連線、排程與 CLI 實際操作手冊 |
+| [manuals/README.md](manuals/README.md) | ⭐️ 使用者手冊集中入口：編號、狀態、重複/老舊檢查 |
+| [manuals/00_MASTER_MANUAL.md](manuals/00_MASTER_MANUAL.md) | 系統主守則：開發與導覽的單一入口 |
+| [manuals/03_QUICKSTART.md](manuals/03_QUICKSTART.md) | v2.1 快速開始指南 (Docker + 環境變數) |
+| [manuals/02_STARTUP_AND_SHUTDOWN.md](manuals/02_STARTUP_AND_SHUTDOWN.md) | 本地 CLI、API + Dashboard、Docker 的開機與關機流程 |
+| [manuals/04_CLI_OPERATION.md](manuals/04_CLI_OPERATION.md) | v2.1 連線、排程與 CLI 實際操作手冊 |
+| [manuals/01_MANUAL_OPERATION_VERIFICATION_PLAN.md](manuals/01_MANUAL_OPERATION_VERIFICATION_PLAN.md) | 手冊盤點、缺口與實際操作驗收順序 |
 | [ARCHITECTURE_OVERVIEW.md](ARCHITECTURE_OVERVIEW.md) | 系統整體架構總覽 (資料流與模組分工) |
 | [assets/README.md](assets/README.md) | README 視覺證據、Demo GIF、績效圖表產出清單 |
 | [blog/README.md](blog/README.md) | 技術部落格與設計決策文章入口 |
 | [PROJECT_HANDOVER_MAP.md](PROJECT_HANDOVER_MAP.md) | 模組依賴圖與開發接手地圖 |
 | [SRC_DIRECTORY_ANALYSIS.md](SRC_DIRECTORY_ANALYSIS.md) | `src/` 目錄結構分析 |
-| [BACKTEST_SYSTEM_GUIDE.md](BACKTEST_SYSTEM_GUIDE.md) | 回測系統使用準則 |
-| [CLOUD_TRAINING_RUNBOOK.md](CLOUD_TRAINING_RUNBOOK.md) | 雲端 GPU 訓練準備、dry run、resume 與 artifact 回收流程 |
+| [manuals/08_BACKTEST_SYSTEM.md](manuals/08_BACKTEST_SYSTEM.md) | 回測系統使用準則 |
+| [manuals/13_CLOUD_TRAINING_RUNBOOK.md](manuals/13_CLOUD_TRAINING_RUNBOOK.md) | 雲端 GPU 訓練準備、dry run、resume 與 artifact 回收流程 |
 
 ---
 
@@ -40,12 +43,12 @@
 
 | 文檔 | 說明 |
 |------|------|
-| [API_USER_MANUAL.md](API_USER_MANUAL.md) | REST API 完整端點參考（20 REST + 3 WebSocket）|
-| [FRONTEND_DASHBOARD_MANUAL.md](FRONTEND_DASHBOARD_MANUAL.md) | DevOps Dashboard 操作手冊（8 個面板）|
-| [DOCKER_DEPLOYMENT_MANUAL.md](DOCKER_DEPLOYMENT_MANUAL.md) | Docker Compose 部署指南（9 個服務）|
-| [RISK_MANAGEMENT_USER_MANUAL.md](RISK_MANAGEMENT_USER_MANUAL.md) | 風險管理使用手冊（4 個風險等級）|
-| [ANALYSIS_MODULE_USER_MANUAL.md](ANALYSIS_MODULE_USER_MANUAL.md) | 分析模組操作手冊（news / plan / pretrade）|
-| [STRATEGY_MODULE_USER_MANUAL.md](STRATEGY_MODULE_USER_MANUAL.md) | 策略模組操作手冊（strategy-backtest）|
+| [manuals/05_API_USER_MANUAL.md](manuals/05_API_USER_MANUAL.md) | REST API 與 WebSocket 端點參考 |
+| [manuals/06_FRONTEND_DASHBOARD.md](manuals/06_FRONTEND_DASHBOARD.md) | DevOps Dashboard 操作手冊（8 個面板）|
+| [manuals/07_DOCKER_DEPLOYMENT.md](manuals/07_DOCKER_DEPLOYMENT.md) | Docker Compose 部署指南（9 個服務）|
+| [manuals/11_RISK_MANAGEMENT.md](manuals/11_RISK_MANAGEMENT.md) | 風險管理使用手冊（4 個風險等級）|
+| [manuals/09_ANALYSIS_MODULE.md](manuals/09_ANALYSIS_MODULE.md) | 分析模組操作手冊（news / plan / pretrade）|
+| [manuals/10_STRATEGY_MODULE.md](manuals/10_STRATEGY_MODULE.md) | 策略模組操作手冊（strategy-backtest）|
 
 ---
 
@@ -64,7 +67,7 @@
 |------|------|
 | [RAG_TECHNICAL_MANUAL.md](RAG_TECHNICAL_MANUAL.md) | 檢索增強生成 (RAG) 模組技術手冊 |
 | [KNOWHOW_ANALYSIS.md](KNOWHOW_ANALYSIS.md) | 核心交易邏輯與知識庫分析 |
-| [NLP_TRAINING_GUIDE.md](NLP_TRAINING_GUIDE.md) | NLP 自然語言處理訓練與微調計畫 |
+| [manuals/12_NLP_TRAINING.md](manuals/12_NLP_TRAINING.md) | NLP 自然語言處理訓練與微調計畫 |
 | [STRATEGY_FUSION_ROADMAP_OVERVIEW.md](STRATEGY_FUSION_ROADMAP_OVERVIEW.md) | 策略融合系統未來發展路線圖總覽 |
 | [STRATEGY_FUSION_PLAN_B_ML_METALEARNER.md](STRATEGY_FUSION_PLAN_B_ML_METALEARNER.md) | 方案 B：ML Meta-Learner 堆疊融合 |
 | [STRATEGY_FUSION_PLAN_C_REGIME_ROUTING.md](STRATEGY_FUSION_PLAN_C_REGIME_ROUTING.md) | 方案 C：硬性體制路由 |

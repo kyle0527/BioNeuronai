@@ -355,30 +355,42 @@ class Trainer:
         """評估模型"""
         if self.eval_dataloader is None:
             return float('inf')
-        
+
+        sig_only: bool = getattr(self, "_run_sig_only", False)
+
         self.model.eval()
         total_loss = 0.0
         num_batches = 0
-        
+
         with torch.no_grad():
             for batch in self.eval_dataloader:
-                input_ids = batch['input_ids'].to(self.device)
-                labels = batch['labels'].to(self.device) if 'labels' in batch else input_ids
-                
-                if self.config.use_amp:
-                    with autocast():
+                if sig_only:
+                    # 訊號驗證：計算 MSE
+                    feat_seq = batch['feature_seq'].to(self.device)
+                    sig_labels = batch['signal_labels'].to(self.device)
+                    if self.config.use_amp:
+                        with autocast():
+                            loss = self._compute_signal_loss(feat_seq, sig_labels)
+                    else:
+                        loss = self._compute_signal_loss(feat_seq, sig_labels)
+                else:
+                    # 語言任務驗證：cross-entropy
+                    input_ids = batch['input_ids'].to(self.device)
+                    labels = batch['labels'].to(self.device) if 'labels' in batch else input_ids
+                    if self.config.use_amp:
+                        with autocast():
+                            logits = self.model(input_ids)
+                            loss = self._compute_loss(logits, labels)
+                    else:
                         logits = self.model(input_ids)
                         loss = self._compute_loss(logits, labels)
-                else:
-                    logits = self.model(input_ids)
-                    loss = self._compute_loss(logits, labels)
-                
+
                 total_loss += loss.item()
                 num_batches += 1
-        
+
         avg_loss = total_loss / num_batches
         self.train_history['eval_loss'].append(avg_loss)
-        
+
         self.model.train()
         return avg_loss
     

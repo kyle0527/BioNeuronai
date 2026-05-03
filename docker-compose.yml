@@ -38,7 +38,7 @@ services:
       - "${API_PORT:-8000}:8000"
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/')"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/status')"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -73,10 +73,12 @@ services:
     container_name: bioneuron-backtest
     command: [
       "main.py", "backtest",
-      "--symbol",   "${BACKTEST_SYMBOL:-ETHUSDT}",
+      "--symbol",   "${BACKTEST_SYMBOL:-BTCUSDT}",
       "--interval", "${BACKTEST_INTERVAL:-1h}",
-      "--start",    "${BACKTEST_START:-2024-01-01}",
-      "--end",      "${BACKTEST_END:-2024-12-31}"
+      "--start-date", "${BACKTEST_START:-2020-01-01}",
+      "--end-date",   "${BACKTEST_END:-2020-01-03}",
+      "--balance", "${BACKTEST_BALANCE:-10000}",
+      "--warmup-bars", "${BACKTEST_WARMUP_BARS:-10}"
     ]
     volumes:
       - bioneuron-data:/app/data
@@ -90,9 +92,16 @@ services:
     command: [
       "main.py", "simulate",
       "--symbol",  "${TRADE_SYMBOL:-BTCUSDT}",
+      "--interval", "${BACKTEST_INTERVAL:-1h}",
       "--balance", "${SIM_BALANCE:-100000}",
-      "--bars",    "${SIM_BARS:-500}"
+      "--bars",    "${SIM_BARS:-200}",
+      "--start-date", "${SIM_START:-2020-01-01}",
+      "--end-date",   "${SIM_END:-2020-01-03}"
     ]
+    volumes:
+      - bioneuron-data:/app/data
+      - bioneuron-logs:/app/logs
+      - ./backtest:/app/backtest
 
   # ---- 正式交易 (需要明確啟用) ----
   trade:
@@ -110,12 +119,13 @@ services:
       context: ./frontend/devops-d
       dockerfile: Dockerfile
       args:
-        VITE_API_BASE_URL: http://localhost:8000
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8000}
     container_name: bioneuron-frontend
     ports:
       - "${FRONTEND_PORT:-3000}:80"
     depends_on:
-      - api
+      api:
+        condition: service_healthy
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:80"]

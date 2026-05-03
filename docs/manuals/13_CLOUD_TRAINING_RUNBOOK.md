@@ -2,6 +2,19 @@
 
 This runbook describes the safe path for running BioNeuronAI model training on a cloud GPU.
 
+## 📑 目錄
+
+- [Goals](#goals)
+- [1. Prepare Signal Data](#1-prepare-signal-data)
+- [2. Local Dry Run](#2-local-dry-run)
+- [3. Build Training Image](#3-build-training-image)
+- [4. Run Cloud Training](#4-run-cloud-training)
+- [5. Resume Interrupted Training](#5-resume-interrupted-training)
+- [6. Required Artifacts](#6-required-artifacts)
+- [7. Promotion Gate](#7-promotion-gate)
+
+---
+
 ## Goals
 
 - Do not overwrite `model/my_100m_model.pth` during cloud experiments.
@@ -14,7 +27,7 @@ This runbook describes the safe path for running BioNeuronAI model training on a
 Collect signal data from replay/backtest:
 
 ```bash
-python -m bioneuronai.cli.main collect-signal-data \
+python main.py collect-signal-data \
   --symbol BTCUSDT \
   --interval 1h \
   --output data/signal_history.jsonl
@@ -81,6 +94,7 @@ docker run --gpus all --rm \
   bioneuronai-train:latest \
   --sig-only \
   --signal-data /workspace/data/processed/signal_train.pt \
+  --signal-val-data /workspace/data/processed/signal_val.pt \
   --epochs 10 \
   --batch 8 \
   --grad-accum 4 \
@@ -99,6 +113,7 @@ docker run --gpus all --rm \
   bioneuronai-train:latest \
   --sig-only \
   --signal-data /workspace/data/processed/signal_train.pt \
+  --signal-val-data /workspace/data/processed/signal_val.pt \
   --epochs 10 \
   --batch 8 \
   --grad-accum 4 \

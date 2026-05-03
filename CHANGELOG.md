@@ -1,6 +1,43 @@
 # 更新日誌
 
-## [Data] - 2026-04-30
+## [Backtest] - 2026-05-03
+
+### 🔧 回測手續費校正（費率低估 bug 修正）
+
+#### 問題根源
+- `backtest/backtest_engine.py` 預設 `taker_fee=0.0004`（0.040%），與 `config/trading_costs.py` 記錄的 Binance Futures VIP0 標準費率 **0.050%** 不符
+- 推算方式：將舊回測手續費 $739 除以名義交易量 $1,847,514 → 隱含費率 0.040%，確認為硬編碼錯誤
+- 結果：舊回測低估了 20% 的真實手續費成本
+
+#### 修正內容（`backtest/backtest_engine.py`）
+
+| 參數 | 舊值 | 新值 | 依據 |
+|---|---|---|---|
+| `maker_fee` | 0.0002 (0.020%) | 0.00022 (0.022%) | Binance VIP0 實際 0.02%，+10% 保守緩衝 |
+| `taker_fee` | 0.0004 (0.040%) | 0.00055 (0.055%) | Binance VIP0 實際 0.05%，+10% 保守緩衝 |
+| `slippage_rate` | 0.0001 | 0.0001 | 不變 |
+
+費率依據來源：`config/trading_costs.py` `STANDARD_FEES`，標注「Binance Futures Fee Structure (2024-2026)」
+
+#### 新回測結果（Run ID: `20260503_010914_f3f0bbd4`）
+
+| 指標 | 修正前（費率低估） | 修正後（正確費率） |
+|---|---|---|
+| 總報酬率 | -3.83% | **-6.60%** |
+| Sharpe | -2.40 | -4.37 |
+| Sortino | -2.91 | -5.29 |
+| Calmar | -0.29 | -0.46 |
+| 最大回撤 | 13.13% | 14.29% |
+| 手續費合計 | $739 | **$1,016** |
+| 毛利 (Gross PnL) | +$358.82 | +$358.82（不變） |
+| 淨虧損 | -$380 | **-$657** |
+
+#### 同步更新的檔案
+- `docs/assets/performance_artifacts.md`：指向新 Run ID，更新所有指標與費率備注
+- `docs/assets/equity_curve.png`、`drawdown.png`、`signal_vs_price.png`：以新回測資料重新生成
+
+---
+
 
 ### 📦 雲端訓練資料準備完成（signal data pipeline）
 

@@ -9,9 +9,9 @@ This directory is the public evidence shelf for README visuals and demo artifact
 | Architecture diagram | `architecture.mmd` and exported `architecture.png` | Render Mermaid with GitHub or `mmdc` | Source ready |
 | TinyLLM inference flow | `tinyllm_inference_flow.mmd` and exported `tinyllm_inference_flow.png` | Render Mermaid with GitHub or `mmdc` | Source ready |
 | CLI + Dashboard demo | `demo_30s.gif` | Record `docker compose up api`, status curl, dashboard | TODO |
-| Equity curve | `equity_curve.png` | Run fixed walk-forward backtest and export matplotlib chart | TODO |
-| Drawdown curve | `drawdown.png` | Same backtest run as equity curve | TODO |
-| Signal vs price | `signal_vs_price.png` | Plot model signal timestamps over BTCUSDT close | TODO |
+| Equity curve | `equity_curve.png` | Run fixed walk-forward backtest and export matplotlib chart | Done (2026-05-03, run `20260503_010914_f3f0bbd4`) |
+| Drawdown curve | `drawdown.png` | Same backtest run as equity curve | Done (2026-05-03, run `20260503_010914_f3f0bbd4`) |
+| Signal vs price | `signal_vs_price.png` | Plot model signal timestamps over BTCUSDT close | Done (2026-05-03, run `20260503_010914_f3f0bbd4`) |
 
 ## Recording Checklist
 

@@ -11,6 +11,9 @@
 
 - [1. 概述](#1-概述)
 - [2. 啟動方式](#2-啟動方式)
+  - [Docker（推薦）](#docker推薦)
+  - [本地直接啟動](#本地直接啟動)
+  - [確認是否正常啟動](#確認是否正常啟動)
 - [3. 通用規格](#3-通用規格)
 - [4. 系統端點 (System)](#4-系統端點-system)
   - [GET /api/v1/status](#get-apiv1status)
@@ -22,26 +25,32 @@
   - [GET /api/v1/backtest/inspect](#get-apiv1backtestinspect)
   - [POST /api/v1/backtest/simulate](#post-apiv1backtestsimulate)
   - [POST /api/v1/backtest/run](#post-apiv1backtestrun)
-  - [GET /api/v1/backtest/runs](#get-apiv1bacttestruns)
-  - [GET /api/v1/backtest/runs/{run_id}](#get-apiv1backtestrunrun_id)
+  - [GET /api/v1/backtest/runs](#get-apiv1backtestruns)
+  - [GET /api/v1/backtest/runs/{run_id}](#get-apiv1backtestrunsrunid)
+  - [POST /api/v1/backtest/strategy-run](#post-apiv1backteststrategy-run)
 - [7. 交易端點 (Trading)](#7-交易端點-trading)
   - [POST /api/v1/pretrade](#post-apiv1pretrade)
   - [POST /api/v1/trade/start](#post-apiv1tradestart)
   - [POST /api/v1/trade/stop](#post-apiv1tradestop)
   - [POST /api/v1/orders](#post-apiv1orders)
-  - [DELETE /api/v1/positions/{position_id}](#delete-apiv1positionsposition_id)
+  - [DELETE /api/v1/positions/{position_id}](#delete-apiv1positionspositionid)
 - [8. 對話端點 (Chat)](#8-對話端點-chat)
   - [POST /api/v1/chat](#post-apiv1chat)
-  - [DELETE /api/v1/chat/{conversation_id}](#delete-apiv1chatconversation_id)
+  - [DELETE /api/v1/chat/{conversation_id}](#delete-apiv1chatconversationid)
 - [9. Dashboard 端點 (Dashboard)](#9-dashboard-端點-dashboard)
   - [GET /api/v1/dashboard](#get-apiv1dashboard)
-- [10. WebSocket 端點](#10-websocket-端點)
+- [10. 風控與資料端點 (Risk & Data)](#10-風控與資料端點-risk--data)
+  - [GET /api/v1/risk/config](#get-apiv1riskconfig)
+  - [PUT /api/v1/risk/config](#put-apiv1riskconfig)
+  - [GET /api/v1/data/catalog](#get-apiv1datacatalog)
+- [11. WebSocket 端點](#11-websocket-端點)
   - [WS /ws/trade](#ws-wstrade)
   - [WS /ws/analytics](#ws-wsanalytics)
   - [WS /ws/dashboard](#ws-wsdashboard)
-- [11. 通用回應格式](#11-通用回應格式)
-- [12. 錯誤處理](#12-錯誤處理)
-- [13. 實用 PowerShell 範例](#13-實用-powershell-範例)
+- [12. 通用回應格式](#12-通用回應格式)
+- [13. 錯誤處理](#13-錯誤處理)
+- [14. 實用 PowerShell 範例](#14-實用-powershell-範例)
+- [相關文件](#相關文件)
 
 ---
 
@@ -272,12 +281,12 @@ Invoke-RestMethod "http://localhost:8000/api/v1/backtest/catalog?symbol=ETHUSDT"
 **請求體：**
 ```json
 {
-  "symbol": "ETHUSDT",
+  "symbol": "BTCUSDT",
   "interval": "1h",
   "balance": 10000,
-  "start_date": "2024-01-01",
-  "end_date": "2024-03-31",
-  "warmup_bars": 100
+  "start_date": "2020-01-01",
+  "end_date": "2020-01-03",
+  "warmup_bars": 10
 }
 ```
 
@@ -325,6 +334,49 @@ Invoke-RestMethod "http://localhost:8000/api/v1/backtest/catalog?symbol=ETHUSDT"
 
 ```powershell
 Invoke-RestMethod "http://localhost:8000/api/v1/backtest/runs/20260428_132540_50707287"
+```
+
+---
+
+### POST /api/v1/backtest/strategy-run
+
+執行策略模組競爭回測（多策略模板同時回測），支援 walk-forward 驗證。
+
+**請求體：**
+```json
+{
+  "symbol": "BTCUSDT",
+  "interval": "1h",
+  "balance": 10000,
+  "start_date": "2020-01-01",
+  "end_date": "2020-01-03",
+  "warmup_bars": 100,
+  "execution_mode": "template_rules",
+  "commission_bps": 5.5,
+  "slippage_bps": 1.0,
+  "walk_forward": false,
+  "close_open_positions_on_end": true,
+  "parameter_overrides": null
+}
+```
+
+| 欄位 | 類型 | 必填 | 說明 |
+|------|------|:----:|------|
+| `symbol` | string | 否 | 交易對，預設 `BTCUSDT` |
+| `interval` | string | 否 | K 線週期，預設 `1h` |
+| `balance` | float | 否 | 初始資金，預設 10000 |
+| `start_date` | string | 否 | 起始日期 YYYY-MM-DD |
+| `end_date` | string | 否 | 結束日期 YYYY-MM-DD |
+| `execution_mode` | string | 否 | `template_rules`（全模板）或 `hybrid` |
+| `commission_bps` | float | 否 | Taker 手續費（基點），預設 5.5（Binance Futures VIP0 0.05% × 1.1 保守設定） |
+| `slippage_bps` | float | 否 | 滑點（基點），預設 1.0 |
+| `walk_forward` | bool | 否 | 是否執行 walk-forward 70/30 切分 |
+| `close_open_positions_on_end` | bool | 否 | 結束時強制平倉，預設 true |
+
+**PowerShell 範例：**
+```powershell
+$body = @{ symbol='BTCUSDT'; interval='1h'; balance=10000; start_date='2020-01-01'; end_date='2020-01-03' } | ConvertTo-Json
+Invoke-RestMethod -Uri 'http://localhost:8000/api/v1/backtest/strategy-run' -Method Post -Body $body -ContentType 'application/json'
 ```
 
 ---
@@ -462,7 +514,7 @@ Invoke-RestMethod -Method DELETE "http://localhost:8000/api/v1/positions/pos_btc
 | `0.2 ~ 0.5` | 中等信心 |
 | `< 0.2` | 低信心，系統回答「抱歉，我無法確定這個答案。」 |
 
-> **說明**：TinyLLM 屬於 111.6M 參數小型模型，訓練資料有限，低信心時會主動回退而非給出錯誤答案。這是設計行為，非 Bug。若需提升準確度，請參考 [NLP_TRAINING_GUIDE.md](NLP_TRAINING_GUIDE.md)。
+> **說明**：TinyLLM 屬於 111.6M 參數小型模型，訓練資料有限，低信心時會主動回退而非給出錯誤答案。這是設計行為，非 Bug。若需提升準確度，請參考 [12_NLP_TRAINING.md](12_NLP_TRAINING.md)。
 
 ---
 
@@ -491,7 +543,103 @@ Invoke-RestMethod -Method DELETE "http://localhost:8000/api/v1/chat/d4f505c7-0bc
 
 ---
 
-## 10. WebSocket 端點
+## 10. 風控與資料端點 (Risk & Data)
+
+> **備注**：本節端點主要供 Dashboard 中的 **備用面板**（RiskConfigPanel、DataCatalogPanel）呼叫，
+> 日常使用請以 BacktestPanel（catalog tab）與直接編輯設定檔為主。
+
+### GET /api/v1/risk/config
+
+讀取目前的風險設定檔 `config/risk_config_optimized.json` 全部內容。
+
+**回應範例：**
+
+```json
+{
+  "success": true,
+  "message": "風險設定讀取成功",
+  "data": {
+    "risk_level": "MODERATE",
+    "custom_overrides": {
+      "max_risk_per_trade": 0.015,
+      "max_leverage": 2.5
+    }
+  }
+}
+```
+
+---
+
+### PUT /api/v1/risk/config
+
+更新風險設定。僅允許修改 `risk_level` 與 `custom_overrides` 兩個欄位，不會覆蓋其他設定。
+
+**允許的 `risk_level` 值：** `CONSERVATIVE` / `MODERATE` / `AGGRESSIVE` / `HIGH_RISK`
+
+**請求範例：**
+
+```json
+{
+  "risk_level": "CONSERVATIVE"
+}
+```
+
+**請求範例（同時更新覆蓋值）：**
+
+```json
+{
+  "risk_level": "AGGRESSIVE",
+  "custom_overrides": {
+    "max_risk_per_trade": 0.03,
+    "max_leverage": 5.0
+  }
+}
+```
+
+**回應範例（成功）：**
+
+```json
+{
+  "success": true,
+  "message": "風險設定已更新",
+  "data": { "risk_level": "AGGRESSIVE", "custom_overrides": { ... } }
+}
+```
+
+**回應範例（無效等級）：**
+
+```json
+{
+  "success": false,
+  "message": "無效的 risk_level：ULTRA，允許值：['AGGRESSIVE', 'CONSERVATIVE', 'HIGH_RISK', 'MODERATE']"
+}
+```
+
+---
+
+### GET /api/v1/data/catalog
+
+> **備注**：此端點與 `GET /api/v1/backtest/catalog` 功能等效，
+> 為 DataCatalogPanel（備用面板）提供獨立路由。日常使用請直接透過 BacktestPanel → catalog tab。
+
+掃描 `backtest/data/` 目錄，列出所有已下載的歷史資料集。支援 `symbol` / `interval` 查詢篩選。
+
+**查詢參數（均可選）：**
+
+| 參數 | 類型 | 說明 |
+|---|---|---|
+| `symbol` | string | 篩選幣對，如 `BTCUSDT` |
+| `interval` | string | 篩選時間週期，如 `1h` |
+
+**PowerShell 範例：**
+
+```powershell
+Invoke-RestMethod "http://localhost:8000/api/v1/data/catalog?symbol=BTCUSDT&interval=1h"
+```
+
+---
+
+## 11. WebSocket 端點
 
 WebSocket 連線提供即時資料推送，前端使用 `ws://localhost:8000/ws/...` 連線。
 
@@ -527,7 +675,7 @@ WebSocket 連線提供即時資料推送，前端使用 `ws://localhost:8000/ws/
 
 ---
 
-## 11. 通用回應格式
+## 12. 通用回應格式
 
 大部分端點回傳 `ApiResponse` 結構：
 
@@ -549,7 +697,7 @@ WebSocket 連線提供即時資料推送，前端使用 `ws://localhost:8000/ws/
 
 ---
 
-## 12. 錯誤處理
+## 13. 錯誤處理
 
 | 情境 | `success` | `message` 範例 |
 |---|---|---|
@@ -561,7 +709,7 @@ WebSocket 連線提供即時資料推送，前端使用 `ws://localhost:8000/ws/
 
 ---
 
-## 13. 實用 PowerShell 範例
+## 14. 實用 PowerShell 範例
 
 ```powershell
 # 1. 系統健康檢查
@@ -575,10 +723,10 @@ Invoke-RestMethod -Uri "http://localhost:8000/api/v1/news" `
 Invoke-RestMethod -Uri "http://localhost:8000/api/v1/pretrade" `
   -Method POST -Body '{"symbol":"BTCUSDT","action":"long"}' -ContentType "application/json"
 
-# 4. 執行回測（ETHUSDT 2024 Q1）
+# 4. 執行回測（BTCUSDT 短區間）
 Invoke-RestMethod -Uri "http://localhost:8000/api/v1/backtest/run" `
   -Method POST `
-  -Body '{"symbol":"ETHUSDT","interval":"1h","balance":10000,"start_date":"2024-01-01","end_date":"2024-03-31"}' `
+  -Body '{"symbol":"BTCUSDT","interval":"1h","balance":10000,"start_date":"2020-01-01","end_date":"2020-01-03","warmup_bars":10}' `
   -ContentType "application/json" `
   -TimeoutSec 600
 
@@ -601,8 +749,8 @@ Invoke-RestMethod -Uri "http://localhost:8000/api/v1/trade/stop" -Method POST
 
 | 文件 | 說明 |
 |---|---|
-| [QUICKSTART_V2.1.md](QUICKSTART_V2.1.md) | 新手快速上手 |
-| [FRONTEND_DASHBOARD_MANUAL.md](FRONTEND_DASHBOARD_MANUAL.md) | 前端 Dashboard 操作手冊 |
-| [BACKTEST_SYSTEM_GUIDE.md](BACKTEST_SYSTEM_GUIDE.md) | 回測系統詳細說明 |
-| [OPERATION_MANUAL.md](OPERATION_MANUAL.md) | CLI 操作手冊 |
-| [DOCKER_DEPLOYMENT_MANUAL.md](DOCKER_DEPLOYMENT_MANUAL.md) | Docker 部署指南 |
+| [03_QUICKSTART.md](03_QUICKSTART.md) | 新手快速上手 |
+| [06_FRONTEND_DASHBOARD.md](06_FRONTEND_DASHBOARD.md) | 前端 Dashboard 操作手冊 |
+| [08_BACKTEST_SYSTEM.md](08_BACKTEST_SYSTEM.md) | 回測系統詳細說明 |
+| [04_CLI_OPERATION.md](04_CLI_OPERATION.md) | CLI 操作手冊 |
+| [07_DOCKER_DEPLOYMENT.md](07_DOCKER_DEPLOYMENT.md) | Docker 部署指南 |

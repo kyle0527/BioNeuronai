@@ -367,7 +367,7 @@ pytest tests/
 
 ### 📚 開發指南
 - [V2.2 發展藍圖與規格](./V2.2_ROADMAP_AND_SPEC.md)
-- [操作手冊](./OPERATION_MANUAL.md)
+- [操作手冊](./manuals/04_CLI_OPERATION.md)
 - [測試與驗證指南](./TESTING_AND_VALIDATION_GUIDE.md)
 - [代碼修復指南](./CODE_FIX_GUIDE.md)
 

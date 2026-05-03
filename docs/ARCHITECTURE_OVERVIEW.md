@@ -195,7 +195,7 @@ flowchart LR
 | `frontend/admin-da/` | 管理後台（風控儀表板、稽核日誌、盤前清單） | 暫緩，待端點驗收 |
 | `frontend/trading/` | 交易操作介面（即時監控、價格預警、WebSocket） | 暫緩，待 WebSocket 驗收 |
 | `src/bioneuronai/core/` | 交易引擎、AI 推論、進化系統 | 核心中樞 |
-| `src/bioneuronai/strategies/`| 固定策略、selector、fusion、arena | 策略實作與競爭 |
+| `src/bioneuronai/strategies/`| 固定策略、selector、fusion、arena、Meta-Learner (v2.2 新增) | 策略實作與競爭 |
 | `src/bioneuronai/planning/` | 高階計劃、盤前檢查、大盤分析、選對 | 決策支援與規劃 |
 | `src/bioneuronai/trading/` | 訂單、帳戶、持倉、資金的事實層 | 帳本追蹤 |
 | `src/bioneuronai/risk_management/` | 風險資料結構、倉位 sizing 計算 | 基礎風控 |

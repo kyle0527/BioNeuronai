@@ -1,12 +1,37 @@
 # 策略模組操作手冊
 
-這份手冊只講策略模組怎麼操作，不覆蓋整個專案，也不重講分析模組或 AI 訓練模組。
+## 📑 目錄
 
-定位很簡單：
-
-1. 怎麼用 CLI 跑策略模組
-2. 怎麼用 UI 跑策略模組
-3. 跑完去哪裡看 10 個策略的比較結果與交易紀錄
+- [適用範圍](#適用範圍)
+- [這個功能實際在做什麼分析](#這個功能實際在做什麼分析)
+- [預計會達到什麼效果](#預計會達到什麼效果)
+  - [1. 把策略比較從主觀變成可量化](#1-把策略比較從主觀變成可量化)
+  - [2. 提早找出有問題的策略](#2-提早找出有問題的策略)
+  - [3. 讓參數調整有明確回饋](#3-讓參數調整有明確回饋)
+- [這個功能對整個專案有什麼幫助](#這個功能對整個專案有什麼幫助)
+  - [1. 對策略模組本身](#1-對策略模組本身)
+  - [2. 對上層決策模組](#2-對上層決策模組)
+  - [3. 對未來 AI / 權重訓練](#3-對未來-ai-權重訓練)
+  - [4. 對專案維護](#4-對專案維護)
+- [先知道兩個模式](#先知道兩個模式)
+  - [template_rules](#templaterules)
+  - [hybrid](#hybrid)
+- [CLI 操作](#cli-操作)
+  - [最基本指令](#最基本指令)
+- [UI 操作](#ui-操作)
+  - [1. 啟動 API](#1-啟動-api)
+  - [2. 打開 UI](#2-打開-ui)
+  - [3. UI 裡和策略模組有關的欄位](#3-ui-裡和策略模組有關的欄位)
+  - [4. 執行策略模組](#4-執行策略模組)
+  - [5. UI 裡怎麼看每次執行結果](#5-ui-裡怎麼看每次執行結果)
+- [API 操作](#api-操作)
+  - [執行策略模組](#執行策略模組)
+- [跑完之後去哪裡看結果](#跑完之後去哪裡看結果)
+- [建議操作順序](#建議操作順序)
+  - [第一次跑策略模組](#第一次跑策略模組)
+  - [要做參數微調時](#要做參數微調時)
+- [注意事項](#注意事項)
+- [相關文件](#相關文件)
 
 ---
 
@@ -270,7 +295,7 @@ UI 會呼叫：
   "execution_mode": "template_rules",
   "close_open_positions_on_end": true,
   "parameter_overrides": null,
-  "commission_bps": 4.0,
+  "commission_bps": 5.5,
   "slippage_bps": 1.0,
   "walk_forward": false
 }
@@ -355,6 +380,6 @@ python main.py backtest-runs --limit 10
 
 ## 相關文件
 
-- [策略模組 README](C:/D/E/BioNeuronai/src/bioneuronai/strategies/README.md)
-- [Backtest Replay 使用者手冊](C:/D/E/BioNeuronai/backtest/docs/USER_MANUAL.md)
-- [API 模組 README](C:/D/E/BioNeuronai/src/bioneuronai/api/README.md)
+- [策略模組 README](../../src/bioneuronai/strategies/README.md)
+- [Backtest Replay 使用者手冊](../../backtest/docs/USER_MANUAL.md)
+- [API 模組 README](../../src/bioneuronai/api/README.md)

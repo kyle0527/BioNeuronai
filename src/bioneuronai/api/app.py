@@ -10,6 +10,7 @@ BioNeuronai REST API Server
 """
 
 import asyncio
+import json
 import logging
 import os
 import sys
@@ -640,7 +641,6 @@ def _safe_value(v):
     if isinstance(v, datetime):
         return v.isoformat()
     try:
-        import json
         json.dumps(v)
         return v
     except (TypeError, ValueError):
@@ -763,6 +763,71 @@ async def close_position(position_id: str):
         )
     except Exception as exc:
         return ApiResponse(success=False, message=f"平倉失敗: {exc}")
+
+
+# ── Risk Config ──────────────────────────────────────────────────────────────
+
+_RISK_CONFIG_PATH = PROJECT_ROOT / "config" / "risk_config_optimized.json"
+
+_VALID_RISK_LEVELS = {"CONSERVATIVE", "MODERATE", "AGGRESSIVE", "HIGH_RISK"}
+
+
+@app.get("/api/v1/risk/config", response_model=ApiResponse, tags=["risk"])
+async def get_risk_config():
+    """讀取目前的風險設定（risk_config_optimized.json）。"""
+    try:
+        data = json.loads(_RISK_CONFIG_PATH.read_text(encoding="utf-8"))
+        return ApiResponse(success=True, message="風險設定讀取成功", data=data)
+    except Exception as exc:
+        return ApiResponse(success=False, message=f"風險設定讀取失敗: {exc}")
+
+
+@app.put("/api/v1/risk/config", response_model=ApiResponse, tags=["risk"])
+async def update_risk_config(body: Dict[str, Any]):
+    """更新風險設定並寫回 risk_config_optimized.json。
+
+    僅允許修改 risk_level 與 custom_overrides 兩個欄位以避免覆蓋整份設定。
+    """
+    try:
+        current = json.loads(_RISK_CONFIG_PATH.read_text(encoding="utf-8"))
+
+        if "risk_level" in body:
+            level = str(body["risk_level"]).upper()
+            if level not in _VALID_RISK_LEVELS:
+                return ApiResponse(
+                    success=False,
+                    message=f"無效的 risk_level：{level}，允許值：{sorted(_VALID_RISK_LEVELS)}",
+                )
+            current["risk_level"] = level
+
+        if "custom_overrides" in body:
+            overrides = body["custom_overrides"]
+            if not isinstance(overrides, dict):
+                return ApiResponse(success=False, message="custom_overrides 必須為 object")
+            current.setdefault("custom_overrides", {}).update(overrides)
+
+        _RISK_CONFIG_PATH.write_text(
+            json.dumps(current, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+        return ApiResponse(success=True, message="風險設定已更新", data=current)
+    except Exception as exc:
+        return ApiResponse(success=False, message=f"風險設定更新失敗: {exc}")
+
+
+# ── Data Catalog ──────────────────────────────────────────────────────────────
+
+_BACKTEST_DATA_DIR = PROJECT_ROOT / "backtest" / "data"
+
+
+@app.get("/api/v1/data/catalog", response_model=ApiResponse, tags=["data"])
+async def get_data_catalog(symbol: str | None = None, interval: str | None = None):
+    """列出 backtest/data/ 下已下載的歷史資料集（與 CLI backtest-data 等效）。"""
+    try:
+        from backtest import get_catalog
+        data = await asyncio.to_thread(get_catalog, None, symbol, interval)
+        return ApiResponse(success=True, message="資料目錄掃描完成", data=data)
+    except Exception as exc:
+        return ApiResponse(success=False, message=f"資料目錄掃描失敗: {exc}")
 
 
 # ── WebSocket Endpoints ───────────────────────────────────────────────────────

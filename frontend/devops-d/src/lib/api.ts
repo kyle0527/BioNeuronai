@@ -200,4 +200,15 @@ export const endpoints = {
   }) => api.post<RestApiResponse>('/api/v1/backtest/run', body),
   backtestRuns: (limit = 10) =>
     api.get<RestApiResponse>(`/api/v1/backtest/runs?limit=${encodeURIComponent(String(limit))}`),
+  riskConfigGet: () =>
+    api.get<RestApiResponse>('/api/v1/risk/config'),
+  riskConfigUpdate: (body: { risk_level?: string; custom_overrides?: Record<string, number> }) =>
+    api.put<RestApiResponse>('/api/v1/risk/config', body),
+  dataCatalog: (symbol?: string, interval?: string) => {
+    const params = new URLSearchParams()
+    if (symbol) params.set('symbol', symbol)
+    if (interval) params.set('interval', interval)
+    const query = params.toString()
+    return api.get<RestApiResponse>(`/api/v1/data/catalog${query ? `?${query}` : ''}`)
+  },
 }

@@ -66,12 +66,12 @@ python -m bioneuronai.cli.main chat --symbol BTCUSDT --language zh
 - [Design Blog](docs/blog/README.md): 雙模態 GPT、16 步 Attention、Walk-Forward 的設計決策。
 - [ADR](docs/adr/README.md): 重要架構決策紀錄。
 - [Architecture Overview](docs/ARCHITECTURE_OVERVIEW.md): 正式主線架構。
-- [Quickstart v2.1](docs/QUICKSTART_V2.1.md): 本地與 Docker 操作。
+- [Quickstart v2.1](docs/manuals/03_QUICKSTART.md): 本地與 Docker 操作。
 
 **最後更新**: 2026年4月30日<br>
 **版本**: v2.1 (TinyLLM 雙模態 + 訓練系統整合版)
 
-> **部署狀態（2026-04-23）**：`bioneuron-api`（port 8000）與 `bioneuron-frontend`（port 3000）雙容器已部署並 healthy。`frontend/devops-d/` 為第一階段前端主線；`frontend/admin-da/` 與 `frontend/trading/` 暫緩。正式交易部署前仍需 Futures 帳戶充值、CORS origin 設定與完整回測驗收。詳見 [部署準備紀錄](docs/DEPLOYMENT_READINESS_RECORD_20260417.md)。
+> **部署狀態（2026-04-23）**：`bioneuron-api`（port 8000）與 `bioneuron-frontend`（port 3000）雙容器已部署並 healthy。`frontend/devops-d/` 為第一階段前端主線；`frontend/admin-da/` 與 `frontend/trading/` 暫緩。正式交易部署前仍需 Futures 帳戶充值、CORS origin 設定與完整回測驗收。詳見 [部署準備紀錄](archived/reports/DEPLOYMENT_READINESS_RECORD_20260417.md)。
 
 ---
 
@@ -232,7 +232,7 @@ python -m bioneuronai.cli.main plan --symbol BTCUSDT
 python -m bioneuronai.cli.main news --symbol BTCUSDT
 
 # 歷史回測（需 torch 以啟用 AI 策略）
-python -m bioneuronai.cli.main backtest --symbol BTCUSDT --start 2024-01-01
+python -m bioneuronai.cli.main backtest --symbol BTCUSDT --interval 1h --start-date 2020-01-01 --end-date 2020-01-03 --warmup-bars 10
 
 # 紙交易模擬（需歷史數據）
 python -m bioneuronai.cli.main simulate --symbol BTCUSDT
@@ -579,7 +579,7 @@ HIGH_RISK:    每筆 5%風險，最大回撤 20%，夏普比率 > 0.3
 | **REST - 高級** | 訂單簿、資金費率、未平倉合約、K線數據 | ✅ 完成 |
 | **測試網支持** | Testnet 完整支持 | ✅ 完成 |
 
-**詳細文檔**: [操作手冊](docs/OPERATION_MANUAL.md)
+**詳細文檔**: [操作手冊](docs/manuals/04_CLI_OPERATION.md)
 
 ### 🌐 外部數據整合
 
@@ -591,7 +591,7 @@ HIGH_RISK:    每筆 5%風險，最大回撤 20%，夏普比率 > 0.3
 | **市場情緒計算** | 綜合情緒分數 | ✅ 完成 |
 | **宏觀市場掃描** | 步驟2完整實現 | ✅ 完成 |
 
-**詳細文檔**: [數據存儲整合](docs/DATA_STORAGE_INTEGRATION.md)
+**詳細文檔**: [數據存儲整合](archived/reports/DATA_STORAGE_INTEGRATION.md)
 
 ---
 
@@ -639,13 +639,13 @@ AI_SIGNAL_WEIGHT = 0.4       # AI 信號權重
 
 | 文檔 | 描述 |
 |------|------|
-| 📘 [系統主手冊](docs/BIONEURONAI_MASTER_MANUAL.md) | **系統入口與架構哲學，必讀** |
-| 📗 [快速開始 v2.1](docs/QUICKSTART_V2.1.md) | Docker + 環境變數快速架設 |
-| 📙 [操作手冊](docs/OPERATION_MANUAL.md) | CLI 指令與 API 實際操作 |
+| 📘 [系統主手冊](docs/manuals/00_MASTER_MANUAL.md) | **系統入口與架構哲學，必讀** |
+| 📗 [快速開始 v2.1](docs/manuals/03_QUICKSTART.md) | Docker + 環境變數快速架設 |
+| 📙 [操作手冊](docs/manuals/04_CLI_OPERATION.md) | CLI 指令與 API 實際操作 |
 | 📕 [架構總覽](docs/ARCHITECTURE_OVERVIEW.md) | 系統全局資料流與模組分工 |
-| 📓 [回測系統指南](docs/BACKTEST_SYSTEM_GUIDE.md) | BacktestEngine 使用說明 |
-| 🧾 [部署準備紀錄 2026-04-17](docs/DEPLOYMENT_READINESS_RECORD_20260417.md) | 前端選型、分析/策略/AI 盤點與部署前阻塞 |
-| 🧠 [TinyLLM 模型指南](docs/tech/TINYLLM_MODEL_GUIDE.md) | 雙模態模型架構與訓練策略 |
+| 📓 [回測系統指南](docs/manuals/08_BACKTEST_SYSTEM.md) | BacktestEngine 使用說明 |
+| 🧾 [部署準備紀錄 2026-04-17](archived/reports/DEPLOYMENT_READINESS_RECORD_20260417.md) | 前端選型、分析/策略/AI 盤點與部署前阻塞 |
+| 🧠 [TinyLLM 模型指南](archived/tech/TINYLLM_MODEL_GUIDE.md) | 雙模態模型架構與訓練策略 |
 | 📖 [文檔索引](docs/README.md) | 所有文檔完整導航 |
 
 ---
@@ -763,7 +763,7 @@ python tools/demo_strategy_evolution.py
 
 ### 完整文檔
 - 📘 [風險管理完整手冊](archived/docs_v2_1_legacy/RISK_MANAGEMENT_MANUAL.legacy_20260406.md) - 7 大章節
-- 💾 [數據存儲整合方案](docs/DATA_STORAGE_INTEGRATION.md) - 完整架構
+- 💾 [數據存儲整合方案](archived/reports/DATA_STORAGE_INTEGRATION.md) - 完整架構
 
 ---
 

@@ -34,8 +34,8 @@ class BacktestConfig:
     # 帳戶設置
     initial_balance: float = 10000.0
     leverage: int = 1
-    maker_fee: float = 0.0002
-    taker_fee: float = 0.0004
+    maker_fee: float = 0.00022   # Binance Futures VIP0 實際 0.02%，保守設定略高
+    taker_fee: float = 0.00055   # Binance Futures VIP0 實際 0.05%，保守設定略高
     slippage_rate: float = 0.0001
     
     # 回測設置

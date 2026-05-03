@@ -8,6 +8,8 @@ import { ChatPanel } from '@/components/panels/ChatPanel'
 import { TradeControlPanel } from '@/components/panels/TradeControlPanel'
 import { APIPlayground } from '@/components/panels/APIPlayground'
 import { RequestHistoryPanel } from '@/components/panels/RequestHistoryPanel'
+import { RiskConfigPanel } from '@/components/panels/RiskConfigPanel'
+import { DataCatalogPanel } from '@/components/panels/DataCatalogPanel'
 import { Toaster } from '@/components/ui/sonner'
 import { Badge } from '@/components/ui/badge'
 import { Link } from '@phosphor-icons/react'
@@ -52,6 +54,8 @@ function AppContent() {
               <PreTradePanel />
               <BacktestPanel />
               <NewsPanel />
+              <DataCatalogPanel />
+              <RiskConfigPanel />
             </div>
           </TabsContent>
 

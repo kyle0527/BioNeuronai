@@ -11,17 +11,24 @@
 
 - [1. 概述](#1-概述)
 - [2. 啟動 Dashboard](#2-啟動-dashboard)
+  - [方式 A：Docker（推薦）](#方式-adocker推薦)
+  - [方式 B：本地開發模式](#方式-b本地開發模式)
+  - [驗證](#驗證)
 - [3. 整體介面說明](#3-整體介面說明)
 - [4. 各面板操作說明](#4-各面板操作說明)
-  - [StatusPanel — 系統狀態](#statuspanel--系統狀態)
-  - [NewsPanel — 新聞分析](#newspanel--新聞分析)
-  - [PreTradePanel — 進場前驗核](#pretradepanel--進場前驗核)
-  - [BacktestPanel — 回測](#backtestpanel--回測)
-  - [ChatPanel — AI 對話助理](#chatpanel--ai-對話助理)
-  - [TradeControlPanel — 交易控制](#tradecontrolpanel--交易控制)
-  - [APIPlayground — API 測試台](#apiplayground--api-測試台)
-  - [RequestHistoryPanel — 請求歷史](#requesthistorypanel--請求歷史)
+  - [StatusPanel — 系統狀態](#statuspanel-系統狀態)
+  - [NewsPanel — 新聞分析](#newspanel-新聞分析)
+  - [PreTradePanel — 進場前驗核](#pretradepanel-進場前驗核)
+  - [BacktestPanel — 回測](#backtestpanel-回測)
+  - [ChatPanel — AI 對話助理](#chatpanel-ai-對話助理)
+  - [TradeControlPanel — 交易控制](#tradecontrolpanel-交易控制)
+  - [APIPlayground — API 測試台](#apiplayground-api-測試台)
+  - [RequestHistoryPanel — 請求歷史](#requesthistorypanel-請求歷史)
+  - [DataCatalogPanel — 資料目錄（備用）](#datacatalogpanel-資料目錄備用)
+  - [RiskConfigPanel — 風控設定（備用）](#riskconfigpanel-風控設定備用)
 - [5. 典型操作流程](#5-典型操作流程)
+  - [每日盤前 SOP（日常使用）](#每日盤前-sop日常使用)
+  - [策略研究 SOP（回測分析）](#策略研究-sop回測分析)
 - [6. 常見問題](#6-常見問題)
 - [7. 相關文件](#7-相關文件)
 
@@ -192,6 +199,12 @@ Dashboard 採用左側導覽列 + 右側主內容區佈局。
 
 **功能：** 使用歷史 K 線資料測試策略表現。
 
+> **前置條件（重要）**：BacktestPanel 只能執行已下載至本地的歷史資料。若尚未下載，請先回到終端機執行：
+> ```powershell
+> python main.py backtest-data --symbol BTCUSDT --interval 1h
+> ```
+> 資料會存至 `backtest/data/`，之後 Dashboard 才能正常執行回測。
+
 **操作步驟：**
 1. 進入「回測」面板
 2. 填入參數：
@@ -246,7 +259,7 @@ Dashboard 採用左側導覽列 + 右側主內容區佈局。
 **信心度說明：**
 - 模型信心度 < 0.2 時，系統會回答「抱歉，我無法確定這個答案。」
 - 這是安全設計，避免模型給出低信心的錯誤建議
-- 若需提升模型品質，請參考 [NLP_TRAINING_GUIDE.md](NLP_TRAINING_GUIDE.md) 進行訓練
+- 若需提升模型品質，請參考 [12_NLP_TRAINING.md](12_NLP_TRAINING.md) 進行訓練
 
 **多輪對話：**
 - Dashboard 自動維護 conversation_id
@@ -323,6 +336,50 @@ Dashboard 採用左側導覽列 + 右側主內容區佈局。
 
 ---
 
+### DataCatalogPanel — 資料目錄（備用）
+
+> ⚠️ **此為備用面板**：相同功能已整合在 **BacktestPanel → catalog tab**，日常操作請以 BacktestPanel 為主。
+> DataCatalogPanel 僅作為獨立視圖保留，當 BacktestPanel 不便使用時可切換至此。
+
+**功能：** 呼叫 `GET /api/v1/data/catalog` 掃描 `backtest/data/` 目錄，顯示已下載的歷史資料集清單。
+
+**面板狀態說明：**
+
+| 狀態 | 說明 |
+|---|---|
+| 無資料（黃色警告） | `backtest/data/` 目錄無符合條件的資料集，顯示應執行的 CLI 下載指令 |
+| 有資料 | 表格列出幣對、時間週期、日期範圍、ZIP 數量、K 線總數 |
+
+**操作步驟（備用路徑）：**
+1. 輸入 `Symbol`（選填）與 `Interval`（選填）篩選條件
+2. 點「掃描」→ 顯示本地已有的資料集
+3. 若顯示無資料，執行 CLI 指令下載後再重新掃描
+
+---
+
+### RiskConfigPanel — 風控設定（備用）
+
+> ⚠️ **此為備用面板**：風險等級的首要修改方式是**直接編輯 `config/risk_config_optimized.json`**（詳見 [11_RISK_MANAGEMENT.md](11_RISK_MANAGEMENT.md)），或使用 CLI / API 直接呼叫。
+> RiskConfigPanel 僅提供 UI 快捷入口，適合不想手動編輯 JSON 時使用，所有變更會即時寫回設定檔。
+
+**功能：** 呼叫 `GET /api/v1/risk/config` 與 `PUT /api/v1/risk/config` 讀取並切換風險等級。
+
+**4 個風險等級：**
+
+| 等級 | 顏色 | 適用場景 |
+|---|---|---|
+| `CONSERVATIVE` | 藍 | 低風險，保守配置 |
+| `MODERATE` | 綠 | 預設，標準操作 |
+| `AGGRESSIVE` | 橙 | 較高風險，擴大倉位 |
+| `HIGH_RISK` | 紅 | 最高風險，需明確確認 |
+
+**操作步驟（備用路徑）：**
+1. 點「載入目前設定」→ 顯示當前等級（Badge 標示）
+2. 點選目標等級按鈕
+3. 點「套用 {LEVEL}」儲存 → 即時寫回 `risk_config_optimized.json`
+
+---
+
 ## 5. 典型操作流程
 
 ### 每日盤前 SOP（日常使用）
@@ -341,9 +398,11 @@ Dashboard 採用左側導覽列 + 右側主內容區佈局。
 ### 策略研究 SOP（回測分析）
 
 ```
+0. (首次) CLI 下載歷史資料（Dashboard 本身無此功能）：
+   python main.py backtest-data --symbol BTCUSDT --interval 1h
 1. BacktestPanel → 設定交易對/時間範圍/初始資金
 2. 執行回測，記錄 Sharpe / MaxDrawdown / WinRate
-3. 調整策略參數（src/config/strategy_weights_optimized.json）
+3. 調整策略參數（config/strategy_weights_optimized.json）
 4. 再次回測，比較結果
 5. 反覆優化直到指標滿意
 ```
@@ -358,7 +417,12 @@ Dashboard 採用左側導覽列 + 右側主內容區佈局。
 
 **Q: 新聞分析返回 0 篇文章**
 - CryptoPanic 免費方案有速率限制，等待 5 分鐘後重試
-- 確認 `.env` 中 `CRYPTOPANIC_API_KEY` 若有設定則應有效
+- 確認 `.env` 中 `CRYPTOPANIC_API_TOKEN` 若有設定則應有效
+
+**Q: Backtest 面板執行後報錯或顯示「無歷史資料」**
+- 本地尚未下載歷史 K 線資料，Dashboard 自身無下載功能
+- 請先回到 CLI 執行：`python main.py backtest-data --symbol BTCUSDT --interval 1h`
+- 資料下載完成後（存至 `backtest/data/`），重新在面板執行回測即可
 
 **Q: 回測結果顯示許多「餘額不足」**
 - 這是已知問題：固定倉位大小 (0.05 BTC) 在 BTC 高價時需要的保證金可能超過虛擬餘額
@@ -368,7 +432,7 @@ Dashboard 採用左側導覽列 + 右側主內容區佈局。
 **Q: ChatPanel 總是回答「抱歉，我無法確定」**
 - TinyLLM 訓練資料有限，低信心的問題觸發安全回退
 - 請嘗試更具體的問題（如「RSI 超買時怎麼設止損？」）
-- 可進行模型訓練增強：參考 [NLP_TRAINING_GUIDE.md](NLP_TRAINING_GUIDE.md)
+- 可進行模型訓練增強：參考 [12_NLP_TRAINING.md](12_NLP_TRAINING.md)
 
 **Q: PreTrade 總是 REJECT，account_balance 為 0**
 - 系統使用 read-only Binance API，無法查詢真實帳戶餘額
@@ -380,8 +444,8 @@ Dashboard 採用左側導覽列 + 右側主內容區佈局。
 
 | 文件 | 說明 |
 |---|---|
-| [QUICKSTART_V2.1.md](QUICKSTART_V2.1.md) | 新手快速上手（含 Docker 設定） |
-| [API_USER_MANUAL.md](API_USER_MANUAL.md) | REST API 完整端點手冊 |
-| [DOCKER_DEPLOYMENT_MANUAL.md](DOCKER_DEPLOYMENT_MANUAL.md) | Docker 部署與環境設定 |
-| [BACKTEST_SYSTEM_GUIDE.md](BACKTEST_SYSTEM_GUIDE.md) | 回測系統詳細說明 |
-| [NLP_TRAINING_GUIDE.md](NLP_TRAINING_GUIDE.md) | AI 模型訓練指南 |
+| [03_QUICKSTART.md](03_QUICKSTART.md) | 新手快速上手（含 Docker 設定） |
+| [05_API_USER_MANUAL.md](05_API_USER_MANUAL.md) | REST API 完整端點手冊 |
+| [07_DOCKER_DEPLOYMENT.md](07_DOCKER_DEPLOYMENT.md) | Docker 部署與環境設定 |
+| [08_BACKTEST_SYSTEM.md](08_BACKTEST_SYSTEM.md) | 回測系統詳細說明 |
+| [12_NLP_TRAINING.md](12_NLP_TRAINING.md) | AI 模型訓練指南 |

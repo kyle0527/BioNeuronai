@@ -31,6 +31,16 @@ from enum import Enum
 import json
 import uuid
 
+try:
+    import torch
+    from .meta_learner.model import MetaLearnerModel, STRATEGY_NAMES as _ML_STRATEGY_NAMES
+    from .meta_learner.feature_extractor import FeatureExtractor as _FeatureExtractor
+    from .meta_learner.trainer import MetaLearnerTrainer
+    _META_LEARNER_AVAILABLE = True
+except ImportError:
+    _META_LEARNER_AVAILABLE = False
+    MetaLearnerModel = None  # type: ignore
+
 from .base_strategy import (
     BaseStrategy,
     TradeSetup,
@@ -58,6 +68,7 @@ class FusionMethod(Enum):
     MARKET_ADAPTIVE = "market_adaptive"      # 
     CONFIDENCE_BASED = "confidence_based"    # 
     ENSEMBLE = "ensemble"                     # 
+    META_LEARNER = "meta_learner"            # 新增：由神經網路直接給定權重
 
 
 @dataclass
@@ -694,6 +705,8 @@ class AIStrategyFusion:
             self._fuse_by_market_adaptive(signal, regime)
         elif self.fusion_method == FusionMethod.CONFIDENCE_BASED:
             self._fuse_by_confidence(signal)
+        elif self.fusion_method == FusionMethod.META_LEARNER:
+            self._fuse_by_meta_learner(signal, ohlcv_data, event_context)
         else:
             self._fuse_ensemble(signal, regime)
         
@@ -741,6 +754,78 @@ class AIStrategyFusion:
         
         signal.confidence_score = max(long_ratio, short_ratio)
         signal.fusion_method_used = FusionMethod.WEIGHTED_VOTE
+
+    def _fuse_by_meta_learner(
+        self,
+        signal: FusionSignal,
+        ohlcv_data: np.ndarray,
+        event_context: Optional["EventContext"],
+    ):
+        """使用訓練好的 Meta-Learner 神經網路直接分配策略權重"""
+        if not _META_LEARNER_AVAILABLE:
+            logger.warning("[Meta-Learner] PyTorch 未安裝，降級使用 WEIGHTED_VOTE")
+            self._fuse_by_weighted_vote(signal)
+            return
+
+        # ── 1. 懶加載模型 (只在第一次呼叫時載入) ──────────────────
+        if not hasattr(self, '_meta_learner_model') or self._meta_learner_model is None:
+            try:
+                self._meta_learner_model = MetaLearnerTrainer.load_trained_model()
+                self._meta_learner_extractor = _FeatureExtractor()
+                logger.info("[Meta-Learner] 模型載入成功")
+            except FileNotFoundError:
+                logger.warning(
+                    "[Meta-Learner] 找不到訓練好的模型 (rl_models/meta_learner.pth)，"
+                    "請先執行: python tools/train_meta_learner.py\n"
+                    "本次降級使用 WEIGHTED_VOTE"
+                )
+                self._meta_learner_model = None
+                self._fuse_by_weighted_vote(signal)
+                return
+
+        # ── 2. 提取市場特徵 (60 維真實技術指標) ────────────────────
+        market_feat = self._meta_learner_extractor.extract(ohlcv_data)
+        if market_feat is None:
+            logger.warning("[Meta-Learner] 特徵提取失敗 (K線不足)，降級使用 WEIGHTED_VOTE")
+            self._fuse_by_weighted_vote(signal)
+            return
+
+        # ── 3. 提取事件特徵 (8 維新聞/RAG 上下文) ──────────────────
+        news_sentiment = 0.0
+        event_intensity = 0.0
+        if event_context is not None and not isinstance(event_context, dict):
+            try:
+                news_sentiment = getattr(event_context, 'sentiment_score', 0.0) or 0.0
+                effective = getattr(event_context, 'get_effective_score', lambda: 0.0)()
+                event_intensity = float(min(abs(effective) / 10.0, 1.0))
+            except Exception:
+                pass
+
+        event_feat = self._meta_learner_extractor.build_event_features(
+            news_sentiment=float(news_sentiment),
+            event_intensity=float(event_intensity),
+        )
+
+        # ── 4. 神經網路推理 → 取得 5 個策略的 Softmax 權重 ─────────
+        import torch as _torch
+        mf_tensor = _torch.tensor(market_feat, dtype=_torch.float32).unsqueeze(0)
+        ef_tensor = _torch.tensor(event_feat, dtype=_torch.float32).unsqueeze(0)
+        predicted_dict = self._meta_learner_model.predict_weights(mf_tensor, ef_tensor)
+
+        # ── 5. 覆寫策略權重 ─────────────────────────────────────────
+        for name, new_weight in predicted_dict.items():
+            if name in self.strategy_weights:
+                self.strategy_weights[name].final_weight = float(new_weight)
+                logger.debug(f"[Meta-Learner] {name}: {new_weight:.1%}")
+
+        weight_summary = " | ".join(
+            f"{k}: {v:.1%}" for k, v in predicted_dict.items()
+        )
+        logger.info(f"[Meta-Learner] 策略權重: {weight_summary}")
+
+        # ── 6. 用 AI 權重進行加權投票融合 ──────────────────────────
+        self._fuse_by_weighted_vote(signal)
+        signal.fusion_method_used = FusionMethod.META_LEARNER
     
     def _fuse_by_best_performer(self, signal: FusionSignal):
         """"""

@@ -421,6 +421,7 @@ def train(
     batch_size: int = 8,
     lr: float = 3e-4,
     signal_data_path: Optional[Path] = None,
+    signal_val_data_path: Optional[Path] = None,
     output_dir: str = "./output/unified",
     save_to_model: bool = True,
     allow_synthetic_signal_data: bool = False,
@@ -456,6 +457,7 @@ def train(
         "batch_size": batch_size,
         "learning_rate": lr,
         "signal_data_path": str(signal_data_path) if signal_data_path else None,
+        "signal_val_data_path": str(signal_val_data_path) if signal_val_data_path else None,
         "output_dir": output_dir,
         "save_to_model": save_to_model,
         "allow_synthetic_signal_data": allow_synthetic_signal_data,
@@ -528,6 +530,14 @@ def train(
         # 實際語言 loss 計算中 logits 形狀對不上時為 0，不影響訊號 loss
         train_dl = signal_dl
         cfg.multitask = False   # 關掉多任務，只計算訊號 loss
+        if signal_val_data_path is not None:
+            val_dl = build_signal_dataloader(
+                signal_val_data_path,
+                seq_len=cfg.signal_seq_len,
+                batch_size=batch_size,
+                allow_synthetic=False,
+            )
+            print(f"[unified_trainer] 訊號驗證集: {len(val_dl)} batches")
 
     trainer = Trainer(
         model=model,
@@ -581,6 +591,10 @@ def _parse_args() -> argparse.Namespace:
         help="訊號任務 JSONL 路徑"
     )
     p.add_argument(
+        "--signal-val-data", type=str, default=None,
+        help="訊號任務驗證集 .pt / JSONL 路徑（sig-only 模式使用，對應 signal_val.pt）"
+    )
+    p.add_argument(
         "--allow-synthetic-signal-data",
         action="store_true",
         help="允許在未提供真實 signal JSONL 時使用合成資料進行 smoke test",
@@ -605,6 +619,7 @@ if __name__ == "__main__":
         batch_size=args.batch,
         lr=args.lr,
         signal_data_path=Path(args.signal_data) if args.signal_data else None,
+        signal_val_data_path=Path(args.signal_val_data) if args.signal_val_data else None,
         output_dir=args.output,
         save_to_model=not args.no_save,
         allow_synthetic_signal_data=args.allow_synthetic_signal_data,

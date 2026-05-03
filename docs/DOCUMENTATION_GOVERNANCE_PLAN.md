@@ -197,10 +197,10 @@
 目前應視為正式主文件集合，優先維護的有：
 
 - `README.md`
-- `docs/BIONEURONAI_MASTER_MANUAL.md`
-- `docs/OPERATION_MANUAL.md`
+- `docs/manuals/00_MASTER_MANUAL.md`
+- `docs/manuals/04_CLI_OPERATION.md`
 - `docs/PROJECT_HANDOVER_MAP.md`
-- `docs/BACKTEST_SYSTEM_GUIDE.md`
+- `docs/manuals/08_BACKTEST_SYSTEM.md`
 - `docs/V2.2_ROADMAP_AND_SPEC.md`
 - `docs/DATA_PIPELINE_AND_SCHEMA.md`
 - `docs/TESTING_AND_VALIDATION_GUIDE.md`
@@ -209,15 +209,15 @@
 
 - 系統總覽：
   - `README.md`
-  - `docs/BIONEURONAI_MASTER_MANUAL.md`
+  - `docs/manuals/00_MASTER_MANUAL.md`
 
 - 操作與使用：
-  - `docs/OPERATION_MANUAL.md`
+  - `docs/manuals/04_CLI_OPERATION.md`
   - `backtest/docs/USER_MANUAL.md`
 
 - 接手與架構：
   - `docs/PROJECT_HANDOVER_MAP.md`
-  - `docs/BACKTEST_SYSTEM_GUIDE.md`
+  - `docs/manuals/08_BACKTEST_SYSTEM.md`
 
 - 策略與修復現況：
   - `docs/STRATEGY_COMPETITION_REMEDIATION_PLAN.md`
@@ -401,7 +401,7 @@
 
 ### 9.1 已歸檔並重寫
 
-- `BIONEURONAI_MASTER_MANUAL.md`
+- `00_MASTER_MANUAL.md`
 - `MANUAL_IMPLEMENTATION_STATUS.md`
 - `FEATURE_STATUS.md`
 
@@ -470,10 +470,10 @@
 
 1. 先看本文件，再看 `docs/README.md`
 2. 再看目前正式主文件：
-   - `docs/BIONEURONAI_MASTER_MANUAL.md`
+   - `docs/manuals/00_MASTER_MANUAL.md`
    - `docs/PROJECT_HANDOVER_MAP.md`
-   - `docs/OPERATION_MANUAL.md`
-   - `docs/BACKTEST_SYSTEM_GUIDE.md`
+   - `docs/manuals/04_CLI_OPERATION.md`
+   - `docs/manuals/08_BACKTEST_SYSTEM.md`
 3. 再決定某份舊文件要「更新」還是「歸檔後重寫」
 4. 若發現文件與程式不一致，以程式與實測為準
 5. 若文件已經大部分老舊，不要花太多時間做局部修補

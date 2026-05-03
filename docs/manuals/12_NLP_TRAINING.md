@@ -2,46 +2,45 @@
 
 ## 📑 目錄
 
-<!-- toc -->
-
-- [📁 訓練腳本位置](#%F0%9F%93%81-%E8%A8%93%E7%B7%B4%E8%85%B3%E6%9C%AC%E4%BD%8D%E7%BD%AE)
-  * [活躍的訓練模組](#%E6%B4%BB%E8%BA%8D%E7%9A%84%E8%A8%93%E7%B7%B4%E6%A8%A1%E7%B5%84)
-  * [歸檔的訓練資源](#%E6%AD%B8%E6%AA%94%E7%9A%84%E8%A8%93%E7%B7%B4%E8%B3%87%E6%BA%90)
-- [🎯 訓練腳本說明](#%F0%9F%8E%AF-%E8%A8%93%E7%B7%B4%E8%85%B3%E6%9C%AC%E8%AA%AA%E6%98%8E)
-  * [1. advanced_trainer.py ⭐ 推薦使用](#1-advanced_trainerpy-%E2%AD%90-%E6%8E%A8%E8%96%A6%E4%BD%BF%E7%94%A8)
-  * [2. train_with_ai_teacher.py](#2-train_with_ai_teacherpy)
-  * [3. auto_evolve.py](#3-auto_evolvepy)
-  * [4. view_training_history.py](#4-view_training_historypy)
-- [🚀 快速開始訓練](#%F0%9F%9A%80-%E5%BF%AB%E9%80%9F%E9%96%8B%E5%A7%8B%E8%A8%93%E7%B7%B4)
-  * [方案 A（推薦）：統一訓練入口](#%E6%96%B9%E6%A1%88-a%E6%8E%A8%E8%96%A6%E7%B5%B1%E4%B8%80%E8%A8%93%E7%B7%B4%E5%85%A5%E5%8F%A3)
-  * [方案 B：使用 AI 教師知識蒸餾（補充用）](#%E6%96%B9%E6%A1%88-b%E4%BD%BF%E7%94%A8-ai-%E6%95%99%E5%B8%AB%E7%9F%A5%E8%AD%98%E8%92%B8%E9%A4%BE%E8%A3%9C%E5%85%85%E7%94%A8)
-  * [方案 C：使用自定義數據訓練（進階）](#%E6%96%B9%E6%A1%88-c%E4%BD%BF%E7%94%A8%E8%87%AA%E5%AE%9A%E7%BE%A9%E6%95%B8%E6%93%9A%E8%A8%93%E7%B7%B4%E9%80%B2%E9%9A%8E)
-  * [方案 D：增量訓練（基於已有模型）](#%E6%96%B9%E6%A1%88-d%E5%A2%9E%E9%87%8F%E8%A8%93%E7%B7%B4%E5%9F%BA%E6%96%BC%E5%B7%B2%E6%9C%89%E6%A8%A1%E5%9E%8B)
-- [📊 訓練數據準備](#%F0%9F%93%8A-%E8%A8%93%E7%B7%B4%E6%95%B8%E6%93%9A%E6%BA%96%E5%82%99)
-  * [數據格式要求](#%E6%95%B8%E6%93%9A%E6%A0%BC%E5%BC%8F%E8%A6%81%E6%B1%82)
-  * [數據採集建議](#%E6%95%B8%E6%93%9A%E6%8E%A1%E9%9B%86%E5%BB%BA%E8%AD%B0)
-- [🔧 訓練配置優化](#%F0%9F%94%A7-%E8%A8%93%E7%B7%B4%E9%85%8D%E7%BD%AE%E5%84%AA%E5%8C%96)
-  * [GPU 記憶體優化](#gpu-%E8%A8%98%E6%86%B6%E9%AB%94%E5%84%AA%E5%8C%96)
-  * [學習率調度策略](#%E5%AD%B8%E7%BF%92%E7%8E%87%E8%AA%BF%E5%BA%A6%E7%AD%96%E7%95%A5)
-- [📈 監控訓練進度](#%F0%9F%93%88-%E7%9B%A3%E6%8E%A7%E8%A8%93%E7%B7%B4%E9%80%B2%E5%BA%A6)
-  * [TensorBoard 監控](#tensorboard-%E7%9B%A3%E6%8E%A7)
-  * [訓練日誌](#%E8%A8%93%E7%B7%B4%E6%97%A5%E8%AA%8C)
-- [🎯 訓練最佳實踐](#%F0%9F%8E%AF-%E8%A8%93%E7%B7%B4%E6%9C%80%E4%BD%B3%E5%AF%A6%E8%B8%90)
-  * [1. 訓練前檢查清單](#1-%E8%A8%93%E7%B7%B4%E5%89%8D%E6%AA%A2%E6%9F%A5%E6%B8%85%E5%96%AE)
-  * [2. 訓練中監控指標](#2-%E8%A8%93%E7%B7%B4%E4%B8%AD%E7%9B%A3%E6%8E%A7%E6%8C%87%E6%A8%99)
-  * [3. 訓練後評估](#3-%E8%A8%93%E7%B7%B4%E5%BE%8C%E8%A9%95%E4%BC%B0)
-- [🔗 相關資源](#%F0%9F%94%97-%E7%9B%B8%E9%97%9C%E8%B3%87%E6%BA%90)
-  * [模型文件位置](#%E6%A8%A1%E5%9E%8B%E6%96%87%E4%BB%B6%E4%BD%8D%E7%BD%AE)
-  * [工具腳本](#%E5%B7%A5%E5%85%B7%E8%85%B3%E6%9C%AC)
-  * [文檔](#%E6%96%87%E6%AA%94)
-- [⚠️ 常見問題](#%E2%9A%A0%EF%B8%8F-%E5%B8%B8%E8%A6%8B%E5%95%8F%E9%A1%8C)
-  * [Q: 訓練過程中 Loss 不下降？](#q-%E8%A8%93%E7%B7%B4%E9%81%8E%E7%A8%8B%E4%B8%AD-loss-%E4%B8%8D%E4%B8%8B%E9%99%8D)
-  * [Q: Out of Memory 錯誤？](#q-out-of-memory-%E9%8C%AF%E8%AA%A4)
-  * [Q: 訓練速度太慢？](#q-%E8%A8%93%E7%B7%B4%E9%80%9F%E5%BA%A6%E5%A4%AA%E6%85%A2)
-  * [Q: 如何在交易系統中使用訓練的模型？](#q-%E5%A6%82%E4%BD%95%E5%9C%A8%E4%BA%A4%E6%98%93%E7%B3%BB%E7%B5%B1%E4%B8%AD%E4%BD%BF%E7%94%A8%E8%A8%93%E7%B7%B4%E7%9A%84%E6%A8%A1%E5%9E%8B)
-- [📞 技術支援](#%F0%9F%93%9E-%E6%8A%80%E8%A1%93%E6%94%AF%E6%8F%B4)
-
-<!-- tocstop -->
+- [📁 訓練腳本位置](#📁-訓練腳本位置)
+  - [活躍的訓練模組](#活躍的訓練模組)
+  - [歸檔的訓練資源](#歸檔的訓練資源)
+- [🎯 訓練腳本說明](#🎯-訓練腳本說明)
+  - [1. advanced_trainer.py](#1-advancedtrainerpy)
+  - [2. trainwithai_teacher.py](#2-trainwithaiteacherpy)
+  - [3. auto_evolve.py](#3-autoevolvepy)
+  - [4. viewtraininghistory.py](#4-viewtraininghistorypy)
+- [🚀 快速開始訓練](#🚀-快速開始訓練)
+  - [方案 A（推薦）：統一訓練入口](#方案-a推薦統一訓練入口)
+  - [方案 B：使用 AI 教師知識蒸餾（補充用）](#方案-b使用-ai-教師知識蒸餾補充用)
+  - [方案 C：使用自定義數據訓練（進階）](#方案-c使用自定義數據訓練進階)
+  - [方案 D：增量訓練（基於已有模型）](#方案-d增量訓練基於已有模型)
+- [📊 訓練數據準備](#📊-訓練數據準備)
+  - [數據格式要求](#數據格式要求)
+    - [1. 純文本數據（用於語言建模）](#1-純文本數據用於語言建模)
+    - [2. 對話數據（用於知識蒸餾）](#2-對話數據用於知識蒸餾)
+    - [3. 交易領域特定數據（推薦）](#3-交易領域特定數據推薦)
+  - [數據採集建議](#數據採集建議)
+- [🔧 訓練配置優化](#🔧-訓練配置優化)
+  - [GPU 記憶體優化](#gpu-記憶體優化)
+  - [學習率調度策略](#學習率調度策略)
+- [📈 監控訓練進度](#📈-監控訓練進度)
+  - [TensorBoard 監控](#tensorboard-監控)
+  - [訓練日誌](#訓練日誌)
+- [🎯 訓練最佳實踐](#🎯-訓練最佳實踐)
+  - [1. 訓練前檢查清單](#1-訓練前檢查清單)
+  - [2. 訓練中監控指標](#2-訓練中監控指標)
+  - [3. 訓練後評估](#3-訓練後評估)
+- [🔗 相關資源](#🔗-相關資源)
+  - [模型文件位置](#模型文件位置)
+  - [工具腳本](#工具腳本)
+  - [文檔](#文檔)
+- [⚠️ 常見問題](#⚠-常見問題)
+  - [Q: 訓練過程中 Loss 不下降？](#q-訓練過程中-loss-不下降)
+  - [Q: Out of Memory 錯誤？](#q-out-of-memory-錯誤)
+  - [Q: 訓練速度太慢？](#q-訓練速度太慢)
+  - [Q: 如何在交易系統中使用訓練的模型？](#q-如何在交易系統中使用訓練的模型)
+- [📞 技術支援](#📞-技術支援)
 
 ---
 
@@ -64,14 +63,13 @@ src/nlp/training/
 ```
 
 ### 歸檔的訓練資源
-位於：`archived/llm_development/training/`
-（包含早期版本和實驗性訓練腳本）
+位於：`archived/`（包含早期版本和實驗性腳本；無專屬訓練目錄，歸檔內容請參閱 `archived/ARCHIVE_INDEX.md`）
 
 ## 🎯 訓練腳本說明
 
-### 1. advanced_trainer.py ⭐ 推薦使用
+### 1. advanced_trainer.py
 
-**最完整的訓練系統，包含所有高級功能**
+**底層 Trainer 類別（由 unified_trainer 內部呼叫）**
 
 **功能特性：**
 - ✅ 梯度累積（Gradient Accumulation）
@@ -115,8 +113,7 @@ trainer = Trainer(
     model=model,
     train_config=train_config,
     train_dataloader=train_dataloader,
-    eval_dataloader=eval_dataloader,
-    output_dir="models/trained_model"
+    eval_dataloader=eval_dataloader
 )
 
 trainer.train()
@@ -138,8 +135,8 @@ from src.nlp.training.train_with_ai_teacher import train_with_ai_teacher
 
 # 執行 AI 教師訓練
 train_with_ai_teacher(
-    model_dir="src/nlp/models/tiny_llm_en_zh",           # 基礎模型
-    output_dir="src/nlp/models/tiny_llm_en_zh_trained",  # 輸出目錄
+    model_dir="model/my_100m_model.pth",              # 基礎模型
+    output_dir="model/tiny_llm_en_zh_trained",        # 輸出目錄
     epochs=10,
     batch_size=4,
     learning_rate=5e-5,
@@ -169,9 +166,9 @@ from src.nlp.training.auto_evolve import auto_evolve_training
 
 # 進化訓練
 auto_evolve_training(
-    model_path="src/nlp/models/tiny_llm_en_zh_trained",
+    model_path="./model/my_100m_model.pth",
     evolution_data_file="evolution_data/new_training_data.json",
-    output_path="src/nlp/models/tiny_llm_evolved",
+    output_path="./model/tiny_llm_evolved",
     num_epochs=3,
     batch_size=4,
     learning_rate=1e-5  # 更小的學習率保護已有知識
@@ -223,7 +220,7 @@ python -m nlp.training.build_vocab
 python -m nlp.training.unified_trainer --lm-only --epochs 20
 
 # 步驟 2（可選）：產生訊號訓練資料（需要有歷史 K 線）
-python -m bioneuronai.cli.main collect-signal-data --symbol BTCUSDT --interval 1h
+python main.py collect-signal-data --symbol BTCUSDT --interval 1h
 
 # 步驟 3：多任務精調（語言 + 訊號同時優化）
 python -m nlp.training.unified_trainer \
@@ -235,13 +232,14 @@ python -m nlp.training.unified_trainer \
 **完整 CLI 參數：**
 ```bash
 python -m nlp.training.unified_trainer --help
-  --lm-only          只訓練語言任務
-  --sig-only         只訓練訊號任務
-  --epochs N         訓練輪數（預設 10）
-  --batch N          批次大小（預設 8）
-  --lr FLOAT         學習率（預設 3e-4）
-  --signal-data PATH 訊號 JSONL 路徑（正式訓練必填）
-  --no-save          不覆寫 model/my_100m_model.pth
+  --lm-only                只訓練語言任務
+  --sig-only               只訓練訊號任務
+  --epochs N               訓練輪數（預設 10）
+  --batch N                批次大小（預設 8）
+  --lr FLOAT               學習率（預設 3e-4）
+  --signal-data PATH       訊號 JSONL 路徑（正式訓練必填）
+  --signal-val-data PATH   訊號驗證集 .pt 路徑（可選，用於 sig-only 驗證）
+  --no-save                不覆寫 model/my_100m_model.pth
 ```
 
 ### 方案 B：使用 AI 教師知識蒸餾（補充用）
@@ -303,11 +301,11 @@ trainer = Trainer(
         batch_size=8,
         max_epochs=5,
         learning_rate=3e-4,
-        use_amp=True
+        use_amp=True,
+        output_dir="output/my_trained_model"
     ),
     train_dataloader=train_loader,
-    eval_dataloader=eval_loader,
-    output_dir="models/my_trained_model"
+    eval_dataloader=eval_loader
 )
 
 trainer.train()

@@ -549,14 +549,14 @@ def run_template_strategy_backtest(
     data_dir: Optional[Union[str, Any]] = DEFAULT_DATA_DIR,
     warmup_bars: int = 100,
     close_open_positions_on_end: bool = True,
-    commission_bps: float = 4.0,
+    commission_bps: float = 5.5,
     slippage_bps: float = 1.0,
     parameter_override: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Run one StrategyConfigTemplate as a replay-backed rule strategy.
 
     Args:
-        commission_bps: Taker commission in basis points (4 bps = 0.04%).
+        commission_bps: Taker commission in basis points (5.5 bps = 0.055%, Binance VIP0 +10% buffer).
         slippage_bps:   Slippage per fill in basis points (1 bp = 0.01%).
     """
     resolved_root = resolve_data_dir(data_dir)
@@ -790,14 +790,14 @@ def run_strategy_suite_backtest(
     close_open_positions_on_end: bool = True,
     execution_mode: str = "template_rules",
     parameter_overrides: Optional[Union[str, Path, Dict[str, Any]]] = None,
-    commission_bps: float = 4.0,
+    commission_bps: float = 5.5,
     slippage_bps: float = 1.0,
     walk_forward: bool = False,
 ) -> Dict[str, Any]:
     """逐一用正式策略實例跑 replay，保留每個策略的進出場紀錄。
 
     Args:
-        commission_bps:  Taker commission in basis points (4 bps = 0.04%).
+        commission_bps:  Taker commission in basis points (5.5 bps = 0.055%, Binance VIP0 +10% buffer).
         slippage_bps:    Slippage per fill in basis points (1 bp = 0.01%).
         walk_forward:    若為 True 且 start_date/end_date 已設定，
                          自動在 70%/30% 切割點執行 IS+OOS 兩段回測。
