@@ -17,6 +17,7 @@ import hashlib
 import json
 import logging
 import math
+import uuid
 from dataclasses import dataclass, field, asdict
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -39,6 +40,10 @@ LABEL_CONFIRMED_BULLISH = "confirmed_bullish"
 LABEL_CONFIRMED_BEARISH = "confirmed_bearish"
 LABEL_FALSE_SIGNAL = "false_signal"
 LABEL_NEGLIGIBLE = "negligible"  # 價格變化幅度太小
+
+# ── 驗證閾值 ─────────────────────────────────────────────────────────────────
+# 若 |realized_pnl_pct| 小於此值，視為價格沒有顯著變動，不納入訓練資料
+NEGLIGIBLE_PNL_THRESHOLD = 0.5  # 單位：百分比
 
 
 def _urgency_from_impact(impact: float) -> str:
@@ -164,8 +169,8 @@ class NewsEventContract:
         )
 
         # 生成訓練標籤
-        # 若價格幾乎沒動（< 0.5%），視為不顯著
-        if abs(self.realized_pnl_pct) < 0.5:
+        # 若價格幾乎沒動，視為不顯著
+        if abs(self.realized_pnl_pct) < NEGLIGIBLE_PNL_THRESHOLD:
             self.training_label = LABEL_NEGLIGIBLE
         else:
             # 判斷預測方向與實際方向是否一致
@@ -226,10 +231,10 @@ class NewsEventContractManager:
     單例透過 get_contract_manager() 取得。
     """
 
-    DEFAULT_CONTRACTS_FILE = (
-        Path(__file__).parent.parent.parent.parent  # src/bioneuronai
-        / ".."  # src
-        / ".."  # project root
+    # __file__ is src/bioneuronai/analysis/news/event_contract.py
+    # parents[4] => project root (bioneuronai repo root)
+    DEFAULT_CONTRACTS_FILE: Path = (
+        Path(__file__).parents[4]
         / "data"
         / "bioneuronai"
         / "trading"
@@ -277,8 +282,11 @@ class NewsEventContractManager:
             新建的 NewsEventContract
         """
         now = datetime.now()
-        raw_id = f"{event_type}_{symbol}_{headline}_{now.isoformat()}"
-        contract_id = hashlib.md5(raw_id.encode()).hexdigest()[:16]
+        # Use UUID4 for uniqueness; include a short SHA-256 prefix of content for readability
+        content_hash = hashlib.sha256(
+            f"{event_type}_{symbol}_{headline}".encode()
+        ).hexdigest()[:8]
+        contract_id = f"{content_hash}_{uuid.uuid4().hex[:8]}"
 
         # 到期時間：指數衰減取 3 倍半衰期；線性衰減直接用 decay_hours
         expires_at = now + timedelta(

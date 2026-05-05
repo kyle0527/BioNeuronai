@@ -336,6 +336,7 @@ class RuleBasedEvaluator:
     ) -> None:
         """為偵測到的事件建立 NewsEventContract（失敗不影響主流程）"""
         try:
+            # 延遲導入以避免同套件內的循環依賴（evaluator <-> event_contract）
             from .event_contract import get_contract_manager
 
             manager = get_contract_manager()
@@ -397,6 +398,7 @@ class RuleBasedEvaluator:
             彙總影響力 [-1.0, +1.0]，無有效合約時返回 0.0
         """
         try:
+            # 延遲導入以避免同套件內的循環依賴（evaluator <-> event_contract）
             from .event_contract import get_contract_manager
 
             return get_contract_manager().get_aggregated_intensity(symbol=symbol)
