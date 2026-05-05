@@ -434,6 +434,7 @@ class BinanceFuturesConnector:
             result = self._make_request("POST", self._ORDER_ENDPOINT, params, signed=True)
             
             if result:
+                formatted_qty = str(params["quantity"])
                 order_result = OrderResult(
                     order_id=str(result.get('orderId', '')),
                     symbol=symbol,

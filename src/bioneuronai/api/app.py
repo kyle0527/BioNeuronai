@@ -66,6 +66,10 @@ class TradeManager:
     def __init__(self) -> None:
         self._trade_task: Optional[asyncio.Task[Any]] = None
         self._trade_engine: Optional[Any] = None
+        self._trade_mode = "stopped"
+        self._started_at: Optional[datetime] = None
+        self._last_start_request: Dict[str, Any] = {}
+        self._monitoring_requested = False
 
     @property
     def engine(self) -> Optional[Any]:
@@ -76,10 +80,75 @@ class TradeManager:
         return self._trade_task
 
     def is_running(self) -> bool:
-        return self._trade_task is not None and not self._trade_task.done()
+        task_running = self._trade_task is not None and not self._trade_task.done()
+        engine_monitoring = bool(getattr(self._trade_engine, "is_monitoring", False))
+        return task_running or engine_monitoring or self._monitoring_requested
 
-    async def start(self, req: TradeStartRequest) -> str:
-        """啟動交易監控並回傳使用中的環境名稱。"""
+    def _auto_trade_requested(self, req: TradeStartRequest) -> bool:
+        return req.auto_trade or req.mode in {"testnet_auto", "live_auto"}
+
+    def _validate_live_guard(self, req: TradeStartRequest) -> None:
+        if req.testnet and req.mode != "live_auto":
+            return
+
+        live_allowed = os.getenv("ALLOW_LIVE_TRADING", "").strip().lower()
+        if live_allowed not in {"1", "true", "yes"}:
+            raise RuntimeError("正式網交易需先設定 ALLOW_LIVE_TRADING=1")
+
+        if req.confirm_live != "I_UNDERSTAND_LIVE_RISK":
+            raise RuntimeError("正式網交易需提供 confirm_live=I_UNDERSTAND_LIVE_RISK")
+
+    def _validate_start_request(self, req: TradeStartRequest, api_key: str, api_secret: str) -> None:
+        auto_requested = self._auto_trade_requested(req)
+
+        if req.mode == "monitor_only" and req.auto_trade:
+            raise RuntimeError("auto_trade=true 時請改用 testnet_auto 或 live_auto 模式")
+
+        if req.mode == "testnet_auto" and not req.testnet:
+            raise RuntimeError("testnet_auto 必須使用 testnet=true")
+
+        if req.mode == "live_auto" and req.testnet:
+            raise RuntimeError("live_auto 必須使用 testnet=false")
+
+        if auto_requested and (not api_key or not api_secret):
+            raise RuntimeError("自動交易需提供 Binance API Key/Secret 或設定環境變數")
+
+        self._validate_live_guard(req)
+
+    def _task_state(self) -> Dict[str, Any]:
+        if self._trade_task is None:
+            return {"state": "not_started", "error": None}
+        if self._trade_task.cancelled():
+            return {"state": "cancelled", "error": None}
+        if not self._trade_task.done():
+            return {"state": "running", "error": None}
+        try:
+            error = self._trade_task.exception()
+        except asyncio.CancelledError:
+            return {"state": "cancelled", "error": None}
+        return {"state": "done", "error": str(error) if error else None}
+
+    def get_status(self) -> Dict[str, Any]:
+        """取得交易引擎狀態，供 UI 直接顯示。"""
+        engine = self._trade_engine
+        task_state = self._task_state()
+        return {
+            "running": self.is_running(),
+            "mode": self._trade_mode,
+            "started_at": self._started_at.isoformat() if self._started_at else None,
+            "request": self._last_start_request,
+            "task": task_state,
+            "engine": {
+                "available": engine is not None,
+                "is_monitoring": bool(getattr(engine, "is_monitoring", False)),
+                "auto_trade": bool(getattr(engine, "auto_trade", False)),
+                "enable_ai_model": bool(getattr(engine, "enable_ai_model", False)),
+                "ai_model_loaded": bool(getattr(engine, "ai_model_loaded", False)),
+            },
+        }
+
+    async def start(self, req: TradeStartRequest) -> Dict[str, Any]:
+        """啟動交易監控並回傳使用中的環境與狀態。"""
         if self.is_running():
             raise RuntimeError("交易已在運行中")
 
@@ -87,23 +156,50 @@ class TradeManager:
 
         api_key = req.api_key or os.getenv("BINANCE_API_KEY", "")
         api_secret = req.api_secret or os.getenv("BINANCE_API_SECRET", "")
+        self._validate_start_request(req, api_key, api_secret)
 
-        self._trade_engine = TradingEngine(
+        auto_requested = self._auto_trade_requested(req)
+        engine = TradingEngine(
             api_key=api_key,
             api_secret=api_secret,
             testnet=req.testnet,
+            enable_ai_model=req.load_ai_model or auto_requested,
         )
+
+        if req.load_ai_model and not engine.load_ai_model(req.model_name, warmup=req.warmup_model):
+            raise RuntimeError(f"AI 模型載入失敗: {req.model_name}")
+
+        if auto_requested:
+            engine.enable_auto_trading()
+        else:
+            engine.disable_auto_trading()
+
+        self._trade_engine = engine
+        self._trade_mode = req.mode
+        self._started_at = datetime.now()
+        self._last_start_request = req.model_dump(exclude={"api_key", "api_secret", "confirm_live"})
+        self._monitoring_requested = True
 
         async def _monitor() -> None:
             if self._trade_engine is None:
                 return
-            await asyncio.to_thread(self._trade_engine.start_monitoring, req.symbol)
+            try:
+                await asyncio.to_thread(self._trade_engine.start_monitoring, req.symbol)
+            except Exception:
+                self._monitoring_requested = False
+                logger.exception("交易監控背景任務失敗")
+                raise
 
         self._trade_task = asyncio.create_task(_monitor())
-        return "測試網" if req.testnet else "正式網"
+        environment = "測試網" if req.testnet else "正式網"
+        status = self.get_status()
+        status["environment"] = environment
+        return status
 
     async def stop(self) -> None:
         """停止交易監控並清理引擎引用。"""
+        self._monitoring_requested = False
+
         if self._trade_task is not None and not self._trade_task.done():
             self._trade_task.cancel()
             self._trade_task = None
@@ -115,6 +211,8 @@ class TradeManager:
                 pass
 
         self._trade_engine = None
+        self._trade_mode = "stopped"
+        self._started_at = None
 
     async def get_current_price(self, symbol: str) -> Optional[float]:
         """透過目前交易引擎查詢即時價格。"""
@@ -505,17 +603,28 @@ async def start_trade(req: TradeStartRequest):
         return ApiResponse(success=False, message="交易已在運行中")
 
     try:
-        mode = await _trade_manager.start(req)
-        return ApiResponse(success=True, message=f"交易監控已啟動 [{mode}] {req.symbol}")
+        data = await _trade_manager.start(req)
+        environment = data.get("environment", "未知環境")
+        return ApiResponse(
+            success=True,
+            message=f"交易監控已啟動 [{environment}] {req.symbol}",
+            data=data,
+        )
     except Exception as exc:
         return ApiResponse(success=False, message=f"交易啟動失敗: {exc}")
+
+
+@app.get("/api/v1/trade/status", response_model=ApiResponse, tags=["trading"])
+async def trade_status():
+    """取得交易監控與自動交易狀態。"""
+    return ApiResponse(success=True, message="交易狀態查詢完成", data=_trade_manager.get_status())
 
 
 @app.post("/api/v1/trade/stop", response_model=ApiResponse, tags=["trading"])
 async def stop_trade():
     """停止交易監控"""
     await _trade_manager.stop()
-    return ApiResponse(success=True, message="交易監控已停止")
+    return ApiResponse(success=True, message="交易監控已停止", data=_trade_manager.get_status())
 
 
 # ── Chat ─────────────────────────────────────────────────────────────────────

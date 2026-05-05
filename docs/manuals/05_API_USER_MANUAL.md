@@ -1,7 +1,7 @@
 # BioNeuronai REST API 使用手冊
 
 > **版本**：v2.1  
-> **更新日期**：2026-04-28  
+> **更新日期**：2026-05-05
 > **伺服器預設**：`http://localhost:8000`  
 > **互動文件（Swagger UI）**：`http://localhost:8000/docs`
 
@@ -28,9 +28,11 @@
   - [GET /api/v1/backtest/runs](#get-apiv1backtestruns)
   - [GET /api/v1/backtest/runs/{run_id}](#get-apiv1backtestrunsrunid)
   - [POST /api/v1/backtest/strategy-run](#post-apiv1backteststrategy-run)
+  - [GET /backtest/ui](#get-backtestui)
 - [7. 交易端點 (Trading)](#7-交易端點-trading)
   - [POST /api/v1/pretrade](#post-apiv1pretrade)
   - [POST /api/v1/trade/start](#post-apiv1tradestart)
+  - [GET /api/v1/trade/status](#get-apiv1tradestatus)
   - [POST /api/v1/trade/stop](#post-apiv1tradestop)
   - [POST /api/v1/orders](#post-apiv1orders)
   - [DELETE /api/v1/positions/{position_id}](#delete-apiv1positionspositionid)
@@ -381,6 +383,16 @@ Invoke-RestMethod -Uri 'http://localhost:8000/api/v1/backtest/strategy-run' -Met
 
 ---
 
+### GET /backtest/ui
+
+開啟 API 伺服器內建的簡易 Backtest HTML 工具頁。此路由不屬於 `/api/v1` JSON API，主要用於本地人工檢視與快速操作。
+
+```text
+http://127.0.0.1:8000/backtest/ui
+```
+
+---
+
 ## 7. 交易端點 (Trading)
 
 ### POST /api/v1/pretrade
@@ -412,13 +424,19 @@ Invoke-RestMethod -Uri 'http://localhost:8000/api/v1/backtest/strategy-run' -Met
 
 ### POST /api/v1/trade/start
 
-啟動交易監控（後台 asyncio task，持續接收 WebSocket 推送並執行策略）。
+啟動交易監控（後台 task，接收 WebSocket 推送並依模式決定是否允許自動送單）。
 
 **請求體：**
 ```json
 {
   "symbol": "BTCUSDT",
   "testnet": true,
+  "mode": "monitor_only",
+  "auto_trade": false,
+  "load_ai_model": false,
+  "model_name": "my_100m_model",
+  "warmup_model": false,
+  "confirm_live": "",
   "api_key": "",
   "api_secret": ""
 }
@@ -427,7 +445,28 @@ Invoke-RestMethod -Uri 'http://localhost:8000/api/v1/backtest/strategy-run' -Met
 > **重要安全提醒**：  
 > - `testnet: true` 時連接 Binance 測試網，不消耗真實資金  
 > - `api_key`/`api_secret` 若留空，系統會自動讀取環境變數  
+> - `testnet_auto` 會啟用 `auto_trade`，需提供 Binance testnet key
+> - `live_auto` 必須 `testnet=false`、`confirm_live=I_UNDERSTAND_LIVE_RISK`，且後端環境變數 `ALLOW_LIVE_TRADING=1`
 > - **正式網交易前，請務必先在測試網驗證策略**
+
+---
+
+### GET /api/v1/trade/status
+
+查詢交易監控與自動交易狀態。
+
+**回應重點：**
+```json
+{
+  "running": false,
+  "mode": "stopped",
+  "engine": {
+    "is_monitoring": false,
+    "auto_trade": false,
+    "ai_model_loaded": false
+  }
+}
+```
 
 ---
 
@@ -737,9 +776,14 @@ Invoke-RestMethod -Uri "http://localhost:8000/api/v1/chat" `
 
 # 6. 啟動測試網交易
 Invoke-RestMethod -Uri "http://localhost:8000/api/v1/trade/start" `
-  -Method POST -Body '{"symbol":"BTCUSDT","testnet":true}' -ContentType "application/json"
+  -Method POST `
+  -Body '{"symbol":"BTCUSDT","testnet":true,"mode":"monitor_only","auto_trade":false,"load_ai_model":false,"model_name":"my_100m_model","warmup_model":false}' `
+  -ContentType "application/json"
 
-# 7. 停止交易
+# 7. 查詢交易狀態
+Invoke-RestMethod -Uri "http://localhost:8000/api/v1/trade/status" -Method GET
+
+# 8. 停止交易
 Invoke-RestMethod -Uri "http://localhost:8000/api/v1/trade/stop" -Method POST
 ```
 

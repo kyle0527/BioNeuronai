@@ -63,11 +63,13 @@ python main.py pretrade --symbol BTCUSDT --action long
 ```
 
 **步驟 D：模擬或測試網執行 (Trade)**
-確認一切正常後，開啟機器人接收即時 WebSocket 數據進行自動交易（需連網）：
+確認一切正常後，開啟機器人接收即時 WebSocket 數據進行測試網監控（需連網）：
 ```bash
 python main.py trade --symbol BTCUSDT --testnet
 ```
 隨時可按 `Ctrl+C` 平順中止程式。
+
+若要從 UI / API 啟用自動交易，請使用 `Trade Control` 的 `Testnet auto` 模式或 `POST /api/v1/trade/start` 的 `mode=testnet_auto`；不要把 CLI testnet 監控等同於正式網自動下單。
 
 **步驟 E（選用）：AI 對話助理 (Chat)**
 以中文或英文詢問交易策略、幣安合約規則、技術分析等問題：

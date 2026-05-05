@@ -1,6 +1,6 @@
 # BioNeuronai 操作手冊
 **版本**：v2.1
-**更新日期**：2026-04-06
+**更新日期**：2026-05-05
 **適用對象**：初次使用者 / 日常操作參考
 
 ---
@@ -58,7 +58,7 @@ BioNeuronai (v2.1) 是一套加密貨幣期貨交易系統。
 | 進場前驗核 | 技術 / 基本面三重確認 (交易員視角) | ✗ | ✅ | `planning/` |
 | 新聞分析 | 情緒與事件提取 | ✗ | ✗ | `rag/` & `analysis/news` |
 | 紙交易模擬 | 在未連線 Binance 情況下驗證主交易邏輯 | ⚠️ 可選 | ✗ | `core/` & `backtest/` |
-| 測試網/實盤交易 | 透過 Binance connector 進行即時交易 | ✅ | ✅ | `core/` & `trading/` |
+| 測試網/實盤交易入口 | 透過 Binance connector 進行即時監控；自動送單需依交易引擎模式與安全限制啟用 | ✅ | ✅ | `core/` & `trading/` |
 | AI 對話助理 | 雙語交易知識問答（中 / 英），可注入即時市場資料 | ⚠️ 可選 | ✗ | `nlp/chat_engine` |
 
 ---
@@ -199,12 +199,12 @@ python main.py evolve --output output/best_strategy.json
 
 ### `trade`
 **依賴子系統**：`core/trading_engine.py` 與 connector / 帳戶狀態層  
-**用途**：進行測試網或實盤交易。
+**用途**：進行測試網或實盤監控 / 交易入口。
 ```bash
 python main.py trade --testnet
 python main.py trade --live
 ```
-使用 `--live` 時系統會有強制二次確認，避免意外按下 Enter 進入實盤。
+使用 `--live` 時系統會有強制二次確認，避免意外按下 Enter 進入實盤。若要從 Dashboard / API 啟用自動交易，請使用 `testnet_auto` 或 `live_auto` 模式並確認 `/api/v1/trade/status`。
 
 ### `chat`
 **依賴子系統**：`src/nlp/chat_engine.py`、`src/nlp/training/trading_dialogue_data.py`  

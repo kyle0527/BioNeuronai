@@ -79,6 +79,11 @@ python -m uvicorn bioneuronai.api.app:app --host 127.0.0.1 --port 8000
 $body = @{
   symbol = "BTCUSDT"
   testnet = $true
+  mode = "monitor_only"
+  auto_trade = $false
+  load_ai_model = $false
+  model_name = "my_100m_model"
+  warmup_model = $false
 } | ConvertTo-Json
 
 Invoke-RestMethod `
@@ -86,6 +91,14 @@ Invoke-RestMethod `
   -Method POST `
   -Body $body `
   -ContentType "application/json"
+```
+
+查詢狀態：
+
+```powershell
+Invoke-RestMethod `
+  -Uri "http://127.0.0.1:8000/api/v1/trade/status" `
+  -Method GET
 ```
 
 停止交易：
@@ -99,6 +112,7 @@ Invoke-RestMethod `
 成功標準：
 
 - start 回應成功或明確告知已在運行。
+- status 可看到 `running`、`mode`、`engine.auto_trade`、`engine.ai_model_loaded`。
 - stop 後交易 task 被清除。
 
 ---
@@ -124,15 +138,31 @@ Live 不是日常驗證入口。啟動前必須完成：
 BINANCE_TESTNET=false
 BINANCE_API_KEY=your_live_key
 BINANCE_API_SECRET=your_live_secret
+ALLOW_LIVE_TRADING=1
 ```
 
-啟動：
+API 啟動：
 
 ```powershell
-python main.py trade --symbol BTCUSDT --live
+$body = @{
+  symbol = "BTCUSDT"
+  testnet = $false
+  mode = "live_auto"
+  auto_trade = $true
+  load_ai_model = $true
+  model_name = "my_100m_model"
+  warmup_model = $false
+  confirm_live = "I_UNDERSTAND_LIVE_RISK"
+} | ConvertTo-Json
+
+Invoke-RestMethod `
+  -Uri "http://127.0.0.1:8000/api/v1/trade/start" `
+  -Method POST `
+  -Body $body `
+  -ContentType "application/json"
 ```
 
-系統會要求輸入 `YES` 二次確認。未確認前不會進入 live。
+CLI live 啟動仍需依 `main.py trade --live` 的互動確認流程；API / UI 路線則由 `ALLOW_LIVE_TRADING=1` 與 `confirm_live=I_UNDERSTAND_LIVE_RISK` 雙重限制。
 
 ---
 

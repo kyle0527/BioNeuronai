@@ -261,9 +261,15 @@ python main.py trade --symbol BTCUSDT --testnet
 $body = @{
   symbol = "BTCUSDT"
   testnet = $true
+  mode = "monitor_only"
+  auto_trade = $false
+  load_ai_model = $false
+  model_name = "my_100m_model"
+  warmup_model = $false
 } | ConvertTo-Json
 
 Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/v1/trade/start" -Method POST -Body $body -ContentType "application/json"
+Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/v1/trade/status" -Method GET
 Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/v1/trade/stop" -Method POST
 ```
 
@@ -279,6 +285,7 @@ Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/v1/trade/stop" -Method POST
 4. 已確認最大單筆風險、最大槓桿、最大回撤限制。
 5. 已跑指定長區間 OOS / walk-forward 回測。
 6. 人工確認 `.env` 使用正式網金鑰與正確 `BINANCE_TESTNET=false`。
+7. 若走 API / UI live 自動交易路線，後端必須設定 `ALLOW_LIVE_TRADING=1`，且請求必須提供 `confirm_live=I_UNDERSTAND_LIVE_RISK`。
 
 實盤啟動：
 
@@ -286,7 +293,7 @@ Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/v1/trade/stop" -Method POST
 python main.py trade --symbol BTCUSDT --live
 ```
 
-系統會要求輸入 `YES` 進行二次確認。
+CLI 路線會要求輸入 `YES` 進行二次確認；API / UI 路線則由 `ALLOW_LIVE_TRADING=1` 與 `confirm_live=I_UNDERSTAND_LIVE_RISK` 雙重限制。
 
 ---
 

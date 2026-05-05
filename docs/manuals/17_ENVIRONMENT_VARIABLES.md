@@ -36,6 +36,7 @@ Test-Path .env
 | `BINANCE_API_KEY` | Binance API key | 是 |
 | `BINANCE_API_SECRET` | Binance API secret | 是 |
 | `BINANCE_TESTNET` | `true` 測試網，`false` 正式網 | 否 |
+| `ALLOW_LIVE_TRADING` | API / UI 正式網自動交易開關；只有設為 `1` / `true` / `yes` 才允許 `live_auto` | 否 |
 | `ALLOWED_ORIGINS` | API CORS allowlist | 否 |
 | `CRYPTOPANIC_API_TOKEN` | CryptoPanic 新聞 API | 是 |
 | `API_PORT` | Docker API 對外 port | 否 |
@@ -70,6 +71,7 @@ Live 前人工確認：
 
 ```dotenv
 BINANCE_TESTNET=false
+ALLOW_LIVE_TRADING=1
 ```
 
 並確認：
@@ -78,6 +80,7 @@ BINANCE_TESTNET=false
 - Futures 權限已開通。
 - 帳戶有可用餘額。
 - 已完成 testnet 與 pretrade 驗證。
+- API / UI live 自動交易請求必須另外提供 `confirm_live=I_UNDERSTAND_LIVE_RISK`。
 
 ---
 

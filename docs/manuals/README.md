@@ -41,7 +41,7 @@
 
 `12` 與 `13` 是訓練/雲端作業，已移入但不列為本輪「一般使用者操作」主範圍；暫時保留，之後若整理訓練手冊再處理。
 
-`14` 到 `19` 是本輪補齊的使用者操作缺冊。
+`14` 到 `20` 是本輪補齊的使用者操作缺冊。
 
 ---
 
@@ -65,6 +65,7 @@
 | 17 | [17_ENVIRONMENT_VARIABLES.md](17_ENVIRONMENT_VARIABLES.md) | 新增 | `.env` 與環境變數 | 已驗證 |
 | 18 | [18_OPERATION_TROUBLESHOOTING.md](18_OPERATION_TROUBLESHOOTING.md) | 新增 | CLI/API/Backtest/Pretrade 操作排查 | 已驗證 |
 | 19 | [19_DASHBOARD_TROUBLESHOOTING.md](19_DASHBOARD_TROUBLESHOOTING.md) | 新增 | Dashboard / CORS / API 連線排查 | 已驗證 |
+| 20 | [20_UI_END_TO_END_OPERATION.md](20_UI_END_TO_END_OPERATION.md) | 新增 | UI 從啟動到完成一輪操作的端到端流程 | 已完成 API/HTTP/build 實際入口驗證；仍需 Playwright 或人工點擊驗收 |
 
 ---
 
@@ -106,9 +107,9 @@
 
 | 建議編號 | 建議文件 | 優先級 | 原因 |
 |---:|---|---|---|
-| 20 | `20_RELEASE_READINESS_CHECKLIST.md` | P2 | 若要正式對外發布，需要一份使用者角度的發版前操作確認表 |
+| 21 | 待建立：Release readiness checklist | P2 | 若要正式對外發布，需要一份使用者角度的發版前操作確認表 |
 
-目前唯一尚未完成的是 Docker image 層的最終複驗：running image 仍是舊版，需等 source 檢查完成後一次性重建，再重跑 `status/backtest/simulate` 與 Docker API/frontend。
+目前下一個使用者可用性目標是補齊 UI 直接操作流程與對應的實際點擊驗收；Docker image 層仍需在 source 檢查完成後一次性重建，再重跑 `status/backtest/simulate` 與 Docker API/frontend。
 
 ---
 
@@ -131,7 +132,8 @@
 13. [17_ENVIRONMENT_VARIABLES.md](17_ENVIRONMENT_VARIABLES.md)
 14. [18_OPERATION_TROUBLESHOOTING.md](18_OPERATION_TROUBLESHOOTING.md)
 15. [19_DASHBOARD_TROUBLESHOOTING.md](19_DASHBOARD_TROUBLESHOOTING.md)
-16. [01_MANUAL_OPERATION_VERIFICATION_PLAN.md](01_MANUAL_OPERATION_VERIFICATION_PLAN.md)
+16. [20_UI_END_TO_END_OPERATION.md](20_UI_END_TO_END_OPERATION.md)
+17. [01_MANUAL_OPERATION_VERIFICATION_PLAN.md](01_MANUAL_OPERATION_VERIFICATION_PLAN.md)
 
 ---
 
@@ -143,3 +145,4 @@
 4. 若未來修改到其他文件區域，再在該區域處理重複、老舊或移除。
 5. 每次改 API route、CLI command、Docker service、Dashboard panel，都要同步更新對應操作手冊。
 6. 若某手冊的命令未經實際入口驗證，必須在狀態欄標記「需實測」。
+7. 每次改 Dashboard 使用者流程，都要同步更新 `20_UI_END_TO_END_OPERATION.md`，避免只更新面板參考卻漏掉端到端操作。

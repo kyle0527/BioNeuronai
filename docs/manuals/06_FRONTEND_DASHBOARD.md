@@ -1,7 +1,7 @@
 # BioNeuronai DevOps Dashboard 操作手冊
 
 > **版本**：v2.1  
-> **更新日期**：2026-04-28  
+> **更新日期**：2026-05-05
 > **存取網址**：`http://localhost:3000`  
 > **後端 API**：`http://localhost:8000`
 
@@ -46,8 +46,12 @@ BioNeuronai DevOps Dashboard 是一個 **React 19 + Vite 7** 前端應用，由 
 - **交易控制**（啟動/停止監控）
 - **API 測試台**（直接呼叫所有端點）
 - **請求歷史紀錄**
+- **資料目錄**（備用資料檢視）
+- **風控設定**（備用設定入口）
 
 所有操作都透過 API 伺服器（`localhost:8000`）執行，Dashboard 本身不直接呼叫 Binance 或任何交易所。
+
+如果目標是「從打開 UI 到完成一輪操作並關機」，請先看 [20_UI_END_TO_END_OPERATION.md](20_UI_END_TO_END_OPERATION.md)。本文件保留為各面板功能參考。
 
 ---
 
@@ -76,7 +80,7 @@ npm run dev
 
 ### 驗證
 
-進入 `http://localhost:3000`，頁面應在 2 秒內顯示「系統狀態」面板，並顯示 5 個模組均為 `available: true`。
+進入 `http://localhost:3000`，頁面應在 2 秒內顯示「系統狀態」面板，並顯示主要後端模組狀態。模組清單以 `GET /api/v1/status` 實際回應為準，常見項目包含 TradingEngine、BinanceFutures、NewsAnalyzer、SOPSystem、PreTradeCheck。
 
 若看到 `Failed to fetch` 或網路錯誤，代表 API 伺服器（port 8000）尚未啟動。
 
@@ -269,17 +273,18 @@ Dashboard 採用左側導覽列 + 右側主內容區佈局。
 
 ### TradeControlPanel — 交易控制
 
-**功能：** 啟動/停止 Binance 交易監控。
+**功能：** 啟動/停止 Binance 交易監控，並可選擇是否啟用自動交易與 AI 模型權重。
 
 > **⚠️ 風險警示：此面板可觸發真實交易，請謹慎操作。**
 
 **操作步驟（測試）：**
 1. 進入「交易控制」面板
-2. 選擇「測試網」模式（`testnet: true`）
-3. 選擇交易對（如 `BTCUSDT`）
-4. 點選「**啟動監控**」
-5. 觀察狀態指示，確認顯示「交易監控已啟動 [測試網]」
-6. 點選「**停止監控**」結束
+2. `Mode` 選擇 `Monitor only` 或 `Testnet auto`
+3. Symbol 輸入交易對（如 `BTCUSDT`）
+4. 若要讓 AI 權重參與訊號，開啟 `Load AI Model`，Model 預設為 `my_100m_model`
+5. 點選「**Start Trading**」
+6. 點選「**Refresh Status**」確認 `running=true`，且 `engine.auto_trade` 符合模式
+7. 點選「**Stop Trading**」結束
 
 **操作步驟（正式網）：**
 
@@ -288,10 +293,19 @@ Dashboard 採用左側導覽列 + 右側主內容區佈局。
 > 2. 在 `PreTradePanel` 執行驗核並通過
 > 3. 確認已在 `.env` 設定有效的 Binance API 金鑰
 
-1. 取消勾選「測試網」
-2. 輸入 API 金鑰（若 `.env` 已設定可留空）
-3. 點選「**啟動監控**」
-4. **系統會立即開始監控市場並按策略自動執行**
+1. 後端環境變數設定 `ALLOW_LIVE_TRADING=1`
+2. `Mode` 選擇 `Live auto`
+3. 在 `Live Confirm` 輸入 `I_UNDERSTAND_LIVE_RISK`
+4. 點選「**Start Trading**」
+5. **系統會開始監控市場，且在交易引擎產生非 HOLD 訊號時允許正式網送單**
+
+**模式說明：**
+
+| Mode | testnet | auto_trade | 用途 |
+|---|---:|---:|---|
+| `Monitor only` | 可選 | false | 只監控 WebSocket 與訊號，不自動送單 |
+| `Testnet auto` | true | true | 測試網自動交易；需要 Binance testnet key |
+| `Live auto` | false | true | 正式網自動交易；需要環境變數與確認字串 |
 
 ---
 
@@ -392,7 +406,9 @@ Dashboard 採用左側導覽列 + 右側主內容區佈局。
    ├── PROCEED → 可考慮進場
    ├── CAUTION → 縮小倉位謹慎進場
    └── REJECT  → 今日不進場
-5. 若決定進場 → TradeControlPanel → 啟動監控 (testnet 先測試)
+5. 若決定進場 → TradeControlPanel → `Monitor only` 或 `Testnet auto`
+6. Refresh Status → 確認 running / auto_trade / ai_model_loaded
+7. 操作結束 → Stop Trading
 ```
 
 ### 策略研究 SOP（回測分析）
@@ -446,6 +462,7 @@ Dashboard 採用左側導覽列 + 右側主內容區佈局。
 |---|---|
 | [03_QUICKSTART.md](03_QUICKSTART.md) | 新手快速上手（含 Docker 設定） |
 | [05_API_USER_MANUAL.md](05_API_USER_MANUAL.md) | REST API 完整端點手冊 |
+| [20_UI_END_TO_END_OPERATION.md](20_UI_END_TO_END_OPERATION.md) | UI 從啟動到完成操作的端到端流程 |
 | [07_DOCKER_DEPLOYMENT.md](07_DOCKER_DEPLOYMENT.md) | Docker 部署與環境設定 |
 | [08_BACKTEST_SYSTEM.md](08_BACKTEST_SYSTEM.md) | 回測系統詳細說明 |
 | [12_NLP_TRAINING.md](12_NLP_TRAINING.md) | AI 模型訓練指南 |

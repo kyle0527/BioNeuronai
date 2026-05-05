@@ -8,7 +8,7 @@ BioNeuronai API通信模型
 """
 
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 from uuid import uuid4
 
 from pydantic import BaseModel, Field
@@ -289,6 +289,32 @@ class TradeStartRequest(BaseModel):
     """啟動交易監控請求"""
     symbol: str = Field(default="BTCUSDT", description="交易對")
     testnet: bool = Field(default=True, description="使用測試網")
+    mode: Literal["monitor_only", "testnet_auto", "live_auto"] = Field(
+        default="monitor_only",
+        description="交易模式：monitor_only 僅監控；testnet_auto 測試網自動交易；live_auto 正式網自動交易",
+    )
+    auto_trade: bool = Field(
+        default=False,
+        description="是否允許交易引擎收到非 HOLD 訊號後自動送單",
+    )
+    load_ai_model: bool = Field(
+        default=False,
+        description="啟動時是否載入 AI 模型權重",
+    )
+    model_name: str = Field(
+        default="my_100m_model",
+        min_length=1,
+        description="要載入的模型名稱（對應 model/{model_name}.pth）",
+    )
+    warmup_model: bool = Field(
+        default=False,
+        description="載入 AI 模型後是否執行 warmup",
+    )
+    confirm_live: str = Field(
+        default="",
+        description="正式網確認字串；live_auto 必須填入 I_UNDERSTAND_LIVE_RISK",
+        repr=False,
+    )
     # 選填：由 UI/CLI 注入使用者憑證；不填則 fallback 至環境變數
     api_key: Optional[str] = Field(default=None, description="Binance API Key（選填）")
     api_secret: Optional[str] = Field(default=None, description="Binance API Secret（選填）", repr=False)

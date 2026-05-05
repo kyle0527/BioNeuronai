@@ -41,6 +41,19 @@ export interface ChatResponse {
   latency_ms?: number | null
 }
 
+export type TradeMode = 'monitor_only' | 'testnet_auto' | 'live_auto'
+
+export interface TradeStartBody {
+  symbol: string
+  testnet: boolean
+  mode: TradeMode
+  auto_trade: boolean
+  load_ai_model: boolean
+  model_name: string
+  warmup_model: boolean
+  confirm_live?: string
+}
+
 type RequestLogger = (log: RequestLog) => void
 
 let requestLogger: RequestLogger | null = null
@@ -160,8 +173,9 @@ export const endpoints = {
     api.post<RestApiResponse>('/api/v1/news', body),
   pretrade: (body: { symbol: string; action: 'long' | 'short' }) =>
     api.post<RestApiResponse>('/api/v1/pretrade', body),
-  tradeStart: (body: { symbol: string; testnet: boolean }) =>
+  tradeStart: (body: TradeStartBody) =>
     api.post<RestApiResponse>('/api/v1/trade/start', body),
+  tradeStatus: () => api.get<RestApiResponse>('/api/v1/trade/status'),
   tradeStop: () => api.post<RestApiResponse>('/api/v1/trade/stop', {}),
   chat: (body: {
     message: string

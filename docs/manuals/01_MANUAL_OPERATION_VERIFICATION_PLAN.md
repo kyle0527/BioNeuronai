@@ -18,7 +18,8 @@
   - [Level 3：Testnet 交易驗收](#level-3testnet-交易驗收)
   - [Level 4：Live 前驗收](#level-4live-前驗收)
 - [5. 目前已完成的手冊式實際印證紀錄](#5-目前已完成的手冊式實際印證紀錄)
-  - [2026-05-02 第一冊 02STARTUPAND_SHUTDOWN.md 實際操作驗證](#2026-05-02-第一冊-02startupandshutdownmd-實際操作驗證)
+  - [2026-05-02 第一冊 02_STARTUP_AND_SHUTDOWN.md 實際操作驗證](#2026-05-02-第一冊-02_startup_and_shutdownmd-實際操作驗證)
+  - [2026-05-04 AI 自動交易與 UI 文件清理紀錄](#2026-05-04-ai-自動交易與-ui-文件清理紀錄)
 - [6. 下一步](#6-下一步)
   - [2026-05-02 後續使用者操作手冊實際驗證](#2026-05-02-後續使用者操作手冊實際驗證)
   - [2026-05-02 Docker image 重建前全面檢查](#2026-05-02-docker-image-重建前全面檢查)
@@ -35,6 +36,7 @@
 3. 使用者可以照手冊從啟動到完成操作。
 4. 操作完成後有可觀察輸出，例如 CLI 結果、API JSON、Dashboard 畫面、runtime 目錄、模型權重或報告檔。
 5. 若功能需要 API key、Docker、GPU 或實盤資金，手冊必須明確標示前置條件與安全限制。
+6. Smoke tests 只作輔助訊號，不作為主要 gate；若 smoke test 與實際入口操作結果衝突，以 CLI / API / Dashboard / Docker 的直接操作結果為主，並記錄 smoke test 的限制或超時原因。
 
 ---
 
@@ -66,13 +68,14 @@
 
 | 優先級 | 建議新增/補強文件 | 原因 |
 |---|---|---|
-| P0 | `docs/manuals/14_META_LEARNER.md` | v2.2 已有 `meta_learner` 初版與模型權重，但目前主要記在開發日誌與 roadmap，不夠像使用手冊。 |
-| P0 | `docs/manuals/15_TESTNET_AND_LIVE_TRADING.md` | `trade --testnet` 與 `trade --live` 風險很高，應獨立成手冊，包含啟動、停止、金鑰、倉位限制、緊急停止。 |
-| P1 | `docs/manuals/16_DATA_ACQUISITION.md` | 歷史資料下載、catalog、資料路徑、資料缺失排查目前分散在多處。 |
-| P1 | `docs/manuals/17_RUNTIME_ARTIFACTS.md` | backtest/runtime、logs、output、data/processed、rl_models 的產物位置與保留策略需集中說明。 |
-| P1 | `docs/manuals/18_ENVIRONMENT_VARIABLES.md` | `.env.example` 很長，Docker、API、交易、新聞、CORS 的環境變數應集中成參考表。 |
-| P2 | `docs/manuals/19_INCIDENT_RESPONSE.md` | 實盤或長時間監控時，應有 API 掛掉、交易卡住、餘額異常、新聞 API 失敗的處理流程。 |
-| P2 | `docs/manuals/20_RELEASE_READINESS_CHECKLIST.md` | 每次要標記版本前，按手冊驗收結果確認是否可發布。 |
+| P0 | `docs/manuals/14_TESTNET_AND_LIVE_TRADING.md` | 已建立；需持續同步 API / UI 的 `monitor_only`、`testnet_auto`、`live_auto` 與 live guard。 |
+| P0 | `docs/manuals/20_UI_END_TO_END_OPERATION.md` | 已建立；下一步需以 Playwright 或人工點擊完成 UI 端到端驗收。 |
+| P1 | `docs/manuals/15_DATA_ACQUISITION.md` | 已建立；需持續同步 catalog / inspect / backtest-data 的實際欄位。 |
+| P1 | `docs/manuals/16_RUNTIME_ARTIFACTS.md` | 已建立；需持續同步 runtime、logs、output、rl_models 的產物位置。 |
+| P1 | `docs/manuals/17_ENVIRONMENT_VARIABLES.md` | 已建立；已補 `ALLOW_LIVE_TRADING`，仍需和 `.env.example` 定期核對。 |
+| P2 | `docs/manuals/18_OPERATION_TROUBLESHOOTING.md` | 已建立；需持續補 API、交易卡住、外部服務降級的處理流程。 |
+| P2 | 待編號：Meta Learner 使用手冊 | 尚未建立；v2.2 已有 `meta_learner` 初版與模型權重，目前主要記在開發日誌與 roadmap，不夠像使用手冊。 |
+| P2 | 待建立：Release readiness checklist | 每次要標記版本前，按手冊驗收結果確認是否可發布。 |
 
 ---
 
@@ -98,6 +101,7 @@
 | API | `GET /api/v1/backtest/catalog` | 可列出 dataset |
 | Frontend | `npm run dev` 或 Docker frontend | Dashboard 可開啟並打到 API |
 | Frontend | Status / Backtest / API Playground | 前端操作能得到後端回應 |
+| UI End-to-End | `20_UI_END_TO_END_OPERATION.md` | 使用者可從 UI 完成 status、catalog、backtest、news、pretrade、chat、testnet start/stop、history 檢查 |
 
 ### Level 2：需要外部網路或新聞 API
 
@@ -111,15 +115,15 @@
 
 | 手冊 | 實際入口 | 成功標準 |
 |---|---|---|
-| 待建立：Testnet/Live Trading | `python main.py trade --symbol BTCUSDT --testnet` | 能啟動監控、讀取價格、可用 Ctrl+C 停止 |
-| API | `POST /api/v1/trade/start` / `stop` | API 可啟停交易 task，不殘留背景程序 |
-| Dashboard | TradeControlPanel | UI 可啟停並看到狀態 |
+| Testnet / Live Trading | `python main.py trade --symbol BTCUSDT --testnet` | 能啟動監控、讀取價格、可用 Ctrl+C 停止 |
+| API | `POST /api/v1/trade/start` / `GET /api/v1/trade/status` / `POST /api/v1/trade/stop` | API 可啟停交易 task，可觀察 `running`、`mode`、`engine.auto_trade`，不殘留背景程序 |
+| Dashboard | TradeControlPanel | UI 可選 `Monitor only` / `Testnet auto`，可啟停並看到狀態 |
 
 ### Level 4：Live 前驗收
 
 | 手冊 | 實際入口 | 成功標準 |
 |---|---|---|
-| 待建立：Live Trading | `trade --live` 前檢查 | 必須完成人工二次確認、金鑰、餘額、槓桿、最大倉位限制 |
+| Live Trading | `trade --live` 或 API / UI `live_auto` 前檢查 | CLI 必須人工二次確認；API / UI 必須 `ALLOW_LIVE_TRADING=1` + `confirm_live=I_UNDERSTAND_LIVE_RISK`；金鑰、餘額、槓桿、最大倉位限制需人工確認 |
 | Backtest / Strategy | 長區間 OOS / walk-forward | 有固定資料區間、命令、結果檔與績效摘要 |
 | Risk | pretrade + risk settings | 最大單筆風險、每日風險、最大回撤限制都可查證 |
 
@@ -159,6 +163,38 @@
 | Docker Frontend | `GET http://127.0.0.1:3000` | 通過，HTTP 200 |
 | 關機檢查 | 查詢本地 uvicorn / Vite / trade 殘留程序 | 通過，未發現本輪啟動的殘留程序 |
 
+### 2026-05-04 AI 自動交易與 UI 文件清理紀錄
+
+本次清理目的：移除手冊中舊的 `symbol/testnet` 啟動範例與「測試網監控等同自動交易」的錯誤語意，將文件同步到目前 API / UI 的三種交易模式。
+
+| 文件 | 修改重點 |
+|---|---|
+| `02_STARTUP_AND_SHUTDOWN.md` | API 啟動 body 改為包含 `mode`、`auto_trade`、`load_ai_model`、`model_name`、`warmup_model`，並補 `trade/status` 查詢 |
+| `03_QUICKSTART.md` | 將 CLI `trade --testnet` 說明改為測試網監控；自動交易改指向 UI / API 的 `testnet_auto` |
+| `04_CLI_OPERATION.md` | 將 `trade` 語意改為監控 / 交易入口，避免把 CLI testnet 監控寫成已啟用自動送單 |
+| `05_API_USER_MANUAL.md` | 更新快速範例，加入 `/api/v1/trade/status` 與新交易啟動欄位 |
+| `06_FRONTEND_DASHBOARD.md` | Daily SOP 改為 `Monitor only` / `Testnet auto`，並要求 Refresh Status 後再停止 |
+| `14_TESTNET_AND_LIVE_TRADING.md` | 已同步 API / UI live guard：`ALLOW_LIVE_TRADING=1` + `confirm_live=I_UNDERSTAND_LIVE_RISK` |
+| `17_ENVIRONMENT_VARIABLES.md` | 新增 `ALLOW_LIVE_TRADING` 說明，並補 live 前確認條件 |
+| `20_UI_END_TO_END_OPERATION.md` | 已把 Trade Control 流程改為 mode/status/stop 的端到端驗收 |
+
+文件層完成狀態：AI 自動交易的操作文件已對齊目前第一階段功能；仍未把模型成效寫成已驗證，因為權重品質需等雲端訓練與回測後另行評估。
+
+### 2026-05-04 實際入口操作優先驗證紀錄
+
+本輪原則：不把完整 `tests/test_smoke.py` 當成通過門檻；改用使用者會真正操作的 CLI / API / Dashboard 入口驗證。
+
+| 實際入口 | 驗證內容 | 結果 |
+|---|---|---|
+| CLI | `python main.py status` | 通過；TradingEngine / BinanceFutures / NewsAnalyzer / SOPSystem / PlanController / PreTradeCheck / BacktestEngine 均為 `[OK]` |
+| API | `GET /api/v1/status` | 通過；`success=true`、`all_ok=true`、version `2.1` |
+| API | `GET /api/v1/trade/status` | 通過；未啟動時 `running=false`、`mode=stopped` |
+| API | `POST /api/v1/trade/start`，`mode=monitor_only`、`testnet=true` | 通過；回傳「交易監控已啟動 [測試網] BTCUSDT」，`running=true`、`auto_trade=false` |
+| API | `POST /api/v1/trade/stop` | 通過；停止後 `running=false`、`mode=stopped` |
+| Dashboard | `GET http://127.0.0.1:5173` | 通過；HTTP 200，代表本地 Dashboard dev server 可開啟 |
+| Frontend | `npm run build` / `npm run lint` | 通過；build 成功；lint exit code 0，保留 7 個既有 Fast Refresh warnings |
+| Smoke test | 完整 `tests/test_smoke.py` | 非主要 gate；本輪 5 分鐘超時，已停止殘留 pytest process，改以實際入口結果作為本階段驗收依據 |
+
 ---
 
 ## 6. 下一步
@@ -171,19 +207,20 @@
 |---|---|---|
 | `03_QUICKSTART.md` | `status`、`news`、`plan`、`pretrade`、`chat` | 通過；`pretrade` 正常回傳 `REJECT` 風控結果，屬有效操作結果 |
 | `04_CLI_OPERATION.md` | CLI help / status / data / simulate / backtest / news / plan / pretrade / chat | 通過；均可由目前 CLI 入口執行 |
-| `05_API_USER_MANUAL.md` | 本地 API `127.0.0.1:8001` 逐端點呼叫 | 通過；REST 端點與三個 WebSocket 端點均可連線並取得回應 |
+| `05_API_USER_MANUAL.md` | 本地 API 臨時測試埠 `127.0.0.1:8001` 逐端點呼叫 | 通過；REST 端點與三個 WebSocket 端點均可連線並取得回應。正式手冊仍以 `127.0.0.1:8000` / `localhost:8000` 為預設 |
 | `06_FRONTEND_DASHBOARD.md` | `npm run build`、本地 Vite HTTP 200、Docker frontend HTTP 200 | 通過；production build 成功 |
 | `07_DOCKER_DEPLOYMENT.md` | `docker compose config --quiet`、`docker compose run --rm status`、`docker compose run --rm backtest` | 部分通過；source compose 已修正並通過 config，舊 image 的 `backtest` 可執行；`simulate` 需等 image 重建後重跑 |
 | `08_BACKTEST_SYSTEM.md` | 短區間 `simulate` / `backtest`、API run、runtime 查詢 | 通過；產生實際 runtime |
 | `09_ANALYSIS_MODULE.md` | `news`、`plan`、`pretrade`、API `news` / `pretrade` | 通過；外部新聞可正常降級或回傳分析結果 |
 | `10_STRATEGY_MODULE.md` | `strategy-backtest` 短區間、API `/api/v1/backtest/strategy-run` | 通過；10 個策略模板均可執行並產生 runtime |
 | `11_RISK_MANAGEMENT.md` | `pretrade` 風控檢查與 Dashboard risk snapshot | 通過；風控結果可觀察，未繞過 REJECT |
-| `14_TESTNET_AND_LIVE_TRADING.md` | API `trade/start` + `trade/stop`，`testnet=true` | 通過；可啟動並停止測試網監控。Live 未執行，依手冊安全限制保留人工確認 |
+| `14_TESTNET_AND_LIVE_TRADING.md` | API `trade/start` + `trade/status` + `trade/stop`，`mode=monitor_only` / `testnet=true` | 通過；可啟動、查詢並停止測試網監控。Live 未執行，依手冊安全限制保留人工確認 |
 | `15_DATA_ACQUISITION.md` | `backtest-data`、API catalog / inspect | 通過；BTCUSDT 1h 本地資料可列出並載入 |
 | `16_RUNTIME_ARTIFACTS.md` | `backtest-runs`、runtime 目錄檢查 | 通過；可列出最新 runs，runtime 內含 summary/status/account/result/orders |
 | `17_ENVIRONMENT_VARIABLES.md` | `.env` 存在、`.env` 被 ignore、key 名稱檢查、`.env.example` 對齊 compose | 通過；未輸出任何 secret 值 |
 | `18_OPERATION_TROUBLESHOOTING.md` | CLI/API/Docker 狀態與殘留程序檢查 | 通過；本輪啟動的本地 API/Vite/trade 未殘留 |
 | `19_DASHBOARD_TROUBLESHOOTING.md` | API status、frontend HTTP、WebSocket 實際連線 | 通過；REST 與 WebSocket 入口可用 |
+| `20_UI_END_TO_END_OPERATION.md` | 文件已建立；API/HTTP/build 實際入口已驗證 | 部分通過；仍需 Playwright 或人工完成瀏覽器點擊驗收 |
 
 ### 2026-05-02 Docker image 重建前全面檢查
 

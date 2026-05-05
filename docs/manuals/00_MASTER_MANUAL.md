@@ -1,7 +1,7 @@
 # BioNeuronAI 系統主手冊 (Master Manual)
 
 > **版本**: v2.1  
-> **更新日期**: 2026-04-06  
+> **更新日期**: 2026-05-05
 > **系統狀態**: 目前正式主線文件
 
 ---
@@ -11,7 +11,9 @@
 - [🌟 1. 系統總覽](#🌟-1-系統總覽)
 - [🗺️ 2. 核心導覽地圖](#🗺-2-核心導覽地圖)
   - [🎯 入門與操作](#🎯-入門與操作)
+  - [📊 分析、策略與交易](#📊-分析策略與交易)
   - [🔌 API 與部署](#🔌-api-與部署)
+  - [📚 訓練與作業](#📚-訓練與作業)
   - [🧠 架構與全景](#🧠-架構與全景)
   - [🧪 測試與驗證](#🧪-測試與驗證)
 - [🏗️ 3. 架構哲學 (v2.1 核心精神)](#🏗-3-架構哲學-v21-核心精神)
@@ -40,14 +42,31 @@ BioNeuronAI 是一套面向加密貨幣期貨市場的 AI 交易系統。
 為了維持文件系統的單一事實來源 (Single Source of Truth)，我們將所有技術細節與操作守則分散拆解成各自獨立、專業的文件中。以下是您導航本專案的指標：
 
 ### 🎯 入門與操作
+* **[02_STARTUP_AND_SHUTDOWN.md](02_STARTUP_AND_SHUTDOWN.md)**: 開機與關機主入口，涵蓋本地 CLI、本地 API + Dashboard、Docker 的啟停流程。
 * **[03_QUICKSTART.md](03_QUICKSTART.md)**: ⭐ 新手必看。教您如何用最快的速度架設 Docker、設定 `.env`、並驗證系統是否正常啟動。
 * **[04_CLI_OPERATION.md](04_CLI_OPERATION.md)**: 🛠️ 實戰必看。收錄所有 CLI 驅動指令（如 `python main.py plan`）、以及如何透過 API 觸發自動化任務。
-* **[06_FRONTEND_DASHBOARD.md](06_FRONTEND_DASHBOARD.md)**: 🖥️ DevOps Dashboard 操作手冊。詳細說明 8 個面板（狀態/新聞/預交易/回測/AI對話/交易控制/API測試台/歷史紀錄）的使用方式。
+* **[06_FRONTEND_DASHBOARD.md](06_FRONTEND_DASHBOARD.md)**: 🖥️ DevOps Dashboard 操作手冊。詳細說明 Dashboard 的主要面板與操作視圖（狀態、新聞、預交易、回測、AI 對話、交易控制、API 測試台、歷史紀錄、資料目錄、風控設定）。
+* **[20_UI_END_TO_END_OPERATION.md](20_UI_END_TO_END_OPERATION.md)**: UI 端到端操作手冊。從開啟 Dashboard、確認狀態、跑資料目錄/回測/新聞/pretrade/chat，到 testnet 啟停與關機。
+
+### 📊 分析、策略與交易
+* **[08_BACKTEST_SYSTEM.md](08_BACKTEST_SYSTEM.md)**: 📈 回測系統專用指南。說明如何透過 Mock Connector 與 CLI 工具打磨交易策略，而不消耗真實資金。
+* **[09_ANALYSIS_MODULE.md](09_ANALYSIS_MODULE.md)**: 新聞、交易計畫與進場前驗核操作手冊，涵蓋 `news`、`plan`、`pretrade`。
+* **[10_STRATEGY_MODULE.md](10_STRATEGY_MODULE.md)**: 策略模組操作手冊，涵蓋 `strategy-backtest`、API `strategy-run` 與策略 runtime 輸出。
+* **[11_RISK_MANAGEMENT.md](11_RISK_MANAGEMENT.md)**: 🛡️ 風險管理使用手冊。涵蓋風險等級、倉位計算邏輯與 pretrade 風險解讀。
+* **[14_TESTNET_AND_LIVE_TRADING.md](14_TESTNET_AND_LIVE_TRADING.md)**: Testnet / live 交易啟停手冊，明確區分 `monitor_only`、`testnet_auto`、`live_auto` 與 live guard。
+* **[15_DATA_ACQUISITION.md](15_DATA_ACQUISITION.md)**: 歷史資料、catalog、inspect 與資料取得操作手冊。
+* **[16_RUNTIME_ARTIFACTS.md](16_RUNTIME_ARTIFACTS.md)**: runtime、logs、output、模型與資料產物位置手冊。
 
 ### 🔌 API 與部署
 * **[05_API_USER_MANUAL.md](05_API_USER_MANUAL.md)**: 📡 REST API 與 WebSocket 端點參考，含請求/回應範例與 PowerShell 指令。
-* **[07_DOCKER_DEPLOYMENT.md](07_DOCKER_DEPLOYMENT.md)**: 🐳 Docker Compose 部署指南。說明 9 個服務的啟動方式、`.env` 環境變數設定、Volume 備份與常見問題排除。
-* **[11_RISK_MANAGEMENT.md](11_RISK_MANAGEMENT.md)**: 🛡️ 風險管理使用手冊。涵蓋 4 個風險等級（CONSERVATIVE / MODERATE / AGGRESSIVE / HIGH_RISK）、倉位計算邏輯與警報系統說明。
+* **[07_DOCKER_DEPLOYMENT.md](07_DOCKER_DEPLOYMENT.md)**: 🐳 Docker Compose 部署指南。說明預設 8 個服務與 `trade` profile 服務的啟動方式、`.env` 環境變數設定、Volume 備份與常見問題排除。
+* **[17_ENVIRONMENT_VARIABLES.md](17_ENVIRONMENT_VARIABLES.md)**: `.env`、API key、交易安全開關與 Compose 環境變數手冊。
+* **[18_OPERATION_TROUBLESHOOTING.md](18_OPERATION_TROUBLESHOOTING.md)**: CLI、API、Docker、Backtest、Pretrade 操作排查手冊。
+* **[19_DASHBOARD_TROUBLESHOOTING.md](19_DASHBOARD_TROUBLESHOOTING.md)**: Dashboard、API 連線、CORS、WebSocket 與前端啟動排查手冊。
+
+### 📚 訓練與作業
+* **[12_NLP_TRAINING.md](12_NLP_TRAINING.md)**: NLP / TinyLLM / unified trainer 訓練手冊，屬訓練作業，不是一般日常操作主線。
+* **[13_CLOUD_TRAINING_RUNBOOK.md](13_CLOUD_TRAINING_RUNBOOK.md)**: 雲端 GPU 訓練 runbook，涵蓋 dry-run、resume 與 artifact 回收。
 
 ### 🧠 架構與全景
 * **[ARCHITECTURE_OVERVIEW.md](../ARCHITECTURE_OVERVIEW.md)**: 🗺️ 系統全局視野。解釋 v2.1 從資料獲取到訂單送出的全資料流。
@@ -55,7 +74,7 @@ BioNeuronAI 是一套面向加密貨幣期貨市場的 AI 交易系統。
 * **[SRC_DIRECTORY_ANALYSIS.md](../SRC_DIRECTORY_ANALYSIS.md)**: 📁 目錄結構詳解。告訴你每個資料夾為什麼存在、裡面放什麼。
 
 ### 🧪 測試與驗證
-* **[08_BACKTEST_SYSTEM.md](08_BACKTEST_SYSTEM.md)**: 📈 回測系統專用指南。說明如何透過 Mock Connector 與 CLI 工具打磨您的交易策略，而不消耗真實資金。
+* **[01_MANUAL_OPERATION_VERIFICATION_PLAN.md](01_MANUAL_OPERATION_VERIFICATION_PLAN.md)**: 使用者手冊實際入口驗收矩陣，記錄 CLI、API、Dashboard、Docker 與 UI 端到端驗證狀態。
 
 ---
 
@@ -86,6 +105,9 @@ BioNeuronAI 是一套面向加密貨幣期貨市場的 AI 交易系統。
 
 **💬 「我想知道怎麼啟動這個專案跑跑看...」**
 👉 左轉：[03_QUICKSTART.md](03_QUICKSTART.md)
+
+**💬 「我想只靠 UI 從開始操作到結束...」**
+👉 左轉：[20_UI_END_TO_END_OPERATION.md](20_UI_END_TO_END_OPERATION.md)
 
 **💬 「我想用自己寫的歷史策略來驗證勝率...」**
 👉 左轉：[08_BACKTEST_SYSTEM.md](08_BACKTEST_SYSTEM.md)
