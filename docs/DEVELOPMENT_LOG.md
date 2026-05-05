@@ -1,6 +1,120 @@
 # BioNeuronAI 開發日誌
 
-## 2026-05-02 — Meta-Learner 策略權重神經網路 初版整合
+## 2026-05-05 — NewsEventContract 事件合約系統 (Phase 1.2)
+
+### 📋 開發背景
+
+v2.2 Phase 1.2 的核心目標：讓新聞影響力具備「時間維度」，解決舊系統中「利多新聞影響力被無限期延長」的問題，並建立 Meta-Learner 訓練所需的真實 PnL 驗證閉環。
+
+---
+
+### ✅ 本次完成的工作
+
+#### 1. 新建 `event_contract.py`
+
+路徑：`src/bioneuronai/analysis/news/event_contract.py`
+
+| 類別 | 功能 | 重要設計 |
+|------|------|------|
+| `NewsEventContract` | 單一事件合約 | 指數/線性衰減、到期驗證、PnL 計算、訓練標籤生成 |
+| `NewsEventContractManager` | 合約管理員（單例） | JSON 持久化、彙總強度計算、驗證閉環、舊合約清理 |
+
+#### 2. 更新 `evaluator.py`
+
+- `RuleBasedEvaluator._create_event()` 在寫入 `event_memory` 資料庫後，同步呼叫 `NewsEventContractManager.create_contract()`
+- 新增 `get_aggregated_event_intensity(symbol)` 方法，直接返回可注入 Meta-Learner `event_features[6]` 的衰減值
+
+#### 3. 更新 `__init__.py`
+
+匯出 `NewsEventContract`, `NewsEventContractManager`, `get_contract_manager` 及衰減/緊急程度常量
+
+---
+
+### 🧠 技術設計說明
+
+#### 衰減計算
+
+```
+指數衰減（預設）：
+    impact(t) = initial_impact × 0.5^(elapsed_hours / decay_rate)
+    expires_at = created_at + decay_rate × 3（約降至初始值 12.5%）
+
+線性衰減：
+    impact(t) = initial_impact × (1 - elapsed_hours / total_hours)
+    expires_at = created_at + decay_hours
+```
+
+#### 訓練標籤生成（`validate()` 呼叫後）
+
+| 條件 | 標籤 |
+|------|------|
+| `|realized_pnl_pct| < 0.5%` | `negligible`（不納入訓練） |
+| 預測方向 ✓ 且正報酬 | `confirmed_bullish` |
+| 預測方向 ✓ 且負報酬 | `confirmed_bearish` |
+| 預測方向 ✗ | `false_signal` |
+
+#### 持久化路徑
+
+`data/bioneuronai/trading/sop/news_event_contracts.json`（原子寫入，先寫 .tmp 再替換）
+
+---
+
+### 🔄 如何使用
+
+#### 手動建立合約
+
+```python
+from bioneuronai.analysis.news import get_contract_manager, DECAY_EXPONENTIAL
+
+manager = get_contract_manager()
+contract = manager.create_contract(
+    event_type="HACK",
+    symbol="BTCUSDT",
+    headline="Major exchange hacked, $100M stolen",
+    initial_impact=-0.7,
+    decay_hours=24.0,           # 半衰期 24 小時
+    price_at_creation=65000.0,  # 建立時的 BTC 價格
+    decay_mode=DECAY_EXPONENTIAL,
+)
+```
+
+#### 取得衰減後的事件強度（注入 Meta-Learner）
+
+```python
+from bioneuronai.analysis.news import get_rule_evaluator
+
+evaluator = get_rule_evaluator()
+intensity = evaluator.get_aggregated_event_intensity("BTCUSDT")
+# intensity ∈ [-1.0, +1.0]，直接填入 feature_extractor.build_event_features(event_intensity=intensity)
+```
+
+#### 驗證閉環（定期排程）
+
+```python
+manager = get_contract_manager()
+validated = manager.validate_expired_contracts(
+    current_prices={"BTCUSDT": 64500.0, "ETHUSDT": 3100.0}
+)
+training_data = manager.get_training_data()  # 取得所有已驗證合約
+```
+
+---
+
+### ⚠️ 已知限制與後續步驟
+
+| 問題 | 建議處理 |
+|------|------|
+| `price_at_creation` 目前預設為 0（未自動填入） | 在 `TradingEngine` 呼叫 `RuleBasedEvaluator` 時傳入當前市場價格 |
+| `validate_expired_contracts()` 需外部定期呼叫 | 考慮掛載至 `TradingEngine` 的心跳（每小時執行一次）|
+| Meta-Learner `event_features[6]` 仍需顯式傳入 | 在 `strategy_fusion.py` 的 `generate_fusion_signal()` 呼叫 `get_aggregated_event_intensity()` |
+
+---
+
+*開發者：AI-assisted session*
+
+---
+
+
 
 ### 📋 開發背景
 

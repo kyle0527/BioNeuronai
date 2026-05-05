@@ -7,12 +7,15 @@
 - 情緒分析
 - 事件檢測
 - 規則式評估
+- 事件合約（時間維度影響力衰減）
 
 主要類別：
 - NewsArticle: 新聞文章數據類
 - NewsAnalysisResult: 分析結果數據類
 - CryptoNewsAnalyzer: 主要新聞分析器
 - RuleBasedEvaluator: 規則式事件評估器
+- NewsEventContract: 事件合約（衰減追蹤）
+- NewsEventContractManager: 合約管理員
 
 使用範例：
     from bioneuronai.analysis.news import (
@@ -22,6 +25,9 @@
         get_rule_evaluator,
         NewsArticle,
         NewsAnalysisResult,
+        NewsEventContract,
+        NewsEventContractManager,
+        get_contract_manager,
     )
     
     # 使用單例
@@ -29,9 +35,12 @@
     result = analyzer.analyze_news("BTCUSDT", hours=24)
     print(result.recommendation)
     
-    # 規則評估
+    # 規則評估（自動建立 NewsEventContract）
     evaluator = get_rule_evaluator()
     event = evaluator.evaluate_headline("Breaking: Exchange hacked!")
+    
+    # 取得衰減後的事件強度（供 Meta-Learner 使用）
+    intensity = evaluator.get_aggregated_event_intensity("BTCUSDT")
 
 遵循 CODE_FIX_GUIDE.md 規範
 """
@@ -52,6 +61,19 @@ from .evaluator import (
     EventRule,
 )
 
+# 事件合約（v2.2 Phase 1.2）
+from .event_contract import (
+    NewsEventContract,
+    NewsEventContractManager,
+    get_contract_manager,
+    DECAY_EXPONENTIAL,
+    DECAY_LINEAR,
+    URGENCY_CRITICAL,
+    URGENCY_HIGH,
+    URGENCY_MEDIUM,
+    URGENCY_LOW,
+)
+
 # 預測循環系統
 from .prediction_loop import NewsPredictionLoop  # ✅ 從新位置導入
 
@@ -67,6 +89,16 @@ __all__ = [
     "RuleBasedEvaluator",
     "get_rule_evaluator",
     "EventRule",
+    # 事件合約（v2.2 Phase 1.2）
+    "NewsEventContract",
+    "NewsEventContractManager",
+    "get_contract_manager",
+    "DECAY_EXPONENTIAL",
+    "DECAY_LINEAR",
+    "URGENCY_CRITICAL",
+    "URGENCY_HIGH",
+    "URGENCY_MEDIUM",
+    "URGENCY_LOW",
     # 預測循環
     "NewsPredictionLoop",  # ✅ 新增導出
 ]
