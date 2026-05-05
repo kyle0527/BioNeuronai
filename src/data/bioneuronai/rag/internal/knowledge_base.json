@@ -2622,6 +2622,174 @@
         "ingested_at": "2026-05-02T18:04:37.804425",
         "ingested_by": "NewsAdapter"
       }
+    },
+    {
+      "id": "news_btcusdt_0b09114c64c3e618",
+      "title": "Strategy Skips Bitcoin Buy as BTC Hits $80K for First Time Since January",
+      "content": "Bitcoin just hit its highest price in months, right as $65 billion treasury firm Strategy took a rare week off from BTC accumulation.",
+      "doc_type": "news_archive",
+      "created_at": "2026-05-05T09:39:42.068711",
+      "updated_at": "2026-05-05T09:39:42.068711",
+      "tags": [
+        "news",
+        "btcusdt",
+        "decrypt.co"
+      ],
+      "metadata": {
+        "symbol": "BTCUSDT",
+        "news_source": "decrypt.co",
+        "url": "https://decrypt.co/366624/strategy-skips-bitcoin-buy-btc-80k-first-time-since-january",
+        "published_at": "2026-05-04T14:39:48",
+        "analysis_hours": 24,
+        "overall_sentiment_score": 0.421,
+        "article_sentiment": "positive",
+        "article_sentiment_score": 1.0,
+        "importance_score": 9.3,
+        "relevance_score": 2.0,
+        "key_events": [],
+        "ingested_at": "2026-05-05T09:39:42.068637",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_btcusdt_0445436e6f256d3c",
+      "title": "Bitcoin in ‘disbelief rally’ as traders spot $84K BTC price target",
+      "content": "<p style=\"float:right; margin:0 0 10px 15px; width:240px;\"><img src=\"https://images.cointelegraph.com/images/528_aHR0cHM6Ly9wYXlsb2FkLmx1bS10cmkub3JnL2FwaS9hcnRpY2xlLWNvdmVycy9maWxlL3N3aW5nJTIwcHJpY2U",
+      "doc_type": "news_archive",
+      "created_at": "2026-05-05T09:39:42.068727",
+      "updated_at": "2026-05-05T09:39:42.068727",
+      "tags": [
+        "news",
+        "btcusdt",
+        "cointelegraph.com"
+      ],
+      "metadata": {
+        "symbol": "BTCUSDT",
+        "news_source": "cointelegraph.com",
+        "url": "https://cointelegraph.com/markets/bitcoin-in-disbelief-rally-as-traders-eye-84k-btc-price-next?utm_source=rss_feed&utm_medium=rss&utm_campaign=rss_partner_inbound",
+        "published_at": "2026-05-04T14:08:41",
+        "analysis_hours": 24,
+        "overall_sentiment_score": 0.421,
+        "article_sentiment": "positive",
+        "article_sentiment_score": 1.0,
+        "importance_score": 9.5,
+        "relevance_score": 2.0,
+        "key_events": [],
+        "ingested_at": "2026-05-05T09:39:42.068637",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_btcusdt_3bab7d6c621a4bf6",
+      "title": "Bitcoin price eyes $96K as institutions absorb 500% of daily BTC supply",
+      "content": "<p style=\"float:right; margin:0 0 10px 15px; width:240px;\"><img src=\"https://images.cointelegraph.com/images/528_aHR0cHM6Ly9wYXlsb2FkLmx1bS10cmkub3JnL2FwaS9hcnRpY2xlLWNvdmVycy9maWxlL0ItbWFuLWdyb3d0aC1",
+      "doc_type": "news_archive",
+      "created_at": "2026-05-05T09:39:42.068739",
+      "updated_at": "2026-05-05T09:39:42.068740",
+      "tags": [
+        "news",
+        "btcusdt",
+        "cointelegraph.com"
+      ],
+      "metadata": {
+        "symbol": "BTCUSDT",
+        "news_source": "cointelegraph.com",
+        "url": "https://cointelegraph.com/markets/bitcoin-price-eyes-96k-as-institutions-absorb-500-of-daily-btc-supply?utm_source=rss_feed&utm_medium=rss&utm_campaign=rss_partner_inbound",
+        "published_at": "2026-05-04T13:21:59",
+        "analysis_hours": 24,
+        "overall_sentiment_score": 0.421,
+        "article_sentiment": "neutral",
+        "article_sentiment_score": 0.421,
+        "importance_score": 8.14,
+        "relevance_score": 2.0,
+        "key_events": [],
+        "ingested_at": "2026-05-05T09:39:42.068637",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_btcusdt_fc222fcb2ea49ce6",
+      "title": "BTC price can ‘easily’ hit $95K: Five things to know in Bitcoin this week",
+      "content": "<p style=\"float:right; margin:0 0 10px 15px; width:240px;\"><img src=\"https://images.cointelegraph.com/images/528_aHR0cHM6Ly9wYXlsb2FkLmNvaW50ZWxlZ3JhcGguY29tL2FwaS9hcnRpY2xlLWNvdmVycy9maWxlL0JpdGNvaW5",
+      "doc_type": "news_archive",
+      "created_at": "2026-05-05T09:39:42.068754",
+      "updated_at": "2026-05-05T09:39:42.068755",
+      "tags": [
+        "news",
+        "btcusdt",
+        "cointelegraph.com"
+      ],
+      "metadata": {
+        "symbol": "BTCUSDT",
+        "news_source": "cointelegraph.com",
+        "url": "https://cointelegraph.com/markets/btc-price-can-easily-hit-95k-five-things-to-know-in-bitcoin-this-week?utm_source=rss_feed&utm_medium=rss&utm_campaign=rss_partner_inbound",
+        "published_at": "2026-05-04T11:05:33",
+        "analysis_hours": 24,
+        "overall_sentiment_score": 0.421,
+        "article_sentiment": "neutral",
+        "article_sentiment_score": 0.421,
+        "importance_score": 8.14,
+        "relevance_score": 2.0,
+        "key_events": [],
+        "ingested_at": "2026-05-05T09:39:42.068637",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_btcusdt_71465c5d293a5018",
+      "title": "Bitcoin turns risk on as stocks hit new highs and miner profits rise: Is $85K BTC next?",
+      "content": "<p style=\"float:right; margin:0 0 10px 15px; width:240px;\"><img src=\"https://images.cointelegraph.com/images/528_aHR0cHM6Ly9wYXlsb2FkLmx1bS10cmkub3JnL2FwaS9hcnRpY2xlLWNvdmVycy9maWxlL0JlaGluZCUyMEJpdGN",
+      "doc_type": "news_archive",
+      "created_at": "2026-05-05T09:39:42.068674",
+      "updated_at": "2026-05-05T09:39:42.068675",
+      "tags": [
+        "news",
+        "btcusdt",
+        "cointelegraph.com"
+      ],
+      "metadata": {
+        "symbol": "BTCUSDT",
+        "news_source": "cointelegraph.com",
+        "url": "https://cointelegraph.com/markets/bitcoin-turns-risk-on-as-stocks-hit-new-highs-and-miner-profits-rise-is-85k-btc-next?utm_source=rss_feed&utm_medium=rss&utm_campaign=rss_partner_inbound",
+        "published_at": "2026-05-04T23:24:17",
+        "analysis_hours": 24,
+        "overall_sentiment_score": 0.421,
+        "article_sentiment": "positive",
+        "article_sentiment_score": 0.36363636363636365,
+        "importance_score": 9.05,
+        "relevance_score": 2.0,
+        "key_events": [],
+        "ingested_at": "2026-05-05T09:39:42.068637",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_btcusdt_18aa35cd25f5b3f8",
+      "title": "Price predictions 5/4: SPX, DXY, BTC, ETH, XRP, BNB, SOL, DOGE, HYPE, ADA",
+      "content": "<p style=\"float:right; margin:0 0 10px 15px; width:240px;\"><img src=\"https://images.cointelegraph.com/images/528_aHR0cHM6Ly9wYXlsb2FkLmx1bS10cmkub3JnL2FwaS9hcnRpY2xlLWNvdmVycy9maWxlL3ByaWNlJTIwYW5hbHl",
+      "doc_type": "news_archive",
+      "created_at": "2026-05-05T09:39:42.068697",
+      "updated_at": "2026-05-05T09:39:42.068697",
+      "tags": [
+        "news",
+        "btcusdt",
+        "cointelegraph.com"
+      ],
+      "metadata": {
+        "symbol": "BTCUSDT",
+        "news_source": "cointelegraph.com",
+        "url": "https://cointelegraph.com/markets/price-predictions-54-spx-dxy-btc-eth-xrp-bnb-sol-doge-hype-ada?utm_source=rss_feed&utm_medium=rss&utm_campaign=rss_partner_inbound",
+        "published_at": "2026-05-04T18:39:10",
+        "analysis_hours": 24,
+        "overall_sentiment_score": 0.421,
+        "article_sentiment": "neutral",
+        "article_sentiment_score": 0.421,
+        "importance_score": 8.39,
+        "relevance_score": 2.0,
+        "key_events": [],
+        "ingested_at": "2026-05-05T09:39:42.068637",
+        "ingested_by": "NewsAdapter"
+      }
     }
   ]
 }

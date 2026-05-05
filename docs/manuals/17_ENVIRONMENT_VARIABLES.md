@@ -42,6 +42,11 @@ Test-Path .env
 | `API_PORT` | Docker API 對外 port | 否 |
 | `FRONTEND_PORT` | Docker frontend 對外 port | 否 |
 | `VITE_API_BASE_URL` | 前端 build 時寫入的 API URL | 否 |
+| `MODEL_PATH` / `MODEL_DIR` | 模型權重位置；可為本機路徑或 `gs://` 路徑 | 否 |
+| `TRAINING_OUTPUT_URI` | 雲端訓練完成後同步 artifacts 的 `gs://bucket/prefix` | 否 |
+| `BIONEURONAI_DB_PATH` | SQLite runtime DB 路徑；雲端容器應指向持久掛載 | 否 |
+| `GCP_SECRET_MANAGER_ENABLED` | 設為 `1` 時允許程式直接讀 GCP Secret Manager；預設建議用 secret injection | 否 |
+| `BINANCE_API_KEY_SECRET_NAME` / `BINANCE_API_SECRET_NAME` | GCP Secret Manager secret 名稱 | 是 |
 | `TRADE_SYMBOL` | Docker trade 預設交易對 | 否 |
 | `TRADE_ACTION` | Docker pretrade 預設方向 | 否 |
 | `BACKTEST_SYMBOL` | Docker backtest 預設交易對 | 否 |

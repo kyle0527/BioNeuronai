@@ -27,7 +27,7 @@ import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import torch
@@ -45,6 +45,7 @@ from nlp.tiny_llm import TinyLLM, TinyLLMConfig
 from nlp.bilingual_tokenizer import BilingualTokenizer
 from nlp.training.advanced_trainer import Trainer, TrainingConfig
 from nlp.training.trading_dialogue_data import ALL_TRADING_DATA
+from bioneuronai.data.cloud_storage import materialize_uri, upload_path
 
 
 # ============================================================================
@@ -330,6 +331,7 @@ def _write_run_manifest(
         "environment": {
             "TRAINING_JOB_ID": os.getenv("TRAINING_JOB_ID"),
             "CUDA_VISIBLE_DEVICES": os.getenv("CUDA_VISIBLE_DEVICES"),
+            "TRAINING_OUTPUT_URI": os.getenv("TRAINING_OUTPUT_URI"),
         },
     }
     with open(output_dir / "run_manifest.json", "w", encoding="utf-8") as f:
@@ -420,17 +422,18 @@ def train(
     epochs: int = 10,
     batch_size: int = 8,
     lr: float = 3e-4,
-    signal_data_path: Optional[Path] = None,
-    signal_val_data_path: Optional[Path] = None,
+    signal_data_path: Optional[Union[str, Path]] = None,
+    signal_val_data_path: Optional[Union[str, Path]] = None,
     output_dir: str = "./output/unified",
     save_to_model: bool = True,
     allow_synthetic_signal_data: bool = False,
-    base_model_path: Optional[Path] = None,
-    resume_from: Optional[Path] = None,
+    base_model_path: Optional[Union[str, Path]] = None,
+    resume_from: Optional[Union[str, Path]] = None,
     max_signal_samples: Optional[int] = None,
     seed: int = 42,
     save_steps: int = 500,
     gradient_accumulation_steps: int = 4,
+    cloud_output_uri: Optional[str] = None,
 ) -> None:
     """
     執行訓練。
@@ -448,21 +451,37 @@ def train(
                           允許用合成 signal 資料做 smoke test；正式訓練請保持 False
     """
     set_training_seed(seed)
-    model, tokenizer = build_model(base_model_path)
+    original_signal_data_path = str(signal_data_path) if signal_data_path else None
+    original_signal_val_data_path = str(signal_val_data_path) if signal_val_data_path else None
+    original_base_model_path = str(base_model_path) if base_model_path else None
+    original_resume_from = str(resume_from) if resume_from else None
+
+    resolved_signal_data_path = materialize_uri(signal_data_path) if signal_data_path else None
+    resolved_signal_val_data_path = materialize_uri(signal_val_data_path) if signal_val_data_path else None
+    resolved_base_model_path = materialize_uri(base_model_path) if base_model_path else None
+    resolved_resume_from = materialize_uri(resume_from) if resume_from else None
+
+    model, tokenizer = build_model(resolved_base_model_path)
     output_path = Path(output_dir)
+    cloud_output_uri = cloud_output_uri or os.getenv("TRAINING_OUTPUT_URI") or os.getenv("GCS_OUTPUT_URI")
     manifest_args = {
         "lm_only": lm_only,
         "sig_only": sig_only,
         "epochs": epochs,
         "batch_size": batch_size,
         "learning_rate": lr,
-        "signal_data_path": str(signal_data_path) if signal_data_path else None,
-        "signal_val_data_path": str(signal_val_data_path) if signal_val_data_path else None,
+        "signal_data_path": original_signal_data_path,
+        "signal_val_data_path": original_signal_val_data_path,
+        "resolved_signal_data_path": str(resolved_signal_data_path) if resolved_signal_data_path else None,
+        "resolved_signal_val_data_path": str(resolved_signal_val_data_path) if resolved_signal_val_data_path else None,
         "output_dir": output_dir,
+        "cloud_output_uri": cloud_output_uri,
         "save_to_model": save_to_model,
         "allow_synthetic_signal_data": allow_synthetic_signal_data,
-        "base_model_path": str(base_model_path) if base_model_path else None,
-        "resume_from": str(resume_from) if resume_from else None,
+        "base_model_path": original_base_model_path,
+        "resolved_base_model_path": str(resolved_base_model_path) if resolved_base_model_path else None,
+        "resume_from": original_resume_from,
+        "resolved_resume_from": str(resolved_resume_from) if resolved_resume_from else None,
         "max_signal_samples": max_signal_samples,
         "seed": seed,
         "save_steps": save_steps,
@@ -471,14 +490,14 @@ def train(
     _write_run_manifest(
         output_path,
         args=manifest_args,
-        signal_data_path=signal_data_path,
-        base_model_path=base_model_path or (_ROOT / "model" / "my_100m_model.pth"),
+        signal_data_path=resolved_signal_data_path,
+        base_model_path=resolved_base_model_path or (_ROOT / "model" / "my_100m_model.pth"),
         status="started",
     )
 
     multitask = (not lm_only) and (not sig_only)
 
-    if not lm_only and signal_data_path is None and not allow_synthetic_signal_data:
+    if not lm_only and resolved_signal_data_path is None and not allow_synthetic_signal_data:
         raise ValueError(
             "signal 任務需要真實資料。請使用 --signal-data 指定 JSONL，"
             "或顯式傳入 --allow-synthetic-signal-data 僅做 smoke test。"
@@ -515,7 +534,7 @@ def train(
     signal_dl = None
     if not lm_only:
         signal_dl = build_signal_dataloader(
-            signal_data_path,
+            resolved_signal_data_path,
             seq_len=cfg.signal_seq_len,
             batch_size=batch_size,
             allow_synthetic=allow_synthetic_signal_data,
@@ -530,9 +549,9 @@ def train(
         # 實際語言 loss 計算中 logits 形狀對不上時為 0，不影響訊號 loss
         train_dl = signal_dl
         cfg.multitask = False   # 關掉多任務，只計算訊號 loss
-        if signal_val_data_path is not None:
+        if resolved_signal_val_data_path is not None:
             val_dl = build_signal_dataloader(
-                signal_val_data_path,
+                resolved_signal_val_data_path,
                 seq_len=cfg.signal_seq_len,
                 batch_size=batch_size,
                 allow_synthetic=False,
@@ -545,7 +564,7 @@ def train(
         train_dataloader=train_dl,
         eval_dataloader=val_dl,
         signal_dataloader=signal_dl if multitask else None,
-        resume_from=resume_from,
+        resume_from=resolved_resume_from,
     )
 
     # sig_only 模式：覆寫 _train_epoch 使用訊號 loss
@@ -568,11 +587,14 @@ def train(
     _write_run_manifest(
         output_path,
         args=manifest_args,
-        signal_data_path=signal_data_path,
-        base_model_path=base_model_path or (_ROOT / "model" / "my_100m_model.pth"),
+        signal_data_path=resolved_signal_data_path,
+        base_model_path=resolved_base_model_path or (_ROOT / "model" / "my_100m_model.pth"),
         status="completed",
     )
     print(f"[unified_trainer] run manifest 已寫入 {output_path / 'run_manifest.json'}")
+    if cloud_output_uri:
+        upload_path(output_path, cloud_output_uri)
+        print(f"[unified_trainer] artifacts 已同步至 {cloud_output_uri}")
 
 
 # ============================================================================
@@ -606,6 +628,12 @@ def _parse_args() -> argparse.Namespace:
     p.add_argument("--save-steps", type=int, default=500, help="每幾個 optimizer step 保存 checkpoint")
     p.add_argument("--grad-accum", type=int, default=4, help="梯度累積步數")
     p.add_argument("--output",   type=str,   default="./output/unified", help="檢查點輸出目錄")
+    p.add_argument(
+        "--cloud-output-uri",
+        type=str,
+        default=None,
+        help="訓練完成後同步 output 目錄到 gs://bucket/prefix（也可用 TRAINING_OUTPUT_URI）",
+    )
     p.add_argument("--no-save",  action="store_true", help="不覆寫 model/my_100m_model.pth")
     return p.parse_args()
 
@@ -618,15 +646,16 @@ if __name__ == "__main__":
         epochs=args.epochs,
         batch_size=args.batch,
         lr=args.lr,
-        signal_data_path=Path(args.signal_data) if args.signal_data else None,
-        signal_val_data_path=Path(args.signal_val_data) if args.signal_val_data else None,
+        signal_data_path=args.signal_data,
+        signal_val_data_path=args.signal_val_data,
         output_dir=args.output,
         save_to_model=not args.no_save,
         allow_synthetic_signal_data=args.allow_synthetic_signal_data,
-        base_model_path=Path(args.base_model) if args.base_model else None,
-        resume_from=Path(args.resume) if args.resume else None,
+        base_model_path=args.base_model,
+        resume_from=args.resume,
         max_signal_samples=args.max_signal_samples,
         seed=args.seed,
         save_steps=args.save_steps,
         gradient_accumulation_steps=args.grad_accum,
+        cloud_output_uri=args.cloud_output_uri,
     )

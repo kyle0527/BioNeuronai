@@ -1,5 +1,5 @@
 # docs/ — 文檔索引
-> **更新日期**: 2026-04-17
+> **更新日期**: 2026-05-05
 
 ---
 
@@ -8,8 +8,8 @@
 <!-- toc -->
 
 - [🎯 核心指南 (必讀)](#%F0%9F%8E%AF-%E6%A0%B8%E5%BF%83%E6%8C%87%E5%8D%97-%E5%BF%85%E8%AE%80)
-- [� API 與操作手冊](#%F0%9F%94%8C-api-%E8%88%87%E6%93%8D%E4%BD%9C%E6%89%8B%E5%86%8A)
-- [�🗄️ 數據與存儲](#%F0%9F%97%84%EF%B8%8F-%E6%95%B8%E6%93%9A%E8%88%87%E5%AD%98%E5%84%B2)
+- [🔌 API 與操作手冊](#-api-與操作手冊)
+- [🗄️ 數據與存儲](#️-數據與存儲)
 - [🧠 策略與 RAG 系統](#%F0%9F%A7%A0-%E7%AD%96%E7%95%A5%E8%88%87-rag-%E7%B3%BB%E7%B5%B1)
 - [🛠️ 開發與治理](#%F0%9F%9B%A0%EF%B8%8F-%E9%96%8B%E7%99%BC%E8%88%87%E6%B2%BB%E7%90%86)
 - [📚 歸檔文件](#%F0%9F%93%9A-%E6%AD%B8%E6%AA%94%E6%96%87%E4%BB%B6)
@@ -35,24 +35,24 @@
 | [PROJECT_HANDOVER_MAP.md](PROJECT_HANDOVER_MAP.md) | 模組依賴圖與開發接手地圖 |
 | [SRC_DIRECTORY_ANALYSIS.md](SRC_DIRECTORY_ANALYSIS.md) | `src/` 目錄結構分析 |
 | [manuals/08_BACKTEST_SYSTEM.md](manuals/08_BACKTEST_SYSTEM.md) | 回測系統使用準則 |
-| [manuals/13_CLOUD_TRAINING_RUNBOOK.md](manuals/13_CLOUD_TRAINING_RUNBOOK.md) | 雲端 GPU 訓練準備、dry run、resume 與 artifact 回收流程 |
+| [manuals/13_CLOUD_TRAINING_RUNBOOK.md](manuals/13_CLOUD_TRAINING_RUNBOOK.md) | 雲端 GPU 訓練準備、真實資料短流程、resume 與 artifact 回收流程 |
 
 ---
 
-## � API 與操作手冊
+## 🔌 API 與操作手冊
 
 | 文檔 | 說明 |
 |------|------|
 | [manuals/05_API_USER_MANUAL.md](manuals/05_API_USER_MANUAL.md) | REST API 與 WebSocket 端點參考 |
-| [manuals/06_FRONTEND_DASHBOARD.md](manuals/06_FRONTEND_DASHBOARD.md) | DevOps Dashboard 操作手冊（8 個面板）|
-| [manuals/07_DOCKER_DEPLOYMENT.md](manuals/07_DOCKER_DEPLOYMENT.md) | Docker Compose 部署指南（9 個服務）|
+| [manuals/06_FRONTEND_DASHBOARD.md](manuals/06_FRONTEND_DASHBOARD.md) | DevOps Dashboard 操作手冊（狀態、新聞、預交易、回測、AI 對話、交易控制、API 測試台、歷史紀錄、資料目錄、風控設定）|
+| [manuals/07_DOCKER_DEPLOYMENT.md](manuals/07_DOCKER_DEPLOYMENT.md) | Docker Compose 部署指南（預設 8 個服務 + `trade` profile）|
 | [manuals/11_RISK_MANAGEMENT.md](manuals/11_RISK_MANAGEMENT.md) | 風險管理使用手冊（4 個風險等級）|
 | [manuals/09_ANALYSIS_MODULE.md](manuals/09_ANALYSIS_MODULE.md) | 分析模組操作手冊（news / plan / pretrade）|
 | [manuals/10_STRATEGY_MODULE.md](manuals/10_STRATEGY_MODULE.md) | 策略模組操作手冊（strategy-backtest）|
 
 ---
 
-## �🗄️ 數據與存儲
+## 🗄️ 數據與存儲
 
 | 文檔 | 說明 |
 |------|------|

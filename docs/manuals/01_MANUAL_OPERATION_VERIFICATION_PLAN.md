@@ -58,7 +58,7 @@
 | 風控 | `docs/manuals/11_RISK_MANAGEMENT.md` | 風險等級、倉位計算、pretrade 整合 | 可用，但偏概念，缺少可執行驗收步驟 |
 | RAG | `docs/RAG_TECHNICAL_MANUAL.md` | RAG 技術架構 | 技術手冊，不是使用者操作手冊 |
 | NLP 訓練 | `docs/manuals/12_NLP_TRAINING.md` | TinyLLM / unified trainer | 可用，但屬訓練手冊，不是日常操作 |
-| 雲端訓練 | `docs/manuals/13_CLOUD_TRAINING_RUNBOOK.md` | GPU 訓練 dry-run、resume、artifact 回收 | 可用，需與目前 signal tensor 狀態同步 |
+| 雲端訓練 | `docs/manuals/13_CLOUD_TRAINING_RUNBOOK.md` | GPU 訓練真實資料短流程、resume、artifact 回收 | 可用，需與目前 signal tensor 狀態同步 |
 | 架構 | `docs/ARCHITECTURE_OVERVIEW.md` | 模組與資料流 | 可用，非操作手冊 |
 | 交接 | `docs/PROJECT_HANDOVER_MAP.md` | 接手開發路徑 | 可用，非一般使用者手冊 |
 

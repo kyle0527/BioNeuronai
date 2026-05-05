@@ -28,27 +28,10 @@ RUN wget -q https://prdownloads.sourceforge.net/ta-lib/ta-lib-0.4.0-src.tar.gz \
 
 # Install Python dependencies into an isolated prefix
 WORKDIR /install
-COPY pyproject.toml ./
+COPY pyproject.toml requirements-lock.txt ./
 
 RUN pip install --upgrade pip --no-cache-dir \
-    && pip install --prefix=/install/pkg --no-cache-dir \
-        pydantic>=2.0.0 \
-        numpy>=1.24.0 \
-        pandas>=2.0.0 \
-        "torch>=2.0.0" \
-        "sentence-transformers>=2.0.0" \
-        "websocket-client>=1.7.0" \
-        "requests>=2.31.0" \
-        "python-dotenv>=1.0.0" \
-        "aiohttp>=3.9.0" \
-        "regex>=2023.0.0" \
-        "faiss-cpu>=1.7.0" \
-        "scikit-learn>=1.3.0" \
-        "fastapi>=0.111.0" \
-        "uvicorn[standard]>=0.30.0" \
-        "schedule>=1.2.0" \
-        ta-lib \
-    && pip install --prefix=/install/pkg --no-cache-dir -e ".[visualization,notifications]" 2>/dev/null || true
+    && pip install --prefix=/install/pkg --no-cache-dir -r requirements-lock.txt
 
 
 # ---------- Stage 2: runtime ----------

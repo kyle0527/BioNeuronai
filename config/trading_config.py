@@ -3,6 +3,42 @@
 import os
 
 
+def _load_gcp_secret(secret_name: str) -> str:
+    """Load a Secret Manager value when explicitly enabled.
+
+    Cloud Run / Vertex secret injection should still prefer plain environment
+    variables. This direct Secret Manager path is optional and only runs when
+    GCP_SECRET_MANAGER_ENABLED=1.
+    """
+    project_id = os.getenv("GCP_PROJECT_ID") or os.getenv("GOOGLE_CLOUD_PROJECT")
+    if not project_id:
+        return ""
+    try:
+        from google.cloud import secretmanager  # type: ignore
+    except Exception:
+        return ""
+
+    client = secretmanager.SecretManagerServiceClient()
+    name = f"projects/{project_id}/secrets/{secret_name}/versions/latest"
+    response = client.access_secret_version(request={"name": name})
+    return response.payload.data.decode("utf-8")
+
+
+def get_secret_value(env_name: str, secret_name_env: str) -> str:
+    """Resolve secrets from env first, then optional GCP Secret Manager."""
+    value = os.getenv(env_name, "")
+    if value:
+        return value
+
+    if os.getenv("GCP_SECRET_MANAGER_ENABLED", "").strip().lower() not in {"1", "true", "yes"}:
+        return ""
+
+    secret_name = os.getenv(secret_name_env, "")
+    if not secret_name:
+        return ""
+    return _load_gcp_secret(secret_name)
+
+
 def resolve_binance_testnet(default: bool = True) -> bool:
     """統一解析 BINANCE_TESTNET，避免不同模組各自解讀。"""
     raw_value = os.getenv("BINANCE_TESTNET", "")
@@ -27,8 +63,8 @@ def resolve_binance_testnet(default: bool = True) -> bool:
 #   export BINANCE_TESTNET="true"   # false = 主網
 # 或使用專案根目錄的 .env 檔（已加入 .gitignore）
 
-BINANCE_API_KEY = os.getenv("BINANCE_API_KEY", "")
-BINANCE_API_SECRET = os.getenv("BINANCE_API_SECRET", "")
+BINANCE_API_KEY = get_secret_value("BINANCE_API_KEY", "BINANCE_API_KEY_SECRET_NAME")
+BINANCE_API_SECRET = get_secret_value("BINANCE_API_SECRET", "BINANCE_API_SECRET_NAME")
 
 # 使用測試網 (Demo Trading)
 USE_TESTNET = resolve_binance_testnet(default=True)

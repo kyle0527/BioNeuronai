@@ -15,13 +15,15 @@
 # ============================================================
 
 ARG PYTORCH_IMAGE=pytorch/pytorch:2.4.1-cuda12.1-cudnn9-runtime
+ARG WORKSPACE_ROOT=/workspace
 FROM ${PYTORCH_IMAGE}
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONPATH=/workspace:/workspace/src
+    WORKSPACE_ROOT=${WORKSPACE_ROOT} \
+    PYTHONPATH=${WORKSPACE_ROOT}:${WORKSPACE_ROOT}/src
 
-WORKDIR /workspace
+WORKDIR ${WORKSPACE_ROOT}
 
 # TA-Lib is used by parts of the feature/trading stack. Build the native C
 # library once in the training image so cloud jobs do not fail at import time.
@@ -41,7 +43,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf ta-lib ta-lib-0.4.0-src.tar.gz \
     && ldconfig
 
-COPY pyproject.toml README.md ./
+COPY pyproject.toml requirements-lock.txt README.md ./
 COPY src/ ./src/
 COPY backtest/ ./backtest/
 COPY config/ ./config/
@@ -49,7 +51,8 @@ COPY tools/training/ ./tools/training/
 COPY main.py ./
 
 RUN python -m pip install --upgrade pip \
-    && python -m pip install --no-cache-dir -e ".[visualization]"
+    && python -m pip install --no-cache-dir -r requirements-lock.txt \
+    && python -m pip install --no-cache-dir --no-deps -e .
 
 ENTRYPOINT ["python", "-m", "nlp.training.unified_trainer"]
 CMD ["--help"]

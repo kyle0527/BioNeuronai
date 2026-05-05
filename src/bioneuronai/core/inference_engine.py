@@ -18,6 +18,7 @@ import torch
 import torch.nn as nn
 import numpy as np
 import logging
+import os
 import time
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Any, cast
@@ -26,6 +27,8 @@ from enum import Enum
 from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
+
+from ..data.cloud_storage import materialize_uri
 
 
 # ============================================================================
@@ -135,7 +138,8 @@ class ModelLoader:
         if model_dir is None:
             # : BioNeuronai/model/
             model_dir = Path(__file__).parent.parent.parent.parent / "model"
-        
+
+        self.project_root = Path(__file__).parent.parent.parent.parent
         self.model_dir = Path(model_dir)
         self.models: Dict[str, nn.Module] = {}
         self.active_model_name: Optional[str] = None
@@ -191,7 +195,7 @@ class ModelLoader:
         """依 checkpoint 自動選擇相容的模型類別與初始化參數。"""
         import sys
 
-        project_root = self.model_dir.parent
+        project_root = self.project_root
         src_path = str(project_root / "src")
         root_path = str(project_root)
         if src_path not in sys.path:
@@ -241,7 +245,7 @@ class ModelLoader:
             model_class:  None  HundredMillionModel
             model_kwargs: 
         """
-        model_path = self.model_dir / f"{model_name}.pth"
+        model_path = self._resolve_model_path(model_name)
         
         if not model_path.exists():
             raise FileNotFoundError(f": {model_path}")
@@ -290,6 +294,20 @@ class ModelLoader:
         self.active_model_name = model_name
         
         return cast(nn.Module, model)
+
+    def _resolve_model_path(self, model_name: str) -> Path:
+        """Resolve model path from MODEL_PATH/MODEL_DIR or the local model directory."""
+        env_model_path = os.getenv("MODEL_PATH") or os.getenv("BIONEURONAI_MODEL_PATH")
+        if env_model_path:
+            if env_model_path.endswith("/") or not Path(env_model_path).suffix:
+                return materialize_uri(f"{env_model_path.rstrip('/')}/{model_name}.pth")
+            return materialize_uri(env_model_path)
+
+        env_model_dir = os.getenv("MODEL_DIR") or os.getenv("BIONEURONAI_MODEL_DIR")
+        if env_model_dir:
+            return materialize_uri(f"{env_model_dir.rstrip('/')}/{model_name}.pth")
+
+        return self.model_dir / f"{model_name}.pth"
     
     def get_model(self, model_name: Optional[str] = None) -> nn.Module:
         """"""

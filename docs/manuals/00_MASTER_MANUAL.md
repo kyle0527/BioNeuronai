@@ -66,7 +66,7 @@ BioNeuronAI 是一套面向加密貨幣期貨市場的 AI 交易系統。
 
 ### 📚 訓練與作業
 * **[12_NLP_TRAINING.md](12_NLP_TRAINING.md)**: NLP / TinyLLM / unified trainer 訓練手冊，屬訓練作業，不是一般日常操作主線。
-* **[13_CLOUD_TRAINING_RUNBOOK.md](13_CLOUD_TRAINING_RUNBOOK.md)**: 雲端 GPU 訓練 runbook，涵蓋 dry-run、resume 與 artifact 回收。
+* **[13_CLOUD_TRAINING_RUNBOOK.md](13_CLOUD_TRAINING_RUNBOOK.md)**: 雲端 GPU 訓練 runbook，涵蓋真實資料短流程、resume 與 artifact 回收。
 
 ### 🧠 架構與全景
 * **[ARCHITECTURE_OVERVIEW.md](../ARCHITECTURE_OVERVIEW.md)**: 🗺️ 系統全局視野。解釋 v2.1 從資料獲取到訂單送出的全資料流。

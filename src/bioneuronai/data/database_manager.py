@@ -21,6 +21,7 @@
 import sqlite3
 import json
 import logging
+import os
 from typing import Dict, List, Optional, Any, Tuple, cast
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -31,6 +32,17 @@ from .._paths import resolve_project_path
 
 logger = logging.getLogger(__name__)
 
+DEFAULT_DB_PATH = "data/bioneuronai/trading/runtime/trading.db"
+
+
+def default_database_path() -> str:
+    """Resolve database path for local or mounted cloud runtime storage."""
+    return (
+        os.getenv("BIONEURONAI_DB_PATH")
+        or os.getenv("DATABASE_PATH")
+        or DEFAULT_DB_PATH
+    )
+
 
 class DatabaseManager:
     """交易系統數據庫管理器"""
@@ -38,7 +50,7 @@ class DatabaseManager:
     # 常量定義
     SYMBOL_FILTER = " AND symbol = ?"
     
-    def __init__(self, db_path: str = "data/bioneuronai/trading/runtime/trading.db", backup_enabled: bool = True):
+    def __init__(self, db_path: Optional[str] = None, backup_enabled: bool = True):
         """
         初始化數據庫管理器
         
@@ -46,7 +58,7 @@ class DatabaseManager:
             db_path: 數據庫文件路徑
             backup_enabled: 是否啟用 JSONL 備份
         """
-        self.db_path = resolve_project_path(db_path)
+        self.db_path = resolve_project_path(db_path or default_database_path())
         self.db_path.parent.mkdir(exist_ok=True, parents=True)
         
         self.backup_enabled = backup_enabled
@@ -1383,10 +1395,10 @@ _db_manager: Optional[DatabaseManager] = None
 _db_path_cache: Optional[str] = None
 
 
-def get_database_manager(db_path: str = "data/bioneuronai/trading/runtime/trading.db") -> DatabaseManager:
+def get_database_manager(db_path: Optional[str] = None) -> DatabaseManager:
     """獲取數據庫管理器單例"""
     global _db_manager, _db_path_cache
-    normalized_path = str(resolve_project_path(db_path))
+    normalized_path = str(resolve_project_path(db_path or default_database_path()))
     
     # 如果路徑變了，重新創建
     if _db_manager is None or _db_path_cache != normalized_path:

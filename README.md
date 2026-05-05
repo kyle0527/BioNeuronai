@@ -58,7 +58,7 @@ python -m bioneuronai.cli.main chat --symbol BTCUSDT --language zh
 | Docker API status | `all_ok=true` | `GET /api/v1/status` |
 | API / Frontend Docker | 已可啟動 | `docker-compose.yml` |
 | Pretrade API | 成功完成檢查並因風控條件 `REJECT` | `POST /api/v1/pretrade` |
-| 回測績效 | 待雲端訓練完成後實測 | 訓練資料已備妥（BTC+ETH 2020-2024，50k 筆），dry-run ✅ |
+| 回測績效 | 待雲端訓練完成後實測 | 訓練資料已備妥於本機 `data/processed/`；上雲前需上傳到 GCS |
 | 推論延遲 | 待固定硬體基準測試 | [docs/TESTING_AND_VALIDATION_GUIDE.md](docs/TESTING_AND_VALIDATION_GUIDE.md) |
 
 ## 🧭 深度閱讀
@@ -68,10 +68,10 @@ python -m bioneuronai.cli.main chat --symbol BTCUSDT --language zh
 - [Architecture Overview](docs/ARCHITECTURE_OVERVIEW.md): 正式主線架構。
 - [Quickstart v2.1](docs/manuals/03_QUICKSTART.md): 本地與 Docker 操作。
 
-**最後更新**: 2026年4月30日<br>
-**版本**: v2.1 (TinyLLM 雙模態 + 訓練系統整合版)
+**最後更新**: 2026年5月5日<br>
+**版本**: v2.1 正式主線 / v2.2 雲端訓練過渡期
 
-> **部署狀態（2026-04-23）**：`bioneuron-api`（port 8000）與 `bioneuron-frontend`（port 3000）雙容器已部署並 healthy。`frontend/devops-d/` 為第一階段前端主線；`frontend/admin-da/` 與 `frontend/trading/` 暫緩。正式交易部署前仍需 Futures 帳戶充值、CORS origin 設定與完整回測驗收。詳見 [部署準備紀錄](archived/reports/DEPLOYMENT_READINESS_RECORD_20260417.md)。
+> **部署狀態（2026-05-05）**：`frontend/devops-d/` 是第一階段前端主線；API、frontend build、交易 start/status/stop、testnet monitor 流程已用實際入口驗證。Docker source compose 已檢查，但 image 層仍需重建後複驗；UI 端到端仍需 Playwright 或人工瀏覽器點擊驗收。`frontend/admin-da/` 與 `frontend/trading/` 保留原始碼，暫不列入第一階段部署驗收。
 
 ---
 
@@ -699,7 +699,7 @@ python tools/demo_strategy_evolution.py
 | **回測引擎** | ✅ 完成 | BacktestEngine + MockConnector |
 | **特徵工程** | ✅ 完成 | 1024 維特徵（10 類） |
 | **策略融合** | ✅ 完成 | 六大策略 + AI Fusion |
-| **AI 模型訓練** | ✅ 資料就緒 | 50,000 筆 signal 訓練資料已收集、打包（signal_train.pt），dry-run 驗證通過，待雲端 GPU 訓練 |
+| **AI 模型訓練** | 🟡 資料就緒 | signal tensor 已在本機 `data/processed/` 產出；需上傳到 GCS 並用雲端訓練 job 完成實際操作驗證 |
 
 ---
 
