@@ -287,7 +287,7 @@ class RuleBasedEvaluator:
         source_confidence: float,
         affected_symbols: Optional[str]
     ) -> Dict[str, Any]:
-        """創建事件並存入資料庫"""
+        """創建事件並存入資料庫，同步建立 NewsEventContract"""
         # 生成事件 ID
         event_id = hashlib.md5(
             f"{rule.event_type}_{headline}".encode()
@@ -318,8 +318,42 @@ class RuleBasedEvaluator:
             raise RuntimeError(f"事件已匹配但寫入 event_memory 失敗: {headline[:80]}")
 
         logger.info(f"🧠 事件已記錄: [{rule.event_type}] {headline[:40]}...")
-        
+
+        # 同步建立 NewsEventContract（衰減時間管理）
+        self._create_event_contract(
+            rule=rule,
+            headline=headline,
+            affected_symbols=affected_symbols,
+        )
+
         return event_info
+
+    def _create_event_contract(
+        self,
+        rule: EventRule,
+        headline: str,
+        affected_symbols: Optional[str],
+    ) -> None:
+        """為偵測到的事件建立 NewsEventContract（失敗不影響主流程）"""
+        try:
+            # 延遲導入以避免同套件內的循環依賴（evaluator <-> event_contract）
+            from .event_contract import get_contract_manager
+
+            manager = get_contract_manager()
+            # 從 affected_symbols 取第一個交易對；若無則使用通用符號 "CRYPTO"
+            symbol = "CRYPTO"
+            if affected_symbols:
+                symbol = affected_symbols.split(",")[0].strip().upper() or "CRYPTO"
+
+            manager.create_contract(
+                event_type=rule.event_type,
+                symbol=symbol,
+                headline=headline,
+                initial_impact=rule.base_score,
+                decay_hours=float(rule.decay_hours),
+            )
+        except Exception as exc:
+            logger.warning("建立 NewsEventContract 失敗（不中斷主流程）: %s", exc)
     
     def _check_termination_keywords(self, headline_lower: str) -> None:
         """檢查是否有事件結束關鍵字，自動解析相關事件 (Hard Stop)"""
@@ -348,6 +382,29 @@ class RuleBasedEvaluator:
             (total_score, active_events_list)
         """
         return self._require_db().calculate_total_event_score(symbol)
+
+    def get_aggregated_event_intensity(
+        self, symbol: Optional[str] = None
+    ) -> float:
+        """
+        從 NewsEventContractManager 取得衰減後的彙總事件強度。
+
+        用於 Meta-Learner feature_extractor 的 event_intensity 欄位（[6] 維）。
+
+        Args:
+            symbol: 過濾特定交易對；None 取所有有效合約的彙總值
+
+        Returns:
+            彙總影響力 [-1.0, +1.0]，無有效合約時返回 0.0
+        """
+        try:
+            # 延遲導入以避免同套件內的循環依賴（evaluator <-> event_contract）
+            from .event_contract import get_contract_manager
+
+            return get_contract_manager().get_aggregated_intensity(symbol=symbol)
+        except Exception as exc:
+            logger.warning("取得事件強度失敗: %s", exc)
+            return 0.0
     
     def evaluate_news_batch(self, articles: List[NewsArticle]) -> List[Dict[str, Any]]:
         """
