@@ -1,7 +1,7 @@
 # 分析模組 — 關鍵字系統 (Keywords)
 
 > **路徑**: `src/bioneuronai/analysis/keywords/`  
-> **更新日期**: 2026-04-20
+> **更新日期**: 2026-05-12
 > **文件焦點**: 子模組內部 API、資料流與持久化（分層說明請看上層 [analysis README](../README.md)）
 
 ## 目錄
@@ -104,8 +104,8 @@ keywords/
 4. `KeywordManager` 同時處理：
    - `find_matches()`
    - `record_prediction()` / `verify_prediction()`
-   - `get_importance_score()` / `get_sentiment_bias()`
    - `update_keywords_from_trending()` / `refresh_stale_keywords()`
+   - （`get_importance_score()` / `get_sentiment_bias()` 等高階查詢方法已移至 `MarketKeywords` 類別）
 5. `KeywordLearner` 主要處理較慢的學習回饋流程：
    - `log_prediction()`
    - `validate_and_learn()`

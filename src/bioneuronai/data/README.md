@@ -1,8 +1,8 @@
 # 數據基礎設施模組 (Data Infrastructure)
 
 **路徑**: `src/bioneuronai/data/`  
-**版本**: v2.1
-**更新日期**: 2026-04-20
+**版本**: v2.2.0
+**更新日期**: 2026-05-13
 **架構層級**: Layer 0 — 基礎設施層
 
 ---
@@ -35,6 +35,7 @@
 ```python
 from bioneuronai.data import (
     BinanceFuturesConnector,   # 交易所 API 連接器
+    PaperBinanceFuturesConnector, # 主網行情 + 本地虛擬成交
     ExchangeRateService,       # 即時匯率服務
     DatabaseManager,           # 統一數據庫管理器
     get_database_manager,      # 數據庫管理器工廠函式
@@ -51,6 +52,8 @@ from bioneuronai.data import (
 src/bioneuronai/data/
 ├── __init__.py                 # 模組入口
 ├── binance_futures.py          # Binance Futures API 連接器
+├── paper_binance.py            # paper-live：主網行情 + 本地虛擬成交
+├── cloud_storage.py            # GCS / gs:// artifact materialization helper
 ├── database_manager.py         # 統一數據庫管理器
 ├── database.py                 # 舊版數據庫接口（保留中）
 ├── exchange_rate_service.py    # 即時匯率服務
@@ -66,13 +69,15 @@ src/bioneuronai/data/
 檔案對照：
 1. [__init__.py](__init__.py)
 2. [binance_futures.py](binance_futures.py)
-3. [database_manager.py](database_manager.py)
-4. [database.py](database.py)
-5. [exchange_rate_service.py](exchange_rate_service.py)
-6. [web_data_fetcher.py](web_data_fetcher.py)
-7. [news_data_fetcher.py](news_data_fetcher.py)
-8. [sync_external_fetcher.py](sync_external_fetcher.py)
-9. [USAGE_GUIDE.md](USAGE_GUIDE.md)
+3. [paper_binance.py](paper_binance.py)
+4. [cloud_storage.py](cloud_storage.py)
+5. [database_manager.py](database_manager.py)
+6. [database.py](database.py)
+7. [exchange_rate_service.py](exchange_rate_service.py)
+8. [web_data_fetcher.py](web_data_fetcher.py)
+9. [news_data_fetcher.py](news_data_fetcher.py)
+10. [sync_external_fetcher.py](sync_external_fetcher.py)
+11. [USAGE_GUIDE.md](USAGE_GUIDE.md)
 
 這個資料夾目前沒有更深一層的 README 子文件，因此本文件直接維護到檔案與公開服務層級。
 
@@ -113,6 +118,25 @@ connector.close_all_connections()        # 關閉所有 WebSocket 連接
 ```
 
 **安全特性**: HMAC-SHA256 請求簽名 · 速率限制 · 斷線自動重連（最多 10 次）
+
+---
+
+### `paper_binance.py` — Paper-live 連接器
+
+`PaperBinanceFuturesConnector` 繼承 Binance futures connector 的正式行情讀取能力，但覆寫帳戶與下單路徑：
+
+- 市場資料：仍讀 Binance mainnet public market data。
+- 下單：寫入 `VirtualAccount`，不呼叫 Binance order API。
+- 記錄：輸出至 `data/bioneuronai/trading/paper_live/orders.jsonl` 與 `account_snapshots.jsonl`。
+- 狀態：`get_paper_state()` 回傳虛擬帳戶、持倉、掛單、統計與 log 目錄。
+
+此檔案是 UI/API `paper_live` 模式的執行層，目的是真實行情環境下做長時間觀察與策略改進，同時避免真實資金風險。
+
+---
+
+### `cloud_storage.py` — Cloud artifact materialization
+
+提供本機路徑與 `gs://` artifact 的 materialize helper，主要供模型 promote、訓練產物接回 runtime 時使用。
 
 ---
 
@@ -428,6 +452,6 @@ asyncio.run(main())
 
 ---
 
-**最後更新**: 2026 年 4 月 19 日
+**最後更新**: 2026 年 5 月 13 日
 
 > 📖 上層目錄：[src/bioneuronai/README.md](../README.md)

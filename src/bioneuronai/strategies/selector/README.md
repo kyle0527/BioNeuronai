@@ -1,7 +1,7 @@
 # 策略選擇器子模組 (`selector/`)
 
 **路徑**: `src/bioneuronai/strategies/selector/`  
-**更新日期**: 2026-04-20
+**更新日期**: 2026-05-11
 **架構層級**: `strategies/` 內的策略選擇子模組  
 **定位**: 根據市場體制、波動率、策略適配度與可選事件資訊，輸出策略推薦或詳細策略組合結果
 
@@ -156,6 +156,18 @@ src/bioneuronai/strategies/selector/
 
 - 這些是**配置模板**
 - 不是所有模板都必然對應到 `strategies/` 內有完整的即時實例策略類
+
+### `profile.py` (🆕 `v2.2.0`)
+
+管理 **Golden Strategy Profile** 的生成與載入：
+
+- `GoldenStrategyProfile`: 存放整合後的策略配置結構
+- `GoldenProfileManager`: 負責 I/O 與套用邏輯
+
+職責：
+- 從回測結果的 Ranking 中提取最優策略並聚合權重 (`StrategyType.value`)
+- 保存 `config/golden_strategy_profile.json`
+- 實盤時將這些權重與 `regime_overrides` 注入到 `StrategySelector` 中
 
 ### `types.py`
 

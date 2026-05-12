@@ -1,8 +1,8 @@
-# BioNeuronai DevOps Dashboard 操作手冊
+# BioNeuronai Operations Dashboard 操作手冊
 
 > **版本**：v2.1  
-> **更新日期**：2026-05-05
-> **存取網址**：`http://localhost:3000`  
+> **更新日期**：2026-05-13
+> **存取網址**：Docker `http://localhost:3000`；本地 Vite 依終端機輸出，常見 `http://localhost:5173` 或 `http://127.0.0.1:5176`
 > **後端 API**：`http://localhost:8000`
 
 ---
@@ -16,12 +16,14 @@
   - [驗證](#驗證)
 - [3. 整體介面說明](#3-整體介面說明)
 - [4. 各面板操作說明](#4-各面板操作說明)
+  - [OperationsOverviewPanel — 操作總覽](#operationsoverviewpanel-操作總覽)
   - [StatusPanel — 系統狀態](#statuspanel-系統狀態)
   - [NewsPanel — 新聞分析](#newspanel-新聞分析)
   - [PreTradePanel — 進場前驗核](#pretradepanel-進場前驗核)
   - [BacktestPanel — 回測](#backtestpanel-回測)
   - [ChatPanel — AI 對話助理](#chatpanel-ai-對話助理)
   - [TradeControlPanel — 交易控制](#tradecontrolpanel-交易控制)
+  - [TrainingPanel — 訓練與模型](#trainingpanel-訓練與模型)
   - [APIPlayground — API 測試台](#apiplayground-api-測試台)
   - [RequestHistoryPanel — 請求歷史](#requesthistorypanel-請求歷史)
   - [DataCatalogPanel — 資料目錄（備用）](#datacatalogpanel-資料目錄備用)
@@ -36,14 +38,15 @@
 
 ## 1. 概述
 
-BioNeuronai DevOps Dashboard 是一個 **React 19 + Vite 7** 前端應用，由 nginx 服務於 `port 3000`。它提供：
+BioNeuronai Operations Dashboard 是一個 **React 19 + Vite 7** 前端應用。Docker 模式由 nginx 服務於 `port 3000`；本地開發模式由 Vite 提供，port 會依可用性落在 `5173-5180`。它提供：
 
-- **系統健康狀態** 即時監控
+- **Operations Overview**：API 健康、runtime mode、執行目標、模型狀態、paper-live 帳戶
 - **新聞情緒分析** 視覺化
 - **進場前驗核** 操作
 - **回測執行** 與結果查看
 - **AI 交易對話** 介面
 - **交易控制**（啟動/停止監控）
+- **訓練與模型操作**（登記雲端訓練、查狀態、promote 模型）
 - **API 測試台**（直接呼叫所有端點）
 - **請求歷史紀錄**
 - **資料目錄**（備用資料檢視）
@@ -76,11 +79,11 @@ npm install
 npm run dev
 ```
 
-開發伺服器預設啟動於 `http://localhost:5173`。
+開發伺服器通常啟動於 `http://localhost:5173`；若該 port 被占用，Vite 會改用下一個可用 port，例如 `http://127.0.0.1:5176`。
 
 ### 驗證
 
-進入 `http://localhost:3000`，頁面應在 2 秒內顯示「系統狀態」面板，並顯示主要後端模組狀態。模組清單以 `GET /api/v1/status` 實際回應為準，常見項目包含 TradingEngine、BinanceFutures、NewsAnalyzer、SOPSystem、PreTradeCheck。
+進入前端網址後，頁面應顯示 `BioNeuronAI Operations`，第一個 tab 為 `Operations`，並在 `Operations Overview` 顯示 API 健康、runtime mode、執行目標與模型狀態。模組清單以 `GET /api/v1/status` 實際回應為準，常見項目包含 TradingEngine、BinanceFutures、NewsAnalyzer、SOPSystem、PreTradeCheck。
 
 若看到 `Failed to fetch` 或網路錯誤，代表 API 伺服器（port 8000）尚未啟動。
 
@@ -88,33 +91,42 @@ npm run dev
 
 ## 3. 整體介面說明
 
-Dashboard 採用左側導覽列 + 右側主內容區佈局。
+Dashboard 採用上方 tab + 分區面板佈局。
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│  BIONEURONAI                                            │
+│  BioNeuronAI Operations                     API Badge   │
 ├──────────┬──────────────────────────────────────────────┤
-│          │                                              │
-│  左側    │  主內容區（選中的面板）                      │
-│  導覽列  │                                              │
-│          │                                              │
-│  • 狀態  │                                              │
-│  • 新聞  │                                              │
-│  • PreT  │                                              │
-│  • 回測  │                                              │
-│  • 對話  │                                              │
-│  • 交易  │                                              │
-│  • API   │                                              │
-│  • 歷史  │                                              │
-│          │                                              │
+│ Operations │ Validation │ Config │ Dev Tools │ Chat     │
+├──────────┴──────────────────────────────────────────────┤
+│  Operations：Overview / Trade / PreTrade / News          │
+│  Validation：Backtest / Data Catalog / Training          │
+│  Config：Status / Risk Config                            │
+│  Dev Tools：API Playground / Request History             │
 └──────────┴──────────────────────────────────────────────┘
 ```
 
-點選左側選項即可切換面板，各面板獨立運作。
+點選上方 tab 可切換主區域；`Operations` 是日常監控和交易控制入口，`Dev Tools` 才是 API 調試與 request history。
 
 ---
 
 ## 4. 各面板操作說明
+
+### OperationsOverviewPanel — 操作總覽
+
+**功能：** 第一屏總覽目前 API、交易 runtime、執行層、模型與 paper-live 狀態。
+
+**顯示重點：**
+
+| 區塊 | 說明 |
+|---|---|
+| Runtime | `running`、`mode`、symbol、auto trade |
+| Execution | 是否不下單、paper ledger、testnet 或 live mainnet |
+| Model | active model、模型檔是否存在、目前 engine 是否已載入 |
+| Health | API modules、unavailable count、dashboard risk snapshot |
+| Paper | `paper_live` 時顯示 balance、equity、positions、orders、log path |
+
+此面板使用 `GET /api/v1/status`、`GET /api/v1/trade/status`、`GET /api/v1/model/status`、`GET /api/v1/dashboard`。若其中任一 API 失敗，先依 [19_DASHBOARD_TROUBLESHOOTING.md](19_DASHBOARD_TROUBLESHOOTING.md) 排查 API URL、CORS 與後端進程。
 
 ### StatusPanel — 系統狀態
 
@@ -273,15 +285,15 @@ Dashboard 採用左側導覽列 + 右側主內容區佈局。
 
 ### TradeControlPanel — 交易控制
 
-**功能：** 啟動/停止 Binance 交易監控，並可選擇是否啟用自動交易與 AI 模型權重。
+**功能：** 啟動/停止 Binance 交易監控，並可選擇監控、paper-live、testnet auto 或 live auto。AI 模型預設載入；自動交易模式會由後端強制載入模型。
 
 > **⚠️ 風險警示：此面板可觸發真實交易，請謹慎操作。**
 
 **操作步驟（測試）：**
 1. 進入「交易控制」面板
-2. `Mode` 選擇 `Monitor only` 或 `Testnet auto`
+2. `Mode` 選擇 `Monitor only`、`Paper live` 或 `Testnet auto`
 3. Symbol 輸入交易對（如 `BTCUSDT`）
-4. 若要讓 AI 權重參與訊號，開啟 `Load AI Model`，Model 預設為 `my_100m_model`
+4. 預設 `Load AI Model` 為開啟，Model 預設為 `my_100m_model`
 5. 點選「**Start Trading**」
 6. 點選「**Refresh Status**」確認 `running=true`，且 `engine.auto_trade` 符合模式
 7. 點選「**Stop Trading**」結束
@@ -304,8 +316,39 @@ Dashboard 採用左側導覽列 + 右側主內容區佈局。
 | Mode | testnet | auto_trade | 用途 |
 |---|---:|---:|---|
 | `Monitor only` | 可選 | false | 只監控 WebSocket 與訊號，不自動送單 |
+| `Paper live` | false | true | 使用 Binance mainnet 行情，但訂單只寫入本地虛擬帳戶 |
 | `Testnet auto` | true | true | 測試網自動交易；需要 Binance testnet key |
 | `Live auto` | false | true | 正式網自動交易；需要環境變數與確認字串 |
+
+`Paper live` 的紀錄會寫入 `data/bioneuronai/trading/paper_live/`。這是目前建議用來長時間觀察真實行情與策略行為的模式；它不會讓 AI 知道自己在模擬，差異只在 execution connector 不送出真實 Binance order。
+
+---
+
+### TrainingPanel — 訓練與模型
+
+**功能：** 銜接雲端訓練與 runtime 模型載入。此面板不取代雲端訓練平台；遠端訓練仍以 CLI / Docker / GCS 為主。
+
+**遠端訓練登記：**
+1. Mode 選 `External`
+2. Job 填入作業名稱，例如 `cloud-training`
+3. Cloud Job ID 填入 Vertex / GCE / 其他遠端 run id
+4. Signal Train / Signal Val 填入本機或 `gs://` 訓練資料路徑
+5. Cloud Output 填入 artifacts 目標，例如 `gs://YOUR_BUCKET/bioneuronai/training-runs/run-001`
+6. 點選 `Start / Register`
+7. 使用 `Job Status` 讀取目前 API 追蹤狀態
+
+**模型 promote：**
+1. Model 填入 `my_100m_model`
+2. Model Path 填入訓練完成的 `.pth` 或模型目錄，可為 `gs://`
+3. `Validate` 開啟時，後端會先確認模型檔可定位
+4. 若交易引擎已運行且需要立即載入，開啟 `Reload Engine`
+5. 點選 `Promote`
+6. 點選 `Model Status` 確認 `active_model` 與 `MODEL_PATH` / `MODEL_DIR`
+
+**限制：**
+- `External` 模式只登記遠端 job，不會直接查 Vertex/GCE 狀態。
+- `Local process` 會在 API 主機啟動本機訓練，會消耗本機 CPU/GPU；一般雲端訓練流程不需要使用。
+- 模型 promote 不代表模型品質已驗證，仍需雲端訓練產物與回測結果支撐。
 
 ---
 
@@ -399,14 +442,14 @@ Dashboard 採用左側導覽列 + 右側主內容區佈局。
 ### 每日盤前 SOP（日常使用）
 
 ```
-1. 開啟 http://localhost:3000
-2. StatusPanel → 確認所有模組 [綠色]
+1. 開啟 http://localhost:3000 或 Vite 顯示的本地網址
+2. OperationsOverviewPanel → 確認 API OK、mode、execution target、model loaded
 3. NewsPanel (BTCUSDT) → 查看新聞情緒與建議方向
 4. PreTradePanel (BTCUSDT, long/short) → 執行驗核
    ├── PROCEED → 可考慮進場
    ├── CAUTION → 縮小倉位謹慎進場
    └── REJECT  → 今日不進場
-5. 若決定進場 → TradeControlPanel → `Monitor only` 或 `Testnet auto`
+5. 若決定觀察策略 → TradeControlPanel → `Paper live` 或 `Testnet auto`
 6. Refresh Status → 確認 running / auto_trade / ai_model_loaded
 7. 操作結束 → Stop Trading
 ```

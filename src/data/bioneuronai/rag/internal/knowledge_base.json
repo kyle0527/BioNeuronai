@@ -2790,6 +2790,298 @@
         "ingested_at": "2026-05-05T09:39:42.068637",
         "ingested_by": "NewsAdapter"
       }
+    },
+    {
+      "id": "news_btcusdt_d3ff2f271bbee562",
+      "title": "Bitcoin holds $80K into weekly close as traders say BTC price dip not yet over",
+      "content": "<p style=\"float:right; margin:0 0 10px 15px; width:240px;\"><img src=\"https://images.cointelegraph.com/images/528_aHR0cHM6Ly9zMy1pbWFnZXMuY3RtZWRpYS5pby9tZWRpYS9hcnRpY2xlLWNvdmVycy9oaS1iaXRjb2luLXJlc2V",
+      "doc_type": "news_archive",
+      "created_at": "2026-05-11T00:10:31.863992",
+      "updated_at": "2026-05-11T00:10:31.863993",
+      "tags": [
+        "news",
+        "btcusdt",
+        "cointelegraph.com"
+      ],
+      "metadata": {
+        "symbol": "BTCUSDT",
+        "news_source": "cointelegraph.com",
+        "url": "https://cointelegraph.com/markets/bitcoin-price-holds-80k-into-weekly-close-traders-say-dips-not-over-yet?utm_source=rss_feed&utm_medium=rss&utm_campaign=rss_partner_inbound",
+        "published_at": "2026-05-10T14:56:21",
+        "analysis_hours": 24,
+        "overall_sentiment_score": 0.128,
+        "article_sentiment": "neutral",
+        "article_sentiment_score": 0.128,
+        "importance_score": 8.64,
+        "relevance_score": 2.0,
+        "key_events": [],
+        "ingested_at": "2026-05-11T00:10:31.863954",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_btcusdt_0952f39e36c315cd",
+      "title": "Santiment flags risk as crypto bullish talk spikes while BTC holds $80K",
+      "content": "<p style=\"float:right; margin:0 0 10px 15px; width:240px;\"><img src=\"https://images.cointelegraph.com/images/528_aHR0cHM6Ly9zMy1pbWFnZXMuY3RtZWRpYS5pby9tZWRpYS9hcnRpY2xlLWNvdmVycy8zM2VhNDg0Mi03YmI5LTR",
+      "doc_type": "news_archive",
+      "created_at": "2026-05-11T00:10:31.864016",
+      "updated_at": "2026-05-11T00:10:31.864016",
+      "tags": [
+        "news",
+        "btcusdt",
+        "cointelegraph.com"
+      ],
+      "metadata": {
+        "symbol": "BTCUSDT",
+        "news_source": "cointelegraph.com",
+        "url": "https://cointelegraph.com/news/santiment-flags-risk-as-crypto-bullish-talk-spikes-while-btc-holds-near-80k?utm_source=rss_feed&utm_medium=rss&utm_campaign=rss_partner_inbound",
+        "published_at": "2026-05-10T05:33:59",
+        "analysis_hours": 24,
+        "overall_sentiment_score": 0.128,
+        "article_sentiment": "positive",
+        "article_sentiment_score": 0.30000000000000004,
+        "importance_score": 6.47,
+        "relevance_score": 2.0,
+        "key_events": [],
+        "ingested_at": "2026-05-11T00:10:31.863954",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_btcusdt_9a695e1f4bb6f356",
+      "title": "Strategy CEO Phong Le says company will sell BTC only in specific cases",
+      "content": "<p style=\"float:right; margin:0 0 10px 15px; width:240px;\"><img src=\"https://images.cointelegraph.com/images/528_aHR0cHM6Ly9zMy1pbWFnZXMuY3RtZWRpYS5pby9tZWRpYS9hcnRpY2xlLWNvdmVycy9oaS1ob3ctdG8tc2VsbC1",
+      "doc_type": "news_archive",
+      "created_at": "2026-05-11T00:04:57.639253",
+      "updated_at": "2026-05-11T00:04:57.639254",
+      "tags": [
+        "news",
+        "btcusdt",
+        "cointelegraph.com",
+        "📈_etf_相關"
+      ],
+      "metadata": {
+        "symbol": "BTCUSDT",
+        "news_source": "cointelegraph.com",
+        "url": "https://cointelegraph.com/news/strategy-ceo-phong-le-strategy-selling-btc?utm_source=rss_feed&utm_medium=rss&utm_campaign=rss_partner_inbound",
+        "published_at": "2026-05-09T21:21:00",
+        "analysis_hours": 135,
+        "overall_sentiment_score": 0.387,
+        "article_sentiment": "neutral",
+        "article_sentiment_score": 0.387,
+        "importance_score": 5.72,
+        "relevance_score": 2.0,
+        "key_events": [
+          "📈 ETF 相關"
+        ],
+        "ingested_at": "2026-05-11T00:04:57.639106",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_btcusdt_915cf635fa512267",
+      "title": "Bitcoin stalls as BTC ETF outflows hit $268M: Will new Fed chair restore the rally?",
+      "content": "<p style=\"float:right; margin:0 0 10px 15px; width:240px;\"><img src=\"https://images.cointelegraph.com/images/528_aHR0cHM6Ly9zMy1pbWFnZXMuY3RtZWRpYS5pby9tZWRpYS9hcnRpY2xlLWNvdmVycy90ZWFjaGluZy1iaXRjb2l",
+      "doc_type": "news_archive",
+      "created_at": "2026-05-11T00:04:57.639269",
+      "updated_at": "2026-05-11T00:04:57.639270",
+      "tags": [
+        "news",
+        "btcusdt",
+        "cointelegraph.com",
+        "📈_etf_相關"
+      ],
+      "metadata": {
+        "symbol": "BTCUSDT",
+        "news_source": "cointelegraph.com",
+        "url": "https://cointelegraph.com/markets/bitcoin-stalls-as-btc-etf-outflows-hit-268m-will-new-fed-chair-restore-the-rally?utm_source=rss_feed&utm_medium=rss&utm_campaign=rss_partner_inbound",
+        "published_at": "2026-05-08T23:57:31",
+        "analysis_hours": 135,
+        "overall_sentiment_score": 0.387,
+        "article_sentiment": "positive",
+        "article_sentiment_score": 1.0,
+        "importance_score": 10.0,
+        "relevance_score": 2.0,
+        "key_events": [
+          "📈 ETF 相關"
+        ],
+        "ingested_at": "2026-05-11T00:04:57.639106",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_btcusdt_39949633d039e0e3",
+      "title": "ETH/BTC ratio falls to 10-month low as ether continues to underperform bitcoin",
+      "content": "Widely followed crypto market gauge signals weakening risk appetite as investors continue favoring bitcoin over ether.",
+      "doc_type": "news_archive",
+      "created_at": "2026-05-12T23:53:04.861537",
+      "updated_at": "2026-05-12T23:53:04.861538",
+      "tags": [
+        "news",
+        "btcusdt",
+        "www.coindesk.com",
+        "🐋_大戶動向"
+      ],
+      "metadata": {
+        "symbol": "BTCUSDT",
+        "news_source": "www.coindesk.com",
+        "url": "https://www.coindesk.com/markets/2026/05/12/eth-btc-ratio-falls-to-10-month-low-as-ether-continues-to-underperform-bitcoin",
+        "published_at": "2026-05-12T10:20:51",
+        "analysis_hours": 24,
+        "overall_sentiment_score": -0.5,
+        "article_sentiment": "negative",
+        "article_sentiment_score": -1.0,
+        "importance_score": 9.5,
+        "relevance_score": 2.0,
+        "key_events": [
+          "🐋 大戶動向"
+        ],
+        "ingested_at": "2026-05-12T23:53:04.860815",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_btcusdt_16fe4e1fb9156b4d",
+      "title": "'Bitcoin transactions can be monitored’: Ray Dalio explains why central banks won’t touch BTC",
+      "content": "Ray Dalio joins the privacy debate, saying Bitcoin’s full transparency makes it less likely to be adopted by central banks.",
+      "doc_type": "news_archive",
+      "created_at": "2026-05-12T19:04:03.731178",
+      "updated_at": "2026-05-12T19:04:03.731179",
+      "tags": [
+        "news",
+        "btcusdt",
+        "www.coindesk.com"
+      ],
+      "metadata": {
+        "symbol": "BTCUSDT",
+        "news_source": "www.coindesk.com",
+        "url": "https://www.coindesk.com/markets/2026/05/12/bitcoin-transactions-can-be-monitored-ray-dalio-explains-why-central-banks-won-t-touch-btc",
+        "published_at": "2026-05-12T05:43:22",
+        "analysis_hours": 24,
+        "overall_sentiment_score": -0.268,
+        "article_sentiment": "negative",
+        "article_sentiment_score": -1.0,
+        "importance_score": 8.64,
+        "relevance_score": 2.0,
+        "key_events": [],
+        "ingested_at": "2026-05-12T19:04:03.731052",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_btcusdt_7d4387d28f38ddf3",
+      "title": "Bitcoin funding rates turn positive: Is BTC rally to $85K next?",
+      "content": "<p style=\"float:right; margin:0 0 10px 15px; width:240px;\"><img src=\"https://images.cointelegraph.com/images/528_aHR0cHM6Ly9zMy1pbWFnZXMuY3RtZWRpYS5pby9tZWRpYS9hcnRpY2xlLWNvdmVycy9sYXB0b3Atc2NyZWVuLXR",
+      "doc_type": "news_archive",
+      "created_at": "2026-05-12T19:04:03.731198",
+      "updated_at": "2026-05-12T19:04:03.731198",
+      "tags": [
+        "news",
+        "btcusdt",
+        "cointelegraph.com"
+      ],
+      "metadata": {
+        "symbol": "BTCUSDT",
+        "news_source": "cointelegraph.com",
+        "url": "https://cointelegraph.com/markets/bitcoin-funding-rates-turn-positive-is-a-btc-rally-to-85k-next?utm_source=rss_feed&utm_medium=rss&utm_campaign=rss_partner_inbound",
+        "published_at": "2026-05-12T02:42:27",
+        "analysis_hours": 24,
+        "overall_sentiment_score": -0.268,
+        "article_sentiment": "positive",
+        "article_sentiment_score": 1.0,
+        "importance_score": 9.0,
+        "relevance_score": 2.0,
+        "key_events": [],
+        "ingested_at": "2026-05-12T19:04:03.731052",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_btcusdt_d3ceca4f5eeb81be",
+      "title": "Price predictions 5/11: SPX, DXY, BTC, ETH, XRP, BNB, SOL, DOGE, HYPE, ADA",
+      "content": "<p style=\"float:right; margin:0 0 10px 15px; width:240px;\"><img src=\"https://images.cointelegraph.com/images/528_aHR0cHM6Ly9zMy1pbWFnZXMuY3RtZWRpYS5pby9tZWRpYS9hcnRpY2xlLWNvdmVycy9hbmFseXRpY3Mtd2VsZGl",
+      "doc_type": "news_archive",
+      "created_at": "2026-05-12T19:04:03.731213",
+      "updated_at": "2026-05-12T19:04:03.731214",
+      "tags": [
+        "news",
+        "btcusdt",
+        "cointelegraph.com"
+      ],
+      "metadata": {
+        "symbol": "BTCUSDT",
+        "news_source": "cointelegraph.com",
+        "url": "https://cointelegraph.com/markets/price-predictions-511-spx-dxy-btc-eth-xrp-bnb-sol-doge-hype-ada?utm_source=rss_feed&utm_medium=rss&utm_campaign=rss_partner_inbound",
+        "published_at": "2026-05-11T20:12:42",
+        "analysis_hours": 24,
+        "overall_sentiment_score": -0.268,
+        "article_sentiment": "neutral",
+        "article_sentiment_score": -0.268,
+        "importance_score": 8.39,
+        "relevance_score": 2.0,
+        "key_events": [],
+        "ingested_at": "2026-05-12T19:04:03.731052",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_btcusdt_b20cb1021bc64ace",
+      "title": "Bitcoin ‘golden cross’ nears for the first time since 2023: Will BTC price rally?",
+      "content": "<p style=\"float:right; margin:0 0 10px 15px; width:240px;\"><img src=\"https://images.cointelegraph.com/images/528_aHR0cHM6Ly9zMy1pbWFnZXMuY3RtZWRpYS5pby9tZWRpYS9hcnRpY2xlLWNvdmVycy9mdXR1cmVzLWJpdGNvaW4",
+      "doc_type": "news_archive",
+      "created_at": "2026-05-12T19:02:18.505479",
+      "updated_at": "2026-05-12T19:02:18.505479",
+      "tags": [
+        "news",
+        "btcusdt",
+        "cointelegraph.com"
+      ],
+      "metadata": {
+        "symbol": "BTCUSDT",
+        "news_source": "cointelegraph.com",
+        "url": "https://cointelegraph.com/markets/bitcoin-golden-cross-appears-first-time-since-2023-will-btc-price-rally?utm_source=rss_feed&utm_medium=rss&utm_campaign=rss_partner_inbound",
+        "published_at": "2026-05-11T17:35:04",
+        "analysis_hours": 43,
+        "overall_sentiment_score": -0.01,
+        "article_sentiment": "positive",
+        "article_sentiment_score": 1.0,
+        "importance_score": 9.2,
+        "relevance_score": 2.0,
+        "key_events": [],
+        "ingested_at": "2026-05-12T19:02:18.505344",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_btcusdt_7b0e0ee15bbca200",
+      "title": "Bitcoin whale 'still short' BTC despite facing $13M in losses",
+      "content": "<p style=\"float:right; margin:0 0 10px 15px; width:240px;\"><img src=\"https://images.cointelegraph.com/images/528_aHR0cHM6Ly9zMy1pbWFnZXMuY3RtZWRpYS5pby9tZWRpYS9hcnRpY2xlLWNvdmVycy93aGFsZS1pbmZsdWVuY2U",
+      "doc_type": "news_archive",
+      "created_at": "2026-05-12T23:53:04.861051",
+      "updated_at": "2026-05-12T23:53:04.861052",
+      "tags": [
+        "news",
+        "btcusdt",
+        "cointelegraph.com",
+        "🐋_大戶動向"
+      ],
+      "metadata": {
+        "symbol": "BTCUSDT",
+        "news_source": "cointelegraph.com",
+        "url": "https://cointelegraph.com/markets/bitcoin-bear-down-13m-btc-short-analysts-predict-new-bull-market?utm_source=rss_feed&utm_medium=rss&utm_campaign=rss_partner_inbound",
+        "published_at": "2026-05-12T13:56:05",
+        "analysis_hours": 24,
+        "overall_sentiment_score": -0.5,
+        "article_sentiment": "neutral",
+        "article_sentiment_score": -0.5,
+        "importance_score": 9.5,
+        "relevance_score": 2.0,
+        "key_events": [
+          "🐋 大戶動向"
+        ],
+        "ingested_at": "2026-05-12T23:53:04.860815",
+        "ingested_by": "NewsAdapter"
+      }
     }
   ]
 }

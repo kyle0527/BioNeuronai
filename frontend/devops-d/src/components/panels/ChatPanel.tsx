@@ -109,8 +109,8 @@ export function ChatPanel() {
         role: 'assistant',
         content: chatResp.text,
         timestamp: new Date().toLocaleTimeString(),
-        latency_ms: chatResp.latency_ms,
-        confidence: chatResp.confidence,
+        latency_ms: chatResp.latency_ms ?? undefined,
+        confidence: chatResp.confidence ?? undefined,
         language: chatResp.language,
       }
       addMessage(assistantMessage)

@@ -2,6 +2,7 @@
 
 > 版本：v2.1 / v2.2 過渡期  
 > 建立日期：2026-05-02  
+> 更新日期：2026-05-13
 > 適用對象：第一次啟動、日常本地操作、API + Dashboard 操作、Docker 操作
 
 ---
@@ -262,8 +263,9 @@ $body = @{
   symbol = "BTCUSDT"
   testnet = $true
   mode = "monitor_only"
+  paper_initial_balance = 10000
   auto_trade = $false
-  load_ai_model = $false
+  load_ai_model = $true
   model_name = "my_100m_model"
   warmup_model = $false
 } | ConvertTo-Json

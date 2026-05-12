@@ -9,13 +9,16 @@ from __future__ import annotations
 import json
 import math
 import re
+import logging
 from collections import deque
 from copy import deepcopy
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
 
+from bioneuronai.strategies.selector.profile import GoldenProfileManager
 from .backtest_engine import BacktestEngine, BacktestConfig
 from .data_stream import DEFAULT_DATA_DIR, resolve_data_dir
 from .mock_connector import MockBinanceConnector
@@ -948,6 +951,12 @@ def run_strategy_suite_backtest(
             "enabled": False,
             "reason": "walk_forward 需要同時提供 --start-date 和 --end-date",
         }
+
+    # 自動生成並固化 Golden Profile (整合後的策略配置)
+    try:
+        GoldenProfileManager.generate_from_backtest(result)
+    except Exception as e:
+        logger.error(f"自動生成 Golden Profile 失敗: {e}")
 
     return result
 

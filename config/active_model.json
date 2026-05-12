@@ -1,0 +1,8 @@
+{
+  "model_name": "my_100m_model",
+  "model_path": "C:\\D\\E\\BioNeuronai\\model\\my_100m_model_trained_20260510.pth",
+  "materialized_path": "C:\\D\\E\\BioNeuronai\\model\\my_100m_model_trained_20260510.pth",
+  "promoted_at": "2026-05-11T00:10:05.958430",
+  "reload_running_engine": false,
+  "notes": "validation promote on 2026-05-11, same trained checkpoint"
+}

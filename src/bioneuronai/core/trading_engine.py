@@ -23,7 +23,7 @@ from schemas.enums import SignalType as TradeSignalType  # 交易信號的 BUY/S
 from schemas.market import MarketData
 from schemas.trading import TradingSignal
 
-from ..data import BinanceFuturesConnector
+from ..data import BinanceFuturesConnector, PaperBinanceFuturesConnector
 from ..data.database_manager import get_database_manager, DatabaseManager
 from ..risk_management import RiskManager
 from config.trading_costs import TradingCostCalculator
@@ -204,10 +204,22 @@ class TradingEngine:
         use_strategy_fusion: bool = True,  # 
         risk_config_path: Optional[str] = None,
         enable_ai_model: bool = True,       #  AI 
-        ai_min_confidence: float = 0.5      # AI 
+        ai_min_confidence: float = 0.5,     # AI 
+        paper_trading: bool = False,
+        paper_initial_balance: float = 10000.0,
     ) -> None:
         # 
-        self.connector = BinanceFuturesConnector(api_key, api_secret, testnet)
+        self.paper_trading = paper_trading
+        if paper_trading:
+            self.connector = PaperBinanceFuturesConnector(
+                api_key=api_key,
+                api_secret=api_secret,
+                testnet=False,
+                initial_balance=paper_initial_balance,
+            )
+            logger.info("🧾 Live-paper execution enabled: orders are virtual and logged locally")
+        else:
+            self.connector = BinanceFuturesConnector(api_key, api_secret, testnet)
         self.risk_manager = RiskManager()  # RiskManager不需要參數
         self.strategy_type = str(strategy_type or "fusion").strip().lower()
         self.enable_phase_router = self.strategy_type == "phase_router"
@@ -221,6 +233,13 @@ class TradingEngine:
             timeframe="1m",
             enable_ai_fusion=use_strategy_fusion or strategy_type == "fusion",
         )
+        
+        # 載入固化後的黃金策略配置 (整合後的策略)
+        if self.strategy.load_golden_profile():
+            logger.info("✨ TradingEngine 已成功載入整合後的黃金策略配置")
+        else:
+            logger.info("ℹ️ 未找到黃金策略配置，將使用預設權重運行")
+
         logger.info(
             "✅ 使用新策略主線: StrategySelector%s",
             " + AI Fusion" if getattr(self.strategy, "ai_fusion_available", False) else "",

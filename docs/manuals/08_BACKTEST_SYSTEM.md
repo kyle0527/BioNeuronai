@@ -1,6 +1,6 @@
 # BioNeuronai 回測系統使用指南
-**版本**: v2.1
-**更新日期**: 2026-04-07
+**版本**: v2.2.0 (黃金策略配置版)
+**更新日期**: 2026-05-13
 
 ---
 
@@ -23,8 +23,8 @@
 BioNeuronai v2.1 的主回測系統位於 `backtest/` 目錄，透過 CLI 命令列統一入口調用。新版系統採用嚴格的 Pydantic 模型驗證，使用 `backtest/mock_connector.py` 取代真實的 `data/binance_futures.py` 連線，將真實歷史數據逐筆喂給 `core/trading_engine.py`。
 
 ### 核心原則
-- **不重複發明輪子**：回測模式中，策略 (`strategies/`) 與 AI 推論 (`core/inference_engine.py`) **完全沿用實盤程式碼**；帳戶帳本由 `MockBinanceConnector` 內建，介面與實盤 `trading/virtual_account.py` 保持一致。
-- **資料無未來性**：MockConnector 會攔截 `get_klines`，確保在 `T` 時刻絕對拿不到 `T+1` 的收盤價。
+- **不重複發明輪子**：回測模式中，策略 (`strategies/`) 與 AI 推論 (`core/inference_engine.py`) **完全沿用實盤程式碼**；帳戶帳本由 replay connector (`MockBinanceConnector`) 內建，介面與實盤 `trading/virtual_account.py` 保持一致。
+- **資料無未來性**：replay connector 會攔截 `get_klines`，確保在 `T` 時刻絕對拿不到 `T+1` 的收盤價。
 
 ---
 
@@ -42,12 +42,12 @@ python main.py backtest --symbol BTCUSDT --interval 1h --start-date 2020-01-01 -
 
 ### 紙交易模擬 (Simulate)
 
-如果只是希望利用 `MockBinanceConnector` 即時觀測引擎在一段 K 線上的流轉狀態，可以使用 `simulate`：
+如果只是希望利用 replay connector 觀測引擎在一段歷史 K 線上的流轉狀態，可以使用 `simulate`：
 
 ```bash
 python main.py simulate --symbol BTCUSDT --bars 300
 ```
-這將會拉取近期的 300 根 K 線並跑一遍即時推進流程。
+這會從本地 `backtest/data/` 讀取指定資料區間或最近 `bars` 根 K 線，並跑一遍逐 bar 推進流程。
 
 ---
 

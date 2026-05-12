@@ -24,8 +24,8 @@
 
 較細的 TinyLLM 架構、訓練能力、檔案清單，請直接看子目錄文件：
 
-- [tiny_llm_en_zh/README.md](C:/D/E/BioNeuronai/model/tiny_llm_en_zh/README.md)
-- [tiny_llm_en_zh_trained/README.md](C:/D/E/BioNeuronai/model/tiny_llm_en_zh_trained/README.md)
+- [tiny_llm_en_zh/README.md](tiny_llm_en_zh/README.md)
+- [tiny_llm_en_zh_trained/README.md](tiny_llm_en_zh_trained/README.md)
 
 ---
 
@@ -33,16 +33,22 @@
 
 | 項目 | 類型 | 目前狀態 | 主要用途 |
 | --- | --- | --- | --- |
-| `my_100m_model.pth` | PyTorch checkpoint | 主交易模型 | `bioneuronai.core` 交易推論 |
+| `my_100m_model.pth` | PyTorch checkpoint | 原始基準 | 未指定 active model 或 env 時的保留基準 |
+| `my_100m_model_trained_20260510.pth` | PyTorch checkpoint | **雲端訓練版（現役）** | Run2 包裝後 promoted，已寫入 `config/active_model.json` |
+| `best_model_run1.pth` | PyTorch checkpoint | GCP Run1 原始產出 | 純 state_dict，備用/比較 |
+| `best_model_run2.pth` | PyTorch checkpoint | GCP Run2 原始產出 | 純 state_dict，已包裝為現役 checkpoint |
 | `tiny_llm_100m.pth` | PyTorch checkpoint | NLP 基礎權重 | `src/nlp/` 訓練/封裝流程起點 |
-| `tiny_llm_en_zh/` | 模型封裝目錄 | 基礎版 | TinyLLM 雙語基礎模型包 |
-| `tiny_llm_en_zh_trained/` | 模型封裝目錄 | 訓練版 | TinyLLM 訓練後模型包 |
+| `tiny_llm_en_zh/` | 模型封裝目錄 | 基礎版（未訓練） | TinyLLM 雙語基礎模型包 |
+| `tiny_llm_en_zh_trained/` | 模型封裝目錄 | 訓練版（知識蒸餾） | loss=1.55，Perplexity=4.70，17分鐘訓練 |
 
 目前檔案大小（依工作樹實際內容）：
 
-- `my_100m_model.pth`: `444,849,917` bytes
-- `tiny_llm_100m.pth`: `496,238,771` bytes
-- `tiny_llm_en_zh_trained/pytorch_model.bin`: `496,238,131` bytes
+- `my_100m_model.pth`: ~425.93 MB（原始基準，保留備查）
+- `my_100m_model_trained_20260510.pth`: ~425.94 MB（雲端 Run2 promoted）
+- `best_model_run1.pth`: ~425.93 MB（GCP Run1 原始 state_dict）
+- `best_model_run2.pth`: ~425.93 MB（GCP Run2 原始 state_dict）
+- `tiny_llm_100m.pth`: ~473.25 MB
+- `tiny_llm_en_zh_trained/pytorch_model.bin`: ~473.25 MB
 
 ---
 
@@ -50,26 +56,26 @@
 
 ### `my_100m_model.pth`
 
-這是目前 **`src/bioneuronai` 主交易路徑** 仍會直接載入的模型權重。
+這是原始基準 checkpoint，保留作為回退與比較用途。
 
 已確認的實際用途：
 
 - `src/bioneuronai/core/inference_engine.py`
 - `src/bioneuronai/core/trading_engine.py`
 
-目前載入名稱固定使用 `my_100m_model`，對應實體檔案：
+在沒有 `MODEL_PATH` / `MODEL_DIR`，且沒有 `config/active_model.json` 時，載入名稱 `my_100m_model` 會回退到：
 
 ```text
 model/my_100m_model.pth
 ```
 
-模型類別仍來自：
+目前實際的現役交易 checkpoint 由 `config/active_model.json` 指定。若該檔存在，`ModelLoader` 會優先載入 promoted 權重，例如：
 
 ```text
-archived/pytorch_100m_model.py::HundredMillionModel
+model/my_100m_model_trained_20260510.pth
 ```
 
-這代表它雖然是主交易模型，但**目前實際上仍是 legacy 交易模型相容路徑**，而且模型定義仍依賴 `archived/`。後續若要整理模型系統，這會是需要處理的技術債。
+該權重是 TinyLLM numeric signal checkpoint，包含 `numeric_proj` 與 `signal_head`，可直接走 `forward_signal()` 交易訊號推論路徑。
 
 ### `tiny_llm_100m.pth`
 
@@ -101,7 +107,7 @@ archived/pytorch_100m_model.py::HundredMillionModel
 
 它的詳細架構、功能與使用方式已在子 README 中維護，請直接查看：
 
-- [tiny_llm_en_zh/README.md](C:/D/E/BioNeuronai/model/tiny_llm_en_zh/README.md)
+- [tiny_llm_en_zh/README.md](tiny_llm_en_zh/README.md)
 
 ### `tiny_llm_en_zh_trained/`
 
@@ -122,7 +128,7 @@ archived/pytorch_100m_model.py::HundredMillionModel
 
 詳細內容請看：
 
-- [tiny_llm_en_zh_trained/README.md](C:/D/E/BioNeuronai/model/tiny_llm_en_zh_trained/README.md)
+- [tiny_llm_en_zh_trained/README.md](tiny_llm_en_zh_trained/README.md)
 
 ---
 
@@ -130,7 +136,12 @@ archived/pytorch_100m_model.py::HundredMillionModel
 
 ### 交易主鏈
 
-目前交易模型由 `ModelLoader` 預設解析到專案根目錄下的 `model/`：
+目前交易模型由 `ModelLoader` 依序解析：
+
+1. `MODEL_PATH` / `BIONEURONAI_MODEL_PATH`
+2. `MODEL_DIR` / `BIONEURONAI_MODEL_DIR`
+3. `config/active_model.json`
+4. 專案根目錄下的 `model/{model_name}.pth`
 
 ```python
 # src/bioneuronai/core/inference_engine.py
@@ -170,10 +181,10 @@ TinyLLM 相關資產目前主要由 `src/nlp/` 使用，例如：
 
 ## 使用建議
 
-1. 若你在看主交易系統，先關注 `my_100m_model.pth`。
+1. 若你在看主交易系統，先關注 `config/active_model.json` 指向的現役 checkpoint。
 2. 若你在看 chat、語言模型訓練或 TinyLLM 封裝，再看 `tiny_llm_*` 系列。
 3. 上層 README 不再重複 TinyLLM 子目錄的完整功能表，避免和子 README 產生雙重維護。
-4. 若 `my_100m_model.pth` 無法載入，先確認不是 Git LFS pointer 或缺檔。
+4. 若模型無法載入，先確認 promoted 權重不是 Git LFS pointer 或缺檔，再確認 `config/active_model.json` 的路徑是否仍有效。
 
 ---
 
@@ -189,8 +200,8 @@ TinyLLM 相關資產目前主要由 `src/nlp/` 使用，例如：
 
 ---
 
-**最後更新**: 2026-03-28
+**最後更新**: 2026-05-13
 
 上層連結：
 
-- [根目錄 README](C:/D/E/BioNeuronai/README.md)
+- [根目錄 README](../README.md)

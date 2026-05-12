@@ -7,7 +7,7 @@ import { Separator } from '@/components/ui/separator'
 import { JSONViewer } from '@/components/JSONViewer'
 import { ErrorPanel } from '@/components/ErrorPanel'
 import { LoadingSpinner } from '@/components/LoadingSpinner'
-import { endpoints, type ApiError, type RestApiResponse, type StatusResponse } from '@/lib/api'
+import { endpoints, type ApiError, type StatusResponse } from '@/lib/api'
 
 export function StatusPanel() {
   const [loading, setLoading] = useState(false)
@@ -20,8 +20,7 @@ export function StatusPanel() {
     setError(null)
     try {
       const response = await endpoints.status()
-      const body = response.data as RestApiResponse<StatusResponse>
-      setData(body as unknown as StatusResponse)
+      setData(response.data)
       setLastUpdate(new Date().toLocaleTimeString())
     } catch (err) {
       setError(err as ApiError)

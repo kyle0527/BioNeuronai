@@ -1,7 +1,7 @@
 # BioNeuronAI 系統主手冊 (Master Manual)
 
 > **版本**: v2.1  
-> **更新日期**: 2026-05-05
+> **更新日期**: 2026-05-13
 > **系統狀態**: 目前正式主線文件
 
 ---
@@ -45,15 +45,15 @@ BioNeuronAI 是一套面向加密貨幣期貨市場的 AI 交易系統。
 * **[02_STARTUP_AND_SHUTDOWN.md](02_STARTUP_AND_SHUTDOWN.md)**: 開機與關機主入口，涵蓋本地 CLI、本地 API + Dashboard、Docker 的啟停流程。
 * **[03_QUICKSTART.md](03_QUICKSTART.md)**: ⭐ 新手必看。教您如何用最快的速度架設 Docker、設定 `.env`、並驗證系統是否正常啟動。
 * **[04_CLI_OPERATION.md](04_CLI_OPERATION.md)**: 🛠️ 實戰必看。收錄所有 CLI 驅動指令（如 `python main.py plan`）、以及如何透過 API 觸發自動化任務。
-* **[06_FRONTEND_DASHBOARD.md](06_FRONTEND_DASHBOARD.md)**: 🖥️ DevOps Dashboard 操作手冊。詳細說明 Dashboard 的主要面板與操作視圖（狀態、新聞、預交易、回測、AI 對話、交易控制、API 測試台、歷史紀錄、資料目錄、風控設定）。
-* **[20_UI_END_TO_END_OPERATION.md](20_UI_END_TO_END_OPERATION.md)**: UI 端到端操作手冊。從開啟 Dashboard、確認狀態、跑資料目錄/回測/新聞/pretrade/chat，到 testnet 啟停與關機。
+* **[06_FRONTEND_DASHBOARD.md](06_FRONTEND_DASHBOARD.md)**: 🖥️ Operations Dashboard 操作手冊。詳細說明操作總覽、新聞、預交易、回測、AI 對話、交易控制、paper-live、API 測試台、歷史紀錄、資料目錄、風控設定。
+* **[20_UI_END_TO_END_OPERATION.md](20_UI_END_TO_END_OPERATION.md)**: UI 端到端操作手冊。從開啟 Dashboard、確認 Operations 狀態、跑資料目錄/回測/新聞/pretrade/chat，到 paper-live/testnet 啟停與關機。
 
 ### 📊 分析、策略與交易
-* **[08_BACKTEST_SYSTEM.md](08_BACKTEST_SYSTEM.md)**: 📈 回測系統專用指南。說明如何透過 Mock Connector 與 CLI 工具打磨交易策略，而不消耗真實資金。
+* **[08_BACKTEST_SYSTEM.md](08_BACKTEST_SYSTEM.md)**: 📈 回測系統專用指南。說明如何透過 replay connector 與 CLI 工具打磨交易策略，而不消耗真實資金。
 * **[09_ANALYSIS_MODULE.md](09_ANALYSIS_MODULE.md)**: 新聞、交易計畫與進場前驗核操作手冊，涵蓋 `news`、`plan`、`pretrade`。
 * **[10_STRATEGY_MODULE.md](10_STRATEGY_MODULE.md)**: 策略模組操作手冊，涵蓋 `strategy-backtest`、API `strategy-run` 與策略 runtime 輸出。
 * **[11_RISK_MANAGEMENT.md](11_RISK_MANAGEMENT.md)**: 🛡️ 風險管理使用手冊。涵蓋風險等級、倉位計算邏輯與 pretrade 風險解讀。
-* **[14_TESTNET_AND_LIVE_TRADING.md](14_TESTNET_AND_LIVE_TRADING.md)**: Testnet / live 交易啟停手冊，明確區分 `monitor_only`、`testnet_auto`、`live_auto` 與 live guard。
+* **[14_TESTNET_AND_LIVE_TRADING.md](14_TESTNET_AND_LIVE_TRADING.md)**: Testnet / paper-live / live 交易啟停手冊，明確區分 `monitor_only`、`paper_live`、`testnet_auto`、`live_auto` 與 live guard。
 * **[15_DATA_ACQUISITION.md](15_DATA_ACQUISITION.md)**: 歷史資料、catalog、inspect 與資料取得操作手冊。
 * **[16_RUNTIME_ARTIFACTS.md](16_RUNTIME_ARTIFACTS.md)**: runtime、logs、output、模型與資料產物位置手冊。
 
@@ -86,7 +86,7 @@ BioNeuronAI 是一套面向加密貨幣期貨市場的 AI 交易系統。
 ### B. 決策與執行的分水嶺
 過往的架構常將「該不該買」與「怎麼買」混在一起，在 v2.1 裡：
 * **`planning/` (總經理)**：負責宏觀市場分析、資金流動觀察，產出「建議交易計畫」。
-* **`trading/` (執行長)**：不帶主觀看法，嚴格依照計畫限額、目前風險暴露狀態，將計算好的數量安全地拋單給交易所。
+* **`trading/` (執行長)**：不帶主觀看法，嚴格依照計畫限額、目前風險暴露狀態，將計算好的數量送到目前 execution layer；可能是 paper ledger、testnet 或 live exchange。
 
 ### C. 狀態管理逐步集中
 目前系統正在把訂單、帳戶、持倉、資金等執行事實，逐步集中到 `trading/`。  

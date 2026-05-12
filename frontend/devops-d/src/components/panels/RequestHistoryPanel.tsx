@@ -211,7 +211,7 @@ export function RequestHistoryPanel() {
                   </>
                 )}
 
-                {selectedLog.requestBody && (
+                {selectedLog.requestBody !== undefined && selectedLog.requestBody !== null && (
                   <>
                     <Separator />
                     <div>
@@ -253,7 +253,7 @@ export function RequestHistoryPanel() {
                   </>
                 )}
 
-                {selectedLog.responseData && (
+                {selectedLog.responseData !== undefined && selectedLog.responseData !== null && (
                   <>
                     <Separator />
                     <div>

@@ -1,7 +1,7 @@
 # API 模組 (API)
 
 > 路徑：`src/bioneuronai/api/`
-> 更新日期：2026-04-23
+> 更新日期：2026-05-13
 > 定位：FastAPI 對外入口與 API 相容轉發層
 
 `api/` 是 `bioneuronai` 對外暴露 HTTP 介面的模組。它的責任是把既有 CLI / core / analysis / planning / backtest 功能包裝成 REST API，而不是重新實作業務邏輯。
@@ -51,11 +51,27 @@ api/
 
 ### `app.py`
 
-1. 建立 `FastAPI` app
-2. 管理 `TradeManager` 的啟停與背景 task
-3. 提供 `/api/v1/status`、`/api/v1/chat`、`/api/v1/news`、`/api/v1/pretrade`、`/api/v1/backtest/*` 等入口
-4. `backtest` 相關 route 現在包含策略模組 UI/CLI 共用的 `POST /api/v1/backtest/strategy-run`
-4. 處理 CORS、lifespan 與 `/docs` Swagger 暴露
+1. 建立 `FastAPI` app，處理 CORS、lifespan 與 `/docs` Swagger 暴露
+2. 內部維護三個狀態管理器：`TradeManager` (交易)、`TrainingJobManager` (訓練)、`ModelPromotionManager` (模型切換)
+3. 暴露 REST API 入口：
+   - 系統/狀態：`/api/v1/status`、`/api/v1/binance/validate`
+   - 交易/風險：`/api/v1/trade/*`、`/api/v1/pretrade`、`/api/v1/risk/config`
+   - 回測/數據：`/api/v1/backtest/*`、`/api/v1/data/catalog`
+   - 模型訓練：`/api/v1/training/*`、`/api/v1/model/*`
+   - 對話/新聞：`/api/v1/chat`、`/api/v1/news`
+   - 儀表板：`/api/v1/dashboard`、`/api/v1/orders`、`/api/v1/positions/*`
+4. 提供 WebSocket 即時推送入口：`/ws/trade`、`/ws/analytics`、`/ws/dashboard`
+
+TradeManager 目前支援四種交易模式：
+
+| mode | 行情來源 | 執行層 | AI 載入 |
+|---|---|---|---|
+| `monitor_only` | 依 `testnet` 選擇 connector | 不自動送單 | `load_ai_model` 預設 true |
+| `paper_live` | Binance mainnet public market data | 本地 `VirtualAccount`，不送 Binance order | 強制載入 |
+| `testnet_auto` | Binance testnet | Binance testnet order API | 強制載入 |
+| `live_auto` | Binance mainnet | Binance mainnet order API | 強制載入 |
+
+`live_auto` 另外需要 `ALLOW_LIVE_TRADING=1` 與 `confirm_live=I_UNDERSTAND_LIVE_RISK`。`paper_live` 不需要 live guard，因為它不送出真實訂單。
 
 ### `models.py`
 

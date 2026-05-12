@@ -1,7 +1,7 @@
 # BioNeuronAI 測試與驗證指南 (Testing & Validation Guide)
 
-> 更新日期：2026-04-24  
-> 目的：規範 v2.1 之後的測試方法。我們已全面屏棄瑣碎的 Mock 測試腳本，改為擁抱「End-to-End CLI 測試」與「沙盒驗證」。
+> 更新日期：2026-05-13
+> 目的：規範 v2.1 之後的驗證方法。專案目前優先用正式 CLI / API / UI runtime 入口驗證，不以臨時測試檔或 mock 腳本作為功能完成標準。
 
 ## 🚫 測試哲學：End-to-End > 單元測試
 
@@ -11,13 +11,13 @@
 
 ---
 
-## 🧪 核心測試路徑
+## 🧪 核心驗證路徑
 
 ### 1. 策略邏輯驗證 (`strategy-backtest`)
 如果您修改了 `strategies/` 內的演算法，請**不要**寫單元測試去 assert 計算結果，而是直接執行策略回測引擎：
 
 ```bash
-python src/bioneuronai/cli/main.py strategy-backtest --symbol BTCUSDT --interval 1h
+python main.py strategy-backtest --symbol BTCUSDT --interval 1h
 ```
 *   **用途**：逐一評估策略實例，它會讀取真實的歷史 K 線，並輸出模擬的進出場與成交紀錄。
 *   **檢驗標準**：觀察輸出的 PnL、交易次數是否符合預期，確保沒有觸發風控熔斷。
@@ -26,7 +26,7 @@ python src/bioneuronai/cli/main.py strategy-backtest --symbol BTCUSDT --interval
 在修改設定檔 `.env` 或安裝新套件後，請執行：
 
 ```bash
-python src/bioneuronai/cli/main.py status
+python main.py status
 ```
 *   **用途**：快速檢查 7 大核心模組（TradingEngine, BinanceFutures, NewsAnalyzer 等）是否能順利初始化並連線。
 *   **檢驗標準**：所有狀態必須顯示為 `[OK]`。
@@ -35,33 +35,36 @@ python src/bioneuronai/cli/main.py status
 如果您修改了 RAG 檢索邏輯或風險管理規則，請執行：
 
 ```bash
-python src/bioneuronai/cli/main.py pretrade --symbol BTCUSDT --action long
+python main.py pretrade --symbol BTCUSDT --action long
 ```
-*   **用途**：模擬系統即將執行多單/空單，觸發完整的 5 步驟盤前檢查（包含餘額確認、新聞掃描）。
+*   **用途**：觸發完整的 6 點盤前檢查（包含餘額、新聞/RAG、技術面與風控）。
 *   **檢驗標準**：觀察終端機輸出的 REJECT/APPROVE 原因是否合理。
 
-### 4. 實盤沙盒測試 (`trade --dry-run`)
-準備上線新功能前，使用測試網（Testnet）或 Dry-run 模式：
+### 4. Paper-live / Testnet runtime 驗證
+準備上線新功能前，優先使用 paper-live 或測試網：
 
 ```bash
-# 確保 .env 中 BINANCE_TESTNET=true
-python src/bioneuronai/cli/main.py trade
+# 主網行情 + 本地虛擬成交，不送 Binance 訂單
+python main.py trade --paper-live --paper-balance 10000
+
+# 或 Binance Futures testnet
+python main.py trade --testnet
 ```
-*   **用途**：真實連接交易所 WebSocket 並接收市場資料，但不發送真實訂單（或僅發送至測試網）。
+*   **用途**：真實連接交易所行情並接收市場資料。paper-live 不發送真實訂單；testnet 只送測試網。
 *   **檢驗標準**：觀察系統是否能穩定運行 24 小時以上不崩潰。
 
 ---
 
 ## 🐛 持續整合 (CI) 與防呆 Smoke Test
 
-我們仍保留了唯一一個綜合型的 Pytest 腳本，用於攔截最低級別的語法錯誤與依賴缺失：
+CI 可以保留綜合型 Pytest 腳本，用於攔截最低級別的語法錯誤與依賴缺失；但它不是本機功能驗證的主要路徑：
 
 ```bash
 python -m pytest tests/test_smoke.py -q
 ```
-*   **要求**：在提交任何 PR 或進行 `git commit` 之前，必須確保此命令回傳 `passed`（目前應為 26/26 通過）。
+*   **要求**：CI / PR 可使用；本地功能驗證仍以 CLI / API / UI 正式入口為準。
 
 ## 📝 總結
 1.  **開發階段**：使用 `strategy-backtest` 快速迭代演算法。
 2.  **整合階段**：使用 `pretrade` 與 `status` 確認各模組接通。
-3.  **上線階段**：通過 `test_smoke.py` 後，使用 Testnet 進行 `trade` 實機運行。
+3.  **上線階段**：使用 paper-live 長時間觀察，接著 testnet，再進 live guard 流程。

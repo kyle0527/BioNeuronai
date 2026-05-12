@@ -18,6 +18,7 @@ import torch
 import torch.nn as nn
 import numpy as np
 import logging
+import json
 import os
 import time
 from pathlib import Path
@@ -296,7 +297,7 @@ class ModelLoader:
         return cast(nn.Module, model)
 
     def _resolve_model_path(self, model_name: str) -> Path:
-        """Resolve model path from MODEL_PATH/MODEL_DIR or the local model directory."""
+        """Resolve model path from env, active model metadata, or the local model directory."""
         env_model_path = os.getenv("MODEL_PATH") or os.getenv("BIONEURONAI_MODEL_PATH")
         if env_model_path:
             if env_model_path.endswith("/") or not Path(env_model_path).suffix:
@@ -307,7 +308,33 @@ class ModelLoader:
         if env_model_dir:
             return materialize_uri(f"{env_model_dir.rstrip('/')}/{model_name}.pth")
 
+        active_model_path = self._resolve_active_model_path(model_name)
+        if active_model_path is not None:
+            return active_model_path
+
         return self.model_dir / f"{model_name}.pth"
+
+    def _resolve_active_model_path(self, model_name: str) -> Optional[Path]:
+        """Resolve persisted promoted model metadata shared by API, CLI, and engines."""
+        active_config = self.project_root / "config" / "active_model.json"
+        if not active_config.exists():
+            return None
+        try:
+            active = json.loads(active_config.read_text(encoding="utf-8"))
+        except Exception as exc:
+            logger.warning("active model metadata read failed: %s", exc)
+            return None
+
+        promoted_model = str(active.get("model_name") or "").strip()
+        if promoted_model and promoted_model != model_name:
+            return None
+
+        model_path = str(active.get("model_path") or "").strip()
+        if not model_path:
+            return None
+        if model_path.endswith("/") or not Path(model_path).suffix:
+            return materialize_uri(f"{model_path.rstrip('/')}/{model_name}.pth")
+        return materialize_uri(model_path)
     
     def get_model(self, model_name: Optional[str] = None) -> nn.Module:
         """"""
@@ -330,20 +357,25 @@ class ModelLoader:
                     seq_len = getattr(getattr(model, "config", None), "numeric_seq_len", 16)
                     input_dim = getattr(getattr(model, "config", None), "numeric_input_dim", 1024)
                     dummy_input = torch.zeros(1, seq_len, input_dim, dtype=torch.float32, device=self.device)
-                    _ = model.forward_signal(dummy_input)  # type: ignore[union-attr]
                 else:
                     dummy_input = torch.zeros(1, 1024, dtype=torch.float32, device=self.device)
-                    _ = model(dummy_input)
+                _ = self._run_warmup_forward(model, dummy_input)
         
         # 
         start = time.perf_counter()
         with torch.no_grad():
             for _ in range(100):
-                _ = model(dummy_input)
+                _ = self._run_warmup_forward(model, dummy_input)
         avg_latency = (time.perf_counter() - start) / 100 * 1000
-        
+
         logger.info(f" | : {avg_latency:.2f}ms")
         return avg_latency
+
+    def _run_warmup_forward(self, model: nn.Module, dummy_input: torch.Tensor) -> torch.Tensor:
+        """Run the correct inference path for warmup across TinyLLM signal and legacy models."""
+        if self._supports_signal_inference(model):
+            return cast(torch.Tensor, model.forward_signal(dummy_input))  # type: ignore[union-attr]
+        return cast(torch.Tensor, model(dummy_input))
 
 
 # ============================================================================

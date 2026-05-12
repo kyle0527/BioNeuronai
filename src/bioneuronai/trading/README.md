@@ -1,7 +1,7 @@
 # 交易模組 (Trading)
 
 **路徑**: `src/bioneuronai/trading/`  
-**更新日期**: 2026-04-20
+**更新日期**: 2026-05-13
 
 ---
 
@@ -19,17 +19,20 @@
 
 此資料夾已不再承載：
 
+- 策略選擇 (Strategy Selector)
 - 10 步驟交易計劃
 - 市場分析
 - 交易對篩選
 - 交易前檢查
 
-上述高階規劃功能已移至：
+上述高階規劃功能與決策功能已移至：
 
-- [plan_controller.py](../planning/plan_controller.py)
-- [market_analyzer.py](../planning/market_analyzer.py)
-- [pair_selector.py](../planning/pair_selector.py)
-- [pretrade_automation.py](../planning/pretrade_automation.py)
+- **策略選擇** (原 strategy_selector.py, strategy_selector_v2.py) 已整併移至 [strategies/selector/](../strategies/selector/README.md)
+- **交易計劃與分析**已移至 [planning/](../planning/README.md)：
+  - [plan_controller.py](../planning/plan_controller.py)
+  - [market_analyzer.py](../planning/market_analyzer.py)
+  - [pair_selector.py](../planning/pair_selector.py)
+  - [pretrade_automation.py](../planning/pretrade_automation.py)
 
 ---
 
@@ -72,7 +75,7 @@ trading/
 
 - [virtual_account.py](virtual_account.py)
 
-這個檔案目前承接 replay / mock execution 所需的第一層交易事實：
+這個檔案目前承接 replay / paper-live execution 所需的第一層交易事實：
 
 - 虛擬帳戶餘額
 - 可用資金

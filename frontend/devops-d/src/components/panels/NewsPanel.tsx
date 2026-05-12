@@ -67,7 +67,7 @@ export function NewsPanel() {
 
         {error && <ErrorPanel message={error.message} details={error.details} />}
 
-        {data && !error && (
+        {data !== null && !error && (
           <>
             <Separator />
             <div className="space-y-2">
@@ -79,7 +79,7 @@ export function NewsPanel() {
           </>
         )}
 
-        {!data && !error && !loading && (
+        {data === null && !error && !loading && (
           <p className="text-sm text-muted-foreground">Click refresh to fetch news</p>
         )}
       </CardContent>

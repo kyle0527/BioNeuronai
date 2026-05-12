@@ -1,7 +1,7 @@
 # 規劃模組 (Planning)
 
 > 路徑：`src/bioneuronai/planning/`
-> 更新日期：2026-04-23
+> 更新日期：2026-05-11
 > 架構層級：Layer 3 — 高階規劃與交易前檢查
 
 `planning` 負責把分析結果整理成可執行的交易計畫與進場前檢查結論。這一層不處理實際訂單與帳戶事實，也不直接承載基礎策略實作。
@@ -76,7 +76,8 @@ TradingPlanController
 ```text
 PreTradeCheckSystem
   -> BinanceFuturesConnector
-  -> NewsAdapter / RAG
+  -> NewsAdapter (RAG 事件上下文)
+  -> TradingRetriever (RAG 檢索層)
   -> TradingCostCalculator
   -> risk / liquidity / news / order checks
 ```
@@ -88,8 +89,10 @@ PreTradeCheckSystem
 ### `plan_controller.py`
 
 1. 主類：`TradingPlanController`
-2. 主入口：`create_comprehensive_plan()`
-3. 定位：整合 10 步驟流程，不直接做低階交易執行
+2. 主入口：`async create_comprehensive_plan(klines, account_balance, symbol)` — 執行完整 10 步驟計劃
+3. 輔助方法：`execute_plan(plan)` — 執行已生成的計劃；`get_active_plans()` — 查詢進行中計劃
+4. 內部分 10 個步驟各為獨立 `async _stepN_*` 方法
+5. 定位：整合 10 步驟流程，不直接做低階交易執行
 
 ### `market_analyzer.py`
 
@@ -106,8 +109,10 @@ PreTradeCheckSystem
 ### `pretrade_automation.py`
 
 1. 主類：`PreTradeCheckSystem`
-2. 專注於單筆交易前檢查，不等同於每日完整交易計畫
-3. 已接通 `NewsAdapter` / `InternalKnowledgeBase` / `TradingCostCalculator`
+2. 主入口：`execute_pretrade_check(symbol, intended_action)` — 準同步，回傳完整檢查結果 dict
+3. 專注於單筆交易前檢查，不等同於每日完整交易計劃
+4. 已接通：`NewsAdapter`（RAG 事件上下文）、`TradingRetriever`（RAG 檢索）、`TradingCostCalculator`
+5. 結果包含：技術面、基本面、風險計算、訂單參數、最終確認、整體交易標準
 
 ---
 
@@ -119,13 +124,15 @@ from bioneuronai.planning import (
     MarketAnalyzer,
     PairSelector,
     PreTradeCheckSystem,
-    get_trading_plan_controller,
 )
+
+# 便利工廠函式（不在 __all__，但可直接呼叫）
+from bioneuronai.planning import get_trading_plan_controller
 ```
 
 補充：
-1. `get_trading_plan_controller()` 會回傳 `TradingPlanController` 實例
-2. 目前這是便利工廠，不是另一條獨立規劃主線
+1. `get_trading_plan_controller()` 回傳 `TradingPlanController` 實例，為便利工廠不是獨立規劃主線
+2. `__all__` 不包含 `get_trading_plan_controller`；若要正式導入請直接導入主類
 
 ---
 

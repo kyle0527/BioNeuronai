@@ -1,61 +1,84 @@
-# BioNeuronAI DevOps Dashboard
+# BioNeuronAI Operations Dashboard
 
-A high-performance developer operations dashboard for BioNeuronAI that enables rapid API testing, monitoring, and data inspection with minimal overhead and maximum efficiency.
+`frontend/devops-d/` is the current primary UI for operating BioNeuronAI. It is no longer only an API playground: the first screen is the `Operations` view for runtime state, execution mode, model state, and paper-live account visibility.
 
-## 🔌 API Connection
+## API Connection
 
-This dashboard connects to the local BioNeuronAI FastAPI server by default:
-```
+Default API base URL:
+
+```text
 http://localhost:8000
 ```
 
-### Configuration
+For local development, Vite may run on `5173` or the next available port such as `5176`. The backend default CORS list allows `localhost` and `127.0.0.1` on ports `3000`, `8080`, and `5173-5180`.
 
-The API base URL is configured in `src/lib/api.ts` and can be overridden using environment variables:
+Override API URL at build/dev time:
 
-- **Default**: `http://localhost:8000`
-- **Override**: Set `VITE_API_BASE_URL` in a `.env` file
-
-Example `.env` file (optional):
 ```env
 VITE_API_BASE_URL=http://localhost:8000
 ```
 
-### Available Endpoints
+## Main Views
 
-- `GET /api/v1/status` - System health and status
-- `POST /api/v1/news` - Latest news feed
-- `POST /api/v1/pretrade` - Pre-trade analysis
-- `POST /api/v1/chat` - AI chat interface
-- `POST /api/v1/trade/start` - Start trading operations
-- `POST /api/v1/trade/stop` - Stop trading operations
-- `GET /api/v1/backtest/catalog` - Backtest data catalog
-- `GET /api/v1/backtest/inspect` - Backtest data inspection
-- `POST /api/v1/backtest/simulate` - Backtest simulation
-- `POST /api/v1/backtest/run` - Run replay backtest
-- `GET /api/v1/backtest/runs` - List replay runs
+| View | Purpose |
+|---|---|
+| `Operations` | Runtime overview, execution target, model status, trade control, pretrade, news |
+| `Validation` | Backtest, data catalog, training/model operations |
+| `Config` | System status and risk config |
+| `Dev Tools` | API playground and request history |
+| `Chat` | Bilingual AI chat with optional market context |
 
-## Current Project Status
+## Trading Modes
 
-As of 2026-04-17, this is the first frontend selected for deployment readiness work. `frontend/admin-da` and `frontend/trading` remain in the repository but are deferred until the backend endpoints and WebSocket paths they need are verified.
+`TradeControlPanel` supports the backend modes below:
 
-## 🚀 Features
+| Mode | Market data | Order execution | Notes |
+|---|---|---|---|
+| `monitor_only` | Testnet or selected connector | No automatic orders | AI model loads by default unless disabled |
+| `paper_live` | Binance mainnet market data | Local virtual ledger only | No Binance order is sent; logs under `data/bioneuronai/trading/paper_live/` |
+| `testnet_auto` | Binance testnet | Binance testnet orders | Requires testnet API credentials |
+| `live_auto` | Binance mainnet | Real Binance mainnet orders | Requires `ALLOW_LIVE_TRADING=1` and confirm string |
 
-- **System Status Monitor** - Real-time system health monitoring
-- **API Playground** - Test any endpoint with custom JSON payloads
-- **Chat Interface** - Interact with AI chat functionality
-- **Trade Controls** - Start/stop trading operations
-- **Backtest Operations** - Execute and monitor backtests
-- **News Feed** - Monitor relevant news data
-- **Pre-Trade Analysis** - Review pre-trade checks
-- **Raw JSON Inspector** - View and copy all API responses
+## API Endpoints Used
 
-## 🧹 Just Exploring?
-No problem! If you were just checking things out and don't need to keep this code:
+- `GET /api/v1/status`
+- `GET /api/v1/dashboard`
+- `GET /api/v1/trade/status`
+- `POST /api/v1/trade/start`
+- `POST /api/v1/trade/stop`
+- `GET /api/v1/model/status`
+- `POST /api/v1/model/promote`
+- `POST /api/v1/training/start`
+- `GET /api/v1/training`
+- `GET /api/v1/backtest/catalog`
+- `GET /api/v1/backtest/inspect`
+- `POST /api/v1/backtest/simulate`
+- `POST /api/v1/backtest/run`
+- `GET /api/v1/backtest/runs`
+- `GET /api/v1/data/catalog`
+- `GET /api/v1/risk/config`
+- `PUT /api/v1/risk/config`
+- `POST /api/v1/news`
+- `POST /api/v1/pretrade`
+- `POST /api/v1/chat`
 
-- Simply delete your Spark.
-- Everything will be cleaned up — no traces left behind.
+## Local Development
 
-## 📄 License For Spark Template Resources 
+```powershell
+cd frontend/devops-d
+npm install
+npm run dev
+```
 
-The Spark Template files and resources from GitHub are licensed under the terms of the MIT license, Copyright GitHub, Inc.
+Open the URL printed by Vite. If `5173` is occupied, Vite may choose another allowed port such as `5176`.
+
+## Verification
+
+Use the real running app/API paths rather than separate test fixtures:
+
+```powershell
+npm run build
+npm run lint
+```
+
+Then open the Vite or Docker URL and confirm `Operations Overview` shows API health, runtime mode, execution target, and model loaded state.

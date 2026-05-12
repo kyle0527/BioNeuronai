@@ -1,5 +1,5 @@
 # docs/ — 文檔索引
-> **更新日期**: 2026-05-05
+> **更新日期**: 2026-05-13
 
 ---
 
@@ -25,9 +25,9 @@
 |------|------|
 | [manuals/README.md](manuals/README.md) | ⭐️ 使用者手冊集中入口：編號、狀態、重複/老舊檢查 |
 | [manuals/00_MASTER_MANUAL.md](manuals/00_MASTER_MANUAL.md) | 系統主守則：開發與導覽的單一入口 |
-| [manuals/03_QUICKSTART.md](manuals/03_QUICKSTART.md) | v2.1 快速開始指南 (Docker + 環境變數) |
+| [manuals/03_QUICKSTART.md](manuals/03_QUICKSTART.md) | v2.2.0 快速開始指南 (Docker + 環境變數) |
 | [manuals/02_STARTUP_AND_SHUTDOWN.md](manuals/02_STARTUP_AND_SHUTDOWN.md) | 本地 CLI、API + Dashboard、Docker 的開機與關機流程 |
-| [manuals/04_CLI_OPERATION.md](manuals/04_CLI_OPERATION.md) | v2.1 連線、排程與 CLI 實際操作手冊 |
+| [manuals/04_CLI_OPERATION.md](manuals/04_CLI_OPERATION.md) | v2.2.0 連線、排程與 CLI 實際操作手冊 |
 | [manuals/01_MANUAL_OPERATION_VERIFICATION_PLAN.md](manuals/01_MANUAL_OPERATION_VERIFICATION_PLAN.md) | 手冊盤點、缺口與實際操作驗收順序 |
 | [ARCHITECTURE_OVERVIEW.md](ARCHITECTURE_OVERVIEW.md) | 系統整體架構總覽 (資料流與模組分工) |
 | [assets/README.md](assets/README.md) | README 視覺證據、Demo GIF、績效圖表產出清單 |
@@ -44,7 +44,7 @@
 | 文檔 | 說明 |
 |------|------|
 | [manuals/05_API_USER_MANUAL.md](manuals/05_API_USER_MANUAL.md) | REST API 與 WebSocket 端點參考 |
-| [manuals/06_FRONTEND_DASHBOARD.md](manuals/06_FRONTEND_DASHBOARD.md) | DevOps Dashboard 操作手冊（狀態、新聞、預交易、回測、AI 對話、交易控制、API 測試台、歷史紀錄、資料目錄、風控設定）|
+| [manuals/06_FRONTEND_DASHBOARD.md](manuals/06_FRONTEND_DASHBOARD.md) | Operations Dashboard 操作手冊（操作總覽、新聞、預交易、回測、AI 對話、交易控制、paper-live、訓練/模型、API 測試台、歷史紀錄、資料目錄、風控設定）|
 | [manuals/07_DOCKER_DEPLOYMENT.md](manuals/07_DOCKER_DEPLOYMENT.md) | Docker Compose 部署指南（預設 8 個服務 + `trade` profile）|
 | [manuals/11_RISK_MANAGEMENT.md](manuals/11_RISK_MANAGEMENT.md) | 風險管理使用手冊（4 個風險等級）|
 | [manuals/09_ANALYSIS_MODULE.md](manuals/09_ANALYSIS_MODULE.md) | 分析模組操作手冊（news / plan / pretrade）|
@@ -68,6 +68,7 @@
 | [RAG_TECHNICAL_MANUAL.md](RAG_TECHNICAL_MANUAL.md) | 檢索增強生成 (RAG) 模組技術手冊 |
 | [KNOWHOW_ANALYSIS.md](KNOWHOW_ANALYSIS.md) | 核心交易邏輯與知識庫分析 |
 | [manuals/12_NLP_TRAINING.md](manuals/12_NLP_TRAINING.md) | NLP 自然語言處理訓練與微調計畫 |
+| [TRAINED_MODEL_TECHNICAL_REPORT_20260510.md](TRAINED_MODEL_TECHNICAL_REPORT_20260510.md) | `my_100m_model` 重訓前後差異、數值驗證與限制說明 |
 | [STRATEGY_FUSION_ROADMAP_OVERVIEW.md](STRATEGY_FUSION_ROADMAP_OVERVIEW.md) | 策略融合系統未來發展路線圖總覽 |
 | [STRATEGY_FUSION_PLAN_B_ML_METALEARNER.md](STRATEGY_FUSION_PLAN_B_ML_METALEARNER.md) | 方案 B：ML Meta-Learner 堆疊融合 |
 | [STRATEGY_FUSION_PLAN_C_REGIME_ROUTING.md](STRATEGY_FUSION_PLAN_C_REGIME_ROUTING.md) | 方案 C：硬性體制路由 |
@@ -83,6 +84,7 @@
 | [DOCUMENTATION_GOVERNANCE_PLAN.md](DOCUMENTATION_GOVERNANCE_PLAN.md) | 文件治理與清理規範 (核心守則) |
 | [DEVELOPMENT_TOOLS.md](DEVELOPMENT_TOOLS.md) | 目錄產生等 PowerShell 開發腳本說明 |
 | [TESTING_AND_VALIDATION_GUIDE.md](TESTING_AND_VALIDATION_GUIDE.md) | 測試哲學、核心測試路徑與 CI Smoke Test |
+| [OPERATION_VALIDATION_REPORT_20260511.md](OPERATION_VALIDATION_REPORT_20260511.md) | 已訓練權重接入後的 CLI、API、WebSocket、前端全功能實際操作驗證紀錄 |
 | [adr/README.md](adr/README.md) | Architecture Decision Records：核心架構決策紀錄 |
 | [V2.2_ROADMAP_AND_SPEC.md](V2.2_ROADMAP_AND_SPEC.md) | v2.2 路線圖與功能規格 |
 
@@ -90,20 +92,20 @@
 
 ## 📚 歸檔文件
 
-以下文件為 v2.1 收斂前的歷史快照，保留於 `archived/docs_v2_1_legacy/` 供考古比對。
+以下文件為 v2.2.0 收斂前的歷史快照，保留於 `archived/docs_v2_1_legacy/` 供考古比對。
 若同名文件已恢復到 `docs/` 根目錄，請以 `docs/` 內版本為目前相容入口。
 
 | 文檔 | 說明 |
 |------|------|
-| [../archived/docs_v2_1_legacy/BIONEURONAI_MASTER_MANUAL.legacy_20260405.md](../archived/docs_v2_1_legacy/BIONEURONAI_MASTER_MANUAL.legacy_20260405.md) | v2.1 收斂前舊版主手冊 |
-| [../archived/docs_v2_1_legacy/MANUAL_IMPLEMENTATION_STATUS.legacy_20260405.md](../archived/docs_v2_1_legacy/MANUAL_IMPLEMENTATION_STATUS.legacy_20260405.md) | v2.1 收斂前舊版手冊實作狀態 |
-| [../archived/docs_v2_1_legacy/FEATURE_STATUS.legacy_20260405.md](../archived/docs_v2_1_legacy/FEATURE_STATUS.legacy_20260405.md) | v2.1 收斂前舊版功能狀態總覽 |
-| [../archived/docs_v2_1_legacy/ARCHITECTURE_OVERVIEW.legacy_20260406.md](../archived/docs_v2_1_legacy/ARCHITECTURE_OVERVIEW.legacy_20260406.md) | v2.1 收斂前舊版架構總覽 |
-| [../archived/docs_v2_1_legacy/SRC_DIRECTORY_ANALYSIS.legacy_20260406.md](../archived/docs_v2_1_legacy/SRC_DIRECTORY_ANALYSIS.legacy_20260406.md) | v2.1 收斂前舊版 src 目錄分析 |
-| [../archived/docs_v2_1_legacy/PROJECT_HANDOVER_MAP.legacy_20260406.md](../archived/docs_v2_1_legacy/PROJECT_HANDOVER_MAP.legacy_20260406.md) | v2.1 收斂前舊版接手地圖 |
-| [../archived/docs_v2_1_legacy/OPERATION_MANUAL.legacy_20260406.md](../archived/docs_v2_1_legacy/OPERATION_MANUAL.legacy_20260406.md) | v2.1 收斂前舊版操作手冊 |
-| [../archived/docs_v2_1_legacy/QUICKSTART_V2.1.legacy_20260406.md](../archived/docs_v2_1_legacy/QUICKSTART_V2.1.legacy_20260406.md) | v2.1 收斂前含有舊版 API 幻覺的快速開始指南 |
-| [../archived/docs_v2_1_legacy/BACKTEST_SYSTEM_GUIDE.legacy_20260406.md](../archived/docs_v2_1_legacy/BACKTEST_SYSTEM_GUIDE.legacy_20260406.md) | v2.1 收斂前舊版回測系統指南 |
+| [../archived/docs_v2_1_legacy/BIONEURONAI_MASTER_MANUAL.legacy_20260405.md](../archived/docs_v2_1_legacy/BIONEURONAI_MASTER_MANUAL.legacy_20260405.md) | v2.2.0 收斂前舊版主手冊 |
+| [../archived/docs_v2_1_legacy/MANUAL_IMPLEMENTATION_STATUS.legacy_20260405.md](../archived/docs_v2_1_legacy/MANUAL_IMPLEMENTATION_STATUS.legacy_20260405.md) | v2.2.0 收斂前舊版手冊實作狀態 |
+| [../archived/docs_v2_1_legacy/FEATURE_STATUS.legacy_20260405.md](../archived/docs_v2_1_legacy/FEATURE_STATUS.legacy_20260405.md) | v2.2.0 收斂前舊版功能狀態總覽 |
+| [../archived/docs_v2_1_legacy/ARCHITECTURE_OVERVIEW.legacy_20260406.md](../archived/docs_v2_1_legacy/ARCHITECTURE_OVERVIEW.legacy_20260406.md) | v2.2.0 收斂前舊版架構總覽 |
+| [../archived/docs_v2_1_legacy/SRC_DIRECTORY_ANALYSIS.legacy_20260406.md](../archived/docs_v2_1_legacy/SRC_DIRECTORY_ANALYSIS.legacy_20260406.md) | v2.2.0 收斂前舊版 src 目錄分析 |
+| [../archived/docs_v2_1_legacy/PROJECT_HANDOVER_MAP.legacy_20260406.md](../archived/docs_v2_1_legacy/PROJECT_HANDOVER_MAP.legacy_20260406.md) | v2.2.0 收斂前舊版接手地圖 |
+| [../archived/docs_v2_1_legacy/OPERATION_MANUAL.legacy_20260406.md](../archived/docs_v2_1_legacy/OPERATION_MANUAL.legacy_20260406.md) | v2.2.0 收斂前舊版操作手冊 |
+| [../archived/docs_v2_1_legacy/QUICKSTART_V2.1.legacy_20260406.md](../archived/docs_v2_1_legacy/QUICKSTART_V2.1.legacy_20260406.md) | v2.2.0 收斂前含有舊版 API 幻覺的快速開始指南 |
+| [../archived/docs_v2_1_legacy/BACKTEST_SYSTEM_GUIDE.legacy_20260406.md](../archived/docs_v2_1_legacy/BACKTEST_SYSTEM_GUIDE.legacy_20260406.md) | v2.2.0 收斂前舊版回測系統指南 |
 | [../archived/docs_v2_1_legacy/DAILY_REPORT_CHECKLIST.legacy_20260406.md](../archived/docs_v2_1_legacy/DAILY_REPORT_CHECKLIST.legacy_20260406.md) | 舊版 `daily_market_report.py` 之純 To-Do 確認清單 |
 | [../archived/docs_v2_1_legacy/DATA_SOURCES_GUIDE.legacy_20260406.md](../archived/docs_v2_1_legacy/DATA_SOURCES_GUIDE.legacy_20260406.md) | 舊版外部數據 API 調用指南 (充斥舊版 `market_scanner.py` 位址) |
 | [../archived/docs_v2_1_legacy/PROJECT_STRUCTURE.legacy_20260406.md](../archived/docs_v2_1_legacy/PROJECT_STRUCTURE.legacy_20260406.md) | 舊版存在多處執行檔幻覺的目錄結構總覽 |

@@ -1,6 +1,7 @@
 # BioNeuronAI 使用者操作手冊集中索引
 
-> 建立日期：2026-05-02  
+> 建立日期：2026-05-12
+> 更新日期：2026-05-13
 > 目的：只整理「使用者實際操作系統時會用到的手冊」，包含開機、關機、CLI、API、Dashboard、Docker、回測、分析、策略、風控、常見問題與操作排查。
 
 ---
@@ -53,19 +54,19 @@
 | 03 | [03_QUICKSTART.md](03_QUICKSTART.md) | `QUICKSTART_V2.1.md` | 快速開始 | 可用，部分內容與 02 重疊 |
 | 04 | [04_CLI_OPERATION.md](04_CLI_OPERATION.md) | `OPERATION_MANUAL.md` | CLI 與標準 SOP | 可用，部分內容與 03 重疊 |
 | 05 | [05_API_USER_MANUAL.md](05_API_USER_MANUAL.md) | `API_USER_MANUAL.md` | REST API / WebSocket | 已用本地 API 逐端點驗證 |
-| 06 | [06_FRONTEND_DASHBOARD.md](06_FRONTEND_DASHBOARD.md) | `FRONTEND_DASHBOARD_MANUAL.md` | DevOps Dashboard | 已驗證本地 5173、Docker 3000、production build |
+| 06 | [06_FRONTEND_DASHBOARD.md](06_FRONTEND_DASHBOARD.md) | `FRONTEND_DASHBOARD_MANUAL.md` | Operations Dashboard | 已改為 Operations / Validation / Config / Dev Tools / Chat；已補 paper-live、Training / Model 面板說明 |
 | 07 | [07_DOCKER_DEPLOYMENT.md](07_DOCKER_DEPLOYMENT.md) | `DOCKER_DEPLOYMENT_MANUAL.md` | Docker Compose | source compose 已驗證；image 層待重建後複驗 |
 | 08 | [08_BACKTEST_SYSTEM.md](08_BACKTEST_SYSTEM.md) | `BACKTEST_SYSTEM_GUIDE.md` | 回測與 replay | 已用短區間指令與 API 驗證 |
 | 09 | [09_ANALYSIS_MODULE.md](09_ANALYSIS_MODULE.md) | `ANALYSIS_MODULE_USER_MANUAL.md` | news / plan / pretrade | 已用 CLI 與 API 驗證 |
 | 10 | [10_STRATEGY_MODULE.md](10_STRATEGY_MODULE.md) | `STRATEGY_MODULE_USER_MANUAL.md` | strategy-backtest / strategy-run | 已用短區間 CLI 與 API 驗證 |
 | 11 | [11_RISK_MANAGEMENT.md](11_RISK_MANAGEMENT.md) | `RISK_MANAGEMENT_USER_MANUAL.md` | 風控與 pretrade 風險解讀 | 已用 pretrade / dashboard risk 驗證 |
-| 14 | [14_TESTNET_AND_LIVE_TRADING.md](14_TESTNET_AND_LIVE_TRADING.md) | 新增 | testnet / live 啟停與緊急停止 | 已驗證 testnet API 啟停；live 依安全限制未執行 |
+| 14 | [14_TESTNET_AND_LIVE_TRADING.md](14_TESTNET_AND_LIVE_TRADING.md) | 新增 | testnet / paper-live / live 啟停與緊急停止 | 已驗證本地 API 啟停與 AI 載入；live 依安全限制未執行 |
 | 15 | [15_DATA_ACQUISITION.md](15_DATA_ACQUISITION.md) | 新增 | 歷史資料與 catalog 操作 | 已驗證 |
 | 16 | [16_RUNTIME_ARTIFACTS.md](16_RUNTIME_ARTIFACTS.md) | 新增 | runtime、logs、output、模型產物位置 | 已驗證 |
 | 17 | [17_ENVIRONMENT_VARIABLES.md](17_ENVIRONMENT_VARIABLES.md) | 新增 | `.env` 與環境變數 | 已驗證 |
 | 18 | [18_OPERATION_TROUBLESHOOTING.md](18_OPERATION_TROUBLESHOOTING.md) | 新增 | CLI/API/Backtest/Pretrade 操作排查 | 已驗證 |
 | 19 | [19_DASHBOARD_TROUBLESHOOTING.md](19_DASHBOARD_TROUBLESHOOTING.md) | 新增 | Dashboard / CORS / API 連線排查 | 已驗證 |
-| 20 | [20_UI_END_TO_END_OPERATION.md](20_UI_END_TO_END_OPERATION.md) | 新增 | UI 從啟動到完成一輪操作的端到端流程 | 已完成 API/HTTP/build 實際入口驗證；仍需 Playwright 或人工點擊驗收 |
+| 20 | [20_UI_END_TO_END_OPERATION.md](20_UI_END_TO_END_OPERATION.md) | 新增 | UI 從啟動到完成一輪操作的端到端流程 | 已完成 API/HTTP/build 與本地瀏覽器截圖驗證；Docker image 層仍需重建後複驗 |
 
 ---
 
@@ -109,7 +110,7 @@
 |---:|---|---|---|
 | 21 | 待建立：Release readiness checklist | P2 | 若要正式對外發布，需要一份使用者角度的發版前操作確認表 |
 
-目前下一個使用者可用性目標是補齊 UI 直接操作流程與對應的實際點擊驗收；Docker image 層仍需在 source 檢查完成後一次性重建，再重跑 `status/backtest/simulate` 與 Docker API/frontend。
+目前下一個使用者可用性目標是長時間跑 paper-live 並回收本地 paper ledger；Docker image 層仍需在 source 檢查完成後一次性重建，再重跑 `status/backtest/simulate` 與 Docker API/frontend。
 
 ---
 

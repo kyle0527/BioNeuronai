@@ -41,17 +41,63 @@ export interface ChatResponse {
   latency_ms?: number | null
 }
 
-export type TradeMode = 'monitor_only' | 'testnet_auto' | 'live_auto'
+export type TradeMode = 'monitor_only' | 'paper_live' | 'testnet_auto' | 'live_auto'
 
 export interface TradeStartBody {
   symbol: string
   testnet: boolean
   mode: TradeMode
   auto_trade: boolean
+  paper_initial_balance: number
   load_ai_model: boolean
   model_name: string
   warmup_model: boolean
   confirm_live?: string
+}
+
+export interface TrainingStartBody {
+  execution_mode: 'external' | 'local_process'
+  job_name: string
+  cloud_job_id?: string | null
+  signal_data?: string | null
+  signal_val_data?: string | null
+  base_model?: string | null
+  resume?: string | null
+  output_dir: string
+  cloud_output_uri?: string | null
+  epochs: number
+  batch: number
+  grad_accum: number
+  save_steps: number
+  max_signal_samples?: number | null
+  lm_only: boolean
+  sig_only: boolean
+  no_save: boolean
+  notes?: string | null
+}
+
+export interface ModelPromoteBody {
+  model_name: string
+  model_path: string
+  validate_path: boolean
+  reload_running_engine: boolean
+  warmup_model: boolean
+  notes?: string | null
+}
+
+export interface DashboardSnapshot {
+  environment?: string
+  risk?: {
+    level?: string
+    percentage?: number
+    lastUpdated?: string
+  }
+  pretradeChecklist?: {
+    completedCount?: number
+    totalCount?: number
+    lastUpdated?: string
+  }
+  positions?: unknown[] | null
 }
 
 type RequestLogger = (log: RequestLog) => void
@@ -177,6 +223,18 @@ export const endpoints = {
     api.post<RestApiResponse>('/api/v1/trade/start', body),
   tradeStatus: () => api.get<RestApiResponse>('/api/v1/trade/status'),
   tradeStop: () => api.post<RestApiResponse>('/api/v1/trade/stop', {}),
+  trainingStart: (body: TrainingStartBody) =>
+    api.post<RestApiResponse>('/api/v1/training/start', body),
+  trainingStatus: (jobId: string) =>
+    api.get<RestApiResponse>(`/api/v1/training/${encodeURIComponent(jobId)}`),
+  trainingList: () =>
+    api.get<RestApiResponse>('/api/v1/training'),
+  modelStatus: () =>
+    api.get<RestApiResponse>('/api/v1/model/status'),
+  modelPromote: (body: ModelPromoteBody) =>
+    api.post<RestApiResponse>('/api/v1/model/promote', body),
+  dashboard: () =>
+    api.get<DashboardSnapshot>('/api/v1/dashboard'),
   chat: (body: {
     message: string
     language: 'auto' | 'zh' | 'en'

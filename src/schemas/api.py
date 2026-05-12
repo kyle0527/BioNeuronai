@@ -289,16 +289,24 @@ class TradeStartRequest(BaseModel):
     """啟動交易監控請求"""
     symbol: str = Field(default="BTCUSDT", description="交易對")
     testnet: bool = Field(default=True, description="使用測試網")
-    mode: Literal["monitor_only", "testnet_auto", "live_auto"] = Field(
+    mode: Literal["monitor_only", "paper_live", "testnet_auto", "live_auto"] = Field(
         default="monitor_only",
-        description="交易模式：monitor_only 僅監控；testnet_auto 測試網自動交易；live_auto 正式網自動交易",
+        description=(
+            "交易模式：monitor_only 僅監控；paper_live 主網行情+虛擬成交；"
+            "testnet_auto 測試網自動交易；live_auto 正式網自動交易"
+        ),
+    )
+    paper_initial_balance: float = Field(
+        default=10000.0,
+        gt=0,
+        description="paper_live 虛擬帳戶初始 USDT 餘額",
     )
     auto_trade: bool = Field(
         default=False,
         description="是否允許交易引擎收到非 HOLD 訊號後自動送單",
     )
     load_ai_model: bool = Field(
-        default=False,
+        default=True,
         description="啟動時是否載入 AI 模型權重",
     )
     model_name: str = Field(
@@ -329,6 +337,48 @@ class BinanceValidateRequest(BaseModel):
     testnet: bool = Field(default=True, description="使用測試網")
     api_key: Optional[str] = Field(default=None, description="Binance API Key（選填，不填從環境變數讀取）")
     api_secret: Optional[str] = Field(default=None, description="Binance API Secret（選填）", repr=False)
+
+
+class TrainingStartRequest(BaseModel):
+    """訓練作業啟動或登記請求
+
+    external：登記遠端/GCP/Vertex/GCE 訓練作業，供 UI 查狀態與後續 promote 對接。
+    local_process：在目前 API 主機背景啟動 unified_trainer，僅供明確需要本機執行時使用。
+    """
+    execution_mode: Literal["external", "local_process"] = Field(
+        default="external",
+        description="external=登記遠端訓練；local_process=由 API 主機啟動本機訓練 subprocess",
+    )
+    job_name: str = Field(default="cloud-training", min_length=1, max_length=120, description="作業名稱")
+    cloud_job_id: Optional[str] = Field(default=None, description="遠端訓練平台的 job id / run id")
+    signal_data: Optional[str] = Field(default=None, description="signal train tensor/JSONL 路徑，可為本機或 gs://")
+    signal_val_data: Optional[str] = Field(default=None, description="signal validation tensor 路徑，可為本機或 gs://")
+    base_model: Optional[str] = Field(default=None, description="初始模型或 checkpoint 路徑，可為本機或 gs://")
+    resume: Optional[str] = Field(default=None, description="resume checkpoint 目錄，可為本機或 gs://")
+    output_dir: str = Field(default="output/api_training", description="本機輸出目錄")
+    cloud_output_uri: Optional[str] = Field(default=None, description="訓練 artifacts 同步目標，例如 gs://bucket/prefix")
+    epochs: int = Field(default=1, ge=1, le=10000, description="訓練 epoch 數")
+    batch: int = Field(default=2, ge=1, le=4096, description="batch size")
+    grad_accum: int = Field(default=1, ge=1, le=1024, description="gradient accumulation steps")
+    save_steps: int = Field(default=100, ge=1, description="checkpoint 儲存間隔")
+    max_signal_samples: Optional[int] = Field(default=None, ge=1, description="限制 signal 樣本數")
+    lm_only: bool = Field(default=False, description="只跑語言任務")
+    sig_only: bool = Field(default=True, description="只跑訊號任務")
+    no_save: bool = Field(default=False, description="不儲存 checkpoint")
+    notes: Optional[str] = Field(default=None, max_length=1000, description="操作備註")
+
+
+class ModelPromoteRequest(BaseModel):
+    """模型 promote 請求
+
+    將已完成訓練的模型登記為 runtime 後續載入來源。
+    """
+    model_name: str = Field(default="my_100m_model", min_length=1, description="模型名稱")
+    model_path: str = Field(..., min_length=1, description="模型檔或模型目錄，可為本機路徑或 gs://")
+    validate_path: bool = Field(default=True, description="promote 前是否檢查模型檔可被定位")
+    reload_running_engine: bool = Field(default=False, description="若交易引擎已啟動，是否立即重新載入模型")
+    warmup_model: bool = Field(default=False, description="reload_running_engine 時是否 warmup")
+    notes: Optional[str] = Field(default=None, max_length=1000, description="操作備註")
 
 
 # ── REST API Response / Status Models ────────────────────────────────────────
@@ -364,7 +414,7 @@ class StatusResponse(BaseModel):
 class JobStatus(BaseModel):
     """長時間背景任務狀態"""
     job_id: str
-    status: str = Field(description="pending | running | completed | failed | not_found")
+    status: str = Field(description="registered | pending | running | completed | failed | not_found")
     result: Optional[Dict[str, Any]] = None
     error: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.now)

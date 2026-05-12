@@ -105,13 +105,23 @@ def cmd_trade(args: argparse.Namespace) -> None:
         python main.py trade --live  # 謹慎！
     """
     use_live = getattr(args, "live", False)
+    use_paper_live = getattr(args, "paper_live", False)
+    auto_trade = bool(getattr(args, "auto_trade", False) or use_paper_live)
+
+    if use_live and use_paper_live:
+        logger.error("--live 與 --paper-live 不可同時使用")
+        sys.exit(1)
+
     if use_live:
         confirm = input("\n[警告] 即將使用真實網路交易，確認請輸入 YES: ")
         if confirm.strip() != "YES":
             print("已取消。")
             return
 
-    mode = "真實網路" if use_live else "測試網"
+    if use_paper_live:
+        mode = "虛擬實盤（主網行情 / 本機虛擬成交）"
+    else:
+        mode = "真實網路" if use_live else "測試網"
     print(f"\n{'='*60}")
     print(f"  BioNeuronai Trade  [{mode}]  {args.symbol}")
     print(f"{'='*60}\n")
@@ -126,12 +136,36 @@ def cmd_trade(args: argparse.Namespace) -> None:
         import os
         api_key = os.getenv("BINANCE_API_KEY", "")
         api_secret = os.getenv("BINANCE_API_SECRET", "")
-        engine = TradingEngine(api_key=api_key, api_secret=api_secret, testnet=not use_live)
+        engine = TradingEngine(
+            api_key=api_key,
+            api_secret=api_secret,
+            testnet=not use_live,
+            enable_ai_model=getattr(args, "load_ai_model", True),
+            paper_trading=use_paper_live,
+            paper_initial_balance=float(getattr(args, "paper_balance", 10000.0)),
+        )
         print("  TradingEngine 已初始化")
+        if auto_trade:
+            engine.enable_auto_trading()
+            print("  自動交易: 已啟用")
+        else:
+            engine.disable_auto_trading()
+            print("  自動交易: 未啟用（僅監控）")
+
+        model_name = getattr(args, "model_name", "my_100m_model")
+        if getattr(args, "load_ai_model", True):
+            if engine.load_ai_model(model_name, warmup=getattr(args, "warmup_model", False)):
+                print(f"  AI 模型已載入: {model_name}")
+            else:
+                print(f"  [WARN] AI 模型載入失敗: {model_name}")
 
         price_data = engine.get_real_time_price(args.symbol)
         if price_data:
             print(f"  即時價格 [{args.symbol}]: ${price_data.price:.2f}")
+
+        if use_paper_live:
+            paper_state = getattr(engine.connector, "get_paper_state", lambda: {})()
+            print(f"  Paper Log: {paper_state.get('log_dir', 'N/A')}")
 
         print("\n  按 Ctrl+C 停止交易\n")
         # TradingEngine 正確入口：start_monitoring(symbol) 內建 WebSocket 監控迴圈
@@ -869,6 +903,7 @@ def _build_parser() -> argparse.ArgumentParser:
   python main.py collect-signal-data --symbol BTCUSDT --interval 1h
   python main.py backtest-data --symbol ETHUSDT --interval 1h
   python main.py trade     --testnet
+  python main.py trade     --paper-live --paper-balance 10000
   python main.py plan      --output daily_plan.json
   python main.py news      --symbol BTCUSDT --max-items 5
   python main.py pretrade  --symbol BTCUSDT --action long
@@ -1005,11 +1040,25 @@ def _build_parser() -> argparse.ArgumentParser:
     brp.set_defaults(func=cmd_backtest_runs)
 
     # ── trade ─────────────────────────────────────────────────────────────────
-    tp = subparsers.add_parser("trade", help="實盤 / 測試網交易")
+    tp = subparsers.add_parser("trade", help="監控 / 虛擬實盤 / 測試網 / 實盤交易")
     tp.add_argument("--symbol", default="BTCUSDT", metavar="SYMBOL",
                     help="交易對  (預設: BTCUSDT)")
     tp.add_argument("--testnet", action="store_true", default=True,
                     help="使用測試網  (預設)")
+    tp.add_argument("--paper-live", action="store_true",
+                    help="使用主網即時行情，但所有下單只進本機虛擬帳戶")
+    tp.add_argument("--paper-balance", type=float, default=10000.0, metavar="AMOUNT",
+                    help="paper-live 虛擬帳戶初始 USDT 餘額 (預設: 10000)")
+    tp.add_argument("--auto-trade", action="store_true",
+                    help="允許收到非 HOLD 訊號後送到目前執行層；paper-live 會自動啟用")
+    tp.add_argument("--load-ai-model", action="store_true", default=True,
+                    help="啟動時載入 AI 模型 (預設)")
+    tp.add_argument("--no-ai-model", action="store_false", dest="load_ai_model",
+                    help="啟動時不載入 AI 模型")
+    tp.add_argument("--model-name", default="my_100m_model", metavar="MODEL",
+                    help="AI 模型名稱 (預設: my_100m_model)")
+    tp.add_argument("--warmup-model", action="store_true",
+                    help="載入模型後執行 warmup")
     tp.add_argument("--live", action="store_true",
                     help="使用真實網路  [謹慎！需設定 API 金鑰]")
     tp.set_defaults(func=cmd_trade)

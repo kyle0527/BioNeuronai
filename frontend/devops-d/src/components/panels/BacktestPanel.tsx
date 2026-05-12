@@ -206,7 +206,7 @@ export function BacktestPanel() {
 
         {error && <ErrorPanel message={error.message} details={error.details} />}
 
-        {data && !error && (
+        {data !== null && !error && (
           <>
             <Separator />
             <div className="space-y-2">

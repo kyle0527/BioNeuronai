@@ -105,11 +105,11 @@ export function RiskConfigPanel() {
           </div>
         )}
 
-        {!rawConfig && !error && !loading && (
+        {rawConfig === null && !error && !loading && (
           <p className="text-sm text-muted-foreground">點擊右上角重新整理以讀取目前設定</p>
         )}
 
-        {rawConfig && (
+        {rawConfig !== null && (
           <>
             <div className="space-y-2">
               <Label className="text-xs font-mono text-muted-foreground">目前等級</Label>

@@ -1,5 +1,7 @@
 # 分析模組操作手冊
 
+> 更新日期：2026-05-13
+
 ## 📑 目錄
 
 - [適用範圍](#適用範圍)
@@ -95,10 +97,9 @@ python main.py pretrade --symbol BTCUSDT --action long
 **常用參數：**
 - `--symbol`: 交易對。
 - `--action`: 準備執行的方向 (`long` 或 `short`)。
-- `--capital`: 準備投入的資金。
 
 **預期輸出：**
-會依序印出 5-6 個檢查步驟的狀態（`[OK]` 或 `[REJECT]`）。如果最終被拒絕，會明確給出原因（例如：`REJECT: 期貨錢包可用餘額不足` 或 `REJECT: 新聞情緒與操作方向強烈衝突`）。
+會依序印出 6 點檢查狀態（`PROCEED` / `CAUTION` / `REJECT`）。如果最終被拒絕，會明確給出原因（例如：期貨錢包可用餘額不足或新聞/RAG 風險過高）。
 
 ---
 
@@ -113,22 +114,20 @@ python main.py pretrade --symbol BTCUSDT --action long
 ```json
 {
   "symbol": "BTCUSDT",
-  "max_items": 10,
-  "hours": 24
+  "max_items": 10
 }
 ```
-**回傳**：包含 `sentiment_score` (綜合分數)、`news_items` (個別新聞明細) 與 `regime_suggestion`。
+**回傳**：包含新聞情緒、文章數、標題、關鍵字與操作建議。CryptoPanic 免費方案失敗時，系統會使用可用 RSS / fallback 來源並回傳明確狀態。
 
 ### 2. 每日計畫 API
-**端點**：`POST /api/v1/plan`
 
-**請求範例 (JSON)**：
-```json
-{
-  "symbol": "BTCUSDT"
-}
+目前 FastAPI 主線沒有暴露 `/api/v1/plan`。每日計畫請使用 CLI：
+
+```powershell
+python main.py plan --symbol BTCUSDT --output daily_plan.json
 ```
-**回傳**：完整的 `TradingPlan` 結構，包含 `macro_analysis`、`strategy_weights` 與 `risk_parameters`。
+
+若未來新增 REST route，需同步更新本節與 [05_API_USER_MANUAL.md](05_API_USER_MANUAL.md)。
 
 ### 3. 進場前驗核 API
 **端點**：`POST /api/v1/pretrade`
@@ -137,12 +136,10 @@ python main.py pretrade --symbol BTCUSDT --action long
 ```json
 {
   "symbol": "BTCUSDT",
-  "action": "long",
-  "capital": 10000.0,
-  "leverage": 10
+  "action": "long"
 }
 ```
-**回傳**：包含 `is_approved` (布林值) 以及所有檢查點的明細報告 `check_results`。
+**回傳**：包含 overall assessment、風險理由與各檢查點明細。`REJECT` 是有效風控結果，不代表 API 失敗。
 
 ---
 
@@ -157,7 +154,7 @@ python main.py pretrade --symbol BTCUSDT --action long
    - 每日計畫判斷出的「市場體制」(Regime)，會告訴 Router 現在是「震盪」還是「趨勢」。這會決定接下來一天是由「均值回歸」還是「趨勢跟隨」策略主導。
 
 3. **Pre-trade → 交易引擎 (Trading Engine)**
-   - 任何由 AI 或策略發出的交易訊號，在真正送出 Binance API 訂單前，都會被攔截並強制執行一遍 Pre-trade。只有拿到 `is_approved: true` 才會真正成交。
+   - 任何由 AI 或策略發出的交易訊號，在送到 testnet/live execution 前都應先通過 Pre-trade。`paper_live` 也會保留相同決策流程，只是 execution connector 不送出真實 Binance order。
 
 ---
 

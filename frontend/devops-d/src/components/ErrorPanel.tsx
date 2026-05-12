@@ -16,7 +16,7 @@ export function ErrorPanel({ title = 'Error', message, details }: ErrorPanelProp
         <AlertTitle>{title}</AlertTitle>
         <AlertDescription>{message}</AlertDescription>
       </Alert>
-      {details && (
+      {details !== undefined && details !== null && (
         <div className="space-y-2">
           <p className="text-xs font-medium text-muted-foreground">Error Details:</p>
           <JSONViewer data={details} maxHeight="200px" />

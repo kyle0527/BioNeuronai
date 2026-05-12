@@ -1,6 +1,7 @@
 # 環境變數操作手冊
 
 > 範圍：使用者如何建立、檢查與理解 `.env`，不記錄任何真實密鑰。
+> 更新日期：2026-05-13
 
 ---
 
@@ -63,10 +64,13 @@ Test-Path .env
 
 ```dotenv
 BINANCE_TESTNET=true
-ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5173
+ALLOW_LIVE_TRADING=0
+ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173,http://127.0.0.1:5176
 ```
 
 Testnet key 與 live key 不要混用。
+
+若 `ALLOWED_ORIGINS` 未設定，API 預設允許本地 `3000`、`8080`、`5173-5180`，且同時允許 `localhost` 與 `127.0.0.1`。
 
 ---
 
@@ -85,6 +89,7 @@ ALLOW_LIVE_TRADING=1
 - Futures 權限已開通。
 - 帳戶有可用餘額。
 - 已完成 testnet 與 pretrade 驗證。
+- 已完成 paper-live 長時間觀察；paper-live 不需要 `ALLOW_LIVE_TRADING=1`，因為不送真實訂單。
 - API / UI live 自動交易請求必須另外提供 `confirm_live=I_UNDERSTAND_LIVE_RISK`。
 
 ---
@@ -113,7 +118,7 @@ Get-Content .env |
 
 | 問題 | 原因 | 處理 |
 |---|---|---|
-| CORS 錯誤 | `ALLOWED_ORIGINS` 未包含前端網址 | 加入 `http://localhost:5173` 或 `http://localhost:3000` |
+| CORS 錯誤 | `ALLOWED_ORIGINS` 未包含前端網址 | 加入目前瀏覽器實際 origin，例如 `http://127.0.0.1:5176` |
 | Binance 驗證失敗 | key/secret 錯、testnet/live 不一致 | 檢查 `.env` 與 Binance 後台 |
 | news 無結果 | 沒有 token 或免費 API 限制 | 設定 `CRYPTOPANIC_API_TOKEN` 或稍後重試 |
 | Docker port 衝突 | 8000 或 3000 被占用 | 調整 `API_PORT`、`FRONTEND_PORT` |

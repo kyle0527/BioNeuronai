@@ -1,6 +1,6 @@
 # BioNeuronai 操作手冊
 **版本**：v2.1
-**更新日期**：2026-05-05
+**更新日期**：2026-05-13
 **適用對象**：初次使用者 / 日常操作參考
 
 ---
@@ -199,12 +199,13 @@ python main.py evolve --output output/best_strategy.json
 
 ### `trade`
 **依賴子系統**：`core/trading_engine.py` 與 connector / 帳戶狀態層  
-**用途**：進行測試網或實盤監控 / 交易入口。
+**用途**：進行 monitor、paper-live、測試網或實盤監控 / 交易入口。AI 模型預設載入；如需關閉需明確加 `--no-ai-model`。
 ```bash
 python main.py trade --testnet
+python main.py trade --paper-live --paper-balance 10000
 python main.py trade --live
 ```
-使用 `--live` 時系統會有強制二次確認，避免意外按下 Enter 進入實盤。若要從 Dashboard / API 啟用自動交易，請使用 `testnet_auto` 或 `live_auto` 模式並確認 `/api/v1/trade/status`。
+`--paper-live` 使用 Binance mainnet 行情，但訂單只寫入本地虛擬帳戶，不送出真實 Binance order。使用 `--live` 時系統會有強制二次確認，避免意外進入實盤。若要從 Dashboard / API 啟用自動交易，請使用 `paper_live`、`testnet_auto` 或 `live_auto` 模式並確認 `/api/v1/trade/status`。
 
 ### `chat`
 **依賴子系統**：`src/nlp/chat_engine.py`、`src/nlp/training/trading_dialogue_data.py`  
@@ -250,7 +251,7 @@ v2.1 的正式主線以 Pydantic v2 模型作為跨模組主要資料契約。
 1. **盤前檢查** (`status`) => 確保網路與環境變數載入。
 2. **大盤掃描** (`plan`) => 產出高階交易計劃或觀望建議。
 3. **特定幣種確認** (`pretrade`) => 對候選標的做進場前檢查。
-4. **啟動回放或測試網觀測** (`backtest` / `simulate` / `trade --testnet`)。
+4. **啟動回放、paper-live 或測試網觀測** (`backtest` / `simulate` / `trade --paper-live` / `trade --testnet`)。
 5. **檢閱結果與帳戶狀態** => 依情境查看 replay runtime、資料庫記錄或帳戶快照。
 
 ---

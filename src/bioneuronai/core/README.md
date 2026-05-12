@@ -1,8 +1,8 @@
 # Core 核心模組
 
 **路徑**: `src/bioneuronai/core/`  
-**版本**: v2.1  
-**更新日期**: 2026-04-20
+**版本**: v2.2
+**更新日期**: 2026-05-13
 **架構層級**: Layer 1 — 核心引擎層
 
 ---
@@ -62,16 +62,43 @@ src/bioneuronai/core/
 
 **主要類**: `TradingEngine` · `Position` (dataclass)
 
+**策略主線模式**（由 `strategy_type` 參數指定）：
+
+| 模式 | 說明 |
+|------|---------|
+| `fusion` (預設) | `StrategySelector` + `AIStrategyFusion` 分析融合正式主線 |
+| `phase_router` | `TradingPhaseRouter` 將市場分成多個交易階段分別路由 |
+| `rl_fusion` | RL Meta-Agent（PPO，需 stable-baselines3）後處理策略融合輸出 |
+
+**多模態融合權重**（依市場 regime 動態調整）：
+
+| 市場構型 | strategy | ai | news |
+|---------|----------|----|------|
+| `strong_trend` | 0.70 | 0.25 | 0.05 |
+| `ranging` | 0.50 | 0.40 | 0.10 |
+| `high_volatility` | 0.45 | 0.40 | 0.15 |
+| `news_event` | 0.35 | 0.35 | 0.30 |
+| `default` | 0.60 | 0.30 | 0.10 |
+
 **核心能力**:
 - 策略選擇 (`StrategySelector`) 與融合 (`AIStrategyFusion`) 信號接收與執行
-- 實時市場數據處理（K 線、訂單簿）
+- 即時市場數據處理（K 線、訂單簿）
+- `paper_trading=True` 時使用主網行情 + 本地虛擬成交，不送 Binance 訂單
 - 自動風險管理（止損 / 止盈 / 爆倉防護）
 - 新聞情緒即時整合（`CryptoNewsAnalyzer`）
 - RAG 事件上下文整合（`NewsAdapter.get_event_context()`）
 - 市場微結構分析（`MarketMicrostructure`）
-- 平倉後策略權重更新：`notify_trade_closed(strategy_name, realized_pnl, entry_price, stop_loss_price)`
+- 進場前 RAG 新聞檢查：`PreTradeCheckSystem`
 
-**整合組件**: `StrategySelector` · `AIStrategyFusion` · `NewsAdapter` · `BinanceFuturesConnector` · `DatabaseManager` · `RiskManager` · `RegimeAnalysis`
+**主要公開方法**:
+- `start_monitoring(symbol)` — 啟動 WebSocket 監控迴圈
+- `stop_monitoring()` — 停止監控
+- `generate_trading_signal(symbol, current_price, klines, event_score, event_context)` — 產生交易信號
+- `load_ai_model(model_name, warmup)` — 載入 AI 推理模型
+- `enable_auto_trading()` / `disable_auto_trading()` — 自動交易開關
+- `get_real_time_price(symbol)` — 取得即時報價
+
+**整合組件**: `StrategySelector` · `TradingPhaseRouter` · `RLMetaAgent` · `AIStrategyFusion` · `NewsAdapter` · `BinanceFuturesConnector` · `DatabaseManager` · `RiskManager` · `RegimeAnalysis`
 
 ---
 
@@ -80,8 +107,12 @@ src/bioneuronai/core/
 完整的 AI 推理管線，從原始市場數據到可執行交易訊號的端到端處理。
 
 **主要類**:
-- `ModelLoader` — 模型載入管理（支援 PyTorch .pth）
-- `FeaturePipeline` — 特徵工程處理管線
+- `ModelLoader` — 模型載入管理，支援多種路徑解析策略：
+  - `MODEL_PATH` / `MODEL_DIR` 環境變數（包含 GCS URI）
+  - `config/active_model.json` promote 機制（由 API `POST /api/v1/model/promote` 寫入）
+  - 本地 `model/` 目錄（預設回退）
+  - 自動判斷 checkpoint 類型：TinyLLM（包含數値 signal head） / 舊版 100M MLP（`bioneuronai.models.legacy`）
+- `FeaturePipeline` — 1024 維特徵向量工程處理管線
 - `Predictor` — 模型推理預測器
 - `SignalInterpreter` — 預測結果→交易訊號轉譯
 - `InferenceEngine` — 統一推理引擎
@@ -92,8 +123,8 @@ src/bioneuronai/core/
 **推理流程**:
 ```
 原始數據 → FeaturePipeline → Predictor → SignalInterpreter → TradingSignal
-                                  ↑
-                             ModelLoader (PyTorch)
+                              ↑
+                         ModelLoader (TinyLLM / Legacy MLP)
 ```
 
 **工廠函式**: `create_inference_engine(model_name="my_100m_model", min_confidence=0.5)`
@@ -101,7 +132,6 @@ src/bioneuronai/core/
 ---
 
 ### 3. SelfImprovementSystem — 基因演算法進化系統
-
 以遺傳演算法實現的策略「養蠱場」，負責核心層的自我改進能力。
 
 **主要類**: `SelfImprovementSystem` · `StrategyGene` (dataclass)
@@ -181,7 +211,24 @@ from bioneuronai.core import (
 ```python
 from bioneuronai.core import TradingEngine
 
-engine = TradingEngine(testnet=True, enable_ai_model=False)
+# 預設使用 fusion 模式（StrategySelector + AI Fusion）
+engine = TradingEngine(testnet=True, enable_ai_model=True)
+engine.load_ai_model("my_100m_model", warmup=False)
+
+# Paper-live：讀主網行情，訂單只進本地 VirtualAccount
+paper_engine = TradingEngine(
+    testnet=False,
+    enable_ai_model=True,
+    paper_trading=True,
+    paper_initial_balance=10000.0,
+)
+paper_engine.load_ai_model("my_100m_model", warmup=False)
+
+# 使用 PhaseRouter 策略主線
+engine = TradingEngine(testnet=True, strategy_type="phase_router")
+
+# 使用 RL Meta-Agent（需安裝 stable-baselines3 且存有 RL 模型）
+engine = TradingEngine(testnet=True, strategy_type="rl_fusion")
 
 # 開始 WebSocket 監控（每次 ticker 更新自動呼叫策略管線）
 engine.start_monitoring("BTCUSDT")
@@ -194,14 +241,6 @@ signal = engine.generate_trading_signal(
 )
 if signal:
     engine.execute_trade(signal)
-
-# 平倉後更新策略權重（實際損益 → AI Fusion 學習）
-engine.notify_trade_closed(
-    strategy_name="trend_following",
-    realized_pnl=85.0,
-    entry_price=49800.0,
-    stop_loss_price=49200.0,
-)
 ```
 
 ### AI 推理
@@ -247,10 +286,11 @@ TRADING_CONFIG = {
 
 ## 注意事項
 
-1. **風險警告**: `TradingEngine` 可執行真實交易，請先在 testnet 驗證
-2. **API 密鑰**: 需配置有效的 Binance API 密鑰（環境變量存儲）
-3. **模型文件**: 推理引擎需要 PyTorch `.pth` 模型檔案
-4. **遇錯即停**: 系統遵循 Fail Fast 原則，不使用模擬數據降級
+1. **風險警告**: `TradingEngine` 可執行真實交易，請先用 `paper_trading=True` 或 testnet 長時間驗證。
+2. **Paper-live 邊界**: `paper_trading=True` 使用正式行情，但訂單寫入本地虛擬帳戶，不送 Binance order API。
+3. **API 密鑰**: testnet / live 自動交易需配置有效 Binance API key；paper-live 不需要私鑰即可讀 public market data。
+4. **模型文件**: 推理引擎需要 PyTorch `.pth` 模型檔案；API/CLI 預設會嘗試載入 `my_100m_model`。
+5. **遇錯即停**: 系統遵循 Fail Fast 原則，不使用假資料掩蓋錯誤。
 
 ---
 
@@ -267,13 +307,11 @@ TRADING_CONFIG = {
 
 ## 相關文檔
 
-- **策略進化指南**: [STRATEGY_EVOLUTION_GUIDE.md](../../../archived/docs_v2_1_legacy/STRATEGY_EVOLUTION_GUIDE.legacy_20260406.md)
-- **風險管理手冊**: [RISK_MANAGEMENT_MANUAL.md](../../../archived/docs_v2_1_legacy/RISK_MANAGEMENT_MANUAL.legacy_20260406.md)
 - **代碼修復指南**: [CODE_FIX_GUIDE.md](../../../docs/CODE_FIX_GUIDE.md)
 - **父模組**: [BioNeuronai 主模組](../README.md)
 
 ---
 
-**最後更新**: 2026 年 4 月 5 日
+**最後更新**: 2026 年 5 月 13 日
 
 > 📖 上層目錄：[src/bioneuronai/README.md](../README.md)

@@ -1,6 +1,6 @@
 # trading_plan_data/ — 交易計劃輸出
 
-> **更新日期**: 2026-04-07
+> **更新日期**: 2026-05-12
 
 此目錄存放 `TradingPlanController` 產生的完整交易計劃 JSON 輸出。
 

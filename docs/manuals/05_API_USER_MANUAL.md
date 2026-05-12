@@ -1,7 +1,7 @@
 # BioNeuronai REST API 使用手冊
 
 > **版本**：v2.1  
-> **更新日期**：2026-05-05
+> **更新日期**：2026-05-13
 > **伺服器預設**：`http://localhost:8000`  
 > **互動文件（Swagger UI）**：`http://localhost:8000/docs`
 
@@ -36,31 +36,37 @@
   - [POST /api/v1/trade/stop](#post-apiv1tradestop)
   - [POST /api/v1/orders](#post-apiv1orders)
   - [DELETE /api/v1/positions/{position_id}](#delete-apiv1positionspositionid)
-- [8. 對話端點 (Chat)](#8-對話端點-chat)
+- [8. 訓練與模型端點 (Training & Model)](#8-訓練與模型端點-training--model)
+  - [POST /api/v1/training/start](#post-apiv1trainingstart)
+  - [GET /api/v1/training](#get-apiv1training)
+  - [GET /api/v1/training/{job_id}](#get-apiv1trainingjob_id)
+  - [GET /api/v1/model/status](#get-apiv1modelstatus)
+  - [POST /api/v1/model/promote](#post-apiv1modelpromote)
+- [9. 對話端點 (Chat)](#9-對話端點-chat)
   - [POST /api/v1/chat](#post-apiv1chat)
   - [DELETE /api/v1/chat/{conversation_id}](#delete-apiv1chatconversationid)
-- [9. Dashboard 端點 (Dashboard)](#9-dashboard-端點-dashboard)
+- [10. Dashboard 端點 (Dashboard)](#10-dashboard-端點-dashboard)
   - [GET /api/v1/dashboard](#get-apiv1dashboard)
-- [10. 風控與資料端點 (Risk & Data)](#10-風控與資料端點-risk--data)
+- [11. 風控與資料端點 (Risk & Data)](#11-風控與資料端點-risk--data)
   - [GET /api/v1/risk/config](#get-apiv1riskconfig)
   - [PUT /api/v1/risk/config](#put-apiv1riskconfig)
   - [GET /api/v1/data/catalog](#get-apiv1datacatalog)
-- [11. WebSocket 端點](#11-websocket-端點)
+- [12. WebSocket 端點](#12-websocket-端點)
   - [WS /ws/trade](#ws-wstrade)
   - [WS /ws/analytics](#ws-wsanalytics)
   - [WS /ws/dashboard](#ws-wsdashboard)
-- [12. 通用回應格式](#12-通用回應格式)
-- [13. 錯誤處理](#13-錯誤處理)
-- [14. 實用 PowerShell 範例](#14-實用-powershell-範例)
+- [13. 通用回應格式](#13-通用回應格式)
+- [14. 錯誤處理](#14-錯誤處理)
+- [15. 實用 PowerShell 範例](#15-實用-powershell-範例)
 - [相關文件](#相關文件)
 
 ---
 
 ## 1. 概述
 
-BioNeuronai API 是以 **FastAPI + uvicorn** 建立的 REST 服務，將所有 CLI 功能封裝為 HTTP 端點，供：
+BioNeuronai API 是以 **FastAPI + uvicorn** 建立的 REST 服務，將目前 UI 與外部自動化需要的主要功能封裝為 HTTP 端點，供：
 
-- **DevOps Dashboard 前端** (`frontend/devops-d/`) 呼叫
+- **Operations Dashboard 前端** (`frontend/devops-d/`) 呼叫
 - **外部程式** 或自動化腳本整合
 - **Swagger UI** 互動測試（`/docs`）
 
@@ -99,7 +105,7 @@ Invoke-RestMethod -Uri "http://localhost:8000/" -Method GET
 | 基礎 URL | `http://localhost:8000` |
 | 內容類型 | `Content-Type: application/json` |
 | 認證 | 目前無認證（僅限本地 / 內部網路，勿對外暴露） |
-| CORS | 預設允許 localhost:5173 / 3000 / 8080；生產環境請設定 `ALLOWED_ORIGINS` 環境變數 |
+| CORS | 預設允許 `localhost` / `127.0.0.1` 的 3000、8080、5173-5180；生產環境請設定 `ALLOWED_ORIGINS` |
 | API 版本 | `/api/v1/...` |
 | 互動文件 | `GET /docs`（Swagger UI） |
 
@@ -432,8 +438,9 @@ http://127.0.0.1:8000/backtest/ui
   "symbol": "BTCUSDT",
   "testnet": true,
   "mode": "monitor_only",
+  "paper_initial_balance": 10000,
   "auto_trade": false,
-  "load_ai_model": false,
+  "load_ai_model": true,
   "model_name": "my_100m_model",
   "warmup_model": false,
   "confirm_live": "",
@@ -445,9 +452,20 @@ http://127.0.0.1:8000/backtest/ui
 > **重要安全提醒**：  
 > - `testnet: true` 時連接 Binance 測試網，不消耗真實資金  
 > - `api_key`/`api_secret` 若留空，系統會自動讀取環境變數  
+> - `monitor_only` 預設也會載入 AI 模型；若只想監控且不載入權重，明確傳 `load_ai_model=false`
+> - `paper_live` 使用 Binance mainnet 行情，但下單只寫入本地虛擬帳戶與 JSONL log，不送出 Binance order
 > - `testnet_auto` 會啟用 `auto_trade`，需提供 Binance testnet key
 > - `live_auto` 必須 `testnet=false`、`confirm_live=I_UNDERSTAND_LIVE_RISK`，且後端環境變數 `ALLOW_LIVE_TRADING=1`
 > - **正式網交易前，請務必先在測試網驗證策略**
+
+**模式差異：**
+
+| mode | testnet | auto_trade | 實際下單 |
+|---|---:|---:|---|
+| `monitor_only` | 可選 | false | 不自動下單 |
+| `paper_live` | false | true | 不送 Binance；寫入本地 paper ledger |
+| `testnet_auto` | true | true | 送 Binance Futures testnet |
+| `live_auto` | false | true | 送 Binance Futures mainnet |
 
 ---
 
@@ -463,7 +481,9 @@ http://127.0.0.1:8000/backtest/ui
   "engine": {
     "is_monitoring": false,
     "auto_trade": false,
-    "ai_model_loaded": false
+    "enable_ai_model": true,
+    "ai_model_loaded": true,
+    "paper_trading": false
   }
 }
 ```
@@ -507,7 +527,81 @@ Invoke-RestMethod -Method DELETE "http://localhost:8000/api/v1/positions/pos_btc
 
 ---
 
-## 8. 對話端點 (Chat)
+## 8. 訓練與模型端點 (Training & Model)
+
+本節端點用於銜接雲端訓練與本地 runtime。雲端訓練本身仍建議先用 `Dockerfile.train` / CLI / GCS 執行；API 預設提供遠端作業登記、狀態追蹤與模型 promote。
+
+### POST /api/v1/training/start
+
+登記遠端訓練作業，或在明確指定 `local_process` 時由 API 主機背景啟動 `nlp.training.unified_trainer`。
+
+**請求體（遠端訓練登記）：**
+```json
+{
+  "execution_mode": "external",
+  "job_name": "cloud-training",
+  "cloud_job_id": "vertex-job-20260505-001",
+  "signal_data": "gs://YOUR_BUCKET/bioneuronai/data/signal_train.pt",
+  "signal_val_data": "gs://YOUR_BUCKET/bioneuronai/data/signal_val.pt",
+  "output_dir": "output/api_training",
+  "cloud_output_uri": "gs://YOUR_BUCKET/bioneuronai/training-runs/run-001",
+  "epochs": 1,
+  "batch": 2,
+  "grad_accum": 1,
+  "save_steps": 100,
+  "sig_only": true,
+  "lm_only": false,
+  "no_save": false
+}
+```
+
+| 欄位 | 說明 |
+|---|---|
+| `execution_mode` | `external` 只登記遠端 job，狀態為 `registered`；`local_process` 會在 API 主機啟動本機訓練 subprocess |
+| `cloud_job_id` | 遠端平台的 job id / run id，沒有時可留空 |
+| `signal_data` / `signal_val_data` | 本機或 `gs://` 訓練資料 |
+| `cloud_output_uri` | artifacts 同步目標，建議雲端訓練必填 |
+
+### GET /api/v1/training
+
+列出目前 API 進程追蹤中的訓練作業。
+
+### GET /api/v1/training/{job_id}
+
+查詢指定訓練作業狀態。`external` job 的狀態是 API 登記狀態（`registered`），不會自動讀取 Vertex/GCE；實際雲端成功與否仍以雲端平台與 GCS artifacts 為準。
+
+### GET /api/v1/model/status
+
+讀取目前 runtime 模型來源，包含：
+
+- `config/active_model.json` 登記內容
+- `MODEL_PATH` / `MODEL_DIR` 環境變數
+- 交易引擎是否已載入 AI 模型
+
+### POST /api/v1/model/promote
+
+將訓練完成的模型登記為後續 runtime 使用來源。
+
+**請求體：**
+```json
+{
+  "model_name": "my_100m_model",
+  "model_path": "gs://YOUR_BUCKET/bioneuronai/models/my_100m_model.pth",
+  "validate_path": true,
+  "reload_running_engine": false,
+  "warmup_model": false
+}
+```
+
+| 欄位 | 說明 |
+|---|---|
+| `model_path` | 可為本機 `.pth`、本機模型目錄或 `gs://` 路徑 |
+| `validate_path` | true 時 promote 前會確認模型檔可定位；`gs://` 會嘗試 materialize 到本機 cache |
+| `reload_running_engine` | true 時會要求目前運行中的交易引擎立即重新載入模型 |
+
+---
+
+## 9. 對話端點 (Chat)
 
 ### POST /api/v1/chat
 
@@ -567,11 +661,11 @@ Invoke-RestMethod -Method DELETE "http://localhost:8000/api/v1/chat/d4f505c7-0bc
 
 ---
 
-## 9. Dashboard 端點 (Dashboard)
+## 10. Dashboard 端點 (Dashboard)
 
 ### GET /api/v1/dashboard
 
-取得系統即時 Dashboard 快照（供 `frontend/admin-da` 使用）。
+取得系統即時 Dashboard 快照（供 `frontend/devops-d` Operations Overview 與 `frontend/admin-da` 相容視圖使用）。
 
 **回應包含：**
 - `risk`：當前風險等級與百分比
@@ -580,9 +674,11 @@ Invoke-RestMethod -Method DELETE "http://localhost:8000/api/v1/chat/d4f505c7-0bc
 - `auditLog`：最近系統事件日誌
 - `positions`：持倉列表（若有）
 
+注意：此 snapshot 目前混合 runtime 真實狀態與 dashboard 兼容欄位。`positions` 在 paper-live 時會映射自虛擬帳戶；`risk` 來自交易引擎狀態推導；`maxDrawdown` 仍是 dashboard 兼容欄位，不應單獨視為正式績效結論。
+
 ---
 
-## 10. 風控與資料端點 (Risk & Data)
+## 11. 風控與資料端點 (Risk & Data)
 
 > **備注**：本節端點主要供 Dashboard 中的 **備用面板**（RiskConfigPanel、DataCatalogPanel）呼叫，
 > 日常使用請以 BacktestPanel（catalog tab）與直接編輯設定檔為主。
@@ -678,7 +774,7 @@ Invoke-RestMethod "http://localhost:8000/api/v1/data/catalog?symbol=BTCUSDT&inte
 
 ---
 
-## 11. WebSocket 端點
+## 12. WebSocket 端點
 
 WebSocket 連線提供即時資料推送，前端使用 `ws://localhost:8000/ws/...` 連線。
 
@@ -714,7 +810,7 @@ WebSocket 連線提供即時資料推送，前端使用 `ws://localhost:8000/ws/
 
 ---
 
-## 12. 通用回應格式
+## 13. 通用回應格式
 
 大部分端點回傳 `ApiResponse` 結構：
 
@@ -736,7 +832,7 @@ WebSocket 連線提供即時資料推送，前端使用 `ws://localhost:8000/ws/
 
 ---
 
-## 13. 錯誤處理
+## 14. 錯誤處理
 
 | 情境 | `success` | `message` 範例 |
 |---|---|---|
@@ -748,7 +844,7 @@ WebSocket 連線提供即時資料推送，前端使用 `ws://localhost:8000/ws/
 
 ---
 
-## 14. 實用 PowerShell 範例
+## 15. 實用 PowerShell 範例
 
 ```powershell
 # 1. 系統健康檢查
@@ -777,7 +873,13 @@ Invoke-RestMethod -Uri "http://localhost:8000/api/v1/chat" `
 # 6. 啟動測試網交易
 Invoke-RestMethod -Uri "http://localhost:8000/api/v1/trade/start" `
   -Method POST `
-  -Body '{"symbol":"BTCUSDT","testnet":true,"mode":"monitor_only","auto_trade":false,"load_ai_model":false,"model_name":"my_100m_model","warmup_model":false}' `
+  -Body '{"symbol":"BTCUSDT","testnet":true,"mode":"monitor_only","auto_trade":false,"load_ai_model":true,"model_name":"my_100m_model","warmup_model":false}' `
+  -ContentType "application/json"
+
+# 6b. 啟動 paper-live：主網行情 + 本地虛擬成交，不送 Binance 訂單
+Invoke-RestMethod -Uri "http://localhost:8000/api/v1/trade/start" `
+  -Method POST `
+  -Body '{"symbol":"BTCUSDT","testnet":false,"mode":"paper_live","paper_initial_balance":10000,"auto_trade":true,"load_ai_model":true,"model_name":"my_100m_model","warmup_model":false}' `
   -ContentType "application/json"
 
 # 7. 查詢交易狀態

@@ -1,8 +1,8 @@
 # 策略模組 (Strategies)
 
 **路徑**: `src/bioneuronai/strategies/`  
-**版本**: v2.1
-**更新日期**: 2026-04-20
+**版本**: v2.2
+**更新日期**: 2026-05-11
 **架構層級**: Layer 2 — 策略層
 
 ---
@@ -30,10 +30,12 @@
 - ✅ 6 種基礎交易策略（趨勢 / 波段 / 均值回歸 / 突破 / 方向變化 / 配對交易）
 - ✅ AI 策略融合（整合主要單資產策略，動態加權）
 - ✅ 智能策略選擇器（市場體制識別 → 策略推薦 / 詳細選擇）
+- ✅ **「離線優化、在線執行」架構 (GoldenProfileManager)**，透過 json 固化與載入歷史優化後的策略配置
 - ✅ 策略競技場（遺傳算法單策略競爭，已改接正式 replay）
-- ⚠️ 階段路由器（9 交易階段動態切換，尚未接入正式主線）
+- ✅ 階段路由器（9 交易階段動態切換，已可透過 `strategy_type="phase_router"` 接入主線）
+- ✅ 強化學習融合代理（PPO，已可透過 `strategy_type="rl_fusion"` 接入主線，需 stable-baselines3）
+- ✅ Meta-Learner 策略權重神經網路（68 維輸入 → 5 策略 Softmax 權重）
 - ⚠️ 組合優化器（全局多階段最優解，已改接正式 replay，但仍未接入正式主線）
-- ⚠️ 強化學習融合代理（PPO 自主學習，研究型能力，未接正式主線）
 
 ---
 
@@ -56,6 +58,12 @@ src/bioneuronai/strategies/
 ├── phase_router.py                # 階段路由器
 ├── portfolio_optimizer.py         # 組合優化器
 ├── rl_fusion_agent.py             # RL 融合代理
+│
+├── meta_learner/                  # Meta-Learner 策略權重神經網路
+│   ├── __init__.py                # 子模組入口
+│   ├── model.py                   # MetaLearnerModel (68→5 Softmax)
+│   ├── feature_extractor.py       # 60維技術+8維事件特徵提取
+│   └── trainer.py                 # MetaLearnerTrainer
 │
 └── selector/                      # 策略選擇子模組
     ├── __init__.py                # 子模組入口
@@ -276,7 +284,8 @@ class MarketRegime:
 **目前狀態**:
 - 編排框架已存在
 - 已可選接入正式 `TradingEngine` 主線（`strategy_type="phase_router"`）
-- `TradeSetup` 欄位已補齊主線所需對齊，但整體仍屬第二階段可選能力，非預設主線
+- `TradeSetup` 欄位已補齊主線所需對齊
+- 現役部署仍以 `fusion` 為預設，`phase_router` 為已完備的次要模式
 
 ### PortfolioOptimizer — 組合優化器 (`portfolio_optimizer.py`)
 
@@ -308,7 +317,7 @@ stable-baselines3  # PPO 算法實現
 torch.nn           # 策略網絡
 ```
 > `SB3_AVAILABLE` 旗標控制，未安裝時降級為規則型融合，不影響核心運作。  
-> 目前此模組仍屬研究型能力；已可選接入 `TradingEngine`（`strategy_type="rl_fusion"`），但需 `stable-baselines3` 與已訓練模型檔才會啟用，否則自動回退既有主線。
+> 已可透過 `TradingEngine(strategy_type="rl_fusion")` 接入正式主線，但需安裝 `stable-baselines3` 且存有已訓練模型檔，否則自動回退既有融合主線。現役部署以 `fusion` 為預設。
 
 ---
 
@@ -418,14 +427,12 @@ print(f"最優候選: {best.name}, Sharpe: {best.sharpe_ratio:.2f}, Trades: {bes
 
 ## 相關文檔
 
-- **策略模組操作手冊**: [docs/STRATEGY_MODULE_USER_MANUAL.md](C:/D/E/BioNeuronai/docs/STRATEGY_MODULE_USER_MANUAL.md)
-- **策略進化指南**: [STRATEGY_EVOLUTION_GUIDE.md](../../../archived/docs_v2_1_legacy/STRATEGY_EVOLUTION_GUIDE.legacy_20260406.md)
-- **策略快速參考**: [STRATEGIES_QUICK_REFERENCE.md](../../../archived/docs_v2_1_legacy/STRATEGIES_QUICK_REFERENCE.legacy_20260406.md)
-- **策略選擇器子模組**: [selector/README.md](C:/D/E/BioNeuronai/src/bioneuronai/strategies/selector/README.md)
+- **策略模組操作手冊**: [10_STRATEGY_MODULE.md](../../../docs/manuals/10_STRATEGY_MODULE.md)
+- **策略選擇器子模組**: [selector/README.md](selector/README.md)
 - **父模組**: [BioNeuronai 主模組](../README.md)
 
 ---
 
-**最後更新**: 2026 年 4 月 20 日
+**最後更新**: 2026 年 5 月 11 日
 
 > 📖 上層目錄：[src/bioneuronai/README.md](../README.md)

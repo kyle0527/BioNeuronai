@@ -1,7 +1,7 @@
 # 分析模組 — 每日報告系統 (Daily Report)
 
 > **路徑**: `src/bioneuronai/analysis/daily_report/`  
-> **更新日期**: 2026-04-20
+> **更新日期**: 2026-05-12
 > **文件焦點**: 子模組內部流程與 API（系統分層請看上層 [analysis README](../README.md)）
 
 ## 目錄

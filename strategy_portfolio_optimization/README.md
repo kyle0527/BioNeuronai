@@ -1,6 +1,6 @@
 # strategy_portfolio_optimization/ — 投組優化結果
 
-> **更新日期**: 2026-04-07
+> **更新日期**: 2026-05-12
 
 此目錄存放 `StrategyPortfolioOptimizer` 每次執行後輸出的最佳投組配置 JSON。
 

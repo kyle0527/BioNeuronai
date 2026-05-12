@@ -1,7 +1,7 @@
 # BioNeuronai Docker 部署操作手冊
 
 > **版本**：v2.1  
-> **更新日期**：2026-05-05
+> **更新日期**：2026-05-13
 > **適用對象**：開發者、DevOps 工程師
 
 ---
@@ -58,7 +58,7 @@ BioNeuronai 使用 **Docker Compose** 管理預設 8 個服務；啟用 `trade` 
 |---|---|---|
 | **核心服務** | `api`, `frontend` | 長期運行，提供 HTTP 服務 |
 | **CLI 工作服務** | `status`, `news`, `pretrade`, `plan`, `backtest`, `simulate` | 執行後退出 |
-| **交易服務** | `trade` | 需 `--profile trade` 啟用，restart: unless-stopped |
+| **交易服務** | `trade` | 需 `--profile trade` 啟用；預設 testnet，可覆寫為 paper-live 或 live |
 
 所有服務共用同一個 Docker 映像（由 `Dockerfile` 的 `runtime` 目標建置），透過不同的 `command` 分工。
 
@@ -113,7 +113,7 @@ SIM_START=2020-01-01           # Simulate 開始日期
 SIM_END=2020-01-03             # Simulate 結束日期
 
 # ===== CORS 設定 =====
-ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5173
+ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173
 
 # ===== 選用 =====
 CRYPTOPANIC_API_TOKEN=free     # CryptoPanic 新聞 API（免費方案可填 free）
@@ -234,11 +234,10 @@ docker compose logs --tail=100 frontend
 ```yaml
 command: uvicorn bioneuronai.api.app:app --host 0.0.0.0 --port 8000
 healthcheck:
-  test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/status"]
+  test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/status')"]
   interval: 30s
-  timeout: 10s
+  timeout: 5s
   retries: 3
-  start_period: 30s
 ```
 
 ---
@@ -286,7 +285,7 @@ docker compose run --rm news
 ```bash
 docker compose run --rm pretrade
 ```
-執行 `python main.py pretrade --symbol ${TRADE_SYMBOL}`，輸出六點驗核結果後退出。
+執行 `python main.py pretrade --symbol ${TRADE_SYMBOL} --action ${TRADE_ACTION}`，輸出六點驗核結果後退出。
 
 ---
 
@@ -327,7 +326,15 @@ docker compose --profile trade up trade
 |---|---|
 | Profile | `trade`（需明確啟用） |
 | 重啟策略 | `unless-stopped` |
-| 命令 | `python main.py trade --symbol ${TRADE_SYMBOL}` |
+| 命令 | `python main.py trade --testnet` |
+
+Paper-live 可用覆寫 command 的方式執行：
+
+```bash
+docker compose --profile trade run --rm trade main.py trade --paper-live --paper-balance 10000
+```
+
+此模式讀 Binance mainnet 行情，但只寫本地虛擬帳戶，不送出真實 Binance 訂單。
 
 停止交易服務：
 ```bash
@@ -412,14 +419,13 @@ docker compose logs --tail=100 api
 
 ```
 Dockerfile
-├── base stage     — Python 3.11, 基礎依賴
-├── builder stage  — pip install requirements
-└── runtime stage  — 生產環境，複製應用程式碼
+├── builder stage  — Python 3.11 slim，編譯 ta-lib 並安裝 Python 依賴
+└── runtime stage  — Python 3.11 slim，複製 src/config/backtest/model/main.py
 ```
 
 ### 建置時間最佳化
 
-由於 pip 層已快取，一般程式碼修改後的重新建置只需 30~60 秒。若修改了 `pyproject.toml`（依賴變更），則需要完整重建（約 2~5 分鐘）。
+由於 pip 層已快取，一般程式碼修改後重新建置會重用依賴層。若修改了 `requirements-lock.txt`、`pyproject.toml`、Dockerfile 或模型檔，則需要重新建置對應 image。
 
 ```bash
 # 強制完整重建（清除快取）
@@ -445,8 +451,8 @@ docker compose build --build-arg VITE_API_BASE_URL=http://192.168.1.100:8000 fro
 # 1. 拉取最新程式碼
 git pull
 
-# 2. 重新建置映像
-docker compose build
+# 2. 重新建置有 source 變更的映像
+docker compose build api frontend
 
 # 3. 滾動重啟（保留 volumes）
 docker compose up -d api frontend

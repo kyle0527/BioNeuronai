@@ -1,7 +1,7 @@
 # 分析模組 — 新聞分析系統 (News)
 
 > **路徑**: `src/bioneuronai/analysis/news/`  
-> **更新日期**: 2026-04-20
+> **更新日期**: 2026-05-12
 > **文件焦點**: 子模組內部能力、Analysis -> RAG 寫入、事件規則與驗證循環（系統分層請看上層 [analysis README](../README.md)）
 
 ## 目錄
@@ -34,6 +34,7 @@ news/
 ├── models.py            # NewsArticle / NewsAnalysisResult
 ├── analyzer.py          # CryptoNewsAnalyzer
 ├── evaluator.py         # RuleBasedEvaluator
+├── event_contract.py    # NewsEventContract / DECAY_EXPONENTIAL
 ├── prediction_loop.py   # NewsPredictionLoop / PredictionScheduler
 └── README.md
 ```
@@ -43,7 +44,8 @@ news/
 2. [models.py](models.py)
 3. [analyzer.py](analyzer.py)
 4. [evaluator.py](evaluator.py)
-5. [prediction_loop.py](prediction_loop.py)
+5. [event_contract.py](event_contract.py)
+6. [prediction_loop.py](prediction_loop.py)
 
 ---
 
@@ -56,7 +58,9 @@ news/
 5. `RuleBasedEvaluator`
 6. `get_rule_evaluator`
 7. `EventRule`（由 `schemas.rag` 導入）
-8. `NewsPredictionLoop`
+8. `NewsEventContract` / `NewsEventContractManager` / `get_contract_manager`
+9. `DECAY_EXPONENTIAL` / `DECAY_LINEAR` 及 `URGENCY_*` 等常數
+10. `NewsPredictionLoop`
 
 ---
 
@@ -97,6 +101,13 @@ news/
 2. 規則載入順序：`config/event_rules.json` -> `DEFAULT_RULES` -> `custom_rules`
 3. 提供 `get_current_event_score(symbol=None)` 供上層風險檢查
 4. 透過 event DB 讀寫 active events 與 resolved events
+
+### `NewsEventContract` (`event_contract.py`)
+
+重點：
+1. 為 Meta-Learner 提供事件衰減（Decay）追蹤機制。
+2. 包含指數衰減 (`DECAY_EXPONENTIAL`) 與線性衰減 (`DECAY_LINEAR`) 模型。
+3. `NewsEventContractManager` 負責管理所有活躍合約並計算彙總影響力。
 
 ### `NewsPredictionLoop` (`prediction_loop.py`)
 

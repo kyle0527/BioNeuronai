@@ -10,6 +10,8 @@ import { APIPlayground } from '@/components/panels/APIPlayground'
 import { RequestHistoryPanel } from '@/components/panels/RequestHistoryPanel'
 import { RiskConfigPanel } from '@/components/panels/RiskConfigPanel'
 import { DataCatalogPanel } from '@/components/panels/DataCatalogPanel'
+import { TrainingPanel } from '@/components/panels/TrainingPanel'
+import { OperationsOverviewPanel } from '@/components/panels/OperationsOverviewPanel'
 import { Toaster } from '@/components/ui/sonner'
 import { Badge } from '@/components/ui/badge'
 import { Link } from '@phosphor-icons/react'
@@ -19,7 +21,7 @@ import { setRequestLogger } from '@/lib/api'
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
 
 function AppContent() {
-  const [activeTab, setActiveTab] = useState('dashboard')
+  const [activeTab, setActiveTab] = useState('operations')
   const { logRequest } = useRequestLoggerContext()
 
   useEffect(() => {
@@ -30,7 +32,7 @@ function AppContent() {
     <div className="min-h-screen bg-background">
       <header className="border-b border-border bg-card sticky top-0 z-10">
         <div className="container mx-auto px-6 py-4 flex items-center justify-between">
-          <h1 className="text-2xl font-mono font-medium tracking-tight">BioNeuronAI DevOps</h1>
+          <h1 className="text-2xl font-mono font-medium tracking-tight">BioNeuronAI Operations</h1>
           <Badge variant="secondary" className="gap-1.5 font-mono text-xs">
             <Link size={14} weight="bold" />
             {API_BASE_URL}
@@ -41,29 +43,39 @@ function AppContent() {
       <main className="container mx-auto px-6 py-6">
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="mb-6">
-            <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
-            <TabsTrigger value="playground">API Playground</TabsTrigger>
-            <TabsTrigger value="history">Request History</TabsTrigger>
+            <TabsTrigger value="operations">Operations</TabsTrigger>
+            <TabsTrigger value="validation">Validation</TabsTrigger>
+            <TabsTrigger value="config">Config</TabsTrigger>
+            <TabsTrigger value="tools">Dev Tools</TabsTrigger>
             <TabsTrigger value="chat">Chat</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="dashboard" className="space-y-4">
+          <TabsContent value="operations" className="space-y-4">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              <StatusPanel />
+              <OperationsOverviewPanel />
               <TradeControlPanel />
               <PreTradePanel />
-              <BacktestPanel />
               <NewsPanel />
+            </div>
+          </TabsContent>
+
+          <TabsContent value="validation" className="space-y-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <BacktestPanel />
               <DataCatalogPanel />
+              <TrainingPanel />
+            </div>
+          </TabsContent>
+
+          <TabsContent value="config" className="space-y-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <StatusPanel />
               <RiskConfigPanel />
             </div>
           </TabsContent>
 
-          <TabsContent value="playground">
+          <TabsContent value="tools" className="space-y-4">
             <APIPlayground />
-          </TabsContent>
-
-          <TabsContent value="history">
             <RequestHistoryPanel />
           </TabsContent>
 

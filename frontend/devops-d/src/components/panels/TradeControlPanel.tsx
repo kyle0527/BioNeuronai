@@ -22,14 +22,15 @@ export function TradeControlPanel() {
   const [symbol, setSymbol] = useState('BTCUSDT')
   const [testnet, setTestnet] = useState(true)
   const [mode, setMode] = useState<TradeMode>('monitor_only')
-  const [loadAiModel, setLoadAiModel] = useState(false)
+  const [loadAiModel, setLoadAiModel] = useState(true)
   const [warmupModel, setWarmupModel] = useState(false)
   const [modelName, setModelName] = useState('my_100m_model')
   const [confirmLive, setConfirmLive] = useState('')
+  const [paperInitialBalance, setPaperInitialBalance] = useState(10000)
 
   const autoTrade = mode !== 'monitor_only'
-  const effectiveTestnet = mode === 'live_auto' ? false : mode === 'testnet_auto' ? true : testnet
-  const mainnetRequested = !effectiveTestnet
+  const effectiveTestnet = mode === 'live_auto' || mode === 'paper_live' ? false : mode === 'testnet_auto' ? true : testnet
+  const liveFundsRequested = mode === 'live_auto'
 
   const updateActiveFromPayload = (payload: unknown, fallback: boolean) => {
     const running = (payload as { running?: unknown } | null)?.running
@@ -41,7 +42,7 @@ export function TradeControlPanel() {
     if (value === 'testnet_auto') {
       setTestnet(true)
     }
-    if (value === 'live_auto') {
+    if (value === 'live_auto' || value === 'paper_live') {
       setTestnet(false)
     }
   }
@@ -56,13 +57,14 @@ export function TradeControlPanel() {
         testnet: effectiveTestnet,
         mode,
         auto_trade: autoTrade,
+        paper_initial_balance: paperInitialBalance,
         load_ai_model: loadAiModel,
         model_name: modelName,
         warmup_model: warmupModel,
         confirm_live: confirmLive,
       })
       setData(response.data ?? response)
-      updateActiveFromPayload(response.data, response.success)
+      updateActiveFromPayload(response.data, response.data.success)
     } catch (err) {
       setError(err as ApiError)
     } finally {
@@ -142,6 +144,7 @@ export function TradeControlPanel() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="monitor_only">Monitor only</SelectItem>
+                <SelectItem value="paper_live">Paper live</SelectItem>
                 <SelectItem value="testnet_auto">Testnet auto</SelectItem>
                 <SelectItem value="live_auto">Live auto</SelectItem>
               </SelectContent>
@@ -207,7 +210,22 @@ export function TradeControlPanel() {
           </div>
         </div>
 
-        {mainnetRequested && (
+        {mode === 'paper_live' && (
+          <div className="space-y-1">
+            <Label htmlFor="paper-balance" className="text-xs">Paper Balance</Label>
+            <Input
+              id="paper-balance"
+              type="number"
+              min={1}
+              value={paperInitialBalance}
+              onChange={(event) => setPaperInitialBalance(Number(event.target.value) || 10000)}
+              className="font-mono text-sm"
+              disabled={tradeActive}
+            />
+          </div>
+        )}
+
+        {liveFundsRequested && (
           <div className="space-y-1">
             <Label htmlFor="trade-live-confirm" className="text-xs">Live Confirm</Label>
             <Input
@@ -221,7 +239,13 @@ export function TradeControlPanel() {
           </div>
         )}
 
-        {mainnetRequested && (
+        {mode === 'paper_live' && (
+          <p className="text-xs text-muted-foreground font-medium">
+            Paper live uses mainnet market data and virtual execution. Orders are not sent to Binance.
+          </p>
+        )}
+
+        {liveFundsRequested && (
           <p className="text-xs text-destructive font-medium">
             Mainnet mode - real funds at risk. Backend also requires ALLOW_LIVE_TRADING=1.
           </p>
@@ -252,7 +276,7 @@ export function TradeControlPanel() {
 
         {error && <ErrorPanel message={error.message} details={error.details} />}
 
-        {data && !error && (
+        {data !== null && !error && (
           <>
             <Separator />
             <div className="space-y-2">

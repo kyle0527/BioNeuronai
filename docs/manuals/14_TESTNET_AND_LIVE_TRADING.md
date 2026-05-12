@@ -1,7 +1,8 @@
-# 測試網與實盤交易操作手冊
+# 測試網、Paper-live 與實盤交易操作手冊
 
 > 範圍：使用者如何啟動、停止、檢查與排查 `trade` 相關操作。  
-> 原則：先 testnet，後 live；未完成回測、pretrade 與風控確認前，不進 live。
+> 更新日期：2026-05-13
+> 原則：先 monitor/paper-live，再 testnet，最後才 live；未完成回測、pretrade 與風控確認前，不進 live。
 
 ---
 
@@ -9,11 +10,12 @@
 
 - [1. 前置檢查](#1-前置檢查)
 - [2. Testnet 啟動](#2-testnet-啟動)
-- [3. API 啟停交易](#3-api-啟停交易)
-- [4. Live 前必做檢查](#4-live-前必做檢查)
-- [5. Live 啟動](#5-live-啟動)
-- [6. 緊急停止](#6-緊急停止)
-- [7. 常見問題](#7-常見問題)
+- [3. Paper-live 啟動](#3-paper-live-啟動)
+- [4. API 啟停交易](#4-api-啟停交易)
+- [5. Live 前必做檢查](#5-live-前必做檢查)
+- [6. Live 啟動](#6-live-啟動)
+- [7. 緊急停止](#7-緊急停止)
+- [8. 常見問題](#8-常見問題)
 
 ---
 
@@ -65,7 +67,47 @@ python main.py trade --symbol BTCUSDT --testnet
 
 ---
 
-## 3. API 啟停交易
+## 3. Paper-live 啟動
+
+Paper-live 是目前建議的長時間觀察入口：行情使用 Binance mainnet public market data，但下單只進本地 `VirtualAccount`，不送出 Binance order API。
+
+CLI：
+
+```powershell
+python main.py trade --symbol BTCUSDT --paper-live --paper-balance 10000
+```
+
+成功標準：
+
+- 看到 paper-live / 虛擬實盤模式啟動。
+- AI 模型預設載入，狀態可看到 `ai_model_loaded=true`。
+- log 目錄位於 `data/bioneuronai/trading/paper_live/`。
+- 任何訂單紀錄都寫入本地 JSONL，不會送到 Binance。
+
+API：
+
+```powershell
+$body = @{
+  symbol = "BTCUSDT"
+  testnet = $false
+  mode = "paper_live"
+  paper_initial_balance = 10000
+  auto_trade = $true
+  load_ai_model = $true
+  model_name = "my_100m_model"
+  warmup_model = $false
+} | ConvertTo-Json
+
+Invoke-RestMethod `
+  -Uri "http://127.0.0.1:8000/api/v1/trade/start" `
+  -Method POST `
+  -Body $body `
+  -ContentType "application/json"
+```
+
+---
+
+## 4. API 啟停交易
 
 先啟動 API：
 
@@ -80,8 +122,9 @@ $body = @{
   symbol = "BTCUSDT"
   testnet = $true
   mode = "monitor_only"
+  paper_initial_balance = 10000
   auto_trade = $false
-  load_ai_model = $false
+  load_ai_model = $true
   model_name = "my_100m_model"
   warmup_model = $false
 } | ConvertTo-Json
@@ -117,7 +160,7 @@ Invoke-RestMethod `
 
 ---
 
-## 4. Live 前必做檢查
+## 5. Live 前必做檢查
 
 Live 不是日常驗證入口。啟動前必須完成：
 
@@ -125,12 +168,13 @@ Live 不是日常驗證入口。啟動前必須完成：
 2. `08_BACKTEST_SYSTEM.md` 指定區間回測。
 3. `09_ANALYSIS_MODULE.md` 的 `pretrade` 檢查。
 4. `11_RISK_MANAGEMENT.md` 的風險參數確認。
-5. testnet 可啟動、可停止，沒有殘留程序。
-6. 人工確認最大槓桿、單筆最大風險、每日最大風險。
+5. paper-live 已連續運行足夠時間，且本地 paper ledger 訂單/持倉符合預期。
+6. testnet 可啟動、可停止，沒有殘留程序。
+7. 人工確認最大槓桿、單筆最大風險、每日最大風險。
 
 ---
 
-## 5. Live 啟動
+## 6. Live 啟動
 
 `.env` 應設定：
 
@@ -148,6 +192,7 @@ $body = @{
   symbol = "BTCUSDT"
   testnet = $false
   mode = "live_auto"
+  paper_initial_balance = 10000
   auto_trade = $true
   load_ai_model = $true
   model_name = "my_100m_model"
@@ -166,7 +211,7 @@ CLI live 啟動仍需依 `main.py trade --live` 的互動確認流程；API / UI
 
 ---
 
-## 6. 緊急停止
+## 7. 緊急停止
 
 CLI 模式：
 
@@ -196,11 +241,12 @@ Get-CimInstance Win32_Process -Filter "name = 'python.exe'" |
 
 ---
 
-## 7. 常見問題
+## 8. 常見問題
 
 | 問題 | 可能原因 | 處理 |
 |---|---|---|
 | 無法讀取帳戶 | API key 錯誤、權限不足、testnet/mainnet 不一致 | 重新確認 `.env` 與 Binance 權限 |
 | `pretrade` 一直 REJECT | 餘額不足、風控條件不通過、新聞/RAG 風險 | 依 reject 理由處理，不要繞過 |
 | start 後無法再次 start | API 交易 task 已在運行 | 先呼叫 `/api/v1/trade/stop` |
+| paper-live 有訂單但 Binance 沒成交 | 正常；paper-live 只寫本地虛擬帳戶 | 查看 `data/bioneuronai/trading/paper_live/` |
 | testnet 可用但 live 不可用 | 正式期貨帳戶未開通或未入金 | 到 Binance 檢查 Futures 狀態 |

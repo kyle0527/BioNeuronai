@@ -1,7 +1,7 @@
 # 分析模組 (Analysis)
 
 > **路徑**: `src/bioneuronai/analysis/`  
-> **更新日期**: 2026-04-20
+> **更新日期**: 2026-05-12
 > **狀態**: 依目前程式碼重新對齊（上層聚焦架構；子模組細節請看各子 README）
 
 ## 目錄
@@ -81,7 +81,7 @@ analysis/
 3. `news`：`CryptoNewsAnalyzer`、`NewsArticle`、`NewsAnalysisResult`、`get_news_analyzer`、`RuleBasedEvaluator`、`get_rule_evaluator`、`NewsPredictionLoop`
 4. 直屬檔案：`feature_engineering.py` 與 `market_regime.py` 的公開類型
 
-補充：`analysis.news` 子模組本身有匯出 `EventRule`，但 `analysis/__init__.py` 目前沒有把它提升到 `bioneuronai.analysis` 頂層。
+補充：`analysis.news` 子模組本身有匯出 `EventRule` 與 `NewsEventContract` 相關類別，但 `analysis/__init__.py` 目前沒有把它們提升到 `bioneuronai.analysis` 頂層。
 
 ---
 

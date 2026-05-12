@@ -13,11 +13,13 @@ import asyncio
 import json
 import logging
 import os
+import subprocess
 import sys
 from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Optional
+from uuid import uuid4
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
@@ -43,6 +45,8 @@ from bioneuronai.api.models import (  # noqa: E402
     StrategyBacktestRequest,
     StatusResponse,
     TradeStartRequest,
+    TrainingStartRequest,
+    ModelPromoteRequest,
 )
 from schemas.api import (  # noqa: E402
     ChatRequest,
@@ -85,10 +89,10 @@ class TradeManager:
         return task_running or engine_monitoring or self._monitoring_requested
 
     def _auto_trade_requested(self, req: TradeStartRequest) -> bool:
-        return req.auto_trade or req.mode in {"testnet_auto", "live_auto"}
+        return req.auto_trade or req.mode in {"paper_live", "testnet_auto", "live_auto"}
 
     def _validate_live_guard(self, req: TradeStartRequest) -> None:
-        if req.testnet and req.mode != "live_auto":
+        if req.mode != "live_auto":
             return
 
         live_allowed = os.getenv("ALLOW_LIVE_TRADING", "").strip().lower()
@@ -102,7 +106,10 @@ class TradeManager:
         auto_requested = self._auto_trade_requested(req)
 
         if req.mode == "monitor_only" and req.auto_trade:
-            raise RuntimeError("auto_trade=true 時請改用 testnet_auto 或 live_auto 模式")
+            raise RuntimeError("auto_trade=true 時請改用 paper_live、testnet_auto 或 live_auto 模式")
+
+        if req.mode == "paper_live" and req.testnet:
+            raise RuntimeError("paper_live 使用正式行情但虛擬成交，請使用 testnet=false")
 
         if req.mode == "testnet_auto" and not req.testnet:
             raise RuntimeError("testnet_auto 必須使用 testnet=true")
@@ -110,7 +117,7 @@ class TradeManager:
         if req.mode == "live_auto" and req.testnet:
             raise RuntimeError("live_auto 必須使用 testnet=false")
 
-        if auto_requested and (not api_key or not api_secret):
+        if auto_requested and req.mode != "paper_live" and (not api_key or not api_secret):
             raise RuntimeError("自動交易需提供 Binance API Key/Secret 或設定環境變數")
 
         self._validate_live_guard(req)
@@ -144,7 +151,13 @@ class TradeManager:
                 "auto_trade": bool(getattr(engine, "auto_trade", False)),
                 "enable_ai_model": bool(getattr(engine, "enable_ai_model", False)),
                 "ai_model_loaded": bool(getattr(engine, "ai_model_loaded", False)),
+                "paper_trading": bool(getattr(engine, "paper_trading", False)),
             },
+            "paper": (
+                engine.connector.get_paper_state()
+                if engine is not None and hasattr(engine.connector, "get_paper_state")
+                else None
+            ),
         }
 
     async def start(self, req: TradeStartRequest) -> Dict[str, Any]:
@@ -159,14 +172,17 @@ class TradeManager:
         self._validate_start_request(req, api_key, api_secret)
 
         auto_requested = self._auto_trade_requested(req)
+        should_load_ai_model = req.load_ai_model or auto_requested
         engine = TradingEngine(
             api_key=api_key,
             api_secret=api_secret,
             testnet=req.testnet,
-            enable_ai_model=req.load_ai_model or auto_requested,
+            enable_ai_model=should_load_ai_model,
+            paper_trading=req.mode == "paper_live",
+            paper_initial_balance=req.paper_initial_balance,
         )
 
-        if req.load_ai_model and not engine.load_ai_model(req.model_name, warmup=req.warmup_model):
+        if should_load_ai_model and not engine.load_ai_model(req.model_name, warmup=req.warmup_model):
             raise RuntimeError(f"AI 模型載入失敗: {req.model_name}")
 
         if auto_requested:
@@ -178,6 +194,7 @@ class TradeManager:
         self._trade_mode = req.mode
         self._started_at = datetime.now()
         self._last_start_request = req.model_dump(exclude={"api_key", "api_secret", "confirm_live"})
+        self._last_start_request["load_ai_model"] = should_load_ai_model
         self._monitoring_requested = True
 
         async def _monitor() -> None:
@@ -191,9 +208,11 @@ class TradeManager:
                 raise
 
         self._trade_task = asyncio.create_task(_monitor())
-        environment = "測試網" if req.testnet else "正式網"
+        environment = "虛擬實盤" if req.mode == "paper_live" else ("測試網" if req.testnet else "正式網")
         status = self.get_status()
         status["environment"] = environment
+        if req.mode == "paper_live" and hasattr(engine.connector, "get_paper_state"):
+            status["paper"] = engine.connector.get_paper_state()
         return status
 
     async def stop(self) -> None:
@@ -234,17 +253,271 @@ class TradeManager:
         try:
             account = getattr(self._trade_engine, "virtual_account", None)
             if account is None:
+                connector = getattr(self._trade_engine, "connector", None)
+                account = getattr(connector, "virtual_account", None)
+            if account is None:
                 return []
             get_portfolio = getattr(account, "get_portfolio", None)
-            if get_portfolio is None:
-                return []
-            raw = await asyncio.to_thread(get_portfolio)
-            return raw if isinstance(raw, list) else []
+            if get_portfolio is not None:
+                raw = await asyncio.to_thread(get_portfolio)
+                return raw if isinstance(raw, list) else []
+            get_positions = getattr(account, "get_all_positions", None)
+            if get_positions is not None:
+                positions = await asyncio.to_thread(get_positions)
+                dashboard_positions = []
+                for position in positions:
+                    raw = position.to_dict() if hasattr(position, "to_dict") else dict(position)
+                    qty = abs(float(raw.get("positionAmt", 0) or 0))
+                    entry = float(raw.get("entryPrice", 0) or 0)
+                    mark = float(raw.get("markPrice", 0) or 0)
+                    pnl = float(raw.get("unRealizedProfit", 0) or 0)
+                    notional = entry * qty
+                    dashboard_positions.append({
+                        "id": str(raw.get("symbol", "")),
+                        "symbol": str(raw.get("symbol", "")),
+                        "side": "long" if float(raw.get("positionAmt", 0) or 0) >= 0 else "short",
+                        "quantity": qty,
+                        "entryPrice": entry,
+                        "currentPrice": mark,
+                        "unrealizedPnl": pnl,
+                        "unrealizedPnlPercent": (pnl / notional * 100) if notional > 0 else 0.0,
+                        "leverage": int(float(raw.get("leverage", 1) or 1)),
+                        "liquidationPrice": float(raw.get("liquidationPrice", 0) or 0) or None,
+                        "openedAt": datetime.now().isoformat(),
+                    })
+                return dashboard_positions
+            return []
         except Exception:
             return []
 
 
 _trade_manager = TradeManager()
+
+
+class TrainingJobManager:
+    """API 層的訓練作業追蹤器。
+
+    external 模式只登記遠端作業；local_process 模式才會啟動本機 subprocess。
+    """
+
+    def __init__(self) -> None:
+        self._jobs: Dict[str, Dict[str, Any]] = {}
+        self._processes: Dict[str, Any] = {}
+        self._log_files: Dict[str, Any] = {}
+
+    def start(self, req: TrainingStartRequest) -> Dict[str, Any]:
+        job_id = str(uuid4())
+        now = datetime.now().isoformat()
+        job_dir = PROJECT_ROOT / req.output_dir / job_id
+        payload: Dict[str, Any] = {
+            "job_id": job_id,
+            "job_name": req.job_name,
+            "execution_mode": req.execution_mode,
+            "status": "registered" if req.execution_mode == "external" else "pending",
+            "created_at": now,
+            "started_at": now if req.execution_mode == "external" else None,
+            "completed_at": None,
+            "cloud_job_id": req.cloud_job_id,
+            "request": req.model_dump(),
+            "output_dir": str(job_dir),
+            "log_path": None,
+            "command": None,
+            "returncode": None,
+            "error": None,
+        }
+
+        if req.execution_mode == "local_process":
+            job_dir.mkdir(parents=True, exist_ok=True)
+            log_path = job_dir / "training.log"
+            command = self._build_command(req, job_dir)
+            env = os.environ.copy()
+            env["PYTHONPATH"] = f"{SRC_DIR}{os.pathsep}{PROJECT_ROOT}{os.pathsep}{env.get('PYTHONPATH', '')}"
+            log_file = log_path.open("a", encoding="utf-8")
+            process = subprocess.Popen(
+                command,
+                cwd=str(PROJECT_ROOT),
+                env=env,
+                stdout=log_file,
+                stderr=subprocess.STDOUT,
+                text=True,
+            )
+            self._processes[job_id] = process
+            self._log_files[job_id] = log_file
+            payload.update({
+                "status": "running",
+                "started_at": datetime.now().isoformat(),
+                "log_path": str(log_path),
+                "command": command,
+            })
+
+        self._jobs[job_id] = payload
+        return self.get(job_id)
+
+    def list_jobs(self) -> list[Dict[str, Any]]:
+        return [self.get(job_id) for job_id in self._jobs]
+
+    def get(self, job_id: str) -> Dict[str, Any]:
+        job = self._jobs.get(job_id)
+        if job is None:
+            return {"job_id": job_id, "status": "not_found", "error": "training job not found"}
+
+        process = self._processes.get(job_id)
+        if process is not None:
+            returncode = process.poll()
+            if returncode is None:
+                job["status"] = "running"
+            else:
+                job["returncode"] = returncode
+                job["status"] = "completed" if returncode == 0 else "failed"
+                if job.get("completed_at") is None:
+                    job["completed_at"] = datetime.now().isoformat()
+                log_file = self._log_files.pop(job_id, None)
+                if log_file is not None and not log_file.closed:
+                    log_file.close()
+                if returncode != 0:
+                    job["error"] = f"trainer exited with code {returncode}"
+
+        log_path = job.get("log_path")
+        if log_path:
+            job["log_tail"] = self._read_log_tail(Path(log_path))
+        return dict(job)
+
+    def _build_command(self, req: TrainingStartRequest, job_dir: Path) -> list[str]:
+        output_dir = Path(req.output_dir)
+        if not output_dir.is_absolute():
+            output_dir = PROJECT_ROOT / output_dir
+        output_dir = output_dir / job_dir.name
+
+        command = [
+            sys.executable,
+            "-m",
+            "nlp.training.unified_trainer",
+            "--epochs",
+            str(req.epochs),
+            "--batch",
+            str(req.batch),
+            "--grad-accum",
+            str(req.grad_accum),
+            "--save-steps",
+            str(req.save_steps),
+            "--output",
+            str(output_dir),
+        ]
+        if req.lm_only:
+            command.append("--lm-only")
+        if req.sig_only:
+            command.append("--sig-only")
+        if req.no_save:
+            command.append("--no-save")
+        if req.signal_data:
+            command.extend(["--signal-data", req.signal_data])
+        if req.signal_val_data:
+            command.extend(["--signal-val-data", req.signal_val_data])
+        if req.base_model:
+            command.extend(["--base-model", req.base_model])
+        if req.resume:
+            command.extend(["--resume", req.resume])
+        if req.cloud_output_uri:
+            command.extend(["--cloud-output-uri", req.cloud_output_uri])
+        if req.max_signal_samples:
+            command.extend(["--max-signal-samples", str(req.max_signal_samples)])
+        return command
+
+    def _read_log_tail(self, log_path: Path, max_lines: int = 120) -> list[str]:
+        if not log_path.exists():
+            return []
+        try:
+            lines = log_path.read_text(encoding="utf-8", errors="replace").splitlines()
+            return lines[-max_lines:]
+        except Exception as exc:
+            return [f"log read failed: {exc}"]
+
+
+class ModelPromotionManager:
+    """記錄 runtime 模型來源，讓訓練產物可接回交易引擎。"""
+
+    def __init__(self) -> None:
+        self._active_model_path = PROJECT_ROOT / "config" / "active_model.json"
+        self._apply_active_model_env()
+
+    def status(self) -> Dict[str, Any]:
+        active = self._read_active_model()
+        return {
+            "active_model": active,
+            "env": {
+                "MODEL_PATH": os.getenv("MODEL_PATH") or os.getenv("BIONEURONAI_MODEL_PATH"),
+                "MODEL_DIR": os.getenv("MODEL_DIR") or os.getenv("BIONEURONAI_MODEL_DIR"),
+            },
+            "trade_engine": _trade_manager.get_status(),
+        }
+
+    def promote(self, req: ModelPromoteRequest) -> Dict[str, Any]:
+        materialized_path: Optional[str] = None
+        resolved_runtime_path = req.model_path
+
+        if req.validate_path:
+            materialized = self._resolve_promoted_path(req.model_path, req.model_name)
+            if not materialized.exists():
+                raise FileNotFoundError(f"model artifact not found: {materialized}")
+            materialized_path = str(materialized)
+
+        if req.model_path.endswith("/") or not Path(req.model_path).suffix:
+            os.environ["MODEL_DIR"] = req.model_path.rstrip("/")
+            os.environ.pop("MODEL_PATH", None)
+        else:
+            os.environ["MODEL_PATH"] = req.model_path
+            os.environ.pop("MODEL_DIR", None)
+
+        promoted = {
+            "model_name": req.model_name,
+            "model_path": resolved_runtime_path,
+            "materialized_path": materialized_path,
+            "promoted_at": datetime.now().isoformat(),
+            "reload_running_engine": req.reload_running_engine,
+            "notes": req.notes,
+        }
+        self._active_model_path.parent.mkdir(parents=True, exist_ok=True)
+        self._active_model_path.write_text(json.dumps(promoted, ensure_ascii=False, indent=2), encoding="utf-8")
+
+        if req.reload_running_engine and _trade_manager.engine is not None:
+            loaded = _trade_manager.engine.load_ai_model(req.model_name, warmup=req.warmup_model)
+            promoted["reloaded"] = loaded
+            if not loaded:
+                raise RuntimeError("model promoted, but running trade engine failed to reload it")
+
+        return promoted
+
+    def _resolve_promoted_path(self, model_path: str, model_name: str) -> Path:
+        from bioneuronai.data.cloud_storage import materialize_uri
+
+        resolved = materialize_uri(model_path)
+        if resolved.suffix:
+            return resolved
+        return resolved / f"{model_name}.pth"
+
+    def _read_active_model(self) -> Optional[Dict[str, Any]]:
+        if not self._active_model_path.exists():
+            return None
+        try:
+            return json.loads(self._active_model_path.read_text(encoding="utf-8"))
+        except Exception as exc:
+            return {"error": f"active model metadata read failed: {exc}"}
+
+    def _apply_active_model_env(self) -> None:
+        active = self._read_active_model()
+        if not active or active.get("error"):
+            return
+        model_path = str(active.get("model_path") or "").strip()
+        if not model_path:
+            return
+        if model_path.endswith("/") or not Path(model_path).suffix:
+            os.environ.setdefault("MODEL_DIR", model_path.rstrip("/"))
+        else:
+            os.environ.setdefault("MODEL_PATH", model_path)
+
+
+_training_job_manager = TrainingJobManager()
+_model_promotion_manager = ModelPromotionManager()
 
 
 # ── Lifespan ──────────────────────────────────────────────────────────────────
@@ -268,12 +541,19 @@ def _get_allowed_origins() -> list[str]:
     env_val = os.getenv("ALLOWED_ORIGINS", "").strip()
     if env_val:
         return [o.strip() for o in env_val.split(",") if o.strip()]
-    # 預設：本地開發的常見埠口
-    return [
-        "http://localhost:5173",   # Vite dev (devops-d)
-        "http://localhost:3000",   # Create React App
-        "http://localhost:8080",   # 其他本地服務
+    # 預設：本地開發的常見埠口。Vite 會在 5173 被占用時遞增埠口，
+    # 且瀏覽器可能用 localhost 或 127.0.0.1 開啟，因此兩者都允許。
+    vite_ports = range(5173, 5181)
+    local_origins = [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:8080",
+        "http://127.0.0.1:8080",
     ]
+    for port in vite_ports:
+        local_origins.append(f"http://localhost:{port}")
+        local_origins.append(f"http://127.0.0.1:{port}")
+    return local_origins
 
 
 # ── App ───────────────────────────────────────────────────────────────────────
@@ -627,6 +907,58 @@ async def stop_trade():
     return ApiResponse(success=True, message="交易監控已停止", data=_trade_manager.get_status())
 
 
+# ── Training / Model Operations ──────────────────────────────────────────────
+
+
+@app.post("/api/v1/training/start", response_model=ApiResponse, tags=["training"])
+async def start_training(req: TrainingStartRequest):
+    """登記遠端訓練作業，或明確啟動本機 unified_trainer subprocess。"""
+    try:
+        data = _training_job_manager.start(req)
+        mode_label = "遠端訓練已登記" if req.execution_mode == "external" else "本機訓練已啟動"
+        return ApiResponse(success=True, message=mode_label, data=data)
+    except Exception as exc:
+        return ApiResponse(success=False, message=f"訓練作業啟動失敗: {exc}")
+
+
+@app.get("/api/v1/training", response_model=ApiResponse, tags=["training"])
+async def list_training_jobs():
+    """列出目前 API 進程追蹤中的訓練作業。"""
+    return ApiResponse(
+        success=True,
+        message="訓練作業列表讀取完成",
+        data={"jobs": _training_job_manager.list_jobs()},
+    )
+
+
+@app.get("/api/v1/training/{job_id}", response_model=ApiResponse, tags=["training"])
+async def get_training_job(job_id: str):
+    """查詢訓練作業狀態。"""
+    data = _training_job_manager.get(job_id)
+    success = data.get("status") != "not_found"
+    return ApiResponse(
+        success=success,
+        message="訓練作業狀態讀取完成" if success else "找不到訓練作業",
+        data=data,
+    )
+
+
+@app.get("/api/v1/model/status", response_model=ApiResponse, tags=["model"])
+async def get_model_status():
+    """讀取目前 runtime 模型設定與交易引擎載入狀態。"""
+    return ApiResponse(success=True, message="模型狀態讀取完成", data=_model_promotion_manager.status())
+
+
+@app.post("/api/v1/model/promote", response_model=ApiResponse, tags=["model"])
+async def promote_model(req: ModelPromoteRequest):
+    """將訓練完成的模型登記為後續 runtime 使用來源。"""
+    try:
+        data = _model_promotion_manager.promote(req)
+        return ApiResponse(success=True, message="模型 promote 完成", data=data)
+    except Exception as exc:
+        return ApiResponse(success=False, message=f"模型 promote 失敗: {exc}")
+
+
 # ── Chat ─────────────────────────────────────────────────────────────────────
 
 # 每個 conversation_id 對應一個 ChatEngine 實例（多輪記憶）
@@ -797,9 +1129,20 @@ async def _build_dashboard_snapshot() -> dict:
     ]
     completed_required = sum(1 for i in checklist_items if i.required and i.completed)
     total_required = sum(1 for i in checklist_items if i.required)
+    positions = await _trade_manager.get_virtual_portfolio()
+
+    environment = "testnet"
+    status = _trade_manager.get_status()
+    request = status.get("request") if isinstance(status, dict) else {}
+    if isinstance(request, dict):
+        mode = request.get("mode")
+        if mode == "paper_live":
+            environment = "paper_live"
+        elif mode == "live_auto":
+            environment = "mainnet"
 
     snapshot = DashboardDataResponse(
-        environment="testnet",
+        environment=environment,
         risk=WsRiskData(level=risk_level, percentage=risk_pct, lastUpdated=now),
         maxDrawdown=WsMaxDrawdown(current=0.0, historical=0.0, period="30d", lastUpdated=now),
         pretradeChecklist=WsPretradeChecklist(
@@ -809,7 +1152,7 @@ async def _build_dashboard_snapshot() -> dict:
             lastUpdated=now,
         ),
         auditLog=audit_entries,
-        positions=None,
+        positions=positions or None,
     )
     return snapshot.model_dump()
 

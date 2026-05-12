@@ -1,6 +1,6 @@
 # sop_automation_data/ — SOP 自動化檢查記錄
 
-> **更新日期**: 2026-04-07
+> **更新日期**: 2026-05-12
 
 此目錄存放 `SOPAutomationSystem` 的執行輸出（JSON 格式）。
 

@@ -16,6 +16,8 @@ from schemas.api import (  # noqa: F401
     StrategyBacktestRequest,
     TradeStartRequest,
     BinanceValidateRequest,
+    TrainingStartRequest,
+    ModelPromoteRequest,
     # Response / status models
     RestApiResponse as ApiResponse,
     ModuleStatus,
@@ -30,6 +32,8 @@ __all__ = [
     "StrategyBacktestRequest",
     "TradeStartRequest",
     "BinanceValidateRequest",
+    "TrainingStartRequest",
+    "ModelPromoteRequest",
     "ApiResponse",
     "ModuleStatus",
     "StatusResponse",

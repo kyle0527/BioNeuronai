@@ -2,6 +2,7 @@
 
 > 版本：v2.1 / v2.2 過渡期  
 > 建立日期：2026-05-02  
+> 更新日期：2026-05-13
 > 目的：用「使用者手冊能否帶著操作者完成真實操作」作為專案可用性的判斷標準。本文不以 smoke test 作為主要驗收依據，而是以 CLI、API、Dashboard、Docker、Backtest、Testnet 等實際入口驗證。
 
 ---
@@ -49,7 +50,7 @@
 | 快速開始 | `docs/manuals/03_QUICKSTART.md` | 安裝、`.env`、status、news、plan、pretrade、trade、chat | 可用，與 02 有少量重疊 |
 | 日常操作 | `docs/manuals/04_CLI_OPERATION.md` | CLI 指令與標準 SOP | 可用，但部分操作需再用真實入口逐條核對 |
 | API | `docs/manuals/05_API_USER_MANUAL.md` | FastAPI 端點、PowerShell 範例 | 初步與 route 清單一致，需逐端點實測 |
-| 前端 | `docs/manuals/06_FRONTEND_DASHBOARD.md` | DevOps Dashboard 面板操作 | 可用，需補本地 5173 與 Docker 3000 的差異驗收 |
+| 前端 | `docs/manuals/06_FRONTEND_DASHBOARD.md` | Operations Dashboard 面板操作 | 已補 Operations / Validation / Config / Dev Tools 分區與本地 5173-5180 差異 |
 | Docker | `docs/manuals/07_DOCKER_DEPLOYMENT.md` | Compose 服務、volume、healthcheck | 可用，需完整 docker compose 實測 |
 | 回測 | `docs/manuals/08_BACKTEST_SYSTEM.md` | backtest / simulate / BacktestEngine | 可用，需補可快速完成的短區間驗收指令 |
 | Backtest 子系統 | `backtest/docs/USER_MANUAL.md` | Backtest 子系統操作 | 需與根目錄回測手冊合併或交叉索引 |
@@ -229,7 +230,7 @@
 | 中斷後殘留建置程序 | 已停止本輪殘留的 `docker compose build api frontend` process |
 | Python 語法解析 | 通過；正式程式範圍 157 個 `.py` 檔案可 AST parse |
 | Docker command 對 CLI parser | 通過；`status/news/pretrade/plan/backtest/simulate/trade` command 均符合目前 CLI |
-| 前端 API 呼叫對後端 route | 通過；DevOps Dashboard 使用的 API path 均有後端 route |
+| 前端 API 呼叫對後端 route | 通過；Operations Dashboard 使用的 API path 均有後端 route |
 | 環境變數一致性 | 通過；已修正 CryptoPanic 舊 key 名稱，統一使用 `CRYPTOPANIC_API_TOKEN` |
 | Docker compose 結構 | 通過；`docker compose config --quiet` 無錯誤 |
 | 前端 production build | 通過；`frontend/devops-d npm run build` 成功 |

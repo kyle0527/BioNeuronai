@@ -24,6 +24,7 @@ from .types import (
     STRATEGY_MARKET_FIT,
 )
 from .configs import get_default_strategy_configs
+from .profile import GoldenProfileManager
 from .evaluator import MarketEvaluator
 
 # 導入實際策略 (來自 v2)
@@ -177,6 +178,25 @@ class StrategySelector:
             weights,
             self._performance_blend_alpha,
         )
+
+    def load_golden_profile(self, profile_path: Optional[str] = None) -> bool:
+        """載入整合後的黃金策略配置檔。
+        
+        Args:
+            profile_path: 配置檔路徑，若為 None 則使用預設路徑（PROJECT_ROOT/config/...）。
+            
+        Returns:
+            是否成功載入。
+        """
+        from pathlib import Path
+        from .profile import DEFAULT_PROFILE_PATH
+        path = Path(profile_path) if profile_path else DEFAULT_PROFILE_PATH
+        
+        profile = GoldenProfileManager.load(path)
+        if not profile:
+            return False
+            
+        return GoldenProfileManager.apply_to_selector(self, profile)
 
     def recommend_strategy(
         self,

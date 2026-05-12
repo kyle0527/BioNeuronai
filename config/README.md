@@ -25,7 +25,8 @@ config/
 ├── market_keywords.json           # 市場關鍵字定義
 ├── market_keywords.db             # 關鍵字 SQLite 資料庫
 ├── risk_config_optimized.json     # 優化後風險參數
-├── strategy_weights_optimized.json # 優化後策略權重
+├── golden_strategy_profile.json   # 🆕 v2.2.0 黃金策略配置（離線優化產物）
+├── strategy_weights_optimized.json # (Legacy) 舊版優化策略權重
 └── keywords/                      # 按類別拆分的關鍵字
     ├── _index.json                # 類別索引
     ├── coin.json                  # 幣種相關

@@ -1,7 +1,7 @@
 # BioNeuronAI UI 端到端操作手冊
 
 > 版本：v2.1 / v2.2 過渡期  
-> 更新日期：2026-05-05  
+> 更新日期：2026-05-13
 > 主要入口：`frontend/devops-d/`  
 > Dashboard：`http://localhost:3000`  
 > API：`http://localhost:8000`
@@ -38,6 +38,7 @@ UI / API 相關資料定義不是缺少 `src/schemas` 內容。現況是：
 | 類別 | 定義位置 | 說明 |
 |---|---|---|
 | REST request / response | `src/schemas/api.py` | `NewsRequest`、`PreTradeRequest`、`BacktestRequest`、`TradeStartRequest`、`ChatRequest` 等 |
+| 訓練與模型操作 | `src/schemas/api.py` | `TrainingStartRequest`、`ModelPromoteRequest` |
 | Dashboard / WebSocket 資料 | `src/schemas/api.py` | `DashboardDataResponse`、`WsRiskData`、`WsPosition`、`WsTradeExecution` 等 |
 | 訂單與持倉 | `src/schemas/orders.py`、`src/schemas/positions.py` | Binance order / position 契約 |
 | 風控 | `src/schemas/risk.py`、`src/schemas/portfolio.py` | 風險參數、倉位、投資組合風險 |
@@ -93,10 +94,11 @@ npm install
 npm run dev
 ```
 
-開啟 Vite 顯示的網址，通常是：
+開啟 Vite 顯示的網址，通常是 `5173`；若該 port 已被占用，可能是 `5176` 等下一個可用 port：
 
 ```text
 http://localhost:5173
+http://127.0.0.1:5176
 ```
 
 ---
@@ -108,15 +110,16 @@ http://localhost:5173
 ### 步驟 1：確認 API 連線
 
 1. 開啟 Dashboard。
-2. 看右上角 API badge，應顯示 `http://localhost:8000`。
-3. 進入 `Dashboard` tab。
-4. 在 `Status` 面板按刷新或等待面板載入。
+2. 看右上角 API badge，應顯示目前 API URL。
+3. 進入 `Operations` tab。
+4. 等待 `Operations Overview` 載入，或按刷新。
 
 成功標準：
 
 | 項目 | 成功狀態 |
 |---|---|
 | API badge | 指向正確 API URL |
+| Operations Overview | 顯示 API OK、runtime mode、execution target、model state |
 | Status response | `all_ok=true` |
 | 模組狀態 | 主要模組顯示 available |
 
@@ -124,7 +127,7 @@ http://localhost:5173
 
 ### 步驟 2：確認資料目錄
 
-1. 在 `Dashboard` tab 找到 `Data Catalog` 面板。
+1. 切到 `Validation` tab，找到 `Data Catalog` 或 `Backtest` 的 catalog 功能。
 2. Symbol 可填 `BTCUSDT`，Interval 可填 `1h`。
 3. 執行掃描。
 
@@ -183,7 +186,7 @@ python main.py backtest-data --json
 |---|---|
 | API response | `success=true` 或明確降級訊息 |
 | 結果區 | 顯示 sentiment / headline / count 類資訊 |
-| Request History | 出現 `/api/v1/news` 記錄 |
+| Request History | 在 `Dev Tools` tab 出現 `/api/v1/news` 記錄 |
 
 若新聞來源受免費額度限制，可能出現 0 篇或降級結果；只要 API 明確回傳狀態，不視為 UI 失敗。
 
@@ -227,24 +230,24 @@ python main.py backtest-data --json
 | response | 有文字回應 |
 | conversation_id | 有值 |
 | confidence | 有值或明確為 null |
-| Request History | 出現 `/api/v1/chat` 記錄 |
+| Request History | 在 `Dev Tools` tab 出現 `/api/v1/chat` 記錄 |
 
 若模型低信心而保守回答，屬安全行為。
 
-### 步驟 7：測試網交易監控啟停
+### 步驟 7：Paper-live / 測試網交易監控啟停
 
-> 本步驟只做 testnet。不要在本流程中啟用 mainnet。
+> 本步驟優先做 paper-live 或 testnet。不要在本流程中啟用 live_auto。
 
-1. 回到 `Dashboard` tab。
-2. 在 `Trade Control` 面板將 `Mode` 選為 `Monitor only`。
-3. 確認 `Environment` 顯示 `Testnet`。
+1. 回到 `Operations` tab。
+2. 在 `Trade Control` 面板將 `Mode` 選為 `Paper live` 或 `Monitor only`。
+3. 若選 `Paper live`，確認 `Environment` 顯示 `Mainnet` 且面板說明為 virtual execution；若選 `Monitor only`，可維持 testnet。
 4. Symbol 填 `BTCUSDT`。
 5. 執行 `Start Trading`。
 6. 執行 `Refresh Status`，確認回應中 `running=true` 或 `engine.is_monitoring=true`。
 7. 執行 `Stop Trading`。
 8. 再次執行 `Refresh Status`，確認 `running=false`。
 
-若要測試 AI 自動交易流程，將 `Mode` 改為 `Testnet auto`，並確認 `.env` 或請求內已有 Binance testnet key。若要載入權重，開啟 `Load AI Model`，Model 使用 `my_100m_model`；目前權重品質不作為本輪 UI 驗收標準，重點是啟動流程可被 UI 操作且可停止。
+若要測試 AI 自動交易流程但不使用真實資金，優先使用 `Paper live`。它使用主網行情但不送出 Binance 訂單；所有成交/持倉只寫入本地 paper ledger。`Load AI Model` 預設開啟，Model 使用 `my_100m_model`；目前權重品質不作為本輪 UI 驗收標準，重點是啟動流程可被 UI 操作且可停止。
 
 成功標準：
 
@@ -253,14 +256,40 @@ python main.py backtest-data --json
 | start | API 回傳交易監控已啟動 |
 | stop | API 回傳交易監控已停止 |
 | 後端 | 不殘留交易 task |
-| Request History | 出現 `/api/v1/trade/start`、`/api/v1/trade/status` 與 `/api/v1/trade/stop` |
+| Request History | 在 `Dev Tools` tab 出現 `/api/v1/trade/start`、`/api/v1/trade/status` 與 `/api/v1/trade/stop` |
 
 若要做 live 操作，必須改走 [14_TESTNET_AND_LIVE_TRADING.md](14_TESTNET_AND_LIVE_TRADING.md) 的人工確認流程。
 
-### 步驟 8：檢查 Request History
+### 步驟 8：訓練與模型交接
 
-1. 切到 `Request History` tab。
-2. 確認本輪操作至少出現：
+本步驟只確認 UI 能登記遠端訓練與查詢模型狀態，不要求本機啟動訓練。
+
+1. 切到 `Validation` tab。
+2. 在 `Training / Model` 面板將 Mode 選為 `External`。
+3. Job 填入 `cloud-training`。
+4. Cloud Job ID 可填遠端 job id；若遠端尚未建立，可留空。
+5. Signal Train / Signal Val 可填 `gs://` 路徑或本機 `data/processed/*.pt`。
+6. Cloud Output 填入訓練 artifacts 目標。
+7. 執行 `Start / Register`。
+8. 執行 `Job Status`，確認 response 有 `job_id` 與 `status`。
+9. 執行 `Model Status`，確認目前 active model / env 狀態可讀。
+
+若雲端訓練已產生 `.pth`，可在 Model Path 填入產物位置並執行 `Promote`。模型品質與交易成效不在本步驟判定；這裡只驗證 UI 能完成訓練產物交接操作。
+
+成功標準：
+
+| 項目 | 成功狀態 |
+|---|---|
+| register | API 回傳 `success=true` 與 `job_id` |
+| status | 可用 `job_id` 查回作業狀態；遠端登記模式為 `registered` |
+| model status | 回傳 active model / env / trade engine 狀態 |
+| promote | 有實際模型檔時可登記到 `config/active_model.json` |
+
+### 步驟 9：檢查 Request History
+
+1. 切到 `Dev Tools` tab。
+2. 在 `Request History` 面板檢查本輪請求。
+3. 確認本輪操作至少出現：
 
 | Endpoint | 來源 |
 |---|---|
@@ -273,6 +302,8 @@ python main.py backtest-data --json
 | `/api/v1/trade/start` | Trade Control |
 | `/api/v1/trade/status` | Trade Control |
 | `/api/v1/trade/stop` | Trade Control |
+| `/api/v1/training/start` | Training / Model |
+| `/api/v1/model/status` | Training / Model |
 
 成功標準是每筆操作都有時間、方法、endpoint、狀態與 duration。這是 UI 操作可追蹤性的最低要求。
 
@@ -284,15 +315,16 @@ python main.py backtest-data --json
 
 ```text
 1. 開啟 Dashboard
-2. Status：確認 all_ok
-3. Data Catalog：確認資料可讀
+2. Operations：確認 API OK、execution target、model loaded
+3. Validation / Data Catalog：確認資料可讀
 4. News：讀取市場事件與情緒
 5. PreTrade：執行 long / short 檢查
 6. Backtest：必要時跑短區間或指定區間驗證
 7. Chat：詢問風控或策略解釋
-8. Trade Control：只在 testnet 或已完成 live 檢查後啟動
-9. Request History：確認本輪操作都有記錄
-10. 停止交易監控並關閉服務
+8. Trade Control：優先用 paper-live 或 testnet；live_auto 只走專門 live 流程
+9. Training / Model：雲端訓練作業登記或模型狀態確認
+10. Dev Tools / Request History：確認本輪操作都有記錄
+11. 停止交易監控並關閉服務
 ```
 
 完成標準：
@@ -304,6 +336,7 @@ python main.py backtest-data --json
 | PreTrade | 得到 `PROCEED` / `CAUTION` / `REJECT` |
 | 回測 | 產生 run_id 與 runtime |
 | 交易監控 | testnet 可 start/stop |
+| 訓練交接 | 可登記遠端 job，模型狀態可讀 |
 | 歷史追蹤 | Request History 可追蹤完整流程 |
 
 ---
@@ -317,6 +350,7 @@ python main.py backtest-data --json
 | P0 | 讓 Dashboard 每個核心操作都有明確 loading / success / error 狀態 | 使用者需要知道操作是否完成 |
 | P0 | Backtest 結果直接連到 runtime run detail | 使用者不應回終端機找 run_id |
 | P0 | Trade Control 加強 live guard | 已補：UI 需要 `Live auto` + confirm 字串，後端還需 `ALLOW_LIVE_TRADING=1` |
+| P0 | Training / Model 補齊遠端訓練登記、狀態查詢與 promote | 已補第一版；仍需雲端平台 job 狀態自動同步 |
 | P1 | Data Catalog 顯示「如何取得資料」與目前可用日期 | 避免使用者用不存在的日期回測 |
 | P1 | PreTrade 顯示 REJECT 的硬性原因與下一步 | 讓風控拒絕變成可理解結果 |
 | P1 | Request History 支援匯出或複製本輪操作摘要 | 方便人工驗收與問題回報 |

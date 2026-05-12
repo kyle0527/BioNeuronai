@@ -29,8 +29,9 @@ curl http://localhost:8000/api/v1/status
 ```
 
 ```bash
-python -m bioneuronai.cli.main pretrade --symbol BTCUSDT --capital 10000
-python -m bioneuronai.cli.main chat --symbol BTCUSDT --language zh
+python main.py pretrade --symbol BTCUSDT --action long
+python main.py chat --symbol BTCUSDT --language zh
+python main.py trade --paper-live --paper-balance 10000
 ```
 
 ## 🎯 為什麼這個專案不一樣？
@@ -56,8 +57,9 @@ python -m bioneuronai.cli.main chat --symbol BTCUSDT --language zh
 | 指標 | 數值 | 證據 |
 |---|---:|---|
 | Docker API status | `all_ok=true` | `GET /api/v1/status` |
-| API / Frontend Docker | 已可啟動 | `docker-compose.yml` |
+| API / Frontend source | 已可啟動 | `docker-compose.yml`；Docker image 需在 source 變更後重建 |
 | Pretrade API | 成功完成檢查並因風控條件 `REJECT` | `POST /api/v1/pretrade` |
+| Paper-live 執行層 | 已實作 | 主網行情 + 本地虛擬成交；不送 Binance order |
 | 回測績效 | 待雲端訓練完成後實測 | 訓練資料已備妥於本機 `data/processed/`；上雲前需上傳到 GCS |
 | 推論延遲 | 待固定硬體基準測試 | [docs/TESTING_AND_VALIDATION_GUIDE.md](docs/TESTING_AND_VALIDATION_GUIDE.md) |
 
@@ -68,10 +70,10 @@ python -m bioneuronai.cli.main chat --symbol BTCUSDT --language zh
 - [Architecture Overview](docs/ARCHITECTURE_OVERVIEW.md): 正式主線架構。
 - [Quickstart v2.1](docs/manuals/03_QUICKSTART.md): 本地與 Docker 操作。
 
-**最後更新**: 2026年5月5日<br>
+**最後更新**: 2026年5月13日<br>
 **版本**: v2.1 正式主線 / v2.2 雲端訓練過渡期
 
-> **部署狀態（2026-05-05）**：`frontend/devops-d/` 是第一階段前端主線；API、frontend build、交易 start/status/stop、testnet monitor 流程已用實際入口驗證。Docker source compose 已檢查，但 image 層仍需重建後複驗；UI 端到端仍需 Playwright 或人工瀏覽器點擊驗收。`frontend/admin-da/` 與 `frontend/trading/` 保留原始碼，暫不列入第一階段部署驗收。
+> **部署狀態（2026-05-13）**：`frontend/devops-d/` 是目前前端主線，首頁已改為 Operations 面板。API、frontend build、本地 UI/API 連線、交易 start/status/stop、AI 模型載入、paper-live execution layer 已用實際入口確認。Docker source compose 已同步；若改用 Docker 執行，需重建 `api` 與 `frontend` image 後再複驗。`frontend/admin-da/` 與 `frontend/trading/` 保留原始碼，暫不列入目前操作主線。
 
 ---
 
@@ -146,9 +148,10 @@ BioNeuronAI 採用分層架構設計，從底層基礎設施到頂層應用，�
 | 📈 **市場狀態識別** | 10 種市場環境自動識別 (趨勢、震盪、突破) | ✅ 完成 |
 | 🔌 **Binance API** | 完整 REST + WebSocket + 歷史數據 | ✅ 完成 |
 | 🌐 **外部數據整合** | 恐慌貪婪指數、全球市值、DeFi TVL、穩定幣 | ✅ 完成 |
-| 📋 **實際操作驗證** | Docker API / frontend healthy；`/api/v1/status` 回傳 `all_ok=true` | ✅ 完成 |
+| 📋 **實際操作驗證** | 本地 API / frontend 連線、`/api/v1/status`、trade status、model status 已確認 | ✅ 完成 |
 | 🐳 **Docker 部署** | 多階段建構映像、docker-compose profiles | ✅ 完成 |
-| 🌐 **FastAPI REST API** | 完整 REST 端點，支援背景工作查詢 | ✅ 完成 |
+| 🌐 **FastAPI REST API** | REST 端點、CORS、本地 UI 整合、交易模式控制 | ✅ 完成 |
+| 🧾 **Paper-live 模式** | Binance 主網行情 + 本地虛擬成交帳本，不送出真實訂單 | ✅ 完成 |
 | ⚡ **RAG 快取** | TTL 記憶體快取，重複查詢跳過向量搜尋 | ✅ 完成 |
 | 💬 **雙語對話** | ChatEngine（繁中/英）透過 CLI `chat` 與 API `/api/v1/chat` 存取 | ✅ 完成 |
 | 🎯 **滾動推論視窗** | InferenceEngine 維護 16 步特徵 deque，Transformer Attention 跨時間步推論 | ✅ 完成 |
@@ -202,8 +205,8 @@ pip install -e .
 git lfs install
 git lfs pull
 
-# 驗證：my_100m_model.pth 應約 445 MB
-ls -lh model/my_100m_model.pth
+# 驗證：交易模型權重應約 445 MB
+ls -lh model/my_100m_model*.pth
 ```
 
 #### 3. 配置 API 金鑰
@@ -223,7 +226,7 @@ BINANCE_TESTNET=false  # false = 正式網路（mainnet）；true = 測試網
 python -m bioneuronai.cli.main status
 
 # 交易前 6 點 RAG 檢查（無需 torch）
-python -m bioneuronai.cli.main pretrade --symbol BTCUSDT --capital 10000
+python -m bioneuronai.cli.main pretrade --symbol BTCUSDT --action long
 
 # 每日計劃（無 torch 時自動 fallback 至 SOPAutomation）
 python -m bioneuronai.cli.main plan --symbol BTCUSDT
@@ -240,7 +243,10 @@ python -m bioneuronai.cli.main simulate --symbol BTCUSDT
 # 雙語 AI 對話助理（繁中/英，需 torch + 已訓練模型）
 python -m bioneuronai.cli.main chat --symbol BTCUSDT --language zh
 
-# 測試網 AI 實盤交易（需 torch + API 金鑰）
+# 主網行情 + 本地虛擬成交，不送出 Binance 訂單
+python -m bioneuronai.cli.main trade --symbol BTCUSDT --paper-live --paper-balance 10000
+
+# 測試網 AI 自動交易（需 torch + testnet API 金鑰）
 python -m bioneuronai.cli.main trade --symbol BTCUSDT --testnet
 ```
 
@@ -273,14 +279,14 @@ docker compose up api
 ```bash
 # 一次性命令（run & exit）
 docker compose run --rm status          # 系統健康檢查
-docker compose run --rm pretrade        # 交易前 5 步驟檢查
+docker compose run --rm pretrade        # 交易前 6 點檢查
 docker compose run --rm plan            # 10 步驟交易計劃
 docker compose run --rm news            # 新聞情緒分析
 
 # 背景服務
 docker compose up api                   # FastAPI 伺服器（port 8000）
 
-# 實盤交易（需明確 opt-in 且設定 API 金鑰）
+# 交易服務（預設 testnet；paper/live 請覆寫 command 或用 API/UI 控制）
 BINANCE_API_KEY=xxx BINANCE_API_SECRET=yyy \
   docker compose --profile trade up trade
 ```
@@ -304,7 +310,7 @@ Dockerfile 採用多階段建構：
 
 ## 🌐 REST API
 
-v2.1 新增 FastAPI REST API 伺服器，所有 CLI 功能均可透過 HTTP 呼叫。
+FastAPI REST API 伺服器提供目前 UI 與外部自動化需要的主要操作端點；部分 CLI 能力仍只保留在 `main.py`。
 
 ### 啟動
 
@@ -324,7 +330,7 @@ Swagger UI：`http://localhost:8000/docs`
 |------|------|------|
 | `GET` | `/api/v1/status` | 系統健康狀態 |
 | `POST` | `/api/v1/news` | 新聞情緒分析 |
-| `POST` | `/api/v1/pretrade` | 交易前 5 步驟 RAG 檢查 |
+| `POST` | `/api/v1/pretrade` | 交易前 6 點 RAG / 風控檢查 |
 | `POST` | `/api/v1/backtest/run` | 歷史回測（同步執行） |
 | `POST` | `/api/v1/backtest/simulate` | 紙交易模擬 |
 | `GET` | `/api/v1/backtest/catalog` | 可用回測資料清單 |
@@ -333,8 +339,9 @@ Swagger UI：`http://localhost:8000/docs`
 | `GET` | `/api/v1/backtest/runs/{run_id}` | 單筆回測結果 |
 | `GET` | `/backtest/ui` | 回測 Web UI |
 | `POST` | `/api/v1/binance/validate` | 驗證 Binance API 金鑰 |
-| `POST` | `/api/v1/trade/start` | 啟動實盤交易 |
-| `POST` | `/api/v1/trade/stop` | 停止實盤交易 |
+| `POST` | `/api/v1/trade/start` | 啟動交易監控；支援 `monitor_only`、`paper_live`、`testnet_auto`、`live_auto` |
+| `GET` | `/api/v1/trade/status` | 查詢交易監控、AI 模型與 paper 狀態 |
+| `POST` | `/api/v1/trade/stop` | 停止交易監控 |
 | `POST` | `/api/v1/chat` | 雙語 AI 對話（繁中/英，多輪記憶） |
 | `DELETE` | `/api/v1/chat/{conversation_id}` | 清除指定對話歷史 |
 | `GET` | `/api/v1/dashboard` | 儀板即時資料 |
@@ -347,13 +354,11 @@ Swagger UI：`http://localhost:8000/docs`
 # 系統狀態
 curl http://localhost:8000/api/v1/status
 
-# 交易計劃
-curl -X POST http://localhost:8000/api/v1/plan \
-  -H "Content-Type: application/json" \
-  -d '{"symbol": "BTCUSDT"}'
+# 查詢交易 runtime 狀態
+curl http://localhost:8000/api/v1/trade/status
 
-# 查詢背景工作
-curl http://localhost:8000/api/v1/jobs/abc123
+# 查詢目前模型來源與載入狀態
+curl http://localhost:8000/api/v1/model/status
 ```
 
 ---
@@ -366,7 +371,7 @@ BioNeuronai/
 ├── 🐳 docker-compose.yml         # Service profiles（status/news/plan/api/trade）
 ├── 🐳 .dockerignore              # Docker 建構排除清單
 │
-├── � main.py                    # ✅ 統一 CLI 入口（委派給 src/bioneuronai/cli/main.py）
+├── main.py                      # ✅ 統一 CLI 入口（委派給 src/bioneuronai/cli/main.py）
 │                                 #    直接執行：python main.py <command>
 │
 ├── 📁 src/                       # 原始碼主目錄
@@ -387,12 +392,13 @@ BioNeuronai/
 ├── 📁 tools/                     # 🔧 開發與運維工具腳本（非正式入口）
 │
 ├── 📁 frontend/
-│   ├── devops-d/                 # ✅ 第一階段前端（DevOps 監控儀板）— 已建置
+│   ├── devops-d/                 # ✅ 目前前端主線（Operations Dashboard）
 │   ├── admin-da/                 # ⏸ 管理儀板（第二階段，暫緩）
 │   └── trading/                  # ⏸ 交易 UI（第二階段，暫緩）
 │
 ├── 📁 model/                     # AI 模型權重
-│   ├── my_100m_model.pth         # 交易推論主 checkpoint（目前正式交易主線）
+│   ├── my_100m_model.pth         # 交易推論 checkpoint
+│   ├── my_100m_model_trained_20260510.pth # 目前 active_model.json 指向的主線權重
 │   ├── tiny_llm_100m.pth         # TinyLLM 文字模型 checkpoint（ChatEngine / NLP）
 │   └── tokenizer/
 │       └── vocab.json            # BilingualTokenizer 詞彙（由 build_vocab.py 產生）
@@ -402,7 +408,7 @@ BioNeuronai/
 │   ├── trading_costs.py          # 交易成本配置
 │   └── market_keywords.json      # 市場關鍵詞
 │
-├── 📁 backtest/                  # 主回測引擎（BacktestEngine + MockConnector + service）
+├── 📁 backtest/                  # 主回測引擎（BacktestEngine + replay service）
 ├── 📁 data_downloads/            # 歷史數據存放目錄
 ├── 📁 docs/                      # 📚 完整文檔
 └── 📁 archived/                  # 歸檔文件（舊腳本 / 舊模型定義，不納入正式測試）
@@ -696,7 +702,7 @@ python tools/demo_strategy_evolution.py
 | **外部數據整合** | ✅ 完成 | 恐懼貪婪、CoinGecko、DefiLlama |
 | **新聞分析器** | ✅ 完成 | 181 關鍵字、47 文章源 |
 | **Binance API** | ✅ 完成 | REST + WebSocket 完整 |
-| **回測引擎** | ✅ 完成 | BacktestEngine + MockConnector |
+| **回測引擎** | ✅ 完成 | BacktestEngine + replay service |
 | **特徵工程** | ✅ 完成 | 1024 維特徵（10 類） |
 | **策略融合** | ✅ 完成 | 六大策略 + AI Fusion |
 | **AI 模型訓練** | 🟡 資料就緒 | signal tensor 已在本機 `data/processed/` 產出；需上傳到 GCS 並用雲端訓練 job 完成實際操作驗證 |
@@ -776,7 +782,7 @@ python tools/demo_strategy_evolution.py
 | `src/nlp/` | — | TinyLLM、ChatEngine、BilingualTokenizer、訓練工具 |
 | `model/` | [model/README.md](model/README.md) | 交易模型與 TinyLLM 權重說明 |
 | `config/` | [config/README.md](config/README.md) | 交易參數配置 |
-| `backtest/` | [backtest/README.md](backtest/README.md) | 主回測引擎（BacktestEngine + MockConnector） |
+| `backtest/` | [backtest/README.md](backtest/README.md) | 主回測引擎（BacktestEngine + replay service） |
 | `data_downloads/` | [data_downloads/README.md](data_downloads/README.md) | 歷史 K 線數據存放說明 |
 | `tools/` | [tools/README.md](tools/README.md) | 開發與運維工具腳本 |
 | `docs/` | [docs/README.md](docs/README.md) | 文檔完整索引 |

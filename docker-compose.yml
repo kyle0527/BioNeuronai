@@ -3,11 +3,11 @@
 #
 # Services:
 #   api        — REST API server (FastAPI + uvicorn)
-#   frontend   — DevOps Dashboard (nginx serve devops-d)
+#   frontend   — Operations Dashboard (nginx serve devops-d)
 #   status     — 快速健康檢查 (CLI)
 #   backtest   — 回測歷史數據 (CLI)
 #   simulate   — 模擬紙交易 (CLI)
-#   trade      — 正式/測試網交易 (需 profile 啟用)
+#   trade      — 測試網 / paper-live / 正式網交易 (需 profile 啟用)
 #
 # 用法範例:
 #   docker compose up api             # 啟動 API server
@@ -103,17 +103,17 @@ services:
       - bioneuron-logs:/app/logs
       - ./backtest:/app/backtest
 
-  # ---- 正式交易 (需要明確啟用) ----
+  # ---- 交易監控 (需要明確啟用 profile) ----
   trade:
     <<: *common
     container_name: bioneuron-trade
     profiles:
       - trade
-    command: ["main.py", "trade", "--testnet"]   # 預設指向測試網; 移除 --testnet 改為正式網
+    command: ["main.py", "trade", "--testnet"]   # 預設測試網；paper-live 可覆寫為 main.py trade --paper-live
     restart: unless-stopped           # 自動重啟，適合長時間運行
     stop_grace_period: 30s
 
-  # ---- DevOps 前端面板 (nginx serve devops-d) ----
+  # ---- Operations 前端面板 (nginx serve devops-d) ----
   frontend:
     build:
       context: ./frontend/devops-d
