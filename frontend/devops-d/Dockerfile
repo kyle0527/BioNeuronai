@@ -1,5 +1,5 @@
 # ============================================================
-# BioNeuronAI DevOps Dashboard — Dockerfile
+# BioNeuronAI Operations Dashboard — Dockerfile
 # Multi-stage: builder (npm build) → runtime (nginx serve)
 # ============================================================
 
@@ -24,7 +24,7 @@ RUN npm run build
 FROM nginx:1.27-alpine AS runtime
 
 LABEL maintainer="BioNeuronAI Team" \
-      description="BioNeuronAI DevOps Dashboard"
+      description="BioNeuronAI Operations Dashboard"
 
 # Copy nginx config
 COPY nginx.conf /etc/nginx/conf.d/default.conf

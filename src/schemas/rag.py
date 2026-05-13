@@ -289,6 +289,29 @@ class EventContext(BaseModel):
         default=None, 
         description="事件時間戳"
     )
+    headline: Optional[str] = Field(
+        default=None,
+        description="主要事件或新聞標題",
+    )
+    source: Optional[str] = Field(
+        default=None,
+        description="主要事件或新聞來源",
+    )
+    sentiment_score: float = Field(
+        default=0.0,
+        ge=-1.0,
+        le=1.0,
+        description="新聞/RAG 情緒分數",
+    )
+    active_event_count: int = Field(
+        default=0,
+        ge=0,
+        description="目前有效事件數",
+    )
+    metadata: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="上游 RAG / event memory 補充資料",
+    )
     
     def get_effective_score(self) -> float:
         """計算有效評分 (考慮衰減和可信度)"""
@@ -306,6 +329,10 @@ class EventContext(BaseModel):
                     "source_confidence": 0.9,
                     "affected_symbols": ["BTCUSDT", "ETHUSDT"],
                     "timestamp": "2026-01-25T10:30:00",
+                    "headline": "Major exchange hacked",
+                    "source": "event_memory",
+                    "sentiment_score": -0.8,
+                    "active_event_count": 1,
                 }
             ]
         },

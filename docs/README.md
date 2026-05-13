@@ -27,9 +27,11 @@
 | [manuals/00_MASTER_MANUAL.md](manuals/00_MASTER_MANUAL.md) | 系統主守則：開發與導覽的單一入口 |
 | [manuals/03_QUICKSTART.md](manuals/03_QUICKSTART.md) | v2.2.0 快速開始指南 (Docker + 環境變數) |
 | [manuals/02_STARTUP_AND_SHUTDOWN.md](manuals/02_STARTUP_AND_SHUTDOWN.md) | 本地 CLI、API + Dashboard、Docker 的開機與關機流程 |
+| [STARTUP_MODES.md](STARTUP_MODES.md) | CLI、API、UI、Docker 四種啟動入口的實際操作與功能差異 |
 | [manuals/04_CLI_OPERATION.md](manuals/04_CLI_OPERATION.md) | v2.2.0 連線、排程與 CLI 實際操作手冊 |
 | [manuals/01_MANUAL_OPERATION_VERIFICATION_PLAN.md](manuals/01_MANUAL_OPERATION_VERIFICATION_PLAN.md) | 手冊盤點、缺口與實際操作驗收順序 |
 | [ARCHITECTURE_OVERVIEW.md](ARCHITECTURE_OVERVIEW.md) | 系統整體架構總覽 (資料流與模組分工) |
+| [TECH_DEBT_STATUS_20260513.md](TECH_DEBT_STATUS_20260513.md) | 2026-05-13 技術債截圖逐項核對與修復狀態 |
 | [assets/README.md](assets/README.md) | README 視覺證據、Demo GIF、績效圖表產出清單 |
 | [blog/README.md](blog/README.md) | 技術部落格與設計決策文章入口 |
 | [PROJECT_HANDOVER_MAP.md](PROJECT_HANDOVER_MAP.md) | 模組依賴圖與開發接手地圖 |

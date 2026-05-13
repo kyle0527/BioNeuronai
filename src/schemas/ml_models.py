@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 from typing import Any, Optional, Literal
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, Field, computed_field
+from pydantic import BaseModel, ConfigDict, Field, computed_field
 
 from .enums import (
     PredictionType,
@@ -94,6 +94,7 @@ class ModelConfig(BaseModel):
     
     定義 ML 模型的架構和超參數。
     """
+    model_config = ConfigDict(protected_namespaces=())
     
     # 模型識別
     model_id: UUID = Field(default_factory=uuid4, description="模型唯一 ID")
@@ -148,6 +149,7 @@ class ModelMetrics(BaseModel):
     
     記錄模型的各種性能指標。
     """
+    model_config = ConfigDict(protected_namespaces=())
     
     # 識別
     model_id: UUID = Field(..., description="模型 ID")
@@ -216,6 +218,7 @@ class ModelPrediction(BaseModel):
     
     記錄單次模型預測的完整信息。
     """
+    model_config = ConfigDict(protected_namespaces=())
     
     # 預測識別
     prediction_id: UUID = Field(default_factory=uuid4, description="預測唯一 ID")
@@ -297,6 +300,7 @@ class ModelRegistry(BaseModel):
     
     管理所有已訓練模型的元數據。
     """
+    model_config = ConfigDict(protected_namespaces=())
     
     # 模型信息
     model_id: UUID = Field(default_factory=uuid4, description="模型唯一 ID")

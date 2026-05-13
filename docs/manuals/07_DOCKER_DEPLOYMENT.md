@@ -57,10 +57,10 @@ BioNeuronai 使用 **Docker Compose** 管理預設 8 個服務；啟用 `trade` 
 | 類別 | 服務 | 說明 |
 |---|---|---|
 | **核心服務** | `api`, `frontend` | 長期運行，提供 HTTP 服務 |
-| **CLI 工作服務** | `status`, `news`, `pretrade`, `plan`, `backtest`, `simulate` | 執行後退出 |
+| **CLI 工作服務** | `status`, `news`, `pretrade`, `plan`, `backtest`, `simulate` | 執行後退出；共用 `bioneuronai-api:latest` runtime image |
 | **交易服務** | `trade` | 需 `--profile trade` 啟用；預設 testnet，可覆寫為 paper-live 或 live |
 
-所有服務共用同一個 Docker 映像（由 `Dockerfile` 的 `runtime` 目標建置），透過不同的 `command` 分工。
+API 與 CLI 工作服務共用 `bioneuronai-api:latest`（由 `Dockerfile` 的 `runtime` 目標建置），透過不同的 `command` 分工；frontend 使用 `bioneuronai-frontend:latest`。
 
 ---
 
@@ -150,6 +150,7 @@ LOG_LEVEL=INFO                 # DEBUG / INFO / WARNING / ERROR
 │  └─────────────────────────────┘                      │
 │                                                        │
 │  Volumes: bioneuron-data, bioneuron-logs              │
+│  Bind:    ./backtest -> /app/backtest                 │
 └────────────────────────────────────────────────────────┘
 ```
 
@@ -347,12 +348,16 @@ docker compose --profile trade down trade
 
 ## 7. Volume 資料持久化
 
-Docker Compose 定義兩個 named volume：
+Docker Compose 定義兩個 named volume，並額外把本機 `./backtest` bind mount 到容器 `/app/backtest`。歷史 K 線資料不放進 image，而是透過這個 bind mount 供 API、backtest 與 simulate 共用。
 
 | Volume | 容器掛載點 | 說明 |
 |---|---|---|
 | `bioneuron-data` | `/app/data` | SQLite 資料庫、歷史資料、Signal 紀錄 |
 | `bioneuron-logs` | `/app/logs` | 所有服務的日誌檔案 |
+
+| Bind mount | 容器掛載點 | 說明 |
+|---|---|---|
+| `./backtest` | `/app/backtest` | 回測程式、歷史 K 線、runtime 結果；API 的 `/api/v1/backtest/catalog` 也依賴此掛載 |
 
 ### 查看 Volume 位置
 ```bash

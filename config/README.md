@@ -21,6 +21,8 @@ config/
 ├── __init__.py                    # 模組匯出
 ├── trading_config.py              # 交易參數配置（API 金鑰、槓桿等）
 ├── trading_costs.py               # 交易成本計算器（手續費結構）
+├── active_model.json              # 目前 promoted 模型來源（使用 repo-relative path）
+├── trading_readiness_gate.json     # 正式交易前 BTC/ETH 多時間框架回測 gate
 ├── event_rules.json               # 事件規則外部配置（2026-03-29 新增）
 ├── market_keywords.json           # 市場關鍵字定義
 ├── market_keywords.db             # 關鍵字 SQLite 資料庫
@@ -113,6 +115,8 @@ config/
 
 | 檔案 | 說明 |
 |------|------|
+| `active_model.json` | `ModelLoader` / API model status 使用的現役模型指標。`model_path` 建議使用 repo-relative path，例如 `model/my_100m_model_trained_20260510.pth`，避免寫死本機磁碟位置。 |
+| `trading_readiness_gate.json` | `python main.py readiness-gate` 使用的 BTCUSDT / ETHUSDT 多時間框架矩陣、Walk-Forward 與績效通過門檻 |
 | `risk_config_optimized.json` | 優化後的風險管理參數 |
 | `strategy_weights_optimized.json` | 優化後的策略權重配置 |
 

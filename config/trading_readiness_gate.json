@@ -1,0 +1,23 @@
+{
+  "symbols": ["BTCUSDT", "ETHUSDT"],
+  "intervals": ["1h", "4h"],
+  "start_date": "2020-01-01",
+  "end_date": "2020-03-31",
+  "balance": 10000.0,
+  "warmup_bars": 100,
+  "execution_mode": "template_rules",
+  "commission_bps": 4.0,
+  "slippage_bps": 1.0,
+  "walk_forward": true,
+  "thresholds": {
+    "min_executable_count": 1,
+    "max_unavailable_count": 0,
+    "min_best_trade_count": 1,
+    "min_best_total_return": -20.0,
+    "max_best_drawdown": 35.0,
+    "min_best_profit_factor": 0.0,
+    "require_walk_forward": true,
+    "min_oos_executable_count": 1,
+    "min_best_oos_total_return": -25.0
+  }
+}

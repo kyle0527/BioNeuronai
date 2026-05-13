@@ -342,8 +342,11 @@ black src/
 # 運行 Mypy 類型檢查
 mypy src/
 
-# 運行測試
-pytest tests/
+# 實際入口驗證
+python main.py status
+python main.py backtest-data --symbol BTCUSDT --interval 1h
+npm --prefix frontend/devops-d run build
+docker compose config --quiet
 ```
 
 ### 推薦的開發流程
@@ -351,7 +354,7 @@ pytest tests/
 1. **開發前**: 確保 SonarLint 和 ErrorLens 已啟用
 2. **編碼中**: 使用 Pylance 自動補全和類型提示
 3. **提交前**: 運行 `black` 和 `ruff` 格式化代碼
-4. **測試**: 使用 `pytest` 運行單元測試
+4. **驗證**: 優先跑 CLI / API / UI / Docker 正式入口，CI 檢查只作輔助
 5. **文檔**: 使用 Markdown 和 Mermaid 編寫技術文檔
 
 ---

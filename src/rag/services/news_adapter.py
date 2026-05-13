@@ -27,6 +27,7 @@ Date: 2026-01-25
 """
 
 import logging
+import re
 from typing import Any, Callable, Dict, List, Optional, cast
 from datetime import datetime
 from pathlib import Path
@@ -72,15 +73,19 @@ NewsSearchResult: TypeAlias = RAGNewsItem
 
 # 導入 InternalKnowledgeBase（新聞知識寫入）
 _imported_internal_kb: Optional[type[Any]]
+_imported_document_type: Optional[Any]
 try:
+    from rag.internal import DocumentType as _imported_document_type
     from rag.internal import InternalKnowledgeBase as _imported_internal_kb
     INTERNAL_KB_AVAILABLE = True
 except ImportError as e:
     logger.warning(f"無法導入 InternalKnowledgeBase: {e}")
     INTERNAL_KB_AVAILABLE = False
     _imported_internal_kb = None
+    _imported_document_type = None
 
 InternalKnowledgeBase = cast(Optional[type[Any]], _imported_internal_kb)
+DocumentType = _imported_document_type
 
 
 class NewsAdapter:
@@ -319,31 +324,161 @@ class NewsAdapter:
         Returns:
             EventContext 物件，或 None
         """
+        self._ensure_initialized()
+
         if not self._rule_evaluator or not SCHEMAS_AVAILABLE:
-            return None
+            return self._event_context_from_kb(symbol)
         
         try:
             # get_current_event_score 回傳 Tuple[float, List[Dict]]
             event_score, active_events = self._rule_evaluator.get_current_event_score(symbol)
 
             if not active_events:
-                return None
+                return self._event_context_from_kb(symbol)
 
-            # 構建 EventContext 物件 (而非字典)
-            primary_event = active_events[0] if active_events else {}
+            primary_event = self._select_primary_event(active_events)
+            decay_factor = self._event_decay_factor(primary_event)
+            source_confidence = float(primary_event.get("source_confidence", 0.7) or 0.7)
+            affected_symbols = self._event_affected_symbols(primary_event, symbol)
+            sentiment_score = max(-1.0, min(1.0, float(event_score or 0.0)))
+            event_score_10 = max(-10.0, min(10.0, sentiment_score * 10.0))
 
             return EventContext(
-                event_score=event_score,
+                event_score=event_score_10,
                 event_type=primary_event.get("event_type"),
-                intensity=self._score_to_intensity(event_score),
-                decay_factor=1.0,
-                source_confidence=0.7,
-                affected_symbols=[symbol],
-                timestamp=datetime.now(),
+                intensity=self._score_to_intensity(event_score_10),
+                decay_factor=decay_factor,
+                source_confidence=max(0.0, min(1.0, source_confidence)),
+                affected_symbols=affected_symbols,
+                timestamp=self._event_timestamp(primary_event) or datetime.now(),
+                headline=primary_event.get("headline"),
+                source=primary_event.get("source") or "event_memory",
+                sentiment_score=sentiment_score,
+                active_event_count=len(active_events),
+                metadata={
+                    "event_ids": [event.get("event_id") for event in active_events if event.get("event_id")],
+                    "aggregated_event_score": event_score,
+                    "primary_event_id": primary_event.get("event_id"),
+                    "primary_raw_score": primary_event.get("score"),
+                    "primary_status": primary_event.get("status"),
+                    "source": "event_memory",
+                },
             )
         except Exception as e:
             logger.error(f"獲取事件上下文失敗: {e}")
+            return self._event_context_from_kb(symbol)
+
+    def _select_primary_event(self, active_events: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """選出目前影響力最大的有效事件。"""
+        if not active_events:
+            return {}
+
+        def _impact(event: Dict[str, Any]) -> float:
+            score = float(event.get("score", 0.0) or 0.0)
+            confidence = float(event.get("source_confidence", 0.5) or 0.5)
+            return abs(score * confidence * self._event_decay_factor(event))
+
+        return max(active_events, key=_impact)
+
+    def _event_decay_factor(self, event: Dict[str, Any]) -> float:
+        """依 event_memory metadata 與 created_at 計算事件衰減係數。"""
+        metadata = str(event.get("metadata") or "")
+        match = re.search(r"decay_hours:\s*(\d+(?:\.\d+)?)", metadata)
+        decay_hours = float(match.group(1)) if match else 72.0
+        decay_hours = max(decay_hours, 1.0)
+
+        created_at = self._event_timestamp(event)
+        if created_at is None:
+            return 1.0
+
+        age_hours = max(0.0, (datetime.now() - created_at).total_seconds() / 3600.0)
+        return max(0.1, min(1.0, 1.0 - (age_hours / decay_hours) * 0.5))
+
+    def _event_timestamp(self, event: Dict[str, Any]) -> Optional[datetime]:
+        """解析 event_memory 的時間欄位。"""
+        for key in ("created_at", "timestamp", "updated_at"):
+            value = event.get(key)
+            if isinstance(value, datetime):
+                return value
+            if isinstance(value, str) and value.strip():
+                try:
+                    return datetime.fromisoformat(value.replace("Z", ""))
+                except ValueError:
+                    continue
+        return None
+
+    def _event_affected_symbols(self, event: Dict[str, Any], fallback_symbol: str) -> List[str]:
+        """整理事件影響交易對。"""
+        affected = event.get("affected_symbols")
+        if isinstance(affected, str) and affected.strip():
+            symbols = [item.strip().upper() for item in affected.split(",") if item.strip()]
+            return symbols or [fallback_symbol]
+        if isinstance(affected, list):
+            symbols = [str(item).strip().upper() for item in affected if str(item).strip()]
+            return symbols or [fallback_symbol]
+        return [fallback_symbol]
+
+    def _event_context_from_kb(self, symbol: str) -> "Optional[EventContext]":
+        """沒有 active event 時，用已入庫 RAG 新聞摘要補上弱事件上下文。"""
+        if not SCHEMAS_AVAILABLE or DocumentType is None:
             return None
+
+        kb = self._ensure_knowledge_base()
+        if kb is None:
+            return None
+
+        try:
+            docs = kb.search(
+                query=f"{symbol} news sentiment market event",
+                top_k=5,
+                min_score=0.0,
+                doc_types=[DocumentType.NEWS_ARCHIVE],
+                tags=[symbol.lower()],
+            )
+        except Exception as exc:
+            logger.debug("RAG 新聞事件上下文檢索失敗: %s", exc)
+            return None
+
+        if not docs:
+            return None
+
+        weighted_score = 0.0
+        total_weight = 0.0
+        latest_doc = max(docs, key=lambda doc: getattr(doc, "created_at", datetime.min))
+        for doc in docs:
+            metadata = getattr(doc, "metadata", {}) or {}
+            sentiment = float(metadata.get("article_sentiment_score", metadata.get("overall_sentiment_score", 0.0)) or 0.0)
+            relevance = float(metadata.get("relevance_score", getattr(doc, "score", 0.0)) or 0.0)
+            importance = float(metadata.get("importance_score", 0.0) or 0.0)
+            weight = max(0.1, relevance) + max(0.0, importance) / 10.0
+            weighted_score += sentiment * weight
+            total_weight += weight
+
+        sentiment_score = weighted_score / total_weight if total_weight > 0 else 0.0
+        sentiment_score = max(-1.0, min(1.0, sentiment_score))
+        event_score_10 = max(-10.0, min(10.0, sentiment_score * 10.0))
+        latest_meta = getattr(latest_doc, "metadata", {}) or {}
+
+        return EventContext(
+            event_score=event_score_10,
+            event_type="NEWS_SENTIMENT",
+            intensity=self._score_to_intensity(event_score_10),
+            decay_factor=1.0,
+            source_confidence=max(0.1, min(1.0, float(getattr(latest_doc, "score", 0.5) or 0.5))),
+            affected_symbols=[symbol],
+            timestamp=getattr(latest_doc, "created_at", None) or datetime.now(),
+            headline=getattr(latest_doc, "title", None),
+            source=str(latest_meta.get("news_source", "internal_knowledge_base")),
+            sentiment_score=sentiment_score,
+            active_event_count=0,
+            metadata={
+                "source": "internal_knowledge_base",
+                "doc_ids": [getattr(doc, "id", "") for doc in docs],
+                "latest_doc_id": getattr(latest_doc, "id", None),
+                "latest_url": latest_meta.get("url"),
+                "kb_result_count": len(docs),
+            },
+        )
     
     def _score_to_intensity(self, score: float) -> str:
         """將分數轉換為強度等級"""

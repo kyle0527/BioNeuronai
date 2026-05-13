@@ -36,6 +36,17 @@
 
 ## 1. 開機前檢查
 
+### 1.1 四種啟動入口的差異
+
+| 入口 | 指令 | 使用情境 | 注意事項 |
+|---|---|---|---|
+| CLI | `python main.py <command>` | 單次任務、回測、simulate、paper-live、readiness gate、chat | 不需要常駐服務，最適合確認單一功能是否實際跑完 |
+| API | `python -m uvicorn bioneuronai.api.app:app --host 127.0.0.1 --port 8000` | UI 後端、外部自動化、Swagger 操作 | UI 的所有資料都依賴 API；API 未啟動會導致 `Failed to fetch` |
+| UI | `cd frontend/devops-d; npm run dev` | Operations Dashboard 人工操作與監控 | UI 不直接執行 AI；它透過 API 呼叫後端 |
+| Docker | `docker compose up api frontend` / `docker compose run --rm status` | 部署、重現環境、隔離依賴 | 修改程式或前端後通常需 rebuild；大型資料不打進 image |
+
+更完整說明見 [../STARTUP_MODES.md](../STARTUP_MODES.md)。
+
 請先在專案根目錄執行：
 
 ```powershell

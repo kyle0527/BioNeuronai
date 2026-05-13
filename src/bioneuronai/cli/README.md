@@ -65,6 +65,7 @@ from bioneuronai.cli import cli_main
 |------|------|
 | `backtest` | 歷史數據正式回測（replay service + AI，保存 runtime artifacts）|
 | `strategy-backtest` | 逐一評估策略模板，輸出競爭排行榜；支援 Walk-Forward IS/OOS 驗證 |
+| `readiness-gate` | 正式交易前 BTC/ETH 多時間框架 PASS/FAIL gate；使用 replay service，不送真實訂單 |
 | `simulate` | 紙交易模擬（next_tick 推進，不產生真實訂單）|
 | `collect-signal-data` | 收集 unified_trainer 所需的 signal JSONL 訓練資料 |
 | `backtest-data` | 列出 repo 內可用的歷史回放資料目錄 |
@@ -93,7 +94,7 @@ from bioneuronai.cli import cli_main
    - `news` → `analysis/news`
    - `pretrade` → `planning/pretrade_automation`
    - `trade` → `core/trading_engine`
-   - `backtest` / `strategy-backtest` / `simulate` / `collect-signal-data` / `backtest-data` / `backtest-runs` → `backtest/`
+   - `backtest` / `strategy-backtest` / `readiness-gate` / `simulate` / `collect-signal-data` / `backtest-data` / `backtest-runs` → `backtest/`
    - `evolve` → `strategies/strategy_arena`
    - `chat` → `nlp/chat_engine`
 

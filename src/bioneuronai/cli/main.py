@@ -8,6 +8,7 @@ BioNeuronai CLI - 統一命令入口
 命令總覽:
     backtest  --symbol ETHUSDT --interval 1h --start-date 2025-01-01
     strategy-backtest --symbol BTCUSDT --interval 1h
+    readiness-gate --dry-run
     simulate  --symbol BTCUSDT --balance 100000 --bars 200
     trade     --symbol BTCUSDT --testnet
     plan      [--output report.json]
@@ -710,7 +711,10 @@ def cmd_strategy_backtest(args: argparse.Namespace) -> None:
     for item in result["ranking"]:
         stats = item.get("stats", {})
         pf_raw = stats.get("profit_factor")
-        pf_str = f"{float(pf_raw):>9.2f}" if pf_raw is not None and pf_raw != float("inf") else f"{'\u221e':>9}"
+        if pf_raw is not None and pf_raw != float("inf"):
+            pf_str = f"{float(pf_raw):>9.2f}"
+        else:
+            pf_str = "inf".rjust(9)
         print(
             f"  {item['template_key'][:22]:22} "
             f"{str(item.get('execution_engine', ''))[:14]:14} "
@@ -753,6 +757,70 @@ def cmd_strategy_backtest(args: argparse.Namespace) -> None:
             print(f"  - {item['template_key']}: {item['reason']}")
 
     print(f"{'='*60}\n")
+
+
+def cmd_readiness_gate(args: argparse.Namespace) -> None:
+    """正式交易前的 BTC/ETH 多時間框架回測門檻。"""
+    symbols = _split_csv_arg(getattr(args, "symbols", None))
+    intervals = _split_csv_arg(getattr(args, "intervals", None))
+
+    print(f"\n{'='*60}")
+    print("  BioNeuronai Trading Readiness Gate")
+    print(f"{'='*60}")
+    print(f"  模式       : {'dry-run（只檢查矩陣與資料）' if args.dry_run else '執行策略回測門檻'}")
+    print("  真實下單   : 否\n")
+
+    try:
+        from backtest import run_trading_readiness_gate
+
+        report = run_trading_readiness_gate(
+            config_path=args.config,
+            symbols=symbols,
+            intervals=intervals,
+            start_date=args.start_date,
+            end_date=args.end_date,
+            data_dir=args.data_dir,
+            output=args.output,
+            dry_run=args.dry_run,
+        )
+    except Exception as exc:
+        logger.error("readiness gate 執行失敗: %s", exc)
+        sys.exit(1)
+
+    if args.json:
+        print(json.dumps(report, ensure_ascii=False, indent=2, default=str))
+    else:
+        summary = report.get("summary", {})
+        print(f"  狀態       : {report.get('status')}")
+        print(
+            f"  矩陣       : total={summary.get('total', 0)} "
+            f"passed={summary.get('passed', 0)} "
+            f"failed={summary.get('failed', 0)} "
+            f"planned={summary.get('planned', 0)}"
+        )
+        print(f"  期間       : {report.get('start_date')} ~ {report.get('end_date')}")
+        print(f"  資料根目錄 : {report.get('data_root')}")
+        if report.get("output"):
+            print(f"  輸出檔案   : {report['output']}")
+
+        print("\n  Case Results")
+        print(f"  {'交易對':10} {'週期':6} {'狀態':8} 說明")
+        print(f"  {'-'*60}")
+        for case in report.get("cases", []):
+            failed = [item for item in case.get("checks", []) if not item.get("passed")]
+            detail = failed[0]["detail"] if failed else "OK"
+            print(f"  {case['symbol']:10} {case['interval']:6} {case['status']:8} {detail}")
+
+    if report.get("status") == "FAIL":
+        sys.exit(1)
+
+
+def _split_csv_arg(value: Optional[str]) -> Optional[list[str]]:
+    """Parse comma-separated CLI overrides."""
+    if not value:
+        return None
+    parsed = [item.strip() for item in value.split(",") if item.strip()]
+    return parsed or None
 
 
 def cmd_simulate(args: argparse.Namespace) -> None:
@@ -909,6 +977,7 @@ def _build_parser() -> argparse.ArgumentParser:
   python main.py pretrade  --symbol BTCUSDT --action long
   python main.py status
   python main.py strategy-backtest --symbol BTCUSDT --interval 1h
+  python main.py readiness-gate --dry-run
         """,
     )
 
@@ -971,6 +1040,31 @@ def _build_parser() -> argparse.ArgumentParser:
     sbp.add_argument("--walk-forward", action="store_true", dest="walk_forward",
                      help="開啟 Walk-Forward IS/OOS 驗證（需一同提供 --start-date 和 --end-date）")
     sbp.set_defaults(func=cmd_strategy_backtest, close_open_positions_on_end=True, walk_forward=False)
+
+    # ── readiness-gate ───────────────────────────────────────────────────────
+    rgp = subparsers.add_parser(
+        "readiness-gate",
+        help="正式交易前的 BTC/ETH 多時間框架回測門檻",
+    )
+    rgp.add_argument("--config", default=None, metavar="FILE",
+                     help="readiness gate JSON 設定檔 (預設: config/trading_readiness_gate.json)")
+    rgp.add_argument("--symbols", default=None, metavar="CSV",
+                     help="覆蓋交易對矩陣，例如 BTCUSDT,ETHUSDT")
+    rgp.add_argument("--intervals", default=None, metavar="CSV",
+                     help="覆蓋週期矩陣，例如 1h,4h")
+    rgp.add_argument("--start-date", default=None, dest="start_date", metavar="YYYY-MM-DD",
+                     help="覆蓋起始日期")
+    rgp.add_argument("--end-date", default=None, dest="end_date", metavar="YYYY-MM-DD",
+                     help="覆蓋結束日期")
+    rgp.add_argument("--data-dir", default=None, dest="data_dir", metavar="PATH",
+                     help="歷史資料根目錄")
+    rgp.add_argument("--output", default=None, metavar="FILE",
+                     help="輸出 PASS/FAIL JSON 報告")
+    rgp.add_argument("--dry-run", action="store_true",
+                     help="只檢查矩陣、資料與門檻設定，不執行回測")
+    rgp.add_argument("--json", action="store_true",
+                     help="以 JSON 輸出")
+    rgp.set_defaults(func=cmd_readiness_gate)
 
     # ── simulate ──────────────────────────────────────────────────────────────
     sp = subparsers.add_parser("simulate", help="紙交易模擬 (next_tick 推進，不產生真實訂單)")

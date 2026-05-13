@@ -301,18 +301,25 @@ class ModelLoader:
         env_model_path = os.getenv("MODEL_PATH") or os.getenv("BIONEURONAI_MODEL_PATH")
         if env_model_path:
             if env_model_path.endswith("/") or not Path(env_model_path).suffix:
-                return materialize_uri(f"{env_model_path.rstrip('/')}/{model_name}.pth")
-            return materialize_uri(env_model_path)
+                return self._materialize_model_path(f"{env_model_path.rstrip('/')}/{model_name}.pth")
+            return self._materialize_model_path(env_model_path)
 
         env_model_dir = os.getenv("MODEL_DIR") or os.getenv("BIONEURONAI_MODEL_DIR")
         if env_model_dir:
-            return materialize_uri(f"{env_model_dir.rstrip('/')}/{model_name}.pth")
+            return self._materialize_model_path(f"{env_model_dir.rstrip('/')}/{model_name}.pth")
 
         active_model_path = self._resolve_active_model_path(model_name)
         if active_model_path is not None:
             return active_model_path
 
         return self.model_dir / f"{model_name}.pth"
+
+    def _materialize_model_path(self, value: str) -> Path:
+        """Resolve local relative paths from the repo root while keeping cloud URIs supported."""
+        resolved = materialize_uri(value)
+        if not resolved.is_absolute():
+            return self.project_root / resolved
+        return resolved
 
     def _resolve_active_model_path(self, model_name: str) -> Optional[Path]:
         """Resolve persisted promoted model metadata shared by API, CLI, and engines."""
@@ -333,8 +340,8 @@ class ModelLoader:
         if not model_path:
             return None
         if model_path.endswith("/") or not Path(model_path).suffix:
-            return materialize_uri(f"{model_path.rstrip('/')}/{model_name}.pth")
-        return materialize_uri(model_path)
+            return self._materialize_model_path(f"{model_path.rstrip('/')}/{model_name}.pth")
+        return self._materialize_model_path(model_path)
     
     def get_model(self, model_name: Optional[str] = None) -> nn.Module:
         """"""

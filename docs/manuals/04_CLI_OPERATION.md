@@ -23,6 +23,7 @@
   - [backtest-data](#backtest-data)
   - [backtest-runs](#backtest-runs)
   - [strategy-backtest](#strategy-backtest)
+  - [readiness-gate](#readiness-gate)
   - [collect-signal-data](#collect-signal-data)
   - [evolve](#evolve)
   - [trade](#trade)
@@ -180,6 +181,15 @@ python main.py backtest-runs --json           # JSON 輸出
 ### `strategy-backtest`
 **用途**：執行策略競技場（多策略模板競爭回測），支援 walk-forward 驗證、手續費 / 滑點設定。
 > 完整說明（含 `--walk-forward`、`--execution-mode`、`--commission-bps`、`--params` 等進階參數）請參閱 [10_STRATEGY_MODULE.md](10_STRATEGY_MODULE.md)。
+
+### `readiness-gate`
+**用途**：正式交易前的 BTCUSDT / ETHUSDT 多時間框架 gate。它使用 `backtest/` replay service 實際跑策略矩陣，並依 `config/trading_readiness_gate.json` 的資料覆蓋、Walk-Forward 與績效門檻輸出 `PASS` / `FAIL`。這個命令不會送出真實訂單。
+```bash
+python main.py readiness-gate --dry-run
+python main.py readiness-gate --output output/readiness_gate.json
+python main.py readiness-gate --symbols BTCUSDT --intervals 1h --start-date 2020-01-01 --end-date 2020-03-31
+```
+若缺少設定矩陣中的資料（例如 `4h` K 線尚未下載），`--dry-run` 會直接列出缺失項；完整執行時未達門檻會以非 0 exit code 阻擋後續上線。
 
 ### `collect-signal-data`
 **用途**：從本地歷史 K 線產生訊號訓練樣本，輸出為 JSONL 檔供後續模型訓練使用。

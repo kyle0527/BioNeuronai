@@ -11,7 +11,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Literal, Optional
 from uuid import uuid4
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from .enums import Environment
 
@@ -287,6 +287,8 @@ class StrategyBacktestRequest(BaseModel):
 
 class TradeStartRequest(BaseModel):
     """啟動交易監控請求"""
+    model_config = ConfigDict(protected_namespaces=())
+
     symbol: str = Field(default="BTCUSDT", description="交易對")
     testnet: bool = Field(default=True, description="使用測試網")
     mode: Literal["monitor_only", "paper_live", "testnet_auto", "live_auto"] = Field(
@@ -373,6 +375,8 @@ class ModelPromoteRequest(BaseModel):
 
     將已完成訓練的模型登記為 runtime 後續載入來源。
     """
+    model_config = ConfigDict(protected_namespaces=())
+
     model_name: str = Field(default="my_100m_model", min_length=1, description="模型名稱")
     model_path: str = Field(..., min_length=1, description="模型檔或模型目錄，可為本機路徑或 gs://")
     validate_path: bool = Field(default=True, description="promote 前是否檢查模型檔可被定位")

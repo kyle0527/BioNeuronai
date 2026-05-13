@@ -22,6 +22,8 @@
   - `ingest_news_analysis(analysis_result, symbol, hours)`
   - `ingest_news_analysis_with_status(analysis_result, symbol, hours)`
 
+`get_event_context(symbol)` 會先確保 `CryptoNewsAnalyzer` / `RuleBasedEvaluator` 已初始化；若 event memory 有 active event，會回傳包含事件分數、事件類型、衰減係數、來源可信度、標題、來源與 active event 數的 `schemas.rag.EventContext`。若沒有 active event，會從已入庫的 RAG 新聞文檔整理弱事件上下文，讓 TradingEngine / strategy fusion 主線仍可取得當下新聞情緒背景。
+
 內部輔助流程：
 
 - `_ensure_initialized()`

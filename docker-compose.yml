@@ -17,6 +17,7 @@
 # ============================================================
 
 x-common: &common
+  image: bioneuronai-api:latest
   build:
     context: .
     dockerfile: Dockerfile
@@ -26,6 +27,7 @@ x-common: &common
   volumes:
     - bioneuron-data:/app/data
     - bioneuron-logs:/app/logs
+    - ./backtest:/app/backtest
   restart: "no"
 
 services:
@@ -80,10 +82,6 @@ services:
       "--balance", "${BACKTEST_BALANCE:-10000}",
       "--warmup-bars", "${BACKTEST_WARMUP_BARS:-10}"
     ]
-    volumes:
-      - bioneuron-data:/app/data
-      - bioneuron-logs:/app/logs
-      - ./backtest:/app/backtest  # 掛載本地回測結果方便查看
 
   # ---- 模擬紙交易 ----
   simulate:
@@ -98,10 +96,6 @@ services:
       "--start-date", "${SIM_START:-2020-01-01}",
       "--end-date",   "${SIM_END:-2020-01-03}"
     ]
-    volumes:
-      - bioneuron-data:/app/data
-      - bioneuron-logs:/app/logs
-      - ./backtest:/app/backtest
 
   # ---- 交易監控 (需要明確啟用 profile) ----
   trade:

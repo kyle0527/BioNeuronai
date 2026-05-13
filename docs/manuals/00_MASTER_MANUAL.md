@@ -73,7 +73,7 @@ BioNeuronAI 是一套面向加密貨幣期貨市場的 AI 交易系統。
 * **[PROJECT_HANDOVER_MAP.md](../PROJECT_HANDOVER_MAP.md)**: 🤝 開發者交接地圖。提供各模組的依賴關係與「舊版殘留區」的避坑指南。
 * **[SRC_DIRECTORY_ANALYSIS.md](../SRC_DIRECTORY_ANALYSIS.md)**: 📁 目錄結構詳解。告訴你每個資料夾為什麼存在、裡面放什麼。
 
-### 🧪 測試與驗證
+### ✅ 實際操作驗證
 * **[01_MANUAL_OPERATION_VERIFICATION_PLAN.md](01_MANUAL_OPERATION_VERIFICATION_PLAN.md)**: 使用者手冊實際入口驗收矩陣，記錄 CLI、API、Dashboard、Docker 與 UI 端到端驗證狀態。
 
 ---

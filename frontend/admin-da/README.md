@@ -1,27 +1,22 @@
-> **⏸ 部署狀態：暫緩（第二階段）**
-> 本前端為管理儀板（Admin Dashboard），原始碼保留但目前不作為部署目標。
-> 第一階段僅推進 `frontend/devops-d/`。詳見 [部署準備紀錄](../../docs/DEPLOYMENT_READINESS_RECORD_20260417.md)。
+# BioNeuronAI Admin Dashboard
 
-# ✨ Welcome to Your Spark Template!
-You've just launched your brand-new Spark Template Codespace — everything’s fired up and ready for you to explore, build, and create with Spark!
+> **部署狀態：暫緩（第二階段）**
+>
+> 本前端為管理儀板原始碼，保留供後續整併使用；目前不作為正式部署目標。
+> 第一階段正式 UI 主線是 `frontend/devops-d/` 的 Operations Dashboard。
 
-This template is your blank canvas. It comes with a minimal setup to help you get started quickly with Spark development.
+## 目前定位
 
-🚀 What's Inside?
-- A clean, minimal Spark environment
-- Pre-configured for local development
-- Ready to scale with your ideas
-  
-🧠 What Can You Do?
+`frontend/admin-da/` 主要包含管理後台與 WebSocket 儀表板相關實作，例如風控摘要、訂單歷史、稽核與管理視圖。這些功能與目前後端 API 有部分可重用內容，但尚未完成端點逐項驗收，因此不列入目前 Docker frontend build 或日常操作手冊的主流程。
 
-Right now, this is just a starting point — the perfect place to begin building and testing your Spark applications.
+## 使用限制
 
-🧹 Just Exploring?
-No problem! If you were just checking things out and don’t need to keep this code:
+- 不作為 `docker-compose.yml` 的 frontend build context。
+- 不保證所有 API / WebSocket path 已與目前 `src/bioneuronai/api/routes/` 完全對齊。
+- 若要重新啟用，需先完成 API path、WebSocket payload、風控設定與訂單資料格式驗證。
 
-- Simply delete your Spark.
-- Everything will be cleaned up — no traces left behind.
+## 第二階段整理方向
 
-📄 License For Spark Template Resources 
-
-The Spark Template files and resources from GitHub are licensed under the terms of the MIT license, Copyright GitHub, Inc.
+1. 將仍有價值的管理面板移入 `frontend/devops-d`。
+2. 移除或改寫與目前 API 不一致的 mock/demo 資料。
+3. 實際啟動 API + Vite 逐頁確認，再決定是否保留為獨立 app。

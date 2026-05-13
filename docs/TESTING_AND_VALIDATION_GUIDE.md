@@ -53,6 +53,21 @@ python main.py trade --testnet
 *   **用途**：真實連接交易所行情並接收市場資料。paper-live 不發送真實訂單；testnet 只送測試網。
 *   **檢驗標準**：觀察系統是否能穩定運行 24 小時以上不崩潰。
 
+### 5. 正式交易前 Readiness Gate
+
+在 testnet / live 前，必須先跑正式 gate。這不是臨時測試檔，而是 `backtest/` replay service 的 CLI 入口，會依 `config/trading_readiness_gate.json` 檢查 BTCUSDT / ETHUSDT 多時間框架矩陣、資料覆蓋、Walk-Forward IS/OOS 與績效門檻。
+
+```bash
+# 只檢查矩陣、資料與門檻設定，不執行回測
+python main.py readiness-gate --dry-run
+
+# 執行完整 gate 並保存報告
+python main.py readiness-gate --output output/readiness_gate.json
+```
+
+*   **用途**：把「正式交易前需完成 BTC/ETH 多時間框架回測並設定通過門檻」變成可執行保護門。
+*   **檢驗標準**：完整執行時狀態必須為 `PASS`。若資料缺失（例如 4h K 線未下載）或未達交易次數 / OOS 門檻，CLI 會以 `FAIL` 阻擋。
+
 ---
 
 ## 🐛 持續整合 (CI) 與防呆 Smoke Test
@@ -67,4 +82,5 @@ python -m pytest tests/test_smoke.py -q
 ## 📝 總結
 1.  **開發階段**：使用 `strategy-backtest` 快速迭代演算法。
 2.  **整合階段**：使用 `pretrade` 與 `status` 確認各模組接通。
-3.  **上線階段**：使用 paper-live 長時間觀察，接著 testnet，再進 live guard 流程。
+3.  **上線前門檻**：使用 `readiness-gate` 確認 BTC/ETH 多時間框架矩陣通過。
+4.  **上線階段**：使用 paper-live 長時間觀察，接著 testnet，再進 live guard 流程。

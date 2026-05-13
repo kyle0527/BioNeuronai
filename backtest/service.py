@@ -796,6 +796,7 @@ def run_strategy_suite_backtest(
     commission_bps: float = 5.5,
     slippage_bps: float = 1.0,
     walk_forward: bool = False,
+    update_golden_profile: bool = True,
 ) -> Dict[str, Any]:
     """逐一用正式策略實例跑 replay，保留每個策略的進出場紀錄。
 
@@ -937,6 +938,7 @@ def run_strategy_suite_backtest(
             commission_bps=commission_bps,
             slippage_bps=slippage_bps,
             walk_forward=False,  # 避免無限遞迴
+            update_golden_profile=update_golden_profile,
         )
         result["walk_forward"] = {
             "enabled": True,
@@ -953,10 +955,11 @@ def run_strategy_suite_backtest(
         }
 
     # 自動生成並固化 Golden Profile (整合後的策略配置)
-    try:
-        GoldenProfileManager.generate_from_backtest(result)
-    except Exception as e:
-        logger.error(f"自動生成 Golden Profile 失敗: {e}")
+    if update_golden_profile:
+        try:
+            GoldenProfileManager.generate_from_backtest(result)
+        except Exception as e:
+            logger.error(f"自動生成 Golden Profile 失敗: {e}")
 
     return result
 

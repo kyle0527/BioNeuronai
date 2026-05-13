@@ -46,10 +46,20 @@ archived
 !README.md
 
 # ---- Test data & local downloads ----
+data
+output
+backtest/runtime
+backtest/data/binance_historical
 data_downloads
 tests
 *.csv
 *.parquet
+*.jsonl
+*.pth
+*.pt
+*.bin
+*.ckpt
+*.safetensors
 
 # ---- OS ----
 .DS_Store
@@ -60,3 +70,8 @@ logs
 *.log
 *.db
 *.sqlite3
+
+# ---- Frontend local caches ----
+frontend/*/node_modules
+frontend/*/dist
+frontend/*/.npm-cache

@@ -31,10 +31,9 @@
 - [錯誤處理最佳實踐](#%E9%8C%AF%E8%AA%A4%E8%99%95%E7%90%86%E6%9C%80%E4%BD%B3%E5%AF%A6%E8%B8%90)
   * [🛡️ 標準異常處理](#%F0%9F%9B%A1%EF%B8%8F-%E6%A8%99%E6%BA%96%E7%95%B0%E5%B8%B8%E8%99%95%E7%90%86)
   * [🔄 重試機制](#%F0%9F%94%84-%E9%87%8D%E8%A9%A6%E6%A9%9F%E5%88%B6)
-- [測試與驗證](#%E6%B8%AC%E8%A9%A6%E8%88%87%E9%A9%97%E8%AD%89)
-  * [🧪 單元測試範例](#%F0%9F%A7%AA-%E5%96%AE%E5%85%83%E6%B8%AC%E8%A9%A6%E7%AF%84%E4%BE%8B)
+- [實際入口驗證](#%E5%AF%A6%E9%9A%9B%E5%85%A5%E5%8F%A3%E9%A9%97%E8%AD%89)
   * [✅ 驗證命令](#%E2%9C%85-%E9%A9%97%E8%AD%89%E5%91%BD%E4%BB%A4)
-  * [💡 實際執行驗證原則](#%F0%9F%92%A1-%E5%AF%A6%E9%9A%9B%E5%9F%B7%E8%A1%8C%E9%A9%97%E8%AD%89%E5%8E%9F%E5%89%87)
+  * [💡 驗證原則](#%F0%9F%92%A1-%E9%A9%97%E8%AD%89%E5%8E%9F%E5%89%87)
 - [認知複雜度降低](#%E8%AA%8D%E7%9F%A5%E8%A4%87%E9%9B%9C%E5%BA%A6%E9%99%8D%E4%BD%8E)
   * [🎯 認知複雜度增量規則](#%F0%9F%8E%AF-%E8%AA%8D%E7%9F%A5%E8%A4%87%E9%9B%9C%E5%BA%A6%E5%A2%9E%E9%87%8F%E8%A6%8F%E5%89%87)
   * [🔧 降低認知複雜度的最佳實踐](#%F0%9F%94%A7-%E9%99%8D%E4%BD%8E%E8%AA%8D%E7%9F%A5%E8%A4%87%E9%9B%9C%E5%BA%A6%E7%9A%84%E6%9C%80%E4%BD%B3%E5%AF%A6%E8%B8%90)
@@ -135,11 +134,11 @@ class MyStrategy:
 **檢查要點**:
 - 每個主要模組應有 `if __name__ == "__main__":` 區塊
 - 執行入口應包含基本使用範例
-- 應能獨立運行而不依賴外部測試檔
+- 應能獨立運行，不依賴臨時驗證腳本才看得出結果
 
 ### 🔬 直接運作驗證原則
 
-**基本理念**: 除非必要，優先讓程式直接運作進行驗證，而非依賴測試檔
+**基本理念**: 除非必要，優先讓程式直接運作進行驗證，而非依賴臨時驗證腳本
 
 ```python
 # ✅ 優先做法 - 直接在程式中驗證
@@ -154,18 +153,15 @@ if __name__ == "__main__":
     signal = strategy.generate_signal(data)
     print(f"✅ 策略運作正常: {signal}")
 
-# ⚠️ 次要做法 - 只在必要時使用測試檔
-# tests/test_trend_following.py
-def test_trend_signal():
-    # 使用 mock 數據測試（僅用於 CI/CD）
-    ...
+# ⚠️ 次要做法 - 僅在 CI 或邊界條件需要時補自動化檢查
+# 不能用它取代正式 CLI / API / UI runtime 驗證。
 ```
 
 **適用場景**:
 | 驗證方式 | 適用時機 |
 |---------|---------|
 | 直接運作 | 功能開發、整合測試、效能驗證 |
-| 測試檔案 | CI/CD 自動化、邊界條件、錯誤處理 |
+| 自動化檢查 | CI/CD 自動化、邊界條件、錯誤處理 |
 
 **優點**:
 - 更快發現實際運作問題
@@ -679,117 +675,42 @@ def fetch_market_data(symbol: str) -> MarketData:
 
 ---
 
-## 測試與驗證
+## 實際入口驗證
 
-### 🧪 單元測試範例
-
-```python
-import pytest
-from datetime import datetime
-from src.bioneuronai.schemas.trading import Signal
-from src.bioneuronai.strategies.rsi_strategy import RSIStrategy
-
-class TestRSIStrategy:
-    """RSI 策略測試"""
-
-    def setup_method(self):
-        """每個測試前執行"""
-        self.strategy = RSIStrategy(
-            symbol="BTCUSDT",
-            rsi_period=14,
-            oversold=30,
-            overbought=70
-        )
-
-    def test_generate_buy_signal_when_oversold(self):
-        """測試超賣時產生買入信號"""
-        # 準備測試數據 - RSI = 25 (超賣)
-        market_data = self._create_oversold_data()
-
-        # 執行
-        signal = self.strategy.generate_signal(market_data)
-
-        # 驗證
-        assert signal is not None
-        assert signal.action == "long"
-        assert signal.symbol == "BTCUSDT"
-        assert signal.confidence > 0.6
-
-    def test_generate_sell_signal_when_overbought(self):
-        """測試超買時產生賣出信號"""
-        # 準備測試數據 - RSI = 75 (超買)
-        market_data = self._create_overbought_data()
-
-        # 執行
-        signal = self.strategy.generate_signal(market_data)
-
-        # 驗證
-        assert signal is not None
-        assert signal.action == "short"
-        assert signal.confidence > 0.6
-
-    def test_no_signal_when_neutral(self):
-        """測試中性區間不產生信號"""
-        # 準備測試數據 - RSI = 50 (中性)
-        market_data = self._create_neutral_data()
-
-        # 執行
-        signal = self.strategy.generate_signal(market_data)
-
-        # 驗證
-        assert signal is None
-
-    def test_invalid_symbol_raises_error(self):
-        """測試無效交易對拋出錯誤"""
-        with pytest.raises(ValueError):
-            RSIStrategy(symbol="INVALID")
-
-    def _create_oversold_data(self):
-        """創建超賣測試數據"""
-        # 實現省略...
-        pass
-```
+本專案目前以正式 runtime 入口作為主要完成標準。修改後要優先確認 CLI、API、UI、Docker 或回測服務真的能啟動與回應；臨時驗證腳本只能作為輔助，不可取代實際入口。
 
 ### ✅ 驗證命令
 
 ```bash
-# 1. 類型檢查（使用 Pylance）
-python -c "
-from src.bioneuronai.trading.engine import TradingEngine
-engine = TradingEngine()
-"
+# 1. 語法與 import 可載入
+python -m compileall -q src
 
-# 2. 語法檢查
-python -m py_compile src/bioneuronai/trading/engine.py
+# 2. CLI 正式入口
+python main.py status
+python main.py backtest-data --symbol BTCUSDT --interval 1h
 
-# 3. 執行測試
-pytest tests/ -v
+# 3. API 正式入口
+uvicorn bioneuronai.api.app:app --host 127.0.0.1 --port 8000
+curl http://127.0.0.1:8000/api/v1/status
+curl http://127.0.0.1:8000/api/v1/backtest/catalog
 
-# 4. 測試覆蓋率
-pytest tests/ --cov=src/bioneuronai --cov-report=html
+# 4. UI 正式入口
+cd frontend/devops-d
+npm run build
+npm run dev -- --host 127.0.0.1 --port 5173
 
-# 5. 代碼風格檢查（如果有配置）
-ruff check src/bioneuronai/
-
-# 6. 實際執行驗證（最重要！）
-python use_trading_engine_v2.py
+# 5. Docker 正式入口
+docker compose config --quiet
+docker compose build api frontend
+docker compose run --rm status
 ```
 
-### 💡 實際執行驗證原則
+### 💡 驗證原則
 
-> **最佳實踐**: 實際執行程式本身就是最好的驗證，比寫測試腳本更準確、更直接。
-
-```bash
-# ✅ 最佳：直接執行實際功能驗證
-python use_trading_engine_v2.py
-python use_crypto_trader.py
-python -m src.bioneuronai.analysis.news_analyzer
-
-# ✅ 次選：必要時執行測試套件
-pytest tests/ -v
-
-# ❌ 錯誤：創建大量測試腳本卻不實際運行程式
-```
+- 功能開發完成後，先跑使用者實際會操作的入口。
+- 對交易相關功能，優先用 `paper_live` 或 `testnet_auto`；正式網 `live_auto` 必須保留人工二次確認。
+- 回測與資料驗證要使用目前本機資料目錄與當下可取得的行情資料，不用脫離主流程的 mock。
+- CI 或邊界條件仍可保留自動化檢查，但不能把它視為功能已可實際操作的唯一證據。
 
 ---
 
@@ -1270,7 +1191,7 @@ class OrderStateMachine:
 - [ ] 函數名稱清晰描述功能
 - [ ] 添加類型標註
 - [ ] 添加 Docstring
-- [ ] 原有測試仍然通過
+- [ ] CLI / API / UI / Docker 實際入口仍然通過
 - [ ] 執行 SonarQube 重新掃描確認
 
 ```bash
@@ -1464,11 +1385,11 @@ class NewsAnalyzer:
    ├─ 立即驗證
    └─ 檢查影響範圍
    ↓
-5. 測試驗證
+5. 實際入口驗證
    ├─ 語法檢查
    ├─ 類型檢查
-   ├─ 單元測試
-   └─ 實際執行 ✨
+   ├─ CLI / API / UI / Docker
+   └─ 需要時補 CI 自動化檢查
    ↓
 6. 文檔更新
    └─ 更新相關說明

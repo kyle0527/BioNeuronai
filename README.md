@@ -189,7 +189,18 @@ AI 推論:      CPU ~50-120ms/次（T=16），GPU ~5-15ms/次
 
 ## 🚀 快速開始
 
-### 方式一：本地 Python 環境
+### 四種啟動方式差異
+
+| 入口 | 實際操作 | 主要用途 | 功能差異 |
+|---|---|---|---|
+| CLI | `python main.py <command>` | 單次任務、回測、paper-live、readiness gate、AI chat | 最直接驗證後端與資料，不需要常駐服務 |
+| API | `uvicorn bioneuronai.api.app:app ...` | 提供 UI / 外部自動化呼叫 | 長時間服務；UI 必須依賴它 |
+| UI | `frontend/devops-d` 的 Vite / Docker frontend | 人工操作、監控、API Playground、交易控制 | 不直接跑 AI；所有資料透過 API 取得 |
+| Docker | `docker compose ...` | 部署、乾淨環境、容器化 CLI/API/UI | 修改程式後需 rebuild；歷史 K 線與 runtime artifact 不打進 image，透過 `./backtest:/app/backtest` 掛載 |
+
+詳細差異見 [啟動方式差異](docs/STARTUP_MODES.md) 與 [開機開始與關機手冊](docs/manuals/02_STARTUP_AND_SHUTDOWN.md)。
+
+### 方式一：CLI（本地 Python，一次性任務）
 
 #### 1. 安裝依賴
 ```bash
@@ -237,6 +248,9 @@ python -m bioneuronai.cli.main news --symbol BTCUSDT
 # 歷史回測（需 torch 以啟用 AI 策略）
 python -m bioneuronai.cli.main backtest --symbol BTCUSDT --interval 1h --start-date 2020-01-01 --end-date 2020-01-03 --warmup-bars 10
 
+# 正式交易前 readiness gate（BTC/ETH 多時間框架矩陣；不送真實訂單）
+python -m bioneuronai.cli.main readiness-gate --dry-run
+
 # 紙交易模擬（需歷史數據）
 python -m bioneuronai.cli.main simulate --symbol BTCUSDT
 
@@ -264,6 +278,19 @@ docker compose up api
 ```
 
 詳見 [Docker 部署](#docker-部署) 與 [REST API](#rest-api) 章節。
+
+### 方式三：本地 API + UI
+
+```bash
+# 終端 1：啟動 API
+python -m uvicorn bioneuronai.api.app:app --host 127.0.0.1 --port 8000
+
+# 終端 2：啟動 Operations Dashboard
+cd frontend/devops-d
+npm run dev
+```
+
+UI 需連到 API。若瀏覽器出現 `Failed to fetch`，優先確認 API 是否正在 `http://127.0.0.1:8000` 運行，以及 `VITE_API_BASE_URL` / CORS 設定是否一致。
 
 ---
 
@@ -411,7 +438,7 @@ BioNeuronai/
 ├── 📁 backtest/                  # 主回測引擎（BacktestEngine + replay service）
 ├── 📁 data_downloads/            # 歷史數據存放目錄
 ├── 📁 docs/                      # 📚 完整文檔
-└── 📁 archived/                  # 歸檔文件（舊腳本 / 舊模型定義，不納入正式測試）
+└── 📁 archived/                  # 歸檔文件（舊腳本 / 舊模型定義 / 本機 runtime artifacts）
 ```
 
 > **入口點說明**：`main.py` 是根目錄方便入口，內部直接呼叫 `src/bioneuronai/cli/main.py`，兩者等效。`tools/` 下的腳本為開發輔助工具，不是正式執行入口。
@@ -532,7 +559,7 @@ scan_result = await analyzer.scan_macro_market("daily")
 # - 市場狀態評估
 ```
 
-**完整測試**: `python tools/simulate_trading_environment.py`  
+**實際操作驗證**: `python main.py plan --symbol BTCUSDT` 與 `python main.py pretrade --symbol BTCUSDT --action long`  
 **詳細文檔**: [架構總覽](docs/ARCHITECTURE_OVERVIEW.md)
 
 ---
@@ -656,24 +683,23 @@ AI_SIGNAL_WEIGHT = 0.4       # AI 信號權重
 
 ---
 
-## 🧪 測試
+## ✅ 實際運作驗證
 
 ```bash
-# AI 模擬交易測試
-python tools/ai_trade_nexttick.py
+# 系統健康
+python main.py status
 
-# 策略進化驗證
-python tools/demo_strategy_evolution.py
+# 資料盤點
+python main.py backtest-data --symbol BTCUSDT --interval 1h
+
+# 正式交易前 readiness gate；不送真實訂單
+python main.py readiness-gate --dry-run
+
+# 主網行情 + 本地虛擬成交；不送 Binance order
+python main.py trade --symbol BTCUSDT --paper-live --paper-balance 10000
 ```
 
-### 測試結果預期
-
-```
-✅ 模組導入測試: 通過
-✅ 推論引擎測試: 通過（CPU ~50-120ms，T=16）
-✅ 交易引擎測試: 通過
-✅ 效能測試: 通過
-```
+本專案目前以實際 CLI / API / UI runtime 行為作為主要驗證方式；`tests/` 僅保留 CI smoke 用途，不作為功能完成的主要證據。舊 training / output / backtest runtime 記錄已歸檔，正式工作目錄只保留最近一份可對照的訓練輸出與最新 runtime。
 
 ---
 
@@ -752,7 +778,7 @@ python tools/demo_strategy_evolution.py
    - `external_data.py` (276 行)
    - 完整 Pydantic v2 驗證
 
-**測試**: `python test_data_integration.py`
+**實際操作驗證**: `python main.py plan --symbol BTCUSDT`、`python main.py news --symbol BTCUSDT`、`python main.py pretrade --symbol BTCUSDT --action long`
 
 ### v2.1 風險管理升級 (2026-01-22)
 

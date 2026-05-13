@@ -111,6 +111,7 @@ package-lock.json
 output/
 backtest/runtime/*
 !backtest/runtime/README.md
+archived/runtime_artifacts_*/
 
 # Binance historical kline downloads (大型資料，不納入版控)
 backtest/data/binance_historical/
@@ -127,5 +128,7 @@ Thumbs.db
 # Frontend (React/Vite)
 frontend/*/node_modules/
 frontend/*/dist/
+frontend/*/.npm-cache/
+frontend/*/*.log
 frontend/*/.spark-initial-sha
 frontend/*/spark.meta.json
