@@ -783,5 +783,60 @@
     "sentiment": "neutral",
     "evaluated": false,
     "evaluation_window_hours": 24
+  },
+  {
+    "news_id": "230da05029daea73",
+    "title": "Price predictions 5/18: SPX, DXY, BTC, ETH, XRP, BNB, SOL, DOGE, HYPE, ADA",
+    "url": "https://cointelegraph.com/markets/price-predictions-518-spx-dxy-btc-eth-xrp-bnb-sol-doge-hype-ada?utm_source=rss_feed&utm_medium=rss&utm_campaign=rss_partner_inbound",
+    "source": "cointelegraph.com",
+    "keywords": [
+      "dxy",
+      "price",
+      "predictions",
+      "spx",
+      "dxy",
+      "btc",
+      "eth",
+      "xrp",
+      "bnb",
+      "sol",
+      "doge",
+      "hype",
+      "ada"
+    ],
+    "target_coin": "BTC",
+    "symbol": "BTCUSDT",
+    "timestamp": "2026-05-18T17:58:29",
+    "price_at_news": 76580.4,
+    "category": "market",
+    "sentiment": "neutral",
+    "evaluated": false,
+    "evaluation_window_hours": 24
+  },
+  {
+    "news_id": "79c32a772f4bf81e",
+    "title": "Saylor’s Strategy scoops $2B Bitcoin, holdings reach 843,738 BTC",
+    "url": "https://cointelegraph.com/news/strategy-2-billion-bitcoin-holdings-reach-843-738-btc?utm_source=rss_feed&utm_medium=rss&utm_campaign=rss_partner_inbound",
+    "source": "cointelegraph.com",
+    "keywords": [
+      "bitcoin",
+      "saylor",
+      "strategy",
+      "scoops",
+      "bitcoin",
+      "holdings",
+      "reach",
+      "843",
+      "738",
+      "btc"
+    ],
+    "target_coin": "BTC",
+    "symbol": "BTCUSDT",
+    "timestamp": "2026-05-18T13:44:29",
+    "price_at_news": 76580.4,
+    "category": "general",
+    "sentiment": "neutral",
+    "evaluated": false,
+    "evaluation_window_hours": 24
   }
 ]

@@ -1,8 +1,8 @@
 # 測試網、Paper-live 與實盤交易操作手冊
 
 > 範圍：使用者如何啟動、停止、檢查與排查 `trade` 相關操作。  
-> 更新日期：2026-05-13
-> 原則：先 monitor/paper-live，再 testnet，最後才 live；未完成回測、pretrade 與風控確認前，不進 live。
+> 更新日期：2026-05-19
+> 原則：先 monitor/paper-live，再 testnet，最後才 live；未完成 readiness-gate、固定區間回測、pretrade、風控與長時間觀察前，不進 live。
 
 ---
 
@@ -83,6 +83,8 @@ python main.py trade --symbol BTCUSDT --paper-live --paper-balance 10000
 - AI 模型預設載入，狀態可看到 `ai_model_loaded=true`。
 - log 目錄位於 `data/bioneuronai/trading/paper_live/`。
 - 任何訂單紀錄都寫入本地 JSONL，不會送到 Binance。
+
+2026-05-19 本機 API 已完成短流程驗證：`mode=paper_live` 可啟動，狀態顯示 `running=true`、`engine.ai_model_loaded=true`、`engine.paper_trading=true`、paper account balance `10000`；隨後呼叫 `/api/v1/trade/stop` 可停止並回到 `running=false`。這只代表啟停與本地虛擬執行層可用，不代表已完成長時間績效驗證。
 
 API：
 

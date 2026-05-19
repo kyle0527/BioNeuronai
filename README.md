@@ -1,7 +1,7 @@
 # 🧠 BioNeuronAI
 
 [![CI](https://github.com/kyle0527/BioNeuronai/actions/workflows/ci.yml/badge.svg)](https://github.com/kyle0527/BioNeuronai/actions/workflows/ci.yml)
-[![Python](https://img.shields.io/badge/python-3.9+-blue)](pyproject.toml)
+[![Python](https://img.shields.io/badge/python-3.13-blue)](pyproject.toml)
 [![Docker](https://img.shields.io/badge/docker-ready-2496ED)](docker-compose.yml)
 [![License](https://img.shields.io/github/license/kyle0527/BioNeuronai)](LICENSE)
 [![Last Commit](https://img.shields.io/github/last-commit/kyle0527/BioNeuronai)](https://github.com/kyle0527/BioNeuronai/commits/main)
@@ -24,11 +24,10 @@ flowchart LR
 ## ⚡ Quick Demo
 
 ```bash
-docker compose up api
-curl http://localhost:8000/api/v1/status
-```
-
-```bash
+python -m pip install --index-url https://download.pytorch.org/whl/cpu torch==2.8.0+cpu torchvision==0.23.0+cpu torchaudio==2.8.0+cpu
+python -m pip install -e .
+python -m uvicorn bioneuronai.api.app:app --host 127.0.0.1 --port 8000
+curl http://127.0.0.1:8000/api/v1/status
 python main.py pretrade --symbol BTCUSDT --action long
 python main.py chat --symbol BTCUSDT --language zh
 python main.py trade --paper-live --paper-balance 10000
@@ -47,7 +46,7 @@ python main.py trade --paper-live --paper-balance 10000
 |------|------|------|
 | 系統架構圖 | [docs/assets/architecture.mmd](docs/assets/architecture.mmd) | ✅ Mermaid 原始圖 |
 | TinyLLM 推論流程 | [docs/assets/tinyllm_inference_flow.mmd](docs/assets/tinyllm_inference_flow.mmd) | ✅ Mermaid 原始圖 |
-| 回測績效圖 | [docs/assets/performance_artifacts.md](docs/assets/performance_artifacts.md) | 🟡 等待實測輸出 |
+| 回測績效圖 | [docs/assets/performance_artifacts.md](docs/assets/performance_artifacts.md) | 🟡 基準圖已產出；訓練後固定區間比較仍待補 |
 | 30 秒 Demo GIF | [docs/assets/README.md](docs/assets/README.md) | 🟡 錄製清單已建立 |
 
 ## 📊 實測效能
@@ -56,11 +55,13 @@ python main.py trade --paper-live --paper-balance 10000
 
 | 指標 | 數值 | 證據 |
 |---|---:|---|
-| Docker API status | `all_ok=true` | `GET /api/v1/status` |
-| API / Frontend source | 已可啟動 | `docker-compose.yml`；Docker image 需在 source 變更後重建 |
+| Local API status | `ready=true`、`blocking=[]` | `GET /api/v1/status` |
+| API / Frontend source | 已可啟動 | 本機 Python 3.13 + PyTorch CPU 2.8.0、frontend build 已確認；Docker image 留到最後重建 |
+| 即時 K 線圖 | 已可顯示並輪詢更新 | `GET /api/v1/market/klines`；Operations 的 Live Market Chart 每 3 秒更新最後一根 candle |
+| Operations Dashboard 版面 | 已修復長 JSON / 歷史紀錄溢出 | 2026-05-19 本機瀏覽器驗證 Operations、Validation、Config、Dev Tools、Chat：無卡片重疊、無水平撐版 |
 | Pretrade API | 成功完成檢查並因風控條件 `REJECT` | `POST /api/v1/pretrade` |
-| Paper-live 執行層 | 已實作 | 主網行情 + 本地虛擬成交；不送 Binance order |
-| 回測績效 | 待雲端訓練完成後實測 | 訓練資料已備妥於本機 `data/processed/`；上雲前需上傳到 GCS |
+| Paper-live 執行層 | 已實作並完成短流程啟停 | 主網行情 + 本地虛擬成交；2026-05-19 本機 API 驗證 `ai_model_loaded=true`、`paper_trading=true`，不送 Binance order |
+| 回測績效 | 基礎短區間可跑；正式 gate 仍阻擋 live | 雲端訓練產物已接回 runtime；readiness-gate 因 BTC/ETH `4h` 資料缺失仍阻擋正式上線 |
 | 推論延遲 | 待固定硬體基準測試 | [docs/TESTING_AND_VALIDATION_GUIDE.md](docs/TESTING_AND_VALIDATION_GUIDE.md) |
 
 ## 🧭 深度閱讀
@@ -70,10 +71,10 @@ python main.py trade --paper-live --paper-balance 10000
 - [Architecture Overview](docs/ARCHITECTURE_OVERVIEW.md): 正式主線架構。
 - [Quickstart v2.1](docs/manuals/03_QUICKSTART.md): 本地與 Docker 操作。
 
-**最後更新**: 2026年5月13日<br>
-**版本**: v2.1 正式主線 / v2.2 雲端訓練過渡期
+**最後更新**: 2026年5月19日<br>
+**版本**: v2.1 正式主線 / v2.2 訓練後驗證期
 
-> **部署狀態（2026-05-13）**：`frontend/devops-d/` 是目前前端主線，首頁已改為 Operations 面板。API、frontend build、本地 UI/API 連線、交易 start/status/stop、AI 模型載入、paper-live execution layer 已用實際入口確認。Docker source compose 已同步；若改用 Docker 執行，需重建 `api` 與 `frontend` image 後再複驗。`frontend/admin-da/` 與 `frontend/trading/` 保留原始碼，暫不列入目前操作主線。
+> **部署狀態（2026-05-19）**：`frontend/devops-d/` 是目前前端主線，首頁已改為 Operations 面板，並已修復 Trade Control JSON、News response、Request History 大量紀錄與 Chat 長文字的版面溢出問題。本機 API 以 Python 3.13、PyTorch CPU 2.8.0、現役交易模型與 TinyLLM 聊天模型作為 readiness 基準；`/api/v1/status` 會回報 `ready`、`blocking` 與逐項 readiness。Docker 目前不作正式進度依據，待本機自然語言、交易判斷與操作流程收斂後再重建 image。
 
 ---
 
@@ -204,8 +205,12 @@ AI 推論:      CPU ~50-120ms/次（T=16），GPU ~5-15ms/次
 
 #### 1. 安裝依賴
 ```bash
-pip install -e .
+python -m pip install --upgrade pip
+python -m pip install --index-url https://download.pytorch.org/whl/cpu torch==2.8.0+cpu torchvision==0.23.0+cpu torchaudio==2.8.0+cpu
+python -m pip install -e .
 ```
+
+目前本機主線採用全域 Python 3.13，不使用專案內虛擬環境。PyTorch 2.9+ / 2.12+ 在目前 Windows 本機會發生 `c10.dll` 載入失敗，因此固定使用已確認可 import 的官方 CPU 2.8.0 組合；後續若 PyTorch 新版修復此問題，再更新 `pyproject.toml` 與手冊。
 
 #### 2. 取得模型權重（Git LFS）
 ```bash
@@ -233,16 +238,16 @@ BINANCE_TESTNET=false  # false = 正式網路（mainnet）；true = 測試網
 #### 4. 運行交易系統（CLI 入口）
 
 ```bash
-# 系統健康檢查（無需 torch）
+# 系統健康與 readiness 檢查（需 PyTorch、現役模型、聊天模型與設定檔）
 python -m bioneuronai.cli.main status
 
-# 交易前 6 點 RAG 檢查（無需 torch）
+# 交易前 6 點 RAG 檢查
 python -m bioneuronai.cli.main pretrade --symbol BTCUSDT --action long
 
-# 每日計劃（無 torch 時自動 fallback 至 SOPAutomation）
+# 每日計劃
 python -m bioneuronai.cli.main plan --symbol BTCUSDT
 
-# 新聞情緒分析（無需 torch）
+# 新聞情緒分析
 python -m bioneuronai.cli.main news --symbol BTCUSDT
 
 # 歷史回測（需 torch 以啟用 AI 策略）
@@ -264,7 +269,7 @@ python -m bioneuronai.cli.main trade --symbol BTCUSDT --paper-live --paper-balan
 python -m bioneuronai.cli.main trade --symbol BTCUSDT --testnet
 ```
 
-### 方式二：Docker（推薦）
+### 方式二：Docker（最後重建路線）
 
 ```bash
 # 系統狀態檢查（無需任何本地依賴）
@@ -277,7 +282,7 @@ docker compose run --rm pretrade
 docker compose up api
 ```
 
-詳見 [Docker 部署](#docker-部署) 與 [REST API](#rest-api) 章節。
+目前 Docker 不作為本輪主要驗證入口；等本機自然語言、交易判斷與操作流程收斂後，再依 [Docker 部署](#docker-部署) 與 [REST API](#rest-api) 章節重建。
 
 ### 方式三：本地 API + UI
 
@@ -331,7 +336,7 @@ BINANCE_API_KEY=xxx BINANCE_API_SECRET=yyy \
 
 Dockerfile 採用多階段建構：
 1. **builder stage**：編譯 ta-lib C 函式庫、安裝 Python 依賴
-2. **runtime stage**：精簡 `python:3.11-slim` 映像，非 root 用戶執行
+2. **runtime stage**：精簡 `python:slim` 最新線映像，非 root 用戶執行
 
 ---
 
@@ -342,11 +347,11 @@ FastAPI REST API 伺服器提供目前 UI 與外部自動化需要的主要操�
 ### 啟動
 
 ```bash
-# Docker（推薦）
+# Docker（後續重建）
 docker compose up api
 
-# 本地
-uvicorn bioneuronai.api.app:app --host 0.0.0.0 --port 8000
+# 本地主線
+python -m uvicorn bioneuronai.api.app:app --host 127.0.0.1 --port 8000
 ```
 
 Swagger UI：`http://localhost:8000/docs`
@@ -356,6 +361,7 @@ Swagger UI：`http://localhost:8000/docs`
 | 方法 | 端點 | 說明 |
 |------|------|------|
 | `GET` | `/api/v1/status` | 系統健康狀態 |
+| `GET` | `/api/v1/market/klines` | Binance Futures 最新 K 線，供即時圖表使用 |
 | `POST` | `/api/v1/news` | 新聞情緒分析 |
 | `POST` | `/api/v1/pretrade` | 交易前 6 點 RAG / 風控檢查 |
 | `POST` | `/api/v1/backtest/run` | 歷史回測（同步執行） |
@@ -673,7 +679,7 @@ AI_SIGNAL_WEIGHT = 0.4       # AI 信號權重
 | 文檔 | 描述 |
 |------|------|
 | 📘 [系統主手冊](docs/manuals/00_MASTER_MANUAL.md) | **系統入口與架構哲學，必讀** |
-| 📗 [快速開始 v2.1](docs/manuals/03_QUICKSTART.md) | Docker + 環境變數快速架設 |
+| 📗 [快速開始 v2.1](docs/manuals/03_QUICKSTART.md) | 本機 Python 3.13 + 環境變數快速架設；Docker 最後重建 |
 | 📙 [操作手冊](docs/manuals/04_CLI_OPERATION.md) | CLI 指令與 API 實際操作 |
 | 📕 [架構總覽](docs/ARCHITECTURE_OVERVIEW.md) | 系統全局資料流與模組分工 |
 | 📓 [回測系統指南](docs/manuals/08_BACKTEST_SYSTEM.md) | BacktestEngine 使用說明 |
@@ -731,7 +737,7 @@ python main.py trade --symbol BTCUSDT --paper-live --paper-balance 10000
 | **回測引擎** | ✅ 完成 | BacktestEngine + replay service |
 | **特徵工程** | ✅ 完成 | 1024 維特徵（10 類） |
 | **策略融合** | ✅ 完成 | 六大策略 + AI Fusion |
-| **AI 模型訓練** | 🟡 資料就緒 | signal tensor 已在本機 `data/processed/` 產出；需上傳到 GCS 並用雲端訓練 job 完成實際操作驗證 |
+| **AI 模型訓練** | ✅ 第一輪完成並已接回 runtime | `best_model_run1.pth`、`best_model_run2.pth` 與 `my_100m_model_trained_20260510.pth` 已在 `model/`；Docker 內已驗證 `loaded=True` |
 
 ---
 

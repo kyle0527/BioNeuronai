@@ -1,7 +1,7 @@
 # Dashboard 操作排查手冊
 
 > 範圍：使用者操作 `frontend/devops-d` 時遇到的前端、API、CORS、WebSocket 問題。
-> 更新日期：2026-05-13
+> 更新日期：2026-05-19
 
 ---
 
@@ -50,6 +50,7 @@ Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/v1/status"
 
 - 回傳 JSON。
 - `all_ok` 為 `true`。
+- `ready=true` 且 `blocking=[]`；若有 blocking，先依回應中的必要項目修正。
 
 ---
 
@@ -77,6 +78,19 @@ npm run build
 | Operations Overview 失敗 | `/status`、`/trade/status`、`/model/status` 或 `/dashboard` 任一端點失敗 | 逐一用 PowerShell 打 API |
 | Backtest 面板沒資料 | 本地歷史資料不存在 | 跑 `python main.py backtest-data` |
 | WebSocket 連不上 | API 沒啟動或 ws endpoint 異常 | 先確認 REST API 正常 |
+| Response 顯示大量 JSON | API raw response 正常顯示，不是亂碼 | 只要被限制在框內可捲動，即為正常 |
+| JSON 蓋住下一個面板 | 前端仍在跑舊版或 JSONViewer 高度未生效 | 重新整理頁面；確認 `frontend/devops-d/src/components/JSONViewer.tsx` 已固定高度並重新跑 Vite |
+| Request History 變成超長頁面 | 請求紀錄太多且容器未限制高度 | 2026-05-19 已修正為內部捲動；若仍發生，清除 history 或重新載入新版前端 |
+
+### 版面檢查
+
+若懷疑面板有覆蓋或撐版，先做以下確認：
+
+1. 切換 `Operations`、`Validation`、`Config`、`Dev Tools`、`Chat`。
+2. 觀察是否有卡片互相覆蓋，或頁面出現水平捲軸。
+3. 在 `Dev Tools > Request History` 保留大量紀錄時，左右兩張卡片應固定高度，內容在面板內部捲動。
+
+2026-05-19 已用本機瀏覽器檢查上述五個 tab：無卡片重疊、無水平撐版；`Request History` 大量紀錄時最大卡片高度維持在正常範圍。
 
 ---
 

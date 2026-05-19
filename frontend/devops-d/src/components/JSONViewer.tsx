@@ -44,8 +44,11 @@ export function JSONViewer({ data, className, maxHeight = '400px' }: JSONViewerP
           )}
         </Button>
       </div>
-      <ScrollArea style={{ maxHeight }} className="w-full">
-        <pre className="json-viewer p-4 pr-24 overflow-x-auto">
+      <ScrollArea
+        style={maxHeight === 'none' ? undefined : { height: maxHeight, maxHeight }}
+        className="w-full overflow-hidden"
+      >
+        <pre className="json-viewer min-w-full overflow-x-auto p-4 pr-24">
           <code>{jsonString}</code>
         </pre>
       </ScrollArea>

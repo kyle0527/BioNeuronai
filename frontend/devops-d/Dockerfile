@@ -4,7 +4,7 @@
 # ============================================================
 
 # ---------- Stage 1: builder ----------
-FROM node:20-alpine AS builder
+FROM node:alpine AS builder
 
 WORKDIR /app
 
@@ -21,7 +21,7 @@ COPY . .
 RUN npm run build
 
 # ---------- Stage 2: runtime ----------
-FROM nginx:1.27-alpine AS runtime
+FROM nginx:alpine AS runtime
 
 LABEL maintainer="BioNeuronAI Team" \
       description="BioNeuronAI Operations Dashboard"

@@ -1,7 +1,7 @@
 # BioNeuronai Operations Dashboard 操作手冊
 
-> **版本**：v2.1  
-> **更新日期**：2026-05-13
+> **版本**：v2.1 正式主線 / v2.2 訓練後驗證期
+> **更新日期**：2026-05-19
 > **存取網址**：Docker `http://localhost:3000`；本地 Vite 依終端機輸出，常見 `http://localhost:5173` 或 `http://127.0.0.1:5176`
 > **後端 API**：`http://localhost:8000`
 
@@ -11,12 +11,13 @@
 
 - [1. 概述](#1-概述)
 - [2. 啟動 Dashboard](#2-啟動-dashboard)
-  - [方式 A：Docker（推薦）](#方式-adocker推薦)
+  - [方式 A：Docker（後續重建）](#方式-adocker後續重建)
   - [方式 B：本地開發模式](#方式-b本地開發模式)
   - [驗證](#驗證)
 - [3. 整體介面說明](#3-整體介面說明)
 - [4. 各面板操作說明](#4-各面板操作說明)
   - [OperationsOverviewPanel — 操作總覽](#operationsoverviewpanel-操作總覽)
+  - [MarketChartPanel — 即時 K 線](#marketchartpanel-即時-k-線)
   - [StatusPanel — 系統狀態](#statuspanel-系統狀態)
   - [NewsPanel — 新聞分析](#newspanel-新聞分析)
   - [PreTradePanel — 進場前驗核](#pretradepanel-進場前驗核)
@@ -41,12 +42,13 @@
 BioNeuronai Operations Dashboard 是一個 **React 19 + Vite 7** 前端應用。Docker 模式由 nginx 服務於 `port 3000`；本地開發模式由 Vite 提供，port 會依可用性落在 `5173-5180`。它提供：
 
 - **Operations Overview**：API 健康、runtime mode、執行目標、模型狀態、paper-live 帳戶
+- **Live Market Chart**：Binance Futures public K 線圖，顯示當下正在更新的 candle
 - **新聞情緒分析** 視覺化
 - **進場前驗核** 操作
 - **回測執行** 與結果查看
 - **AI 交易對話** 介面
 - **交易控制**（啟動/停止監控）
-- **訓練與模型操作**（登記雲端訓練、查狀態、promote 模型）
+- **訓練與模型操作**（後續再訓練登記、查狀態、promote 模型；第一輪雲端訓練已接回 runtime）
 - **API 測試台**（直接呼叫所有端點）
 - **請求歷史紀錄**
 - **資料目錄**（備用資料檢視）
@@ -60,14 +62,14 @@ BioNeuronai Operations Dashboard 是一個 **React 19 + Vite 7** 前端應用。
 
 ## 2. 啟動 Dashboard
 
-### 方式 A：Docker（推薦）
+### 方式 A：Docker（後續重建）
 
 ```bash
 # 同時啟動 API + Dashboard
 docker compose up api frontend
 ```
 
-啟動後約 30 秒，兩個容器都 `healthy`，瀏覽器開啟：
+本輪先以本地 Vite + 本地 API 驗證。Docker frontend/API 會在本機功能收斂後最後重建；重建完成後再使用此路線。啟動後約 30 秒，兩個容器都 `healthy`，瀏覽器開啟：
 - Dashboard：`http://localhost:3000`
 - API 文件：`http://localhost:8000/docs`
 
@@ -86,6 +88,8 @@ npm run dev
 進入前端網址後，頁面應顯示 `BioNeuronAI Operations`，第一個 tab 為 `Operations`，並在 `Operations Overview` 顯示 API 健康、runtime mode、執行目標與模型狀態。模組清單以 `GET /api/v1/status` 實際回應為準，常見項目包含 TradingEngine、BinanceFutures、NewsAnalyzer、SOPSystem、PreTradeCheck。
 
 若看到 `Failed to fetch` 或網路錯誤，代表 API 伺服器（port 8000）尚未啟動。
+
+2026-05-19 本機驗證狀態：`npm run build` 通過；`http://127.0.0.1:5176/` 回應 200；`GET /api/v1/status` 回報 `ready=true`、`blocking=[]`。同日已用瀏覽器檢查 `Operations`、`Validation`、`Config`、`Dev Tools`、`Chat` 五個 tab，未發現卡片重疊或水平撐版。
 
 ---
 
@@ -123,10 +127,33 @@ Dashboard 採用上方 tab + 分區面板佈局。
 | Runtime | `running`、`mode`、symbol、auto trade |
 | Execution | 是否不下單、paper ledger、testnet 或 live mainnet |
 | Model | active model、模型檔是否存在、目前 engine 是否已載入 |
-| Health | API modules、unavailable count、dashboard risk snapshot |
+| Health | API modules、blocking count、readiness issues、dashboard risk snapshot |
 | Paper | `paper_live` 時顯示 balance、equity、positions、orders、log path |
 
 此面板使用 `GET /api/v1/status`、`GET /api/v1/trade/status`、`GET /api/v1/model/status`、`GET /api/v1/dashboard`。若其中任一 API 失敗，先依 [19_DASHBOARD_TROUBLESHOOTING.md](19_DASHBOARD_TROUBLESHOOTING.md) 排查 API URL、CORS 與後端進程。
+
+### MarketChartPanel — 即時 K 線
+
+**功能：** 在 Operations 第一屏顯示 Binance Futures public K 線，用來確認目前行情是否持續更新，以及 AI / paper-live 操作時參考的是當下市場。
+
+**資料來源：**
+
+| 項目 | 說明 |
+|---|---|
+| API | `GET /api/v1/market/klines` |
+| 預設 symbol | `BTCUSDT` |
+| 預設週期 | `1m` |
+| 更新方式 | 每 3 秒輪詢 |
+| 最新 candle | 若 `closed=false`，代表這根 K 線仍在形成中，close / high / low / volume 會隨市場更新 |
+
+**操作方式：**
+
+1. 在 `Operations` tab 查看 `Live Market Chart`。
+2. 可切換 symbol 與 interval。
+3. `Refresh every 3s` 開啟時會自動更新最後一根 K 線。
+4. 若想凍結畫面檢查，可關閉自動更新。
+
+2026-05-19 實測：同一根 `1m` candle 在 4 秒內 `open_time` 不變、`closed=false`，volume 從 `12.321` 更新為 `14.961`，確認當下 K 線資料會刷新。
 
 ### StatusPanel — 系統狀態
 
@@ -143,10 +170,10 @@ Dashboard 採用上方 tab + 分區面板佈局。
 |---|---|---|
 | available: true | 🟢 綠色 | 模組正常 |
 | available: false | 🔴 紅色 | 模組載入失敗，查看 error 訊息 |
-| all_ok: true | ✅ | 所有模組正常，系統可操作 |
+| ready: true | ✅ | 必要 runtime、模型與設定都可用，系統可操作 |
 
 **常見問題：**
-- `TradingEngine` 不可用：通常是 PyTorch 未安裝。不影響 news、pretrade 等功能。
+- `TradingEngine` 或 readiness 不可用：優先依 `blocking` 顯示的項目處理；必要項目失敗時不應視為可操作。
 - `BinanceFutures` 不可用：確認 `.env` 中 `BINANCE_API_KEY` 已設定且有效。
 
 ---
@@ -326,7 +353,7 @@ Dashboard 採用上方 tab + 分區面板佈局。
 
 ### TrainingPanel — 訓練與模型
 
-**功能：** 銜接雲端訓練與 runtime 模型載入。此面板不取代雲端訓練平台；遠端訓練仍以 CLI / Docker / GCS 為主。
+**功能：** 銜接後續訓練作業與 runtime 模型載入。第一輪雲端訓練產物已接回 runtime；此面板不取代雲端訓練平台，新的遠端訓練仍以 CLI / Docker / GCS 為主。
 
 **遠端訓練登記：**
 1. Mode 選 `External`
@@ -348,7 +375,7 @@ Dashboard 採用上方 tab + 分區面板佈局。
 **限制：**
 - `External` 模式只登記遠端 job，不會直接查 Vertex/GCE 狀態。
 - `Local process` 會在 API 主機啟動本機訓練，會消耗本機 CPU/GPU；一般雲端訓練流程不需要使用。
-- 模型 promote 不代表模型品質已驗證，仍需雲端訓練產物與回測結果支撐。
+- 模型 promote 不代表模型品質已驗證；目前第一輪雲端訓練產物已接回 runtime，但仍需固定區間回測、OOS / walk-forward、paper-live 與 testnet 結果支撐。
 
 ---
 
@@ -390,6 +417,10 @@ Dashboard 採用上方 tab + 分區面板佈局。
 - 回應時間（ms）
 
 **用途：** 追蹤自己剛才執行了哪些操作；確認請求是否成功送達；比較不同參數的執行結果。
+
+**版面狀態：** 2026-05-19 已修正大量請求紀錄造成面板高度失控的問題。`Request History` 左側列表與右側細節區會固定在 Dev Tools 面板內部捲動，不會把頁面撐到異常高度。
+
+**Raw Response 顯示：** Dashboard 的 `Response` / `Raw Response` 區塊會以 JSON 顯示 API 原始回應。這不是亂碼；它是用來確認後端實際回傳內容。2026-05-19 已修正 JSON 區塊高度限制，長回應會在自己的框內捲動，不會覆蓋下一個面板。
 
 ---
 
@@ -492,6 +523,10 @@ Dashboard 採用上方 tab + 分區面板佈局。
 - TinyLLM 訓練資料有限，低信心的問題觸發安全回退
 - 請嘗試更具體的問題（如「RSI 超買時怎麼設止損？」）
 - 可進行模型訓練增強：參考 [12_NLP_TRAINING.md](12_NLP_TRAINING.md)
+
+**Q: Response 區塊顯示一大段 JSON，看起來像亂碼**
+- 這是 API raw response，屬於正常顯示。
+- 若 JSON 溢出到下一個面板才是 UI 問題。2026-05-19 已修復 `JSONViewer` 高度限制；若再看到覆蓋，先重新整理前端並確認 Vite 使用的是最新程式碼。
 
 **Q: PreTrade 總是 REJECT，account_balance 為 0**
 - 系統使用 read-only Binance API，無法查詢真實帳戶餘額

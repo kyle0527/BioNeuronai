@@ -42,9 +42,10 @@ env/
 .ipynb_checkpoints
 
 # Model weights and training data (Large files)
-# 只同步 my_100m_model.pth (交易核心模型)
+# Runtime-critical .pth files must be either tracked by Git LFS or documented
+# as externally restored artifacts. Avoid hiding active_model targets.
 *.pth
-!model/my_100m_model.pth
+!model/my_100m_model_trained_20260510.pth
 *.pt
 *.bin
 *.ckpt

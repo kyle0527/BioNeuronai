@@ -212,6 +212,11 @@ export function OperationsOverviewPanel() {
     () => state.system?.modules?.filter((module) => !module.available) ?? [],
     [state.system],
   )
+  const readinessIssues = useMemo(
+    () => state.system?.readiness?.filter((item) => !item.available) ?? [],
+    [state.system],
+  )
+  const blockingItems = state.system?.blocking ?? []
   const modelStatus = flattenModelStatus(state.model)
 
   return (
@@ -220,7 +225,7 @@ export function OperationsOverviewPanel() {
         <div className="space-y-2">
           <CardTitle className="text-base font-mono font-medium">Operations Overview</CardTitle>
           <div className="flex flex-wrap items-center gap-2">
-            <StatusBadge ok={state.system?.all_ok === true} label={state.system?.all_ok ? 'API OK' : 'API check needed'} />
+            <StatusBadge ok={state.system?.ready === true} label={state.system?.ready ? 'Runtime ready' : 'Readiness needed'} />
             <Badge variant={running ? 'default' : 'secondary'}>{running ? 'Runtime running' : 'Runtime stopped'}</Badge>
             <Badge variant={paperTrading ? 'outline' : liveMode ? 'destructive' : 'secondary'}>
               {modeLabel}
@@ -274,10 +279,34 @@ export function OperationsOverviewPanel() {
               Health
             </div>
             <FactRow label="Modules" value={`${state.system?.modules?.length ?? 0}`} />
-            <FactRow label="Unavailable" value={`${unavailableModules.length}`} />
+            <FactRow label="Blocking" value={`${blockingItems.length}`} />
             <FactRow label="Risk" value={`${state.dashboard?.risk?.level ?? '-'} ${formatNumber(state.dashboard?.risk?.percentage)}%`} />
           </div>
         </div>
+
+        {(blockingItems.length > 0 || readinessIssues.length > 0 || unavailableModules.length > 0) && (
+          <>
+            <Separator />
+            <div className="space-y-2">
+              <div className="text-sm font-medium">Readiness</div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                {[...unavailableModules, ...readinessIssues].slice(0, 6).map((item) => (
+                  <div key={`${item.category ?? 'module'}-${item.name}`} className="rounded-md border border-destructive/30 bg-destructive/5 p-3">
+                    <div className="flex items-center justify-between gap-3 text-sm">
+                      <span className="font-medium">{item.name}</span>
+                      <Badge variant={item.required === false ? 'secondary' : 'destructive'}>
+                        {item.required === false ? 'optional' : 'required'}
+                      </Badge>
+                    </div>
+                    <p className="mt-1 text-xs text-muted-foreground break-all">
+                      {item.error ?? 'Unavailable'}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
 
         {paperTrading && (
           <>

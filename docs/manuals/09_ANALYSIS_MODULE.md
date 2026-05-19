@@ -1,6 +1,6 @@
 # 分析模組操作手冊
 
-> 更新日期：2026-05-13
+> 更新日期：2026-05-14
 
 ## 📑 目錄
 
@@ -167,4 +167,4 @@ python main.py plan --symbol BTCUSDT --output daily_plan.json
 - A: 這是 Binance 正式網路的安全機制。如果您的 `.env` 設為 `BINANCE_TESTNET=false`，但正式期貨帳戶中沒有入金，系統為了保護您會拒絕模擬下單。您可以將 `BINANCE_TESTNET` 改為 `true`，或在正式帳戶劃轉小額資金。
 
 **Q: 外部數據抓取失敗 (如 DefiLlama 報錯) 會導致系統當機嗎？**
-- A: 不會。`SyncExternalDataFetcher` 內建了優雅降級機制 (Graceful Fallback)，如果某個外部 API 掛掉，系統會記錄警告，並使用預設的安全值繼續執行，不會中斷主交易流程。
+- A: 交易主流程不應使用預設安全值繼續產生判斷。外部資料不可用時，分析結果需標記為 `DATA_UNAVAILABLE` 或 `ERROR`，自動交易流程應被阻擋；只有非交易核心的展示或效能層可以在明確標示原因後受限運作。

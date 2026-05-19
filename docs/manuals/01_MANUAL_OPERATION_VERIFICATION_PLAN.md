@@ -1,8 +1,8 @@
 # BioNeuronAI 手冊盤點與實際操作驗收計畫
 
-> 版本：v2.1 / v2.2 過渡期  
+> 版本：v2.1 / v2.2 訓練後驗證期
 > 建立日期：2026-05-02  
-> 更新日期：2026-05-13
+> 更新日期：2026-05-14
 > 目的：用「使用者手冊能否帶著操作者完成真實操作」作為專案可用性的判斷標準。本文不以 smoke test 作為主要驗收依據，而是以 CLI、API、Dashboard、Docker、Backtest、Testnet 等實際入口驗證。
 
 ---
@@ -23,8 +23,8 @@
   - [2026-05-04 AI 自動交易與 UI 文件清理紀錄](#2026-05-04-ai-自動交易與-ui-文件清理紀錄)
 - [6. 下一步](#6-下一步)
   - [2026-05-02 後續使用者操作手冊實際驗證](#2026-05-02-後續使用者操作手冊實際驗證)
-  - [2026-05-02 Docker image 重建前全面檢查](#2026-05-02-docker-image-重建前全面檢查)
-  - [尚未完成的 image 層驗證](#尚未完成的-image-層驗證)
+  - [2026-05-14 Docker image 重建與複驗](#2026-05-14-docker-image-重建與複驗)
+  - [已完成的 image 層驗證](#已完成的-image-層驗證)
 
 ---
 
@@ -98,9 +98,9 @@
 | 手冊 | 實際入口 | 成功標準 |
 |---|---|---|
 | API | 啟動 `uvicorn bioneuronai.api.app:app` | API 可訪問 |
-| API | `GET /api/v1/status` | `all_ok=true` |
+| API | `GET /api/v1/status` | `ready=true`、`blocking=[]` |
 | API | `GET /api/v1/backtest/catalog` | 可列出 dataset |
-| Frontend | `npm run dev` 或 Docker frontend | Dashboard 可開啟並打到 API |
+| Frontend | `npm run dev` | Dashboard 可開啟並打到 API；Docker frontend 留到最後重建 |
 | Frontend | Status / Backtest / API Playground | 前端操作能得到後端回應 |
 | UI End-to-End | `20_UI_END_TO_END_OPERATION.md` | 使用者可從 UI 完成 status、catalog、backtest、news、pretrade、chat、testnet start/stop、history 檢查 |
 
@@ -142,7 +142,7 @@
 | 短區間 `simulate` | 成功，產生 runtime |
 | 短區間 `backtest` | 成功，實際產生開平倉與回測統計 |
 | `frontend/devops-d npm run build` | 成功，Vite production build 完成 |
-| 本地 API 啟動 + `GET /api/v1/status` | 成功，`all_ok=true` |
+| 本地 API 啟動 + `GET /api/v1/status` | 成功，`ready=true`、`blocking=[]` |
 | 本地 API `GET /api/v1/backtest/catalog` | 成功，`success=true`，dataset_count=1 |
 
 ### 2026-05-02 第一冊 `02_STARTUP_AND_SHUTDOWN.md` 實際操作驗證
@@ -155,12 +155,12 @@
 | 資料檢查 | `python main.py backtest-data --symbol BTCUSDT --interval 1h` | 通過，BTCUSDT 1h，2020-01-01 到 2023-12-31，共 1461 zip |
 | CLI 路線 | 短區間 `simulate` | 通過，Run ID `20260502_112029_d82dca91` |
 | CLI 路線 | 短區間 `backtest` | 通過，Run ID `20260502_112029_6f4947a5`，總交易 9 筆 |
-| 本地 API | 啟動 uvicorn 後 `GET /api/v1/status` | 通過，`all_ok=true` |
+| 本地 API | 啟動 uvicorn 後 `GET /api/v1/status` | 通過，`ready=true`、`blocking=[]` |
 | 本地 API | `GET /api/v1/backtest/catalog` | 通過，`success=true`，dataset_count=1 |
 | 本地 Dashboard | `npm run dev -- --host 127.0.0.1 --port 5173` | 通過，HTTP 200 |
 | Docker | `docker compose config --services` | 通過，列出 status/api/backtest/frontend/news/plan/pretrade/simulate |
 | Docker | `docker compose ps` | 通過，`bioneuron-api` 與 `bioneuron-frontend` 已 running 且 healthy |
-| Docker API | `GET http://127.0.0.1:8000/api/v1/status` | 通過，`all_ok=true` |
+| Docker API | `GET http://127.0.0.1:8000/api/v1/status` | 2026-05-14 曾通過；本輪 Docker 留到最後重建 |
 | Docker Frontend | `GET http://127.0.0.1:3000` | 通過，HTTP 200 |
 | 關機檢查 | 查詢本地 uvicorn / Vite / trade 殘留程序 | 通過，未發現本輪啟動的殘留程序 |
 
@@ -179,7 +179,7 @@
 | `17_ENVIRONMENT_VARIABLES.md` | 新增 `ALLOW_LIVE_TRADING` 說明，並補 live 前確認條件 |
 | `20_UI_END_TO_END_OPERATION.md` | 已把 Trade Control 流程改為 mode/status/stop 的端到端驗收 |
 
-文件層完成狀態：AI 自動交易的操作文件已對齊目前第一階段功能；仍未把模型成效寫成已驗證，因為權重品質需等雲端訓練與回測後另行評估。
+文件層完成狀態：AI 自動交易的操作文件已對齊目前第一階段功能；第一輪雲端訓練產物已接回 runtime，但仍未把模型成效寫成已驗證，因為權重品質還需要固定資料區間回測、OOS / walk-forward、paper-live 與 testnet 觀察支撐。
 
 ### 2026-05-04 實際入口操作優先驗證紀錄
 
@@ -188,7 +188,7 @@
 | 實際入口 | 驗證內容 | 結果 |
 |---|---|---|
 | CLI | `python main.py status` | 通過；TradingEngine / BinanceFutures / NewsAnalyzer / SOPSystem / PlanController / PreTradeCheck / BacktestEngine 均為 `[OK]` |
-| API | `GET /api/v1/status` | 通過；`success=true`、`all_ok=true`、version `2.1` |
+| API | `GET /api/v1/status` | 通過；`ready=true`、`blocking=[]`、version `2.1` |
 | API | `GET /api/v1/trade/status` | 通過；未啟動時 `running=false`、`mode=stopped` |
 | API | `POST /api/v1/trade/start`，`mode=monitor_only`、`testnet=true` | 通過；回傳「交易監控已啟動 [測試網] BTCUSDT」，`running=true`、`auto_trade=false` |
 | API | `POST /api/v1/trade/stop` | 通過；停止後 `running=false`、`mode=stopped` |
@@ -223,28 +223,48 @@
 | `19_DASHBOARD_TROUBLESHOOTING.md` | API status、frontend HTTP、WebSocket 實際連線 | 通過；REST 與 WebSocket 入口可用 |
 | `20_UI_END_TO_END_OPERATION.md` | 文件已建立；API/HTTP/build 實際入口已驗證 | 部分通過；仍需 Playwright 或人工完成瀏覽器點擊驗收 |
 
-### 2026-05-02 Docker image 重建前全面檢查
+### 2026-05-14 Docker image 重建與複驗
 
 | 檢查項目 | 結果 |
 |---|---|
-| 中斷後殘留建置程序 | 已停止本輪殘留的 `docker compose build api frontend` process |
-| Python 語法解析 | 通過；正式程式範圍 157 個 `.py` 檔案可 AST parse |
+| Docker image 重建 | 通過；`api` / `frontend` image 已重建 |
+| Docker API / CLI image 一致性 | 通過；`status/backtest/simulate` 共用 `bioneuronai-api:latest` runtime image |
+| 歷史 K 線掛載 | 通過；Compose 以 `./backtest:/app/backtest` 掛載本機資料，Docker API catalog 可讀 |
+| Python 語法解析 | 歷史紀錄：Docker Python 3.11 runtime 曾可執行 CLI。本輪已改以本機 Python 3.13 + PyTorch CPU 2.8.0 作為主要 runtime，Docker 最後重建 |
 | Docker command 對 CLI parser | 通過；`status/news/pretrade/plan/backtest/simulate/trade` command 均符合目前 CLI |
 | 前端 API 呼叫對後端 route | 通過；Operations Dashboard 使用的 API path 均有後端 route |
 | 環境變數一致性 | 通過；已修正 CryptoPanic 舊 key 名稱，統一使用 `CRYPTOPANIC_API_TOKEN` |
 | Docker compose 結構 | 通過；`docker compose config --quiet` 無錯誤 |
 | 前端 production build | 通過；`frontend/devops-d npm run build` 成功 |
 
-### 尚未完成的 image 層驗證
+### 已完成的 image 層驗證
 
-目前 running Docker image 是舊版，已觀察到舊 API image 尚未包含目前 source 的 `/api/v1/backtest/strategy-run` route。下一步應在完成上述 source 檢查後，一次性重建 image，然後重跑：
+已完成並通過：
 
 1. `docker compose build api frontend`
 2. `docker compose up -d api frontend`
 3. `docker compose run --rm status`
 4. `docker compose run --rm backtest`
+
+### 2026-05-19 本機 Python 3.13 runtime 與 paper-live 複驗
+
+本輪依使用者決策，先不處理 Docker；改以本機全域 Python 3.13 + PyTorch CPU 2.8.0 作為主要 runtime，Docker image 等自然語言、交易判斷與 API/UI 流程收斂後最後重建。
+
+| 實際入口 | 驗證內容 | 結果 |
+|---|---|---|
+| API | `GET /api/v1/status` | 通過；`ready=true`、`blocking=[]`，Python 3.13.9、PyTorch 2.8.0+cpu、現役交易模型與 TinyLLM 權重均可讀 |
+| Frontend | `frontend/devops-d npm run build` | 通過；Vite production build 成功 |
+| Frontend | 本機 Vite `http://127.0.0.1:5176` | 通過；HTTP 200，CORS preflight 允許 `http://127.0.0.1:5176` |
+| Chat API | `POST /api/v1/chat` 詢問交易狀態 | 通過；觸發 `trade_status` tool，回傳實際交易 task 狀態 |
+| Chat API | `POST /api/v1/chat` 分析 BTCUSDT | 通過；觸發 `analyze_market` tool，使用即時價格、24h 漲跌、RSI、EMA 與 K 線數 |
+| Chat API | 以中文要求啟動 BTCUSDT `paper_live` | 通過；觸發 `start_paper_live` tool，啟動後 `ai_model_loaded=true`、`paper_trading=true`，隨後已停止 |
+| Trade API | `POST /api/v1/trade/start`，`mode=paper_live` | 通過；啟動虛擬實盤，`engine.ai_model_loaded=true`、`engine.paper_trading=true` |
+| Trade API | `POST /api/v1/trade/stop` | 通過；停止後 `running=false`、`mode=stopped` |
+
+本輪同時修復 `TradingEngine.__init__` 中 `InferenceEngine` 的區域變數遮蔽問題；該問題會讓 paper-live / AI model 啟動路徑在建立 inference engine 前失敗。
 5. `docker compose run --rm simulate`
-6. Docker API `/api/v1/status`、`/api/v1/backtest/strategy-run`
+6. Docker API `/api/v1/status`、`/api/v1/backtest/catalog`
 7. Docker frontend `http://127.0.0.1:3000`
+8. Docker container 內 AI model load：`loaded=True`
 
 Live trading 仍不納入自動驗證；只保留 testnet 啟停與人工二次確認流程。

@@ -3082,6 +3082,62 @@
         "ingested_at": "2026-05-12T23:53:04.860815",
         "ingested_by": "NewsAdapter"
       }
+    },
+    {
+      "id": "news_btcusdt_15d98987164a9587",
+      "title": "Price predictions 5/18: SPX, DXY, BTC, ETH, XRP, BNB, SOL, DOGE, HYPE, ADA",
+      "content": "<p style=\"float:right; margin:0 0 10px 15px; width:240px;\"><img src=\"https://images.cointelegraph.com/images/528_aHR0cHM6Ly9zMy1pbWFnZXMuY3RtZWRpYS5pby9tZWRpYS9hcnRpY2xlLWNvdmVycy9hbmFseXNpcy1hbmFseXR",
+      "doc_type": "news_archive",
+      "created_at": "2026-05-19T11:10:52.190038",
+      "updated_at": "2026-05-19T11:10:52.190039",
+      "tags": [
+        "news",
+        "btcusdt",
+        "cointelegraph.com"
+      ],
+      "metadata": {
+        "symbol": "BTCUSDT",
+        "news_source": "cointelegraph.com",
+        "url": "https://cointelegraph.com/markets/price-predictions-518-spx-dxy-btc-eth-xrp-bnb-sol-doge-hype-ada?utm_source=rss_feed&utm_medium=rss&utm_campaign=rss_partner_inbound",
+        "published_at": "2026-05-18T17:58:29",
+        "analysis_hours": 24,
+        "overall_sentiment_score": 0.0,
+        "article_sentiment": "neutral",
+        "article_sentiment_score": 0.0,
+        "importance_score": 8.39,
+        "relevance_score": 2.0,
+        "key_events": [],
+        "ingested_at": "2026-05-19T11:10:52.189975",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_btcusdt_18c38cc6a0c26bac",
+      "title": "Saylor’s Strategy scoops $2B Bitcoin, holdings reach 843,738 BTC",
+      "content": "<p style=\"float:right; margin:0 0 10px 15px; width:240px;\"><img src=\"https://images.cointelegraph.com/images/528_aHR0cHM6Ly9zMy1pbWFnZXMuY3RtZWRpYS5pby9tZWRpYS9hcnRpY2xlLWNvdmVycy9oaS13aHktbWljaGFlbC1",
+      "doc_type": "news_archive",
+      "created_at": "2026-05-19T11:10:52.190105",
+      "updated_at": "2026-05-19T11:10:52.190107",
+      "tags": [
+        "news",
+        "btcusdt",
+        "cointelegraph.com"
+      ],
+      "metadata": {
+        "symbol": "BTCUSDT",
+        "news_source": "cointelegraph.com",
+        "url": "https://cointelegraph.com/news/strategy-2-billion-bitcoin-holdings-reach-843-738-btc?utm_source=rss_feed&utm_medium=rss&utm_campaign=rss_partner_inbound",
+        "published_at": "2026-05-18T13:44:29",
+        "analysis_hours": 24,
+        "overall_sentiment_score": 0.0,
+        "article_sentiment": "neutral",
+        "article_sentiment_score": 0.0,
+        "importance_score": 8.0,
+        "relevance_score": 2.0,
+        "key_events": [],
+        "ingested_at": "2026-05-19T11:10:52.189975",
+        "ingested_by": "NewsAdapter"
+      }
     }
   ]
 }

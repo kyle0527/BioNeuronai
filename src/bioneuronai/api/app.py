@@ -188,9 +188,10 @@ class TradeManager:
             try:
                 await asyncio.to_thread(self._trade_engine.start_monitoring, req.symbol)
             except Exception:
-                self._monitoring_requested = False
                 logger.exception("交易監控背景任務失敗")
                 raise
+            finally:
+                self._monitoring_requested = False
 
         self._trade_task = asyncio.create_task(_monitor())
         environment = "虛擬實盤" if req.mode == "paper_live" else ("測試網" if req.testnet else "正式網")

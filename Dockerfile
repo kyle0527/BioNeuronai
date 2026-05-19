@@ -5,7 +5,7 @@
 # ============================================================
 
 # ---------- Stage 1: builder ----------
-FROM python:3.11-slim AS builder
+FROM python:slim AS builder
 
 # System dependencies for ta-lib and compilation
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -35,7 +35,7 @@ RUN pip install --upgrade pip --no-cache-dir \
 
 
 # ---------- Stage 2: runtime ----------
-FROM python:3.11-slim AS runtime
+FROM python:slim AS runtime
 
 LABEL maintainer="BioNeuronAI Team" \
       version="2.1" \

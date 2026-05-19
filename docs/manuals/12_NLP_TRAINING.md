@@ -226,7 +226,7 @@ python main.py collect-signal-data --symbol BTCUSDT --interval 1h
 python -m nlp.training.unified_trainer \
     --signal-data data/signal_history.jsonl --epochs 10
 
-# 輸出：model/my_100m_model.pth（未來 Phase 2 啟用，目前處於 Standby 狀態）
+# 輸出：訓練 checkpoint；正式 runtime 目前由 config/active_model.json 指向 model/my_100m_model_trained_20260510.pth
 ```
 
 **完整 CLI 參數：**
@@ -528,7 +528,7 @@ for prompt in test_prompts:
 ## 🔗 相關資源
 
 ### 模型文件位置
-- **交易模型權重**: `model/my_100m_model.pth`（未來 Phase 2 正式交易 checkpoint，目前處於 Standby 狀態）
+- **交易模型權重**: `config/active_model.json` 目前指向 `model/my_100m_model_trained_20260510.pth`；`model/my_100m_model.pth` 保留作原始/基準權重。
 - **Chat / TinyLLM 權重**: `model/tiny_llm_100m.pth`
 - **分詞器詞彙**: `model/tokenizer/vocab.json`（由 `build_vocab.py` 產生）
 
@@ -567,7 +567,7 @@ for prompt in test_prompts:
 
 ### Q: 如何在交易系統中使用訓練的模型？
 **A:**
-訓練完成後，`model/my_100m_model.pth` 目前主要作為未來（Phase 2）的預測引擎，目前處於 **待命 (Standby)** 狀態：
+訓練完成後，runtime 不應直接假設使用 `model/my_100m_model.pth`。目前 active checkpoint 由 `config/active_model.json` 決定，第一輪訓練後模型已接回 runtime；但交易績效仍需固定區間回測、OOS / walk-forward、paper-live 與 testnet 驗證支撐：
 
 - **交易訊號推論**：目前由「演算法融合」主導，`InferenceEngine` 會載入模型但其權重被設定為較低，為日後的 Meta-Learner 與 RL Agent 做準備。
 - **自然語言對話**：`ChatEngine` 預設載入 `model/tiny_llm_100m.pth`；若要測試其他 TinyLLM checkpoint，需顯式指定
@@ -594,6 +594,6 @@ else:
 
 ---
 
-**最後更新**: 2026-04-07
-**版本**: v2.1
+**最後更新**: 2026-05-14
+**版本**: v2.1 正式主線 / v2.2 訓練後驗證期
 **維護者**: BioNeuronAI Team

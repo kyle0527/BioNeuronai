@@ -404,6 +404,9 @@ class ModuleStatus(BaseModel):
     name: str
     available: bool
     error: Optional[str] = None
+    required: bool = Field(default=True, description="是否為目前 runtime 必要條件")
+    category: Optional[str] = Field(default=None, description="readiness 類別，例如 runtime/model/config/data")
+    details: Optional[Dict[str, Any]] = Field(default=None, description="額外診斷資訊")
 
 
 class StatusResponse(BaseModel):
@@ -412,6 +415,9 @@ class StatusResponse(BaseModel):
     modules: List[ModuleStatus]
     version: Optional[str] = None
     all_ok: bool
+    ready: bool = Field(default=False, description="核心 runtime 是否已具備正常啟動條件")
+    blocking: List[str] = Field(default_factory=list, description="阻擋 runtime ready 的項目名稱")
+    readiness: List[ModuleStatus] = Field(default_factory=list, description="啟動前檢查項目")
     timestamp: datetime = Field(default_factory=datetime.now)
 
 
@@ -447,7 +453,22 @@ class ChatResponse(BaseModel):
     language: str = Field(description="回應語言：zh | en | mixed")
     confidence: float = Field(default=1.0, description="模型信心值 0–1")
     market_context_used: bool = Field(default=False, description="是否注入了即時市場資料")
-    stopped_reason: str = Field(default="", description="提前停止原因：'' | low_confidence | hallucination_detected | max_tokens")
+    stopped_reason: str = Field(
+        default="",
+        description="提前停止原因：'' | low_confidence | hallucination_detected | max_tokens | tool_call | tool_error | engine_unavailable | market_data_unavailable",
+    )
+    action: Optional[str] = Field(
+        default=None,
+        description="Chat 工具橋接動作，例如 analyze_market、trade_status、start_paper_live、stop_trading",
+    )
+    tool_calls: List[Dict[str, Any]] = Field(
+        default_factory=list,
+        description="由自然語言觸發的工具呼叫紀錄，供 UI 與稽核使用",
+    )
+    structured_data: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description="工具呼叫或結構化行情分析回傳的可機器讀取資料",
+    )
     latency_ms: float = Field(default=0.0, description="生成耗時（毫秒）")
     conversation_id: Optional[str] = Field(default=None, description="對話 ID，供下一輪使用")
     timestamp: datetime = Field(default_factory=datetime.now)

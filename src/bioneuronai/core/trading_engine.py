@@ -6,6 +6,7 @@
 import json
 import time
 import logging
+import sys
 from datetime import datetime
 from typing import Dict, List, Optional, Any
 from pathlib import Path
@@ -245,12 +246,14 @@ class TradingEngine:
             " + AI Fusion" if getattr(self.strategy, "ai_fusion_available", False) else "",
         )
         self.phase_router: Optional[Any] = None
-        if self.enable_phase_router and PHASE_ROUTER_AVAILABLE and TradingPhaseRouter is not None:
+        if self.enable_phase_router and (not PHASE_ROUTER_AVAILABLE or TradingPhaseRouter is None):
+            raise ImportError("PhaseRouter 策略模式需要 TradingPhaseRouter，但目前模組不可用")
+        if self.enable_phase_router and TradingPhaseRouter is not None:
             try:
                 self.phase_router = TradingPhaseRouter(timeframe="1m", enable_ai_selection=True)
                 logger.info("✅ PhaseRouter 已接入 TradingEngine 主線")
             except Exception as e:
-                logger.warning(f"PhaseRouter 初始化失敗，將回退 StrategySelector: {e}")
+                raise RuntimeError(f"PhaseRouter 初始化失敗: {e}") from e
 
         self.rl_meta_agent: Optional[Any] = None
         
@@ -289,16 +292,18 @@ class TradingEngine:
         self.ai_min_confidence: float = ai_min_confidence
         self.ai_model_loaded = False
         
-        if enable_ai_model and INFERENCE_ENGINE_AVAILABLE:
+        if enable_ai_model and (not INFERENCE_ENGINE_AVAILABLE or InferenceEngine is None):
+            raise ImportError("AI Inference Engine 不可用，無法啟用 AI 模型交易")
+
+        if enable_ai_model:
             try:
-                from .inference_engine import InferenceEngine
                 self.inference_engine = InferenceEngine(
                     min_confidence=ai_min_confidence,
                     warmup=False  # 
                 )
                 logger.info("[AI] AI Inference Engine initialized (model pending load)")
             except Exception as e:
-                logger.warning(f"[AI] AI Inference Engine initialization failed: {e}")
+                raise RuntimeError(f"AI Inference Engine initialization failed: {e}") from e
         
         # ==========  ==========
         self.market_data_processor = None
@@ -358,14 +363,12 @@ class TradingEngine:
     def _initialize_rl_meta_agent(self) -> Optional[Any]:
         """初始化 RL Meta-Agent；僅在模型與依賴齊備時啟用。"""
         if not RL_META_AGENT_AVAILABLE or RLMetaAgent is None or not RL_SB3_AVAILABLE:
-            logger.warning("RL Meta-Agent 不可用，將維持既有策略主線")
-            return None
+            raise ImportError("rl_fusion 策略模式需要 RLMetaAgent / stable-baselines3 / gymnasium")
 
         model_path = self.data_dir / "rl_models"
         model_file = model_path / "ppo_strategy_fusion.zip"
         if not model_file.exists():
-            logger.warning("RL 模型不存在，略過 RL Meta-Agent 接入: %s", model_file)
-            return None
+            raise FileNotFoundError(f"RL 模型不存在，無法啟用 rl_fusion: {model_file}")
 
         try:
             num_strategies = len(getattr(self.strategy, "_strategies", {})) or 5
@@ -377,8 +380,7 @@ class TradingEngine:
             logger.info("✅ RL Meta-Agent 已接入 TradingEngine 主線")
             return agent
         except Exception as e:
-            logger.warning(f"RL Meta-Agent 初始化失敗，將回退既有主線: {e}")
-            return None
+            raise RuntimeError(f"RL Meta-Agent 初始化失敗: {e}") from e
     
     # ========== AI  ==========
     
@@ -681,6 +683,9 @@ class TradingEngine:
         # RAG 
         if self.enable_rag_news_check and self.news_checker:
             self._check_breaking_news_before_start(symbol)
+            if not self.is_monitoring:
+                logger.warning("新聞風險檢查未通過，已停止監控啟動流程")
+                return
         
         # 
         if self.enable_news_analysis and self.news_analyzer:
@@ -901,8 +906,7 @@ class TradingEngine:
                 current_price=current_price,
             )
         except Exception as e:
-            logger.warning(f"PhaseRouter 主線執行失敗，回退 StrategySelector: {e}")
-            return None
+            raise RuntimeError(f"PhaseRouter 主線執行失敗: {e}") from e
 
     def _build_phase_router_market_data(
         self,
@@ -1941,9 +1945,16 @@ class TradingEngine:
                     logger.error("\n建議: 等待新聞風險降低後再交易")
                 logger.error(f"{'='*70}\n")
                 
-                # 詢問是否繼續
-                response: str = input("\n是否繼續監控? (yes/no): ")
-                if response.lower() not in ['yes', 'y', '是']:
+                if sys.stdin is not None and sys.stdin.isatty():
+                    response: str = input("\n是否繼續監控? (yes/no): ")
+                    if response.lower() in ['yes', 'y', '是']:
+                        logger.warning("操作員已確認忽略新聞風險並繼續監控")
+                    else:
+                        logger.info("已停止監控")
+                        self.is_monitoring = False
+                        return
+                else:
+                    logger.error("非互動環境偵測到新聞風險/系統警告，保守停止監控")
                     logger.info("已停止監控")
                     self.is_monitoring = False
                     return
@@ -1952,6 +1963,9 @@ class TradingEngine:
             
         except Exception as e:
             logger.error(f"RAG 新聞檢查失敗: {e}")
+            if sys.stdin is None or not sys.stdin.isatty():
+                logger.error("非互動環境無法確認新聞檢查異常，保守停止監控")
+                self.is_monitoring = False
     
     def toggle_rag_news_check(self) -> None:
         """ RAG """

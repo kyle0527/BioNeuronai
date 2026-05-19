@@ -456,6 +456,52 @@ env.MODEL_PATH = C:\D\E\BioNeuronai\model\my_100m_model_trained_20260510.pth
 
 ---
 
+## 8.1 2026-05-15 runtime 切換複驗
+
+本次複驗的目的，是確認訓練前基準與訓練後現役權重能否在同一條 Docker runtime 中切換，而不是只看離線報告。
+
+### 權重來源
+
+| 角色 | 路徑 | SHA256 |
+| --- | --- | --- |
+| 訓練前基準 | `model/my_100m_model.pth` | `54EFBE4F49C5082ED05D4D9C1EF0F95158168B3BE576818F9509A59343F50EAA` |
+| 訓練後現役 | `model/my_100m_model_trained_20260510.pth` | `4124C71CBA4EB562C7E25E213C7280550FFEDF7F5AEF25981F19B92042AF539F` |
+
+`config/active_model.json` 仍指向訓練後現役權重；切換複驗使用 `MODEL_PATH` 暫時覆蓋，不改現役設定。
+
+### 載入結果
+
+| 權重 | Docker runtime 載入結果 |
+| --- | --- |
+| 訓練前基準 | `baseline_loaded=True` |
+| 訓練後現役 | `trained_loaded=True` |
+
+### 固定輸入 signal output 比較
+
+| 輸入 | cosine baseline vs trained | mean abs diff | max abs diff | trained norm change |
+| --- | ---: | ---: | ---: | ---: |
+| zeros | 0.049076 | 0.672222 | 3.325756 | +23.62% |
+| random_batch8 | 0.190528 | 0.664367 | 3.599799 | +35.08% |
+| trend_like | 0.194716 | 0.663066 | 2.739853 | +44.73% |
+
+### 真實 K 線推論抽樣
+
+資料：`BTCUSDT 1h`，2020-01-01 起，使用 `InferenceEngine.predict()` 跑前 120 根 K 線後抽樣。
+
+| bar | close | baseline | trained |
+| ---: | ---: | --- | --- |
+| 31 | 7159.41 | `neutral`, confidence 0.202260, risk medium, leverage 7, position 0.054923 | `neutral`, confidence 0.264888, risk high, leverage 10, position 0.029485 |
+| 63 | 7340.42 | `neutral`, confidence 0.274156, risk medium, leverage 7, position 0.046415 | `neutral`, confidence 0.275423, risk low, leverage 4, position 0.027208 |
+| 119 | 7529.72 | `neutral`, confidence 0.306475, risk high, leverage 7, position 0.045002 | `neutral`, confidence 0.225580, risk low, leverage 10, position 0.023915 |
+
+結論：訓練前與訓練後權重可在同一 runtime 中切換，且訓練後模型的 signal output 與下游解讀確實不同。這仍屬推論行為驗證，不是交易績效驗證。
+
+### 發現的資產問題
+
+複驗時發現 `model/my_100m_model.pth` 曾在加入 Run1 / Run2 的 commit 中被刪除，工作樹與 Docker container 起初都沒有此基準權重；本次是從本機 Git LFS 物件還原。這表示模型資產治理需要補強：active model 或 baseline 權重若會被文件與 runtime 使用，必須納入 Git LFS，或提供明確的外部 artifact 取得流程。
+
+---
+
 ## 9. 下一步建議
 
 ### 9.1 固定資料區間回測

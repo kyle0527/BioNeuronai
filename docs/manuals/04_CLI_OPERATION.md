@@ -1,6 +1,6 @@
 # BioNeuronai 操作手冊
-**版本**：v2.1
-**更新日期**：2026-05-13
+**版本**：v2.1 正式主線 / v2.2 訓練後驗證期
+**更新日期**：2026-05-19
 **適用對象**：初次使用者 / 日常操作參考
 
 ---
@@ -54,42 +54,35 @@ BioNeuronai (v2.1) 是一套加密貨幣期貨交易系統。
 
 | 功能 | 說明 | 需要 torch | 需要 API 金鑰 | 主責模組 |
 |------|------|:----------:|:------------:|----------|
-| 系統健康檢查 | 診斷所有模組狀態 | ✗ | ✗ | `cli/` |
+| 系統健康檢查 | 診斷所有模組與 runtime readiness | ✅ | ✗ | `cli/` |
 | 每日交易計劃 | 10 步驟 SOP (總經理視角) | ✗ | 部分步驟 | `planning/` |
 | 進場前驗核 | 技術 / 基本面三重確認 (交易員視角) | ✗ | ✅ | `planning/` |
 | 新聞分析 | 情緒與事件提取 | ✗ | ✗ | `rag/` & `analysis/news` |
 | 紙交易模擬 | 在未連線 Binance 情況下驗證主交易邏輯 | ⚠️ 可選 | ✗ | `core/` & `backtest/` |
 | 測試網/實盤交易入口 | 透過 Binance connector 進行即時監控；自動送單需依交易引擎模式與安全限制啟用 | ✅ | ✅ | `core/` & `trading/` |
-| AI 對話助理 | 雙語交易知識問答（中 / 英），可注入即時市場資料 | ⚠️ 可選 | ✗ | `nlp/chat_engine` |
+| AI 對話助理 | 雙語交易知識問答（中 / 英），可注入即時市場資料 | ✅ | ✗ | `nlp/chat_engine` |
 
 ---
 
 ## 2. 安裝與環境設定
 
 ### 前置需求
-- Python **3.9+**（目前驗證版本：3.13.9）
+- Python **3.13**（本機全域 runtime）。本專案目前不使用專案內虛擬環境。
 
 ### 安裝步驟
 
 ```bash
 git clone https://github.com/BioNeuronai/BioNeuronai.git
 cd BioNeuronai
-python -m venv venv
-
-# Windows 啟動: venv\Scripts\activate
-# Linux/Mac 啟動: source venv/bin/activate
-
-# 基礎安裝 (執行 plan/pretrade/news)
-pip install pydantic>=2.0.0 numpy>=1.24.0 pandas>=2.0.0 websocket-client requests aiohttp
-
-# 完整安裝 (包含 AI 模型与所有依賴)
-pip install -e .
+python -m pip install --upgrade pip
+python -m pip install --index-url https://download.pytorch.org/whl/cpu torch==2.8.0+cpu torchvision==0.23.0+cpu torchaudio==2.8.0+cpu
+python -m pip install -e .
 
 # 選填：額外安裝強化學習模組
 pip install -e ".[rl]"
 ```
 
-若 `torch` 未安裝，執行 `status` 時 `TradingEngine` 會顯示警告，但不影響沒有用到 AI 推理的非實盤動作。
+若 `torch`、現役交易模型、TinyLLM 聊天模型或必要設定缺失，`status` 應直接回報阻擋項目；目前不把缺失狀態降級成可操作狀態。
 
 ---
 

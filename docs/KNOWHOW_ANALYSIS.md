@@ -442,7 +442,7 @@ BioNeuronAI 時光機（安全）:
 ### 核心概念
 
 BioNeuronAI 內建**自研 100M 參數雙語（中英文）LLM**，搭配 **RAG（檢索增強生成）** 架構，提供基於知識庫的市場問答與分析能力。
-> ⚠️ **v2.1 現狀註記**：目前 100M 模型在即時交易決策中處於待命（Standby）狀態，僅用於自然語言對話與特徵提煉實驗，主要交易由融合引擎主導。
+> ⚠️ **2026-05-14 現狀註記**：第一輪訓練後 checkpoint 已透過 `config/active_model.json` 接回 runtime，Docker 內可載入。主要交易仍由融合引擎、風控與 readiness gate 主導；模型交易績效尚需固定區間回測、OOS / walk-forward、paper-live 與 testnet 觀察支撐。
 
 ### 架構組成
 

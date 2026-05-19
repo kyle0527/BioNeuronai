@@ -1,6 +1,6 @@
-# Technical Debt Status — 2026-05-13
+# Technical Debt Status — 2026-05-19
 
-本文件針對截圖中的「已確認的技術債」逐項核對目前程式碼狀態，並記錄本次修復。
+本文件針對截圖中的「已確認的技術債」逐項核對目前程式碼狀態，並記錄實際驗證結果。2026-05-19 起，本輪主要驗證改以本機全域 Python 3.13 + PyTorch CPU 2.8.0 為準；Docker 不作本輪主要驗證入口，待自然語言、交易判斷與 API/UI 流程收斂後最後重建。
 
 ## 結論
 
@@ -14,6 +14,23 @@
 | 策略層：`PairTradingStrategy` 需次資產資料 | 屬實，已有 replay 支援 | 單資產 fusion 主線刻意排除 PairTradingStrategy；`backtest/service.py` 已會為 pair template 載入 secondary OHLCV。live 主線若要啟用 pair trading，仍需獨立多資產資料流設計。 |
 | 回測門檻：正式交易前需 BTC/ETH 多時間框架矩陣與通過門檻 | 屬實，已修復為 gate | 新增 `python main.py readiness-gate` 與 `config/trading_readiness_gate.json`，以 `backtest/` replay service 執行矩陣並輸出 `PASS` / `FAIL`；gate 路徑不會更新 Golden Profile。 |
 
+## 2026-05-14 截圖項目複核
+
+| 截圖項目 | 現況 | 判定 |
+|---|---|---|
+| `BTCUSDT/ETHUSDT 4h` 歷史資料缺失 | Docker readiness-gate dry-run 已確認 `BTCUSDT 1h`、`ETHUSDT 1h` 存在，`BTCUSDT 4h`、`ETHUSDT 4h` 缺失。 | 屬實；正式 gate 會阻擋 live。 |
+| 對比回測：訓練前後模型績效比較 | `best_model_run1.pth`、`best_model_run2.pth` 與現役 `my_100m_model_trained_20260510.pth` 已在 `model/`，且 Docker 內可載入；但尚未完成同 K 線區間的 Run1 / Run2 / 現役模型績效對比報告。 | 屬實；下一步應做固定區間對比。 |
+| `news_sentiment` 仍為 `0.0` 硬編碼 | 主交易路徑已可從 `NewsAdapter.get_event_context()` 與分析結果取得 sentiment；`0.0` 仍存在於 fallback/default 與 meta-learner 特徵預設值。 | 部分屬實；不再是主線完全硬編碼，但訓練資料特徵仍需補強。 |
+| `analysis/news/analyzer.py` 重構 | 公開入口仍可用，檔案仍偏大，尚未拆成 fetcher / processor / sentiment / aggregator。 | 屬實但非 staging blocker。 |
+| RAG 接通 `EventContext` | `TradingEngine` 已傳入 `EventContext`，`NewsAdapter` 可從 active event 或 RAG KB 組裝事件分數、類型、衰減、可信度、來源、標題與情緒。 | 主要路徑已完成；歷史相似事件與策略權重仍可強化。 |
+| 方案 C `HardRouter` / Strategy Fusion | 專案沒有獨立 `HardRouter` class；實作主線是 `TradingPhaseRouter`，可透過 `TradingEngine(strategy_type="phase_router")` 接入。 | 截圖名稱不完全對應；PhaseRouter 已可用，HardRouter 仍屬設計文件。 |
+| 語言訓練資料 33 筆 | `docs/TRAINED_MODEL_TECHNICAL_REPORT_20260510.md` 記錄 QA 樣本 33，且明確說 QA 品質不可當投資建議。 | 屬實；不是 runtime blocker，但限制仍需保留。 |
+| Shadow Mode 驗證 | 2026-05-19 已用本機 API 啟動 `paper_live`，確認主網行情 + 本地虛擬帳戶 + AI model loaded 可啟動與停止；尚未完成長時間觀察週期與報告。 | 短流程完成；下一步是長時間跑並回收 ledger。 |
+| Docker image 重建複驗 | 2026-05-14 曾完成 Docker `api` / `frontend` image 複驗；本輪已改成本機 runtime 先收斂，Docker image 最後重建。 | 需後續重建複驗，不作目前完成標準。 |
+| 訓練前/後權重切換驗證 | 2026-05-15 已用 Docker runtime 以 `MODEL_PATH` 切換 `my_100m_model.pth` 與 `my_100m_model_trained_20260510.pth`。兩者均可載入，且 `forward_signal()` / 真實 K 線推論輸出不同。 | 推論層驗證完成；仍需固定 IS/OOS 回測證明交易績效。 |
+| 模型資產治理 | `config/active_model.json` 指向的現役權重與訓練前基準權重必須可重建取得。複驗時發現基準權重曾被刪除，需從本機 LFS 物件還原；現役包裝權重也需要明確納入 LFS 或外部 artifact 流程。 | 高優先級；否則新環境可能缺權重。 |
+| Docker build context 權重排除 / image 過大 | `.dockerignore` 原本排除 `*.pth`，但 Dockerfile 又 `COPY model/`，導致權重治理矛盾且 image 可膨脹。已暫時補必要權重例外，避免 active model 在 rebuild 後消失。 | 待決策；Docker 架構後續再處理，優先解決 AI 自然語言與自行操作能力。 |
+
 ## 新增 Gate
 
 ```bash
@@ -21,7 +38,7 @@ python main.py readiness-gate --dry-run
 python main.py readiness-gate --output output/readiness_gate.json
 ```
 
-目前本機資料檢查結果顯示：
+先前 Docker readiness-gate dry-run 檢查結果顯示：
 
 - `BTCUSDT 1h`：存在，2020-01-01 ~ 2023-12-31
 - `ETHUSDT 1h`：存在，2020-01-01 ~ 2023-12-31
@@ -32,10 +49,26 @@ python main.py readiness-gate --output output/readiness_gate.json
 
 ## 已驗證命令
 
+2026-05-19 本機 runtime 驗證：
+
 ```bash
-python -m py_compile src/schemas/rag.py src/rag/services/news_adapter.py backtest/readiness_gate.py backtest/__init__.py src/bioneuronai/cli/main.py
-python main.py readiness-gate --dry-run --json
-python main.py readiness-gate --symbols BTCUSDT --intervals 1h --start-date 2020-01-01 --end-date 2020-01-03 --json
+python -m py_compile src/bioneuronai/core/trading_engine.py src/bioneuronai/api/routes/system.py src/schemas/api.py
+python -m uvicorn bioneuronai.api.app:app --host 127.0.0.1 --port 8000
+# GET /api/v1/status: ready=true, blocking=[]
+# POST /api/v1/chat: trade_status / analyze_market 工具橋接可用
+# POST /api/v1/chat: 中文要求啟動 paper_live 可觸發 start_paper_live，驗證後已停止
+# POST /api/v1/trade/start mode=paper_live: 成功啟動，ai_model_loaded=true，paper_trading=true
+# POST /api/v1/trade/stop: 成功停止，running=false
+```
+
+2026-05-14 Docker 歷史驗證紀錄：
+
+```bash
+docker compose run --rm status
+docker compose run --rm status main.py readiness-gate --dry-run --json
+docker compose run --rm backtest
+docker compose run --rm simulate
+docker compose exec api python -c "from bioneuronai.core.trading_engine import TradingEngine; engine=TradingEngine(testnet=True, enable_ai_model=True); print(engine.load_ai_model('my_100m_model', warmup=False))"
 ```
 
 短區間實跑 gate 可正常執行並回報 `FAIL`，原因是該短區間有效 K 線不足、最佳策略交易次數為 0；這是 gate 正確阻擋，不是 CLI 失效。

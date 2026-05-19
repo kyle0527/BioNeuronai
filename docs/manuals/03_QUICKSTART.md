@@ -1,4 +1,7 @@
-# 🚀 BioNeuronai v2.1 快速開始指南
+# 🚀 BioNeuronai v2.1 / v2.2 訓練後驗證期快速開始指南
+
+> 更新日期：2026-05-19
+> 建議環境：本機全域 Python 3.13。Docker 留到本機功能收斂後最後重建。
 
 ## 📑 目錄
 
@@ -14,14 +17,13 @@
 git clone https://github.com/BioNeuronai/BioNeuronai.git
 cd BioNeuronai
 
-# 建立環境
-python -m venv venv
-# Windows: venv\Scripts\activate
-# Linux/Mac: source venv/bin/activate
-
-# 安裝套件
-pip install -e .
+# 安裝套件。本專案目前不使用專案內虛擬環境。
+python -m pip install --upgrade pip
+python -m pip install --index-url https://download.pytorch.org/whl/cpu torch==2.8.0+cpu torchvision==0.23.0+cpu torchaudio==2.8.0+cpu
+python -m pip install -e .
 ```
+
+PyTorch 2.8.0+cpu 是目前 Windows 本機已確認可 import 的 CPU 組合。第一次安裝成功後，後續日常啟動只需要檢查，不需要每次重新設定。
 
 ## 🔑 2. 設定環境變數
 
@@ -40,7 +42,7 @@ Copy-Item .env.example .env
 ```bash
 python main.py status
 ```
-預期出現各模組回報 `[OK]` 以及 `系統狀態: 正常`。如果缺少 `torch` 未安裝成功，系統會給予警告，但不會阻擋基礎的分析功能。
+預期出現各模組回報 `[OK]` 以及 `系統狀態: 正常`。若 API 已啟動，`GET /api/v1/status` 應回傳 `ready=true`、`blocking=[]`；缺少 PyTorch、現役交易模型、聊天模型或必要設定檔時應直接顯示阻擋項目。
 
 ## 🎯 4. 核心功能驗證
 

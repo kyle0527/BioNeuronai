@@ -23,6 +23,8 @@ interface ChatMessage {
   latency_ms?: number
   confidence?: number
   language?: string
+  action?: string
+  stopped_reason?: string
 }
 
 function loadMessages(): ChatMessage[] {
@@ -112,6 +114,8 @@ export function ChatPanel() {
         latency_ms: chatResp.latency_ms ?? undefined,
         confidence: chatResp.confidence ?? undefined,
         language: chatResp.language,
+        action: chatResp.action ?? undefined,
+        stopped_reason: chatResp.stopped_reason ?? undefined,
       }
       addMessage(assistantMessage)
     } catch (err) {
@@ -183,11 +187,21 @@ export function ChatPanel() {
                           {msg.language}
                         </Badge>
                       )}
+                      {msg.action && (
+                        <Badge variant="secondary" className="text-xs px-1 py-0 font-mono">
+                          {msg.action}
+                        </Badge>
+                      )}
+                      {msg.stopped_reason && msg.stopped_reason !== 'tool_call' && (
+                        <Badge variant="outline" className="text-xs px-1 py-0 font-mono">
+                          {msg.stopped_reason}
+                        </Badge>
+                      )}
                     </>
                   )}
                 </div>
                 <div
-                  className={`inline-block max-w-[85%] rounded-lg px-3 py-2 text-sm text-left whitespace-pre-wrap ${
+                  className={`inline-block max-w-[85%] rounded-lg px-3 py-2 text-sm text-left whitespace-pre-wrap break-words [overflow-wrap:anywhere] ${
                     msg.role === 'user'
                       ? 'bg-primary text-primary-foreground'
                       : 'bg-muted text-foreground'

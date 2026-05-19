@@ -1,8 +1,8 @@
 # BioNeuronai 系統架構總覽
 
-**用途**: 描述目前專案的正式主線架構 (`v2.1`)，提供開發者對外入口、核心交易主鏈與資料供應鏈的總體視野。  
-**版本**: v2.1
-**更新日期**: 2026-05-13
+**用途**: 描述目前專案的正式主線架構 (`v2.1` / `v2.2` 訓練後驗證期)，提供開發者對外入口、核心交易主鏈與資料供應鏈的總體視野。
+**版本**: v2.1 正式主線 / v2.2 訓練後驗證期
+**更新日期**: 2026-05-14
 
 ---
 
@@ -49,7 +49,7 @@ flowchart TD
     API --> BT1
 
     TE --> IE[InferenceEngine\nAI 推論管線]
-    IE --> TM[交易推論模型\nmodel/my_100m_model.pth]
+    IE --> TM[交易推論模型\nactive_model.json -> trained checkpoint]
     IE --> FP[FeaturePipeline\n1024 維特徵]
 
     TE --> SEL[strategies/selector\nStrategySelector]
@@ -93,7 +93,7 @@ flowchart TD
 
 ### 2.1a 前端子系統 (`frontend/`)
 
-`frontend/` 下目前保留三個 React 19 + Vite 7 + TypeScript 應用；截至 2026-05-13，目前操作主線是 `frontend/devops-d/` 的 Operations Dashboard。`admin-da` 與 `trading` 保留原始碼，暫不列入目前操作主線。
+`frontend/` 下目前保留三個 React 19 + Vite 7 + TypeScript 應用；截至 2026-05-14，目前操作主線是 `frontend/devops-d/` 的 Operations Dashboard。`admin-da` 與 `trading` 保留原始碼，暫不列入目前操作主線。
 
 | 目錄 | 用途 | 部署狀態 |
 |------|------|---------|
@@ -103,7 +103,8 @@ flowchart TD
 
 **目前驗收入口**：
 ```bash
-cd frontend/devops-d  &&  npm run dev   # → http://localhost:5173
+docker compose up api frontend          # → http://localhost:3000
+cd frontend/devops-d  &&  npm run dev   # → http://localhost:5173（或 5176 等 Vite 可用 port）
 ```
 
 後端 API 預設仍為 `http://localhost:8000`。
@@ -111,7 +112,7 @@ cd frontend/devops-d  &&  npm run dev   # → http://localhost:5173
 ### 2.2 核心交易層
 
 - `src/bioneuronai/core/trading_engine.py`: 專案執行中樞，整合 AI 推理、策略融合、資料庫落檔等。
-- `src/bioneuronai/core/inference_engine.py`: 負責提煉 1024 維特徵，維護 16 步滾動特徵視窗。*(註：目前正式交易主線預設關閉載入 `model/my_100m_model.pth`，該深度學習模型處於待命狀態，實際決策依靠演算法進行動態融合。)*
+- `src/bioneuronai/core/inference_engine.py`: 負責提煉 1024 維特徵，維護 16 步滾動特徵視窗。`config/active_model.json` 目前指向 `model/my_100m_model_trained_20260510.pth`；Docker runtime 已驗證可載入。正式交易成效仍需固定區間回測、OOS / walk-forward、paper-live 與 testnet 觀察支撐。
 
 ### 2.3 策略層 (`strategies/`)
 
@@ -178,7 +179,7 @@ flowchart LR
 1. **User / CLI** 啟動 `plan` 或 `trade`。
 2. **`planning/`** 進行市場大盤分析、關鍵字搜尋，產出交易對與計劃建議。
 3. **`core.TradingEngine`** 啟動主流程，由 `data/` 抓取當下 K 線。
-4. **`core.InferenceEngine`** 生成特徵 *(註：深度神經網路模型預設為待命不介入)*。
+4. **`core.InferenceEngine`** 生成特徵，並在 `load_ai_model` 啟用時載入目前 active checkpoint。模型已接回 runtime，但績效驗證仍屬 v2.2 後續工作。
 5. **`strategies/selector` + `strategies/strategy_fusion`** 進行動態策略融合。這裡的「AI Fusion」主要透過啟發式演算法，結合勝率 (`win_rate`)、市場體制與新聞分數 (`event_score`) 來動態調整傳統策略權重。
 6. **`risk_management`** 決定倉位與風險阻擋。
 7. **`trading.VirtualAccount`** 在 replay / mock 路徑下紀錄持倉、餘額與掛單事實。
@@ -208,7 +209,7 @@ flowchart LR
 
 ## 6. 建議閱讀順序
 
-若要理解目前 `v2.1` 系統，建議依序閱讀：
+若要理解目前 `v2.1` 正式主線與 `v2.2` 訓練後驗證期系統，建議依序閱讀：
 
 1. `main.py` 與 `src/bioneuronai/cli/main.py`
 2. `src/bioneuronai/core/trading_engine.py` (整合入口)

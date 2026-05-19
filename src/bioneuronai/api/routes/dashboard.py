@@ -3,6 +3,7 @@
 
 import asyncio
 import json
+import time
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict
@@ -22,6 +23,11 @@ from schemas.api import (
 )
 
 _VALID_RISK_LEVELS = {"CONSERVATIVE", "MODERATE", "AGGRESSIVE", "HIGH_RISK"}
+_VALID_KLINE_INTERVALS = {
+    "1m", "3m", "5m", "15m", "30m",
+    "1h", "2h", "4h", "6h", "8h", "12h",
+    "1d", "3d", "1w", "1M",
+}
 
 
 def create_router(trade_manager: Any, project_root: Path, logger: Any) -> APIRouter:
@@ -196,6 +202,73 @@ def create_router(trade_manager: Any, project_root: Path, logger: Any) -> APIRou
             return ApiResponse(success=True, message="資料目錄掃描完成", data=data)
         except Exception as exc:
             return ApiResponse(success=False, message=f"資料目錄掃描失敗: {exc}")
+
+    @router.get("/api/v1/market/klines", response_model=ApiResponse, tags=["market"])
+    async def get_market_klines(symbol: str = "BTCUSDT", interval: str = "1m", limit: int = 120):
+        """取得 Binance Futures 最新 K 線，供 Dashboard 即時圖表使用。"""
+        try:
+            from bioneuronai.data.binance_futures import BinanceFuturesConnector
+
+            normalized_symbol = symbol.strip().upper()
+            normalized_interval = interval.strip()
+            if not normalized_symbol:
+                return ApiResponse(success=False, message="symbol 不可為空")
+            if normalized_interval not in _VALID_KLINE_INTERVALS:
+                return ApiResponse(
+                    success=False,
+                    message=f"不支援的 interval: {normalized_interval}",
+                    data={"allowed": sorted(_VALID_KLINE_INTERVALS)},
+                )
+            safe_limit = max(10, min(int(limit), 500))
+
+            connector = BinanceFuturesConnector(testnet=False)
+            raw_klines = await asyncio.to_thread(
+                connector.get_klines,
+                normalized_symbol,
+                normalized_interval,
+                safe_limit,
+            )
+            if not raw_klines:
+                return ApiResponse(success=False, message="Binance 未回傳 K 線資料")
+
+            now_ms = int(time.time() * 1000)
+            candles: list[dict[str, Any]] = []
+            for raw in raw_klines:
+                if len(raw) < 7:
+                    continue
+                close_time = int(raw[6])
+                candles.append({
+                    "open_time": int(raw[0]),
+                    "open_time_iso": datetime.fromtimestamp(int(raw[0]) / 1000).isoformat(),
+                    "open": float(raw[1]),
+                    "high": float(raw[2]),
+                    "low": float(raw[3]),
+                    "close": float(raw[4]),
+                    "volume": float(raw[5]),
+                    "close_time": close_time,
+                    "close_time_iso": datetime.fromtimestamp(close_time / 1000).isoformat(),
+                    "closed": close_time <= now_ms,
+                })
+
+            if not candles:
+                return ApiResponse(success=False, message="K 線資料格式無法解析")
+
+            latest = candles[-1]
+            return ApiResponse(
+                success=True,
+                message="K 線資料讀取成功",
+                data={
+                    "symbol": normalized_symbol,
+                    "interval": normalized_interval,
+                    "source": "binance_futures_public",
+                    "server_time": datetime.now().isoformat(),
+                    "polling_hint_seconds": 3,
+                    "latest": latest,
+                    "candles": candles,
+                },
+            )
+        except Exception as exc:
+            return ApiResponse(success=False, message=f"K 線資料讀取失敗: {exc}")
 
     @router.websocket("/ws/trade")
     async def ws_trade(websocket: WebSocket):

@@ -1,8 +1,8 @@
 # BioNeuronAI 開機開始與關機手冊
 
-> 版本：v2.1 / v2.2 過渡期  
+> 版本：v2.1 正式主線 / v2.2 訓練後驗證期
 > 建立日期：2026-05-02  
-> 更新日期：2026-05-13
+> 更新日期：2026-05-19
 > 適用對象：第一次啟動、日常本地操作、API + Dashboard 操作、Docker 操作
 
 ---
@@ -43,14 +43,26 @@
 | CLI | `python main.py <command>` | 單次任務、回測、simulate、paper-live、readiness gate、chat | 不需要常駐服務，最適合確認單一功能是否實際跑完 |
 | API | `python -m uvicorn bioneuronai.api.app:app --host 127.0.0.1 --port 8000` | UI 後端、外部自動化、Swagger 操作 | UI 的所有資料都依賴 API；API 未啟動會導致 `Failed to fetch` |
 | UI | `cd frontend/devops-d; npm run dev` | Operations Dashboard 人工操作與監控 | UI 不直接執行 AI；它透過 API 呼叫後端 |
-| Docker | `docker compose up api frontend` / `docker compose run --rm status` | 部署、重現環境、隔離依賴 | 修改程式或前端後通常需 rebuild；大型資料不打進 image |
+| Docker | `docker compose up api frontend` / `docker compose run --rm status` | 部署、重現環境、隔離依賴 | 本輪先不作主要驗證；本機功能收斂後最後重建 image |
 
 更完整說明見 [../STARTUP_MODES.md](../STARTUP_MODES.md)。
 
-請先在專案根目錄執行：
+請先在專案根目錄確認本機全域 Python 3.13 與依賴：
 
 ```powershell
 cd C:\D\E\BioNeuronai
+python --version
+python -m pip install --upgrade pip
+python -m pip install --index-url https://download.pytorch.org/whl/cpu torch==2.8.0+cpu torchvision==0.23.0+cpu torchaudio==2.8.0+cpu
+python -m pip install -e .
+python -c "import torch; print(torch.__version__); print(torch.cuda.is_available())"
+```
+
+本專案目前不使用專案內虛擬環境；第一次安裝成功後，後續啟動只需要檢查，不需要每次重新設定。PyTorch 2.8.0+cpu 是目前 Windows 本機已確認可 import 的 CPU 組合。
+
+接著執行：
+
+```powershell
 python main.py --help
 python main.py status
 ```
@@ -58,7 +70,7 @@ python main.py status
 成功標準：
 
 - `--help` 能列出 `status`、`news`、`plan`、`pretrade`、`simulate`、`backtest`、`trade`、`chat` 等命令。
-- `status` 顯示核心模組為 `[OK]`。
+- `status` 顯示核心模組為 `[OK]`，API `/api/v1/status` 對應回傳 `ready: true`、`blocking: []`。
 
 如果要使用 Binance、pretrade、testnet 或 live trading，請先確認 `.env`：
 
@@ -72,7 +84,7 @@ Copy-Item .env.example .env
 BINANCE_API_KEY=your_api_key
 BINANCE_API_SECRET=your_api_secret
 BINANCE_TESTNET=true
-ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5173
+ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5173,http://localhost:5176,http://127.0.0.1:5173,http://127.0.0.1:5176
 ```
 
 ---
@@ -146,7 +158,7 @@ Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/v1/backtest/catalog?symbol=BTC
 
 成功標準：
 
-- `/api/v1/status` 回傳 `all_ok: true`。
+- `/api/v1/status` 回傳 `ready: true`、`blocking: []`。
 - `/api/v1/backtest/catalog` 回傳 `success: true` 並列出 dataset。
 
 ### 3.2 啟動 Dashboard
@@ -163,6 +175,8 @@ npm run dev
 ```text
 http://localhost:5173
 ```
+
+如果 Vite 顯示 5173 已被占用，會自動改用 5174、5175、5176 等下一個 port；此時以終端輸出的 URL 為準，並確認 `.env` 的 `ALLOWED_ORIGINS` 包含該 origin。
 
 成功標準：
 
@@ -185,6 +199,8 @@ Get-CimInstance Win32_Process -Filter "name = 'python.exe'" |
 ---
 
 ## 4. 路線 C：Docker API + Dashboard
+
+本輪調整期間先不使用 Docker 作為主要驗證入口。Docker image 會在本機自然語言、交易判斷、API/UI readiness 與文件收斂後最後重建；以下流程保留給後續部署或乾淨環境複驗。
 
 ### 4.1 建置
 

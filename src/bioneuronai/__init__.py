@@ -17,6 +17,7 @@ BioNeuronai - AI
 __version__ = "2.1"
 __author__ = "BioNeuronai Team"
 
+import importlib
 import logging  # noqa: E402 (imports after sys.path setup are intentional)
 from typing import Any
 
@@ -25,122 +26,87 @@ from typing import Any
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
 
-# 核心模組（依賴 torch，若未安裝則優雅降級）
-try:
-    from .core import TradingEngine, SelfImprovementSystem
-    from .core import (
-        InferenceEngine,
-        ModelLoader,
-        FeaturePipeline,
-        Predictor,
-        SignalInterpreter,
-        SignalType,
-        RiskLevel,
-        create_inference_engine,
-    )
-    from .core.inference_engine import TradingSignal as AITradingSignal
-    TORCH_AVAILABLE = True
-except (ImportError, AttributeError) as _torch_err:
-    TORCH_AVAILABLE = False
-    TradingEngine = None          # type: ignore[assignment,misc]
-    SelfImprovementSystem = None  # type: ignore[assignment,misc]
-    InferenceEngine = None        # type: ignore[assignment,misc]
-    ModelLoader = None            # type: ignore[assignment,misc]
-    FeaturePipeline = None        # type: ignore[assignment,misc]
-    Predictor = None              # type: ignore[assignment,misc]
-    SignalInterpreter = None      # type: ignore[assignment,misc]
-    SignalType = None             # type: ignore[assignment,misc]
-    RiskLevel = None              # type: ignore[assignment,misc]
-    AITradingSignal = None        # type: ignore[assignment,misc]
-    create_inference_engine = None  # type: ignore[assignment,misc]
-    logging.getLogger(__name__).warning(
-        "torch 未安裝，TradingEngine / InferenceEngine 不可用。"
-        " 執行 pip install torch 以啟用 AI 功能。"
-    )
+_EXPORTS: dict[str, tuple[str, str]] = {
+    "TradingEngine": ("bioneuronai.core", "TradingEngine"),
+    "CryptoFuturesTrader": ("bioneuronai.core", "TradingEngine"),
+    "SelfImprovementSystem": ("bioneuronai.core", "SelfImprovementSystem"),
+    "InferenceEngine": ("bioneuronai.core", "InferenceEngine"),
+    "ModelLoader": ("bioneuronai.core", "ModelLoader"),
+    "FeaturePipeline": ("bioneuronai.core", "FeaturePipeline"),
+    "Predictor": ("bioneuronai.core", "Predictor"),
+    "SignalInterpreter": ("bioneuronai.core", "SignalInterpreter"),
+    "SignalType": ("bioneuronai.core", "SignalType"),
+    "RiskLevel": ("bioneuronai.core", "RiskLevel"),
+    "AITradingSignal": ("bioneuronai.core.inference_engine", "TradingSignal"),
+    "create_inference_engine": ("bioneuronai.core", "create_inference_engine"),
+    "StrategyGene": ("bioneuronai.core.self_improvement", "StrategyGene"),
+    "EvolutionEngine": ("bioneuronai.core.self_improvement", "EvolutionEngine"),
+    "PopulationManager": ("bioneuronai.core.self_improvement", "PopulationManager"),
+    "MarketData": ("schemas.market", "MarketData"),
+    "TradingSignal": ("schemas.trading", "TradingSignal"),
+    "BinanceFuturesConnector": ("bioneuronai.data", "BinanceFuturesConnector"),
+    "ExchangeRateService": ("bioneuronai.data", "ExchangeRateService"),
+    "RiskManager": ("bioneuronai.risk_management", "RiskManager"),
+    "RiskParameters": ("bioneuronai.risk_management", "RiskParameters"),
+    "AIStrategyFusion": ("bioneuronai.strategies", "AIStrategyFusion"),
+    "StrategySelector": ("bioneuronai.strategies", "StrategySelector"),
+    "RLMetaAgent": ("bioneuronai.strategies.rl_fusion_agent", "RLMetaAgent"),
+    "StrategyFusionEnv": ("bioneuronai.strategies.rl_fusion_agent", "StrategyFusionEnv"),
+    "CryptoNewsAnalyzer": ("bioneuronai.analysis", "CryptoNewsAnalyzer"),
+    "NewsArticle": ("bioneuronai.analysis", "NewsArticle"),
+    "NewsAnalysisResult": ("bioneuronai.analysis", "NewsAnalysisResult"),
+    "get_news_analyzer": ("bioneuronai.analysis", "get_news_analyzer"),
+    "MarketKeywords": ("bioneuronai.analysis", "MarketKeywords"),
+    "KeywordMatch": ("bioneuronai.analysis", "KeywordMatch"),
+    "NewsPrediction": ("bioneuronai.analysis.news.prediction_loop", "NewsPrediction"),
+    "NewsPredictionLoop": ("bioneuronai.analysis.news", "NewsPredictionLoop"),
+    "TradingPlanController": ("bioneuronai.planning", "TradingPlanController"),
+    "MarketAnalyzer": ("bioneuronai.planning", "MarketAnalyzer"),
+    "PairSelector": ("bioneuronai.planning", "PairSelector"),
+    "cli_main": ("bioneuronai.cli", "cli_main"),
+}
 
-from schemas.market import MarketData  # noqa: E402
-from schemas.trading import TradingSignal  # noqa: E402
-from .data import BinanceFuturesConnector, ExchangeRateService  # noqa: E402
-from .risk_management import RiskManager, RiskParameters  # noqa: E402
-from .strategies import AIStrategyFusion, StrategySelector  # noqa: E402
 
-#  ()
-imported_strategy_gene: Any = None
-imported_evolution_engine: Any = None
-imported_population_manager: Any = None
-try:
-    from .core.self_improvement import (
-        StrategyGene as imported_strategy_gene,
-        EvolutionEngine as imported_evolution_engine,
-        PopulationManager as imported_population_manager,
-    )
-    GENETIC_ALGO_AVAILABLE = True
-except ImportError:
-    GENETIC_ALGO_AVAILABLE = False
+def __getattr__(name: str) -> Any:
+    """Lazy public export loader.
 
-StrategyGene: Any = imported_strategy_gene
-EvolutionEngine: Any = imported_evolution_engine
-PopulationManager: Any = imported_population_manager
+    The package itself stays importable so API status/readiness can report
+    runtime problems. Accessing core AI/trading symbols still imports the real
+    module and raises the original error when the runtime is not ready.
+    """
+    if name in {
+        "TORCH_AVAILABLE",
+        "STRATEGIES_AVAILABLE",
+        "GENETIC_ALGO_AVAILABLE",
+        "RL_FUSION_AVAILABLE",
+        "NEWS_PREDICTION_AVAILABLE",
+    }:
+        return _check_export_available(name)
+    target = _EXPORTS.get(name)
+    if target is None:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    module_name, attr_name = target
+    module = importlib.import_module(module_name)
+    value = getattr(module, attr_name)
+    globals()[name] = value
+    return value
 
-# 
-from .analysis import (  # noqa: E402
-    CryptoNewsAnalyzer,
-    NewsArticle,
-    NewsAnalysisResult,
-    get_news_analyzer,
-    MarketKeywords,
-    KeywordMatch
-)
 
-#  (RLHF)
-imported_news_prediction: Any = None
-imported_news_prediction_loop: Any = None
-try:
-    from .analysis.news import (  # ✅ 修正：從 news 子模組導入
-        NewsPredictionLoop as imported_news_prediction_loop,
-    )
-    # 檢查是否有 NewsPrediction 類
+def _check_export_available(name: str) -> bool:
+    groups = {
+        "TORCH_AVAILABLE": ("bioneuronai.core", "TradingEngine"),
+        "STRATEGIES_AVAILABLE": ("bioneuronai.strategies", "StrategySelector"),
+        "GENETIC_ALGO_AVAILABLE": ("bioneuronai.core.self_improvement", "StrategyGene"),
+        "RL_FUSION_AVAILABLE": ("bioneuronai.strategies.rl_fusion_agent", "RLMetaAgent"),
+        "NEWS_PREDICTION_AVAILABLE": ("bioneuronai.analysis.news", "NewsPredictionLoop"),
+    }
+    module_name, attr_name = groups[name]
     try:
-        from .analysis.news.prediction_loop import NewsPrediction as imported_news_prediction
-    except (ImportError, AttributeError):
-        imported_news_prediction = None
-    NEWS_PREDICTION_AVAILABLE = True
-except ImportError:
-    NEWS_PREDICTION_AVAILABLE = False
-    imported_news_prediction = None
-    imported_news_prediction_loop = None
-
-NewsPrediction: Any = imported_news_prediction
-NewsPredictionLoop: Any = imported_news_prediction_loop
-
-# 
-from .planning import (  # noqa: E402
-    TradingPlanController,
-    MarketAnalyzer,
-    PairSelector
-)
-# : SOPAutomationSystem, PreTradeCheckSystem
-
-#  RL Meta-Agent ()
-imported_rl_meta_agent: Any = None
-imported_strategy_fusion_env: Any = None
-try:
-    from .strategies.rl_fusion_agent import (
-        RLMetaAgent as imported_rl_meta_agent,
-        StrategyFusionEnv as imported_strategy_fusion_env,
-    )
-    RL_FUSION_AVAILABLE = True
-except ImportError:
-    RL_FUSION_AVAILABLE = False
-
-RLMetaAgent: Any = imported_rl_meta_agent
-StrategyFusionEnv: Any = imported_strategy_fusion_env
-
-# CLI 統一入口
-from .cli import cli_main  # noqa: E402
-
-#
-CryptoFuturesTrader = TradingEngine
+        module = importlib.import_module(module_name)
+        getattr(module, attr_name)
+        return True
+    except Exception:
+        return False
 
 __all__ = [
     # 
@@ -210,18 +176,3 @@ __all__ = [
 
 logger.debug("[BioNeuronai v%s] 已載入 %d 個公開符號", __version__, len(__all__))
 logger.debug("模組: core | analysis | strategies | trading | data | risk_management")
-
-if GENETIC_ALGO_AVAILABLE:
-    logger.debug("遺傳演算法模組已啟用")
-else:
-    logger.debug("遺傳演算法模組不可用 (需要 numpy)")
-
-if RL_FUSION_AVAILABLE:
-    logger.debug("RL Meta-Agent 已啟用")
-else:
-    logger.debug("RL Meta-Agent 不可用 (需要 stable-baselines3 + gymnasium)")
-
-if NEWS_PREDICTION_AVAILABLE:
-    logger.debug("新聞預測模組已啟用")
-else:
-    logger.debug("新聞預測模組不可用")

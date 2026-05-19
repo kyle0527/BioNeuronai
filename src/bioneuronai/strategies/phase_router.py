@@ -83,7 +83,6 @@ class PhaseConfig:
     # 推薦策略（按優先級排序）
     primary_strategy: str = "trend_following"
     secondary_strategy: Optional[str] = None
-    fallback_strategy: str = "swing_trading"
     
     # 交易動作階段專屬策略配置 (AI 可動態調整)
     # 若設置，則覆蓋 primary_strategy
@@ -456,7 +455,6 @@ class TradingPhaseRouter:
             end_hour=16,
             primary_strategy="trend_following",
             secondary_strategy="swing_trading",
-            fallback_strategy="mean_reversion",
             preferred_actions=[PhaseAction.HOLD, PhaseAction.SCALE_IN],
             position_size_multiplier=1.2,  # 增加倉位（穩定期）
             allow_carry_position=True,
@@ -510,7 +508,7 @@ class TradingPhaseRouter:
         configs[TradingPhase.HIGH_VOLATILITY] = PhaseConfig(
             phase=TradingPhase.HIGH_VOLATILITY,
             primary_strategy="breakout_trading",
-            fallback_strategy="trend_following",
+            secondary_strategy="trend_following",
             preferred_actions=[PhaseAction.ENTER_LONG, PhaseAction.ENTER_SHORT],
             position_size_multiplier=0.6,
             risk_multiplier=1.3,
@@ -632,32 +630,13 @@ class TradingPhaseRouter:
         # 使用 AI 選擇最佳策略
         strategy_name = self.get_best_strategy_for_action(phase, action_phase)
         
-        # 嘗試獲取策略實例
         strategy = self.strategies.get(strategy_name)
-        if strategy:
-            return strategy
-        
-        # 降級嘗試
-        config = self.phase_configs[phase]
-        
-        # 嘗試主策略
-        primary = self.strategies.get(config.primary_strategy)
-        if primary:
-            return primary
-        
-        # 嘗試次要策略
-        if config.secondary_strategy:
-            secondary = self.strategies.get(config.secondary_strategy)
-            if secondary:
-                return secondary
-        
-        # 後備策略
-        fallback = self.strategies.get(config.fallback_strategy)
-        if fallback:
-            return fallback
-        
-        # 最後的保障
-        return list(self.strategies.values())[0]
+        if strategy is None:
+            raise RuntimeError(
+                f"PhaseRouter 選到未註冊策略: phase={phase.value}, "
+                f"action_phase={action_phase.value}, strategy={strategy_name}"
+            )
+        return strategy
 
     def _infer_hold_or_exit(
         self,

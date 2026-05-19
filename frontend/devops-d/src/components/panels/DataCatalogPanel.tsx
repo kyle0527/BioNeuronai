@@ -102,7 +102,7 @@ export function DataCatalogPanel() {
         {catalog && (
           <>
             <div className="flex items-center gap-2 text-xs text-muted-foreground font-mono">
-              <span>根目錄：{catalog.root ?? 'backtest/data'}</span>
+              <span className="min-w-0 flex-1 break-all">根目錄：{catalog.root ?? 'backtest/data'}</span>
               <Badge variant="secondary" className="ml-auto">
                 {catalog.dataset_count ?? datasets.length} 筆
               </Badge>
@@ -127,7 +127,7 @@ export function DataCatalogPanel() {
                   >
                     <span className="font-semibold w-20 shrink-0">{ds.symbol}</span>
                     <Badge variant="outline" className="text-[10px] px-1.5 py-0">{ds.interval}</Badge>
-                    <span className="text-muted-foreground flex-1">
+                    <span className="text-muted-foreground flex-1 min-w-0 break-all">
                       {ds.start_date ?? '?'} ~ {ds.end_date ?? '?'}
                     </span>
                     {ds.zip_count !== undefined && (

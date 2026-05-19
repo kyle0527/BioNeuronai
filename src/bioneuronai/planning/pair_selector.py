@@ -23,14 +23,14 @@ class PairSelector:
 
     def __init__(self, connector=None):
         self.name = "PairSelector"
-        self._connector = connector  # 可注入 BinanceFuturesConnector；None 時降級為預設清單
+        self._connector = connector  # 可注入 BinanceFuturesConnector；None 時回報資料不可用
 
     async def select_optimal_pairs(self, market_analysis=None, risk_params=None) -> Dict:
         """根據真實市場資料選擇最優交易對。
 
         使用注入的 BinanceFuturesConnector 取得各幣對 24h 行情，
         依成交量降序排列並過濾極端波動的幣對。
-        若 connector 未設定或 API 呼叫失敗，則降級使用主流預設清單。
+        若 connector 未設定或 API 呼叫失敗，直接回報資料不可用，不使用預設交易對補值。
         """
         logger.info("💱 PairSelector：篩選最優交易對...")
         _market_analysis = market_analysis  # 保留供未來整合使用
@@ -39,10 +39,9 @@ class PairSelector:
         if self._connector is not None:
             scored = self._fetch_and_score(self._candidate_pairs(risk_params))
         
-        # API 失敗或 connector 不可用時的保守降級
         if not scored:
-            logger.warning("PairSelector：無法取得即時行情，使用預設主流幣對")
-            return self._default_result()
+            logger.error("PairSelector：無法取得即時行情，交易對篩選不可用")
+            return self._unavailable_result()
 
         # 依 24h 成交量降序排列
         scored.sort(key=lambda x: x["volume_usdt"], reverse=True)
@@ -100,11 +99,11 @@ class PairSelector:
         return result
 
     @staticmethod
-    def _default_result() -> Dict:
+    def _unavailable_result() -> Dict:
         return {
-            "primary_pairs": ["BTCUSDT", "ETHUSDT", "BNBUSDT"],
-            "backup_pairs": ["SOLUSDT", "ADAUSDT"],
+            "primary_pairs": [],
+            "backup_pairs": [],
             "excluded_pairs": [],
-            "selection_criteria": {"source": "default_fallback"},
+            "selection_criteria": {"source": "data_unavailable"},
             "pair_details": {},
         }

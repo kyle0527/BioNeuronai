@@ -22,12 +22,18 @@ export interface ModuleStatus {
   name: string
   available: boolean
   error?: string | null
+  required?: boolean
+  category?: string | null
+  details?: Record<string, unknown> | null
 }
 
 export interface StatusResponse {
   modules: ModuleStatus[]
   version?: string | null
   all_ok: boolean
+  ready?: boolean
+  blocking?: string[]
+  readiness?: ModuleStatus[]
 }
 
 export interface ChatResponse {
@@ -38,6 +44,9 @@ export interface ChatResponse {
   confidence?: number | null
   market_context_used?: boolean
   stopped_reason?: string | null
+  action?: string | null
+  tool_calls?: Array<Record<string, unknown>>
+  structured_data?: Record<string, unknown> | null
   latency_ms?: number | null
 }
 
@@ -98,6 +107,29 @@ export interface DashboardSnapshot {
     lastUpdated?: string
   }
   positions?: unknown[] | null
+}
+
+export interface MarketCandle {
+  open_time: number
+  open_time_iso: string
+  open: number
+  high: number
+  low: number
+  close: number
+  volume: number
+  close_time: number
+  close_time_iso: string
+  closed: boolean
+}
+
+export interface MarketKlinesData {
+  symbol: string
+  interval: string
+  source: string
+  server_time: string
+  polling_hint_seconds?: number
+  latest: MarketCandle
+  candles: MarketCandle[]
 }
 
 type RequestLogger = (log: RequestLog) => void
@@ -282,5 +314,13 @@ export const endpoints = {
     if (interval) params.set('interval', interval)
     const query = params.toString()
     return api.get<RestApiResponse>(`/api/v1/data/catalog${query ? `?${query}` : ''}`)
+  },
+  marketKlines: (symbol: string, interval: string, limit = 120) => {
+    const params = new URLSearchParams({
+      symbol,
+      interval,
+      limit: String(limit),
+    })
+    return api.get<RestApiResponse<MarketKlinesData>>(`/api/v1/market/klines?${params.toString()}`)
   },
 }

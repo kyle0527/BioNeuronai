@@ -1,7 +1,7 @@
 # BioNeuronai REST API 使用手冊
 
-> **版本**：v2.1  
-> **更新日期**：2026-05-13
+> **版本**：v2.1 正式主線 / v2.2 訓練後驗證期
+> **更新日期**：2026-05-19
 > **伺服器預設**：`http://localhost:8000`  
 > **互動文件（Swagger UI）**：`http://localhost:8000/docs`
 
@@ -11,7 +11,7 @@
 
 - [1. 概述](#1-概述)
 - [2. 啟動方式](#2-啟動方式)
-  - [Docker（推薦）](#docker推薦)
+  - [Docker（後續重建）](#docker後續重建)
   - [本地直接啟動](#本地直接啟動)
   - [確認是否正常啟動](#確認是否正常啟動)
 - [3. 通用規格](#3-通用規格)
@@ -51,6 +51,7 @@
   - [GET /api/v1/risk/config](#get-apiv1riskconfig)
   - [PUT /api/v1/risk/config](#put-apiv1riskconfig)
   - [GET /api/v1/data/catalog](#get-apiv1datacatalog)
+  - [GET /api/v1/market/klines](#get-apiv1marketklines)
 - [12. WebSocket 端點](#12-websocket-端點)
   - [WS /ws/trade](#ws-wstrade)
   - [WS /ws/analytics](#ws-wsanalytics)
@@ -76,18 +77,19 @@ API 伺服器本身不含業務邏輯，它只是把呼叫轉發給對應的模�
 
 ## 2. 啟動方式
 
-### Docker（推薦）
+### Docker（後續重建）
 ```bash
 docker compose up api
 ```
-API 容器啟動後，健康檢查會在 30 秒內確認服務可用。
+本輪先以本機 API 作為主要驗證入口；Docker image 會在自然語言、交易判斷與本機 API/UI 流程收斂後最後重建。
 
 ### 本地直接啟動
 ```bash
-# 安裝依賴後
-uvicorn bioneuronai.api.app:app --host 0.0.0.0 --port 8000
+python -m pip install --index-url https://download.pytorch.org/whl/cpu torch==2.8.0+cpu torchvision==0.23.0+cpu torchaudio==2.8.0+cpu
+python -m pip install -e .
+python -m uvicorn bioneuronai.api.app:app --host 127.0.0.1 --port 8000
 # 或透過 main.py
-python -m uvicorn bioneuronai.api.app:app --reload
+python -m uvicorn bioneuronai.api.app:app --reload --host 127.0.0.1 --port 8000
 ```
 
 ### 確認是否正常啟動
@@ -115,7 +117,7 @@ Invoke-RestMethod -Uri "http://localhost:8000/" -Method GET
 
 ### GET /api/v1/status
 
-檢查所有核心模組是否可載入並初始化。
+檢查核心模組、Python/PyTorch runtime、現役交易模型、TinyLLM 聊天模型、必要設定檔與外部公開行情是否可用。
 
 **請求：** 無請求體
 
@@ -124,19 +126,25 @@ Invoke-RestMethod -Uri "http://localhost:8000/" -Method GET
 {
   "success": true,
   "modules": [
-    { "name": "TradingEngine",   "available": true,  "error": null },
-    { "name": "BinanceFutures",  "available": true,  "error": null },
-    { "name": "NewsAnalyzer",    "available": true,  "error": null },
-    { "name": "SOPSystem",       "available": true,  "error": null },
-    { "name": "PreTradeCheck",   "available": true,  "error": null }
+    { "name": "TradingEngine", "available": true, "required": true, "category": "module", "error": null },
+    { "name": "BinanceFutures", "available": true, "required": true, "category": "module", "error": null }
   ],
   "version": "2.1",
   "all_ok": true,
-  "timestamp": "2026-04-28T13:24:19.794456"
+  "ready": true,
+  "blocking": [],
+  "readiness": [
+    { "name": "Python 3.13 runtime", "available": true, "required": true, "category": "runtime" },
+    { "name": "PyTorch import", "available": true, "required": true, "category": "runtime" },
+    { "name": "Active trading model", "available": true, "required": true, "category": "model" },
+    { "name": "TinyLLM chat model", "available": true, "required": true, "category": "model" },
+    { "name": "Binance public market data", "available": true, "required": false, "category": "external" }
+  ],
+  "timestamp": "2026-05-19T13:24:19.794456"
 }
 ```
 
-**注意：** `all_ok: false` 通常是模組 import 失敗，請查看 `logs/` 下的日誌。
+**注意：** `ready: false` 時請先看 `blocking`。`required=false` 代表外部或輔助項目，通常不阻擋 API 啟動；必要項目失敗時不應降級成假狀態，而是直接顯示錯誤。
 
 ---
 
@@ -529,7 +537,7 @@ Invoke-RestMethod -Method DELETE "http://localhost:8000/api/v1/positions/pos_btc
 
 ## 8. 訓練與模型端點 (Training & Model)
 
-本節端點用於銜接雲端訓練與本地 runtime。雲端訓練本身仍建議先用 `Dockerfile.train` / CLI / GCS 執行；API 預設提供遠端作業登記、狀態追蹤與模型 promote。
+本節端點用於銜接訓練作業與本地 runtime。目前第一輪雲端訓練產物已接回 `config/active_model.json`；這些端點主要用於後續再訓練、遠端作業登記、狀態追蹤與模型 promote。若要啟動新的雲端訓練，仍建議用 `Dockerfile.train` / CLI / GCS 執行，API 只負責登記與交接，不直接取代雲端訓練平台。
 
 ### POST /api/v1/training/start
 
@@ -771,6 +779,35 @@ Invoke-RestMethod -Method DELETE "http://localhost:8000/api/v1/chat/d4f505c7-0bc
 ```powershell
 Invoke-RestMethod "http://localhost:8000/api/v1/data/catalog?symbol=BTCUSDT&interval=1h"
 ```
+
+---
+
+### GET /api/v1/market/klines
+
+取得 Binance Futures public 最新 K 線，供 Operations Dashboard 的 Live Market Chart 使用。最後一根 K 線若尚未收盤，`closed=false`，UI 會每 3 秒輪詢更新最後一根 candle。
+
+**參數：**
+
+| 名稱 | 說明 | 預設 |
+|---|---|---|
+| `symbol` | 交易對，例如 `BTCUSDT` | `BTCUSDT` |
+| `interval` | K 線週期，例如 `1m`、`5m`、`1h`、`4h` | `1m` |
+| `limit` | 回傳根數，10 到 500 | `120` |
+
+**範例：**
+
+```powershell
+Invoke-RestMethod "http://localhost:8000/api/v1/market/klines?symbol=BTCUSDT&interval=1m&limit=120"
+```
+
+**回應重點：**
+
+| 欄位 | 說明 |
+|---|---|
+| `data.latest` | 最新一根 K 線，可能是當下正在形成的 candle |
+| `data.latest.closed` | `false` 代表當下 K 線仍在更新 |
+| `data.candles[]` | OHLCV K 線陣列 |
+| `data.source` | `binance_futures_public` |
 
 ---
 

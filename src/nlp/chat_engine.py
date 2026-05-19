@@ -566,42 +566,30 @@ def create_chat_engine(
     model_path: Optional[str] = None,
     language: str = "auto",
     max_new_tokens: int = 256,
-) -> Optional[ChatEngine]:
+) -> ChatEngine:
     """
     建立 ChatEngine 實例（自動載入模型與分詞器）。
-    若模型不存在或 torch 未安裝，返回 None。
+    若模型不存在或 torch/runtime 不可用，直接拋出錯誤。
     """
-    try:
-        from .tiny_llm import load_llm
-        from .bilingual_tokenizer import BilingualTokenizer
+    from .tiny_llm import load_llm
+    from .bilingual_tokenizer import BilingualTokenizer
 
-        tokenizer = BilingualTokenizer()
+    tokenizer = BilingualTokenizer()
 
-        # 嘗試載入分詞器詞彙
-        default_tok_path = Path(__file__).parent.parent.parent / "model" / "tokenizer" / "vocab.json"
-        if default_tok_path.exists():
-            try:
-                tokenizer = BilingualTokenizer.load(str(default_tok_path))
-            except Exception:
-                pass
+    # 嘗試載入分詞器詞彙
+    default_tok_path = Path(__file__).parent.parent.parent / "model" / "tokenizer" / "vocab.json"
+    if default_tok_path.exists():
+        tokenizer = BilingualTokenizer.load(str(default_tok_path))
 
-        # ChatEngine 僅使用 TinyLLM 文字權重，不再混用交易主線 checkpoint。
-        ckpt_path = Path(model_path) if model_path else (
-            Path(__file__).parent.parent.parent / "model" / "tiny_llm_100m.pth"
-        )
-        if not ckpt_path.exists():
-            logger.warning(f"[ChatEngine] 未找到 TinyLLM 權重 {ckpt_path}")
-            return None
+    # ChatEngine 僅使用 TinyLLM 文字權重，不再混用交易主線 checkpoint。
+    ckpt_path = Path(model_path) if model_path else (
+        Path(__file__).parent.parent.parent / "model" / "tiny_llm_100m.pth"
+    )
+    if not ckpt_path.exists():
+        raise FileNotFoundError(f"[ChatEngine] 未找到 TinyLLM 權重 {ckpt_path}")
 
-        model, _ = load_llm(str(ckpt_path), device="cpu")
-        logger.info(f"[ChatEngine] TinyLLM 模型已從 {ckpt_path} 載入")
+    model, _ = load_llm(str(ckpt_path), device="cpu")
+    logger.info(f"[ChatEngine] TinyLLM 模型已從 {ckpt_path} 載入")
 
-        model.eval()
-        return ChatEngine(model, tokenizer, language=language, max_new_tokens=max_new_tokens)
-
-    except ImportError as e:
-        logger.warning(f"[ChatEngine] torch 未安裝，對話引擎不可用: {e}")
-        return None
-    except Exception as e:
-        logger.error(f"[ChatEngine] 建立失敗: {e}")
-        return None
+    model.eval()
+    return ChatEngine(model, tokenizer, language=language, max_new_tokens=max_new_tokens)

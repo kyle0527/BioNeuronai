@@ -1,7 +1,7 @@
 # BioNeuronAI 使用者操作手冊集中索引
 
 > 建立日期：2026-05-12
-> 更新日期：2026-05-13
+> 更新日期：2026-05-19
 > 目的：只整理「使用者實際操作系統時會用到的手冊」，包含開機、關機、CLI、API、Dashboard、Docker、回測、分析、策略、風控、常見問題與操作排查。
 
 ---
@@ -54,8 +54,8 @@
 | 03 | [03_QUICKSTART.md](03_QUICKSTART.md) | `QUICKSTART_V2.1.md` | 快速開始 | 可用，部分內容與 02 重疊 |
 | 04 | [04_CLI_OPERATION.md](04_CLI_OPERATION.md) | `OPERATION_MANUAL.md` | CLI 與標準 SOP | 可用，部分內容與 03 重疊 |
 | 05 | [05_API_USER_MANUAL.md](05_API_USER_MANUAL.md) | `API_USER_MANUAL.md` | REST API / WebSocket | 已用本地 API 逐端點驗證 |
-| 06 | [06_FRONTEND_DASHBOARD.md](06_FRONTEND_DASHBOARD.md) | `FRONTEND_DASHBOARD_MANUAL.md` | Operations Dashboard | 已改為 Operations / Validation / Config / Dev Tools / Chat；已補 paper-live、Training / Model 面板說明 |
-| 07 | [07_DOCKER_DEPLOYMENT.md](07_DOCKER_DEPLOYMENT.md) | `DOCKER_DEPLOYMENT_MANUAL.md` | Docker Compose | source compose 已驗證；image 層待重建後複驗 |
+| 06 | [06_FRONTEND_DASHBOARD.md](06_FRONTEND_DASHBOARD.md) | `FRONTEND_DASHBOARD_MANUAL.md` | Operations Dashboard | 已改為 Operations / Validation / Config / Dev Tools / Chat；已補 paper-live、Training / Model、Live Market Chart；2026-05-19 已修復 JSON/Request History/長文字版面溢出 |
+| 07 | [07_DOCKER_DEPLOYMENT.md](07_DOCKER_DEPLOYMENT.md) | `DOCKER_DEPLOYMENT_MANUAL.md` | Docker Compose | 本輪先不作主要驗證；本機功能收斂後最後重建 image |
 | 08 | [08_BACKTEST_SYSTEM.md](08_BACKTEST_SYSTEM.md) | `BACKTEST_SYSTEM_GUIDE.md` | 回測與 replay | 已用短區間指令與 API 驗證 |
 | 09 | [09_ANALYSIS_MODULE.md](09_ANALYSIS_MODULE.md) | `ANALYSIS_MODULE_USER_MANUAL.md` | news / plan / pretrade | 已用 CLI 與 API 驗證 |
 | 10 | [10_STRATEGY_MODULE.md](10_STRATEGY_MODULE.md) | `STRATEGY_MODULE_USER_MANUAL.md` | strategy-backtest / strategy-run | 已用短區間 CLI 與 API 驗證 |
@@ -65,8 +65,8 @@
 | 16 | [16_RUNTIME_ARTIFACTS.md](16_RUNTIME_ARTIFACTS.md) | 新增 | runtime、logs、output、模型產物位置 | 已驗證 |
 | 17 | [17_ENVIRONMENT_VARIABLES.md](17_ENVIRONMENT_VARIABLES.md) | 新增 | `.env` 與環境變數 | 已驗證 |
 | 18 | [18_OPERATION_TROUBLESHOOTING.md](18_OPERATION_TROUBLESHOOTING.md) | 新增 | CLI/API/Backtest/Pretrade 操作排查 | 已驗證 |
-| 19 | [19_DASHBOARD_TROUBLESHOOTING.md](19_DASHBOARD_TROUBLESHOOTING.md) | 新增 | Dashboard / CORS / API 連線排查 | 已驗證 |
-| 20 | [20_UI_END_TO_END_OPERATION.md](20_UI_END_TO_END_OPERATION.md) | 新增 | UI 從啟動到完成一輪操作的端到端流程 | 已完成 API/HTTP/build 與本地瀏覽器截圖驗證；Docker image 層仍需重建後複驗 |
+| 19 | [19_DASHBOARD_TROUBLESHOOTING.md](19_DASHBOARD_TROUBLESHOOTING.md) | 新增 | Dashboard / CORS / API 連線 / 版面排查 | 已驗證 |
+| 20 | [20_UI_END_TO_END_OPERATION.md](20_UI_END_TO_END_OPERATION.md) | 新增 | UI 從啟動到完成一輪操作的端到端流程 | 已完成 API/HTTP/build、本地瀏覽器操作與 API/frontend 複驗；Docker image 仍依本輪規劃留到最後重建 |
 
 ---
 
@@ -110,7 +110,7 @@
 |---:|---|---|---|
 | 21 | 待建立：Release readiness checklist | P2 | 若要正式對外發布，需要一份使用者角度的發版前操作確認表 |
 
-目前下一個使用者可用性目標是長時間跑 paper-live 並回收本地 paper ledger；Docker image 層仍需在 source 檢查完成後一次性重建，再重跑 `status/backtest/simulate` 與 Docker API/frontend。
+目前下一個使用者可用性目標是先讓本機 Python 3.13 runtime、API/UI readiness、自然語言工具呼叫與交易判斷流程穩定；接著補齊 BTC/ETH `4h` 歷史資料，讓 readiness-gate 可以進入完整矩陣回測，最後長時間跑 paper-live / testnet monitor 並重建 Docker image。
 
 ---
 

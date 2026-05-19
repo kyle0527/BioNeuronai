@@ -31,70 +31,43 @@
 
 ## 目前內容
 
+> **資產治理狀態（2026-05-19）**：遠端版本只保留目前實際使用的交易權重 `my_100m_model_trained_20260510.pth`。訓練前基準、Run1 / Run2 原始產物與 Chat / NLP 大權重不再納入遠端同步；若本機需要比較、重新訓練或 Chat 權重，可由本機備份或外部 artifact 另行放回。
+
 | 項目 | 類型 | 目前狀態 | 主要用途 |
 | --- | --- | --- | --- |
-| `my_100m_model.pth` | PyTorch checkpoint | 原始基準 | 未指定 active model 或 env 時的保留基準 |
-| `my_100m_model_trained_20260510.pth` | PyTorch checkpoint | **雲端訓練版（現役）** | Run2 包裝後 promoted，已寫入 `config/active_model.json` |
-| `best_model_run1.pth` | PyTorch checkpoint | GCP Run1 原始產出 | 純 state_dict，備用/比較 |
-| `best_model_run2.pth` | PyTorch checkpoint | GCP Run2 原始產出 | 純 state_dict，已包裝為現役 checkpoint |
-| `tiny_llm_100m.pth` | PyTorch checkpoint | NLP 基礎權重 | `src/nlp/` 訓練/封裝流程起點 |
+| `my_100m_model_trained_20260510.pth` | PyTorch checkpoint | **雲端訓練版（現役，Git LFS）** | Run2 包裝後 promoted，已寫入 `config/active_model.json` |
 | `tiny_llm_en_zh/` | 模型封裝目錄 | 基礎版（未訓練） | TinyLLM 雙語基礎模型包 |
 | `tiny_llm_en_zh_trained/` | 模型封裝目錄 | 訓練版（知識蒸餾） | loss=1.55，Perplexity=4.70，17分鐘訓練 |
 
-目前檔案大小（依工作樹實際內容）：
+目前納入遠端同步的 `.pth` 檔案：
 
-- `my_100m_model.pth`: ~425.93 MB（原始基準，保留備查）
 - `my_100m_model_trained_20260510.pth`: ~425.94 MB（雲端 Run2 promoted）
-- `best_model_run1.pth`: ~425.93 MB（GCP Run1 原始 state_dict）
-- `best_model_run2.pth`: ~425.93 MB（GCP Run2 原始 state_dict）
-- `tiny_llm_100m.pth`: ~473.25 MB
-- `tiny_llm_en_zh_trained/pytorch_model.bin`: ~473.25 MB
+
+本機可存在但不再推送的 `.pth` 檔案：
+
+- `my_100m_model.pth`：訓練前基準，只供本機比較或重新訓練參考。
+- `best_model_run1.pth` / `best_model_run2.pth`：第一輪雲端訓練原始產物，現役已包裝為 `my_100m_model_trained_20260510.pth`。
+- `tiny_llm_100m.pth`：Chat / NLP 權重；目前為本機資產，不進遠端，以降低 repository 容量。
+
+---
+
+## 2026-05-19 權重同步策略
+
+目前遠端只同步現役交易權重。訓練前/後比較紀錄保留在技術報告中，但訓練前基準不再作為遠端必要資產。
 
 ---
 
 ## 主要模型資產
 
-### `my_100m_model.pth`
+### `my_100m_model_trained_20260510.pth`
 
-這是原始基準 checkpoint，保留作為回退與比較用途。
-
-已確認的實際用途：
-
-- `src/bioneuronai/core/inference_engine.py`
-- `src/bioneuronai/core/trading_engine.py`
-
-在沒有 `MODEL_PATH` / `MODEL_DIR`，且沒有 `config/active_model.json` 時，載入名稱 `my_100m_model` 會回退到：
-
-```text
-model/my_100m_model.pth
-```
-
-目前實際的現役交易 checkpoint 由 `config/active_model.json` 指定。若該檔存在，`ModelLoader` 會優先載入 promoted 權重，例如：
+目前實際的現役交易 checkpoint 由 `config/active_model.json` 指定。`ModelLoader` 會優先載入 promoted 權重：
 
 ```text
 model/my_100m_model_trained_20260510.pth
 ```
 
 該權重是 TinyLLM numeric signal checkpoint，包含 `numeric_proj` 與 `signal_head`，可直接走 `forward_signal()` 交易訊號推論路徑。
-
-### `tiny_llm_100m.pth`
-
-這是 TinyLLM 權重 checkpoint，主要被 `src/nlp/` 工具鏈與 `ChatEngine` 使用，不是 `src/bioneuronai` 交易主鏈的正式交易模型。
-
-目前已確認的用途：
-
-- `src/nlp/tiny_llm.py` 產出/保存
-- `src/nlp/chat_engine.py` 預設文字對話模型
-- `src/nlp/tools/create_model_package.py` 作為模型封裝輸入
-- `src/nlp/training/` 相關流程的基礎權重
-
-因此它比較接近：
-
-- NLP 開發資產
-- 訓練起點
-- 封裝來源
-
-而不是現在交易系統的直接推論模型。
 
 ### `tiny_llm_en_zh/`
 

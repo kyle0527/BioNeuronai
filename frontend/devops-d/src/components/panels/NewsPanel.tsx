@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { JSONViewer } from '@/components/JSONViewer'
 import { ErrorPanel } from '@/components/ErrorPanel'
 import { LoadingSpinner } from '@/components/LoadingSpinner'
@@ -72,9 +71,7 @@ export function NewsPanel() {
             <Separator />
             <div className="space-y-2">
               <p className="text-xs font-medium text-muted-foreground">News Data:</p>
-              <ScrollArea className="h-[300px]">
-                <JSONViewer data={data} maxHeight="none" />
-              </ScrollArea>
+              <JSONViewer data={data} maxHeight="300px" />
             </div>
           </>
         )}

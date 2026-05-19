@@ -55,8 +55,8 @@ export function RequestHistoryPanel() {
   }
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 h-[calc(100vh-12rem)]">
-      <Card className="flex flex-col">
+    <div className="grid h-[calc(100vh-12rem)] min-h-[520px] grid-cols-1 gap-4 overflow-hidden lg:grid-cols-2">
+      <Card className="flex min-h-0 flex-col overflow-hidden">
         <CardHeader className="flex-none">
           <div className="flex items-center justify-between">
             <CardTitle className="text-sm font-mono font-medium">Request History</CardTitle>
@@ -110,8 +110,8 @@ export function RequestHistoryPanel() {
 
         <Separator />
 
-        <CardContent className="flex-1 p-0 overflow-hidden">
-          <ScrollArea className="h-full">
+        <CardContent className="min-h-0 flex-1 overflow-hidden p-0">
+          <ScrollArea className="h-full overflow-hidden">
             {filteredLogs.length === 0 ? (
               <div className="p-6 text-center text-sm text-muted-foreground">
                 <FunnelSimple size={32} className="mx-auto mb-2 opacity-50" />
@@ -162,7 +162,7 @@ export function RequestHistoryPanel() {
         </CardContent>
       </Card>
 
-      <Card className="flex flex-col">
+      <Card className="flex min-h-0 flex-col overflow-hidden">
         <CardHeader className="flex-none">
           <CardTitle className="text-sm font-mono font-medium">
             {selectedLog ? 'Request Details' : 'Select a Request'}
@@ -171,9 +171,9 @@ export function RequestHistoryPanel() {
 
         <Separator />
 
-        <CardContent className="flex-1 p-0 overflow-hidden">
+        <CardContent className="min-h-0 flex-1 overflow-hidden p-0">
           {selectedLog ? (
-            <ScrollArea className="h-full">
+            <ScrollArea className="h-full overflow-hidden">
               <div className="p-4 space-y-4">
                 <div>
                   <p className="text-xs font-medium text-muted-foreground mb-2">Request</p>

@@ -95,13 +95,13 @@ flowchart TD
     CNA --> RAGADAPTER[rag.services.news_adapter]
     RAGADAPTER --> IKB[rag.internal.InternalKnowledgeBase]
 
-    IE --> MODEL[model/my_100m_model.pth] (Standby狀態)
+    IE --> MODEL[config/active_model.json\n-> trained checkpoint]
     CE --> CHATMODEL[model/tiny_llm_100m.pth]
     IE --> FP[FeaturePipeline]
     FP --> FEAT[1024 維特徵]
 ```
 
-> 補充：目前 AI 預測模型 `model/my_100m_model.pth` 處於待命（Standby）狀態，正式交易決策以「演算法融合」為主；對話功能由 `ChatEngine -> model/tiny_llm_100m.pth` 處理。
+> 補充：目前 AI 預測模型由 `config/active_model.json` 指向訓練後 checkpoint，2026-05-19 已在本機 Python 3.13 + PyTorch CPU 2.8.0 runtime 驗證可載入；正式交易決策仍以「演算法融合」與風控 gate 主導。這代表模型已接回 runtime，但不代表交易績效已完成正式驗證。對話功能由 `ChatEngine -> model/tiny_llm_100m.pth` 處理。
 
 ### 1.2 契約層與基礎設施依賴
 

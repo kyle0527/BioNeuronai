@@ -157,7 +157,7 @@ src/bioneuronai/strategies/selector/
 - 這些是**配置模板**
 - 不是所有模板都必然對應到 `strategies/` 內有完整的即時實例策略類
 
-### `profile.py` (🆕 `v2.2.0`)
+### `profile.py` (v2.2 訓練後驗證期新增)
 
 管理 **Golden Strategy Profile** 的生成與載入：
 

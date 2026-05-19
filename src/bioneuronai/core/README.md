@@ -181,7 +181,7 @@ from bioneuronai.core import (
 ```
 
 補充：
-1. `__init__.py` 在 `torch` 或相關依賴不可用時會做優雅降級，將主要符號設為 `None`
+1. `__init__.py` 不再對 `torch` 或核心 runtime 做自動容錯；核心依賴不可用時應直接啟動失敗，避免 API/UI 呈現半可用狀態。
 2. `CryptoFuturesTrader = TradingEngine` 是相容 alias，但不在 `__all__` 主匯出列表中
 
 ---

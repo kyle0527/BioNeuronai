@@ -12,6 +12,7 @@ import { RiskConfigPanel } from '@/components/panels/RiskConfigPanel'
 import { DataCatalogPanel } from '@/components/panels/DataCatalogPanel'
 import { TrainingPanel } from '@/components/panels/TrainingPanel'
 import { OperationsOverviewPanel } from '@/components/panels/OperationsOverviewPanel'
+import { MarketChartPanel } from '@/components/panels/MarketChartPanel'
 import { Toaster } from '@/components/ui/sonner'
 import { Badge } from '@/components/ui/badge'
 import { Link } from '@phosphor-icons/react'
@@ -52,6 +53,7 @@ function AppContent() {
 
           <TabsContent value="operations" className="space-y-4">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <MarketChartPanel />
               <OperationsOverviewPanel />
               <TradeControlPanel />
               <PreTradePanel />

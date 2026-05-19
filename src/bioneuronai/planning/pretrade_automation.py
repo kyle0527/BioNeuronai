@@ -132,30 +132,19 @@ class PreTradeCheckSystem:
         # 嘗試導入交易模組
         self._import_modules()
 
-        # 從配置文件載入風險參數
-        try:
-            from config.trading_config import (
-                MAX_RISK_PER_TRADE,
-                MIN_RISK_REWARD_RATIO,
-                LEVERAGE,
-                MIN_EXPECTED_RETURN
-            )
-            self.default_risk_params = {
-                "risk_percentage": MAX_RISK_PER_TRADE,
-                "min_risk_reward_ratio": MIN_RISK_REWARD_RATIO,
-                "max_leverage": LEVERAGE,
-                "min_expected_return": MIN_EXPECTED_RETURN
-            }
-            logger.info(f"✅ 風險參數已從配置載入: {MAX_RISK_PER_TRADE*100}%")
-        except ImportError:
-            # Fallback 默認值
-            self.default_risk_params = {
-                "risk_percentage": 0.02,
-                "min_risk_reward_ratio": 1.5,
-                "max_leverage": 10,
-                "min_expected_return": 0.005
-            }
-            logger.warning("⚠️ 配置文件不可用，使用默認風險參數")
+        from config.trading_config import (
+            MAX_RISK_PER_TRADE,
+            MIN_RISK_REWARD_RATIO,
+            LEVERAGE,
+            MIN_EXPECTED_RETURN
+        )
+        self.default_risk_params = {
+            "risk_percentage": MAX_RISK_PER_TRADE,
+            "min_risk_reward_ratio": MIN_RISK_REWARD_RATIO,
+            "max_leverage": LEVERAGE,
+            "min_expected_return": MIN_EXPECTED_RETURN
+        }
+        logger.info(f"✅ 風險參數已從配置載入: {MAX_RISK_PER_TRADE*100}%")
 
         self.cost_calculator = TradingCostCalculator(
             vip_level=0,
@@ -365,7 +354,7 @@ class PreTradeCheckSystem:
                 # 6. 綜合評估
                 check.overall_status = self._assess_technical_status(check)
             else:
-                logger.warning("   [WARN] 無法獲取市場數據，使用預設值")
+                logger.warning("   [WARN] 無法獲取市場數據，技術檢查不可用")
                 check.overall_status = "DATA_UNAVAILABLE"
                 
         except Exception as e:
@@ -579,7 +568,7 @@ class PreTradeCheckSystem:
                 if mid > 0:
                     spread_bps = ((best_ask - best_bid) / mid) * 10000
         except Exception as exc:
-            logger.debug(f"無法取得即時交易成本輸入，將回退預設值: {exc}")
+            raise RuntimeError(f"無法取得即時交易成本輸入: {exc}") from exc
         return funding_rate, spread_bps
     
     def _calculate_risk(self, symbol: str, action: str, 
@@ -592,7 +581,9 @@ class PreTradeCheckSystem:
             
             # 1. 獲取帳戶資訊
             account_info = self._get_account_info()
-            calc.account_balance = account_info.get('total_balance', 10000.0)  # 預設$10,000
+            if "total_balance" not in account_info:
+                raise RuntimeError("帳戶資訊缺少 total_balance")
+            calc.account_balance = float(account_info["total_balance"])
             calc.risk_percentage = self.default_risk_params['risk_percentage']
             calc.max_loss_amount = calc.account_balance * calc.risk_percentage
             
@@ -799,65 +790,118 @@ class PreTradeCheckSystem:
     def _get_market_data(self, symbol: str) -> Optional[Dict]:
         """獲取市場數據"""
         try:
-            # 根據不同交易對返回相應數據
-            if "BTC" in symbol:
-                return {
-                    "symbol": symbol,
-                    "price": 50000.0,
-                    "volume_24h": 1000000,
-                    "high_24h": 51000.0,
-                    "low_24h": 49000.0,
-                    "rsi": 55.0,
-                    "macd": {"signal": "BULLISH", "histogram": 0.5},
-                    "bollinger": {"position": "MIDDLE", "width": 0.04},
-                    "support": 49500.0,
-                    "resistance": 50500.0,
-                    "timeframes": {
-                        "15m": "BULLISH",
-                        "1h": "BULLISH", 
-                        "4h": "NEUTRAL"
-                    }
-                }
-            elif "ETH" in symbol:
-                return {
-                    "symbol": symbol,
-                    "price": 3000.0,
-                    "volume_24h": 500000,
-                    "high_24h": 3100.0,
-                    "low_24h": 2900.0,
-                    "rsi": 52.0,
-                    "macd": {"signal": "BULLISH", "histogram": 0.3},
-                    "bollinger": {"position": "MIDDLE", "width": 0.03},
-                    "support": 2950.0,
-                    "resistance": 3050.0,
-                    "timeframes": {
-                        "15m": "BULLISH",
-                        "1h": "NEUTRAL", 
-                        "4h": "NEUTRAL"
-                    }
-                }
-            else:
-                # 默認數據
-                return {
-                    "symbol": symbol,
-                    "price": 1.0,
-                    "volume_24h": 100000,
-                    "high_24h": 1.1,
-                    "low_24h": 0.9,
-                    "rsi": 50.0,
-                    "macd": {"signal": "NEUTRAL", "histogram": 0.0},
-                    "bollinger": {"position": "MIDDLE", "width": 0.02},
-                    "support": 0.95,
-                    "resistance": 1.05,
-                    "timeframes": {
-                        "15m": "NEUTRAL",
-                        "1h": "NEUTRAL", 
-                        "4h": "NEUTRAL"
-                    }
-                }
+            connector = self._get_connector()
+            ticker = connector.get_ticker_24hr(symbol)
+            klines_1h = connector.get_klines(symbol, "1h", 120)
+            if not ticker or not klines_1h:
+                raise RuntimeError(f"{symbol} 行情或 K 線資料不可用")
+
+            closes = [float(k[4]) for k in klines_1h if len(k) > 4]
+            highs = [float(k[2]) for k in klines_1h if len(k) > 4]
+            lows = [float(k[3]) for k in klines_1h if len(k) > 4]
+            if len(closes) < 50:
+                raise RuntimeError(f"{symbol} 1h K 線不足，至少需要 50 根，實際 {len(closes)} 根")
+
+            rsi = self._calculate_rsi_value(closes)
+            macd_histogram = self._calculate_macd_histogram(closes)
+            bb_position, bb_width = self._calculate_bollinger(closes)
+            timeframes = self._load_timeframe_trends(connector, symbol)
+
+            return {
+                "symbol": symbol,
+                "price": float(ticker.get("lastPrice") or closes[-1]),
+                "volume_24h": float(ticker.get("quoteVolume") or ticker.get("volume") or 0),
+                "high_24h": float(ticker.get("highPrice") or max(highs[-24:])),
+                "low_24h": float(ticker.get("lowPrice") or min(lows[-24:])),
+                "rsi": rsi,
+                "macd": {
+                    "signal": "BULLISH" if macd_histogram > 0 else ("BEARISH" if macd_histogram < 0 else "NEUTRAL"),
+                    "histogram": macd_histogram,
+                },
+                "bollinger": {"position": bb_position, "width": bb_width},
+                "support": min(lows[-20:]),
+                "resistance": max(highs[-20:]),
+                "timeframes": timeframes,
+            }
         except Exception as e:
             logger.error(f"獲取市場數據失敗: {e}")
             return None
+
+    @staticmethod
+    def _calculate_rsi_value(closes: List[float], period: int = 14) -> float:
+        if len(closes) <= period:
+            raise RuntimeError(f"RSI 需要至少 {period + 1} 根收盤價")
+        gains = []
+        losses = []
+        for previous, current in zip(closes[-period - 1:-1], closes[-period:]):
+            delta = current - previous
+            gains.append(max(delta, 0.0))
+            losses.append(max(-delta, 0.0))
+        avg_gain = sum(gains) / period
+        avg_loss = sum(losses) / period
+        if avg_loss == 0:
+            return 100.0
+        rs = avg_gain / avg_loss
+        return 100 - (100 / (1 + rs))
+
+    @staticmethod
+    def _ema_values(values: List[float], period: int) -> List[float]:
+        if len(values) < period:
+            raise RuntimeError(f"EMA{period} 需要至少 {period} 筆資料")
+        alpha = 2 / (period + 1)
+        ema = sum(values[:period]) / period
+        output = [ema]
+        for value in values[period:]:
+            ema = value * alpha + ema * (1 - alpha)
+            output.append(ema)
+        return output
+
+    def _calculate_macd_histogram(self, closes: List[float]) -> float:
+        ema12 = self._ema_values(closes, 12)
+        ema26 = self._ema_values(closes, 26)
+        aligned_ema12 = ema12[-len(ema26):]
+        macd_line = [short - long for short, long in zip(aligned_ema12, ema26)]
+        signal = self._ema_values(macd_line, 9)
+        return macd_line[-1] - signal[-1]
+
+    @staticmethod
+    def _calculate_bollinger(closes: List[float], period: int = 20) -> Tuple[str, float]:
+        if len(closes) < period:
+            raise RuntimeError(f"Bollinger 需要至少 {period} 筆資料")
+        window = closes[-period:]
+        mean = sum(window) / period
+        variance = sum((value - mean) ** 2 for value in window) / period
+        std = variance ** 0.5
+        upper = mean + (2 * std)
+        lower = mean - (2 * std)
+        current = closes[-1]
+        if current >= upper:
+            position = "UPPER"
+        elif current <= lower:
+            position = "LOWER"
+        else:
+            position = "MIDDLE"
+        width = (upper - lower) / mean if mean else 0.0
+        return position, width
+
+    def _load_timeframe_trends(self, connector: Any, symbol: str) -> Dict[str, str]:
+        trends: Dict[str, str] = {}
+        for interval in ("15m", "1h", "4h"):
+            klines = connector.get_klines(symbol, interval, 60)
+            if not klines:
+                raise RuntimeError(f"{symbol} {interval} K 線不可用")
+            closes = [float(k[4]) for k in klines if len(k) > 4]
+            if len(closes) < 50:
+                raise RuntimeError(f"{symbol} {interval} K 線不足，至少需要 50 根，實際 {len(closes)} 根")
+            ema20 = self._ema_values(closes, 20)[-1]
+            ema50 = self._ema_values(closes, 50)[-1]
+            if ema20 > ema50:
+                trends[interval] = "BULLISH"
+            elif ema20 < ema50:
+                trends[interval] = "BEARISH"
+            else:
+                trends[interval] = "NEUTRAL"
+        return trends
     
     def _analyze_main_trend(self, data: Dict) -> str:
         """分析主要趨勢"""

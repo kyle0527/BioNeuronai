@@ -1,6 +1,6 @@
 # BioNeuronAI 測試與驗證指南 (Testing & Validation Guide)
 
-> 更新日期：2026-05-13
+> 更新日期：2026-05-19
 > 目的：規範 v2.1 之後的驗證方法。專案目前優先用正式 CLI / API / UI runtime 入口驗證，不以臨時測試檔或 mock 腳本作為功能完成標準。
 
 ## 🚫 測試哲學：End-to-End > 單元測試
@@ -68,6 +68,28 @@ python main.py readiness-gate --output output/readiness_gate.json
 *   **用途**：把「正式交易前需完成 BTC/ETH 多時間框架回測並設定通過門檻」變成可執行保護門。
 *   **檢驗標準**：完整執行時狀態必須為 `PASS`。若資料缺失（例如 4h K 線未下載）或未達交易次數 / OOS 門檻，CLI 會以 `FAIL` 阻擋。
 
+### 6. Dashboard runtime 驗證
+
+修改 `frontend/devops-d/`、API response shape、交易控制或即時行情顯示後，必須用實際 UI 驗證，不只看 TypeScript 編譯。
+
+```bash
+cd frontend/devops-d
+npm run build
+
+# 另一個終端機保持 API 運行
+python -m uvicorn bioneuronai.api.app:app --host 127.0.0.1 --port 8000
+```
+
+瀏覽器開啟 Vite 顯示的網址，例如：
+
+```text
+http://127.0.0.1:5176/
+```
+
+*   **用途**：確認 Operations Dashboard 能連上 API、Live Market Chart 取得當下 K 線、Response JSON 被限制在面板內、Request History 大量紀錄不撐爆 Dev Tools。
+*   **檢驗標準**：`/api/v1/status` 回傳 `ready=true`、`blocking=[]`；`Operations`、`Validation`、`Config`、`Dev Tools`、`Chat` 沒有卡片重疊或水平撐版。
+*   **2026-05-19 紀錄**：已修正 `JSONViewer` 高度限制、`NewsPanel` 舊式巢狀捲動、`RequestHistoryPanel` 大量紀錄高度失控、`ChatPanel` 長文字撐版與 `DataCatalogPanel` 長路徑顯示問題；`npm run build` 與本機瀏覽器版面檢查通過。
+
 ---
 
 ## 🐛 持續整合 (CI) 與防呆 Smoke Test
@@ -81,6 +103,7 @@ python -m pytest tests/test_smoke.py -q
 
 ## 📝 總結
 1.  **開發階段**：使用 `strategy-backtest` 快速迭代演算法。
-2.  **整合階段**：使用 `pretrade` 與 `status` 確認各模組接通。
-3.  **上線前門檻**：使用 `readiness-gate` 確認 BTC/ETH 多時間框架矩陣通過。
-4.  **上線階段**：使用 paper-live 長時間觀察，接著 testnet，再進 live guard 流程。
+2.  **整合階段**：使用 `pretrade`、`status` 與 API status 確認各模組接通。
+3.  **UI 階段**：使用 Dashboard 實際開頁、切 tab、操作面板與檢查 Request History。
+4.  **上線前門檻**：使用 `readiness-gate` 確認 BTC/ETH 多時間框架矩陣通過。
+5.  **上線階段**：使用 paper-live 長時間觀察，接著 testnet，再進 live guard 流程。

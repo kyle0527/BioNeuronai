@@ -237,10 +237,16 @@ class TradingPlanController:
             logger.info("✅ 完成 10步驟交易計劃")
             logger.info("="*70)
             
-            # 整合結果
-            plan["status"] = "COMPLETED"
-            plan["is_executable"] = True
-            plan["execution_ready"] = True
+            blocking_steps = [
+                str(step)
+                for step, result in plan["steps_results"].items()
+                if result.get("status") not in {"SUCCESS"}
+            ]
+
+            plan["status"] = "BLOCKED" if blocking_steps else "COMPLETED"
+            plan["is_executable"] = not blocking_steps
+            plan["execution_ready"] = not blocking_steps
+            plan["blocking_steps"] = blocking_steps
             plan["risk_level"] = step7_result.get("risk_level", "MODERATE")
             
             logger.info(f"📋 計劃ID: {plan_id}")
@@ -317,15 +323,29 @@ class TradingPlanController:
         logger.info(" ...")
         logger.info(" ...")
         logger.info(" ...")
-        
-        # 目前返回模擬數據，未來整合 TradingEngine 時將實現真實檢查
+
+        if self._strategy_selector is None:
+            return {
+                "status": "FAILED",
+                "error": "StrategySelector unavailable",
+            }
+        if self._pair_selector is None:
+            return {
+                "status": "FAILED",
+                "error": "PairSelector unavailable",
+            }
+        if self.risk_manager is None:
+            return {
+                "status": "FAILED",
+                "error": "RiskManager unavailable",
+            }
+
         return {
             "status": "SUCCESS",
-            "api_connected": True,
-            "network_latency_ms": 50,
-            "account_verified": True,
-            "available_margin": 10000.0,
-            "websocket_connected": True
+            "strategy_selector_available": True,
+            "pair_selector_available": True,
+            "risk_manager_available": True,
+            "note": "交易所連線與帳戶驗證由 TradingEngine 啟動流程執行",
         }
     
     async def _step2_market_scan(self, check_mode: str = "daily") -> Dict:
@@ -372,14 +392,13 @@ class TradingPlanController:
         logger.info("📊 執行技術面分析 ...")
         
         if not klines:
-            logger.warning("⚠️  沒有 K線數據，返回默認結果")
+            logger.warning("⚠️  沒有 K線數據，技術分析不可用")
             return {
-                "status": "PARTIAL",
+                "status": "DATA_INSUFFICIENT",
                 "message": "需要 K線數據進行完整分析",
                 "trend": "UNKNOWN",
-                "rsi": 50,
                 "support_levels": [],
-                "resistance_levels": []
+                "resistance_levels": [],
             }
         
         try:
@@ -426,7 +445,7 @@ class TradingPlanController:
             "active_events": [],
             "event_context": None
         }
-        
+
         # 使用事件評估系統
         if self._rule_evaluator:
             try:
@@ -481,8 +500,12 @@ class TradingPlanController:
                 
             except Exception as e:
                 logger.warning(f"⚠️ 事件評估失敗: {e}")
+                result["status"] = "ERROR"
+                result["error"] = str(e)
         else:
-            logger.info("  ⚠️ 事件系統未啟用，使用預設值")
+            logger.error("事件系統未啟用，基本面情緒分析不可用")
+            result["status"] = "DATA_UNAVAILABLE"
+            result["error"] = "RuleBasedEvaluator unavailable"
         
         return result
     
@@ -491,16 +514,10 @@ class TradingPlanController:
         await asyncio.sleep(0)  # Async yield point for task scheduling
 
         if self._strategy_selector is None:
-            logger.warning("⚠️ StrategySelector 不可用，使用預設值")
+            logger.error("StrategySelector 不可用，策略性能評估停止")
             return {
-                "status": "DEGRADED",
-                "strategies": {
-                    "MA_Crossover_Trend": {"win_rate": 0.55, "sharpe": 1.2},
-                    "RSI_Mean_Reversion": {"win_rate": 0.65, "sharpe": 1.1},
-                    "Momentum_Breakout": {"win_rate": 0.50, "sharpe": 1.3},
-                },
-                "best_strategy": "RSI_Mean_Reversion",
-                "source": "config_defaults",
+                "status": "FAILED",
+                "error": "StrategySelector unavailable",
             }
 
         try:
@@ -540,36 +557,32 @@ class TradingPlanController:
         await asyncio.sleep(0)  # Async yield point for task scheduling
 
         if self._strategy_selector is None:
-            logger.warning("⚠️ StrategySelector 不可用，使用預設值")
+            logger.error("StrategySelector 不可用，策略選擇停止")
             return {
-                "status": "DEGRADED",
-                "selected_strategy": "MA_Crossover_Trend",
-                "strategy_weight": 0.7,
-                "confidence_score": 0.5,
-                "fallback_strategy": "RSI_Mean_Reversion",
-                "source": "default_fallback",
+                "status": "FAILED",
+                "error": "StrategySelector unavailable",
             }
 
         try:
             import numpy as np
 
-            # 將 klines 轉為 OHLCV numpy array（失敗則使用空陣列）
-            ohlcv: np.ndarray = np.empty((0, 6))
-            if klines and len(klines) >= 10:
-                try:
-                    ohlcv = np.array([
-                        [
-                            float(k.get("open_time", 0)),
-                            float(k.get("open", k.get("o", 0))),
-                            float(k.get("high", k.get("h", 0))),
-                            float(k.get("low", k.get("l", 0))),
-                            float(k.get("close", k.get("c", 0))),
-                            float(k.get("volume", k.get("v", 0))),
-                        ]
-                        for k in klines
-                    ])
-                except Exception:
-                    ohlcv = np.empty((0, 6))
+            if not klines or len(klines) < 10:
+                return {
+                    "status": "DATA_INSUFFICIENT",
+                    "error": "策略選擇至少需要 10 根 K 線",
+                }
+
+            ohlcv = np.array([
+                [
+                    float(k.get("open_time", 0)),
+                    float(k.get("open", k.get("o", 0))),
+                    float(k.get("high", k.get("h", 0))),
+                    float(k.get("low", k.get("l", 0))),
+                    float(k.get("close", k.get("c", 0))),
+                    float(k.get("volume", k.get("v", 0))),
+                ]
+                for k in klines
+            ])
 
             selection = await self._strategy_selector.select_optimal_strategy(
                 ohlcv_data=ohlcv,
@@ -597,7 +610,7 @@ class TradingPlanController:
                 "strategy_type": primary.strategy_type.value,
                 "strategy_weight": selection.strategy_mix.get(primary.name, 0.7),
                 "confidence_score": round(selection.confidence_score, 3),
-                "fallback_strategy": fallback,
+                "backup_strategy": fallback,
                 "strategy_mix": selection.strategy_mix,
                 "reasoning": selection.reasoning,
                 "expected_performance": selection.expected_performance,
@@ -651,8 +664,6 @@ class TradingPlanController:
             return {
                 "status": "ERROR",
                 "error": str(e),
-                "risk_per_trade": 0.02,
-                "risk_level": "MODERATE"
             }
     
     async def _step8_fund_management(self, risk_params: Optional[Dict] = None, account_balance: float = 10000, entry_price: float = 50000, stop_loss_price: float = 48500) -> Dict:
@@ -703,7 +714,6 @@ class TradingPlanController:
             return {
                 "status": "ERROR",
                 "error": str(e),
-                "recommended_size": 0.01
             }
     
     async def _step9_pair_selection(self) -> Dict:
@@ -711,23 +721,23 @@ class TradingPlanController:
         await asyncio.sleep(0)  # Async yield point for task scheduling
 
         if self._pair_selector is None:
-            logger.warning("⚠️ PairSelector 不可用，使用預設主流幣對")
+            logger.error("PairSelector 不可用，交易對篩選停止")
             return {
-                "status": "DEGRADED",
-                "pairs": [
-                    {"symbol": "BTCUSDT", "liquidity": "HIGH", "source": "default"},
-                    {"symbol": "ETHUSDT", "liquidity": "HIGH", "source": "default"},
-                    {"symbol": "BNBUSDT", "liquidity": "HIGH", "source": "default"},
-                ],
-                "recommended_pair": "BTCUSDT",
-                "source": "default_fallback",
+                "status": "FAILED",
+                "error": "PairSelector unavailable",
             }
 
         try:
             result = await self._pair_selector.select_optimal_pairs()
-            primary_pairs = result.get("primary_pairs", ["BTCUSDT"])
+            primary_pairs = result.get("primary_pairs", [])
+            if not primary_pairs:
+                return {
+                    "status": "DATA_UNAVAILABLE",
+                    "error": "PairSelector returned no primary pairs",
+                    "source": result.get("selection_criteria", {}).get("source", "unknown"),
+                }
             pair_details = result.get("pair_details", {})
-            source = "api" if pair_details else "default_fallback"
+            source = "api" if pair_details else "unverified"
 
             pairs_list = []
             for sym in primary_pairs:
@@ -745,7 +755,7 @@ class TradingPlanController:
                 "status": "SUCCESS",
                 "pairs": pairs_list,
                 "backup_pairs": result.get("backup_pairs", []),
-                "recommended_pair": primary_pairs[0] if primary_pairs else "BTCUSDT",
+                "recommended_pair": primary_pairs[0],
                 "selection_criteria": result.get("selection_criteria", {}),
                 "source": source,
             }

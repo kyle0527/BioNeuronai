@@ -1,6 +1,6 @@
 # Cloud Training Runbook
 
-This runbook describes the safe path for running BioNeuronAI model training on a cloud GPU.
+This runbook describes the safe path for future BioNeuronAI model retraining on a cloud GPU. The first cloud training artifacts have already been imported into the runtime; this document is no longer a "next step to start initial cloud training" checklist.
 
 ## 📑 目錄
 
@@ -17,7 +17,7 @@ This runbook describes the safe path for running BioNeuronAI model training on a
 
 ## Goals
 
-- Do not overwrite `model/my_100m_model.pth` during cloud experiments.
+- Do not overwrite `model/my_100m_model.pth` during cloud experiments; promote through `config/active_model.json`.
 - Train from versioned datasets and checkpoints.
 - Save resumable checkpoints and a `run_manifest.json`.
 - Promote a trained model only after operational and backtest validation.
@@ -49,7 +49,7 @@ Expected outputs:
 - `data/processed/signal_val.pt`
 - `data/processed/manifest.json`
 
-Current local status verified on 2026-05-05: `data/processed/` already contains `signal_train.pt`, `signal_val.pt`, and `manifest.json`, but `/data/` is git-ignored. These files must be uploaded to a cloud bucket or mounted into the cloud VM/container before a cloud job starts.
+Current project status verified on 2026-05-14: the first trained runtime checkpoint is already connected through `config/active_model.json`. For future retraining, `data/processed/` is still git-ignored; training tensors must be uploaded to a cloud bucket or mounted into the cloud VM/container before a new cloud job starts.
 
 Example GCS upload:
 
@@ -83,6 +83,7 @@ Pass criteria:
 - `output/cloud_dryrun/checkpoint_latest/model.pth` exists,
 - `output/cloud_dryrun/run_manifest.json` exists,
 - `model/my_100m_model.pth` is not modified.
+- `config/active_model.json` is changed only by an explicit promote step.
 
 ## 3. Build Training Image
 
@@ -168,7 +169,7 @@ When running in a stateless container, set `TRAINING_OUTPUT_URI=gs://...` or pas
 
 ## 7. Promotion Gate
 
-Do not copy a cloud-trained checkpoint into `model/my_100m_model.pth` until it passes:
+Do not promote a cloud-trained checkpoint through `config/active_model.json` until it passes:
 
 - chat sanity check if language mode is affected,
 - signal shape and inference check,
@@ -177,7 +178,7 @@ Do not copy a cloud-trained checkpoint into `model/my_100m_model.pth` until it p
 - API status and pretrade operational validation,
 - latency measurement on target hardware.
 
-Promotion should be a separate explicit step, not part of training.
+Promotion should be a separate explicit step, not part of training. First-round artifacts already promoted to the current runtime still require trading-performance validation before any live-auto use.
 
 For inference after promotion, point the runtime to the promoted model with one of:
 
