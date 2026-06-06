@@ -1,220 +1,250 @@
-# BioNeuronai 系統架構總覽
+# BioNeuronAI 系統架構總覽
 
-**用途**: 描述目前專案的正式主線架構 (`v2.1` / `v2.2` 訓練後驗證期)，提供開發者對外入口、核心交易主鏈與資料供應鏈的總體視野。
-**版本**: v2.1 正式主線 / v2.2 訓練後驗證期
-**更新日期**: 2026-05-14
+**版本**: v2.1（現役）/ v2.x（建設中）
+**更新日期**: 2026-06-06
 
----
-
-## 📑 目錄
-
-<!-- toc -->
-
-- [1. 總體架構圖](#1-%E7%B8%BD%E9%AB%94%E6%9E%B6%E6%A7%8B%E5%9C%96)
-- [2. 分層說明](#2-%E5%88%86%E5%B1%A4%E8%AA%AA%E6%98%8E)
-  * [2.1 對外入口層](#21-%E5%B0%8D%E5%A4%96%E5%85%A5%E5%8F%A3%E5%B1%A4)
-  * [2.1a 前端子系統 (`frontend/`)](#21a-%E5%89%8D%E7%AB%AF%E5%AD%90%E7%B3%BB%E7%B5%B1-frontend)
-  * [2.2 核心交易層](#22-%E6%A0%B8%E5%BF%83%E4%BA%A4%E6%98%93%E5%B1%A4)
-  * [2.3 策略層 (`strategies/`)](#23-%E7%AD%96%E7%95%A5%E5%B1%A4-strategies)
-  * [2.4 規劃層 (`planning/`)](#24-%E8%A6%8F%E5%8A%83%E5%B1%A4-planning)
-  * [2.5 交易與帳戶事實層 (`trading/`)](#25-%E4%BA%A4%E6%98%93%E8%88%87%E5%B8%B3%E6%88%B6%E4%BA%8B%E5%AF%A6%E5%B1%A4-trading)
-  * [2.6 風控層 (`risk_management/`)](#26-%E9%A2%A8%E6%8E%A7%E5%B1%A4-risk_management)
-  * [2.7 數據與支援層 (`data/`, `schemas/`, `rag/`, `nlp/`)](#27-%E6%95%B8%E6%93%9A%E8%88%87%E6%94%AF%E6%8F%B4%E5%B1%A4-data-schemas-rag-nlp)
-- [3. 資料流架構圖](#3-%E8%B3%87%E6%96%99%E6%B5%81%E6%9E%B6%E6%A7%8B%E5%9C%96)
-- [4. 交易執行時序圖](#4-%E4%BA%A4%E6%98%93%E5%9F%B7%E8%A1%8C%E6%99%82%E5%BA%8F%E5%9C%96)
-- [5. 模組職責表](#5-%E6%A8%A1%E7%B5%84%E8%81%B7%E8%B2%AC%E8%A1%A8)
-- [6. 建議閱讀順序](#6-%E5%BB%BA%E8%AD%B0%E9%96%B1%E8%AE%80%E9%A0%86%E5%BA%8F)
-
-<!-- tocstop -->
+> 本文件描述程式碼**實際執行**的架構，而非設計目標。
+> 未實作的功能在對應章節標注 `⚠️ 缺口` 或 `❌ 未完成`。
 
 ---
 
-## 1. 總體架構圖
+## 1. 整體架構圖
 
 ```mermaid
 flowchart TD
-    U[使用者 / 外部系統] --> FE_D[frontend/devops-d\n第一階段前端主線\nReact 19 + Vite 7]
-    FE_A[frontend/admin-da\n暫緩\nReact 19 + Vite 7]
-    FE_T[frontend/trading\n暫緩\nReact 19 + Vite 7]
-    U --> CLI[CLI 入口\nmain.py / bioneuronai.cli.main]
+    USER[使用者 / 外部系統]
 
-    FE_D --> API[FastAPI 入口\nbioneuronai.api.app\nlocalhost:8000]
-    CLI --> API
-    CLI --> TE[TradingEngine\n核心交易引擎]
-    CLI --> PLN[planning/\n高階計劃與盤前檢查]
-    CLI --> CNA[analysis.news\n新聞分析]
-    CLI --> BT1[backtest/\n主回測子系統]
-    API --> PLN
-    API --> CNA
-    API --> BT1
+    subgraph 入口層
+        CLI[CLI\nmain.py / cli/main.py]
+        API[FastAPI\napi/app.py :8000]
+        FE[前端\nfrontend/devops-d\nReact + Vite]
+    end
 
-    TE --> IE[InferenceEngine\nAI 推論管線]
-    IE --> TM[交易推論模型\nactive_model.json -> trained checkpoint]
-    IE --> FP[FeaturePipeline\n1024 維特徵]
+    subgraph 核心交易層
+        TE[TradingEngine\ncore/trading_engine.py]
+        WS[WebSocket\nBinance ticker stream]
+        AR[ActionRecord\nT0/T1/T2 決策快照]
+    end
 
-    TE --> SEL[strategies/selector\nStrategySelector]
-    TE --> TS[strategies/strategy_fusion\nAIStrategyFusion]
-    TE --> RMCORE[risk_management/\n核心風控]
-    TE --> DATAIF[data/\nBinanceFuturesConnector\nDatabaseManager]
-    TE --> EVO[core/self_improvement.py]
+    subgraph 信號生成層
+        SS[StrategySelector\n主信號來源]
+        SF[StrategyFusion\nAI 融合]
+        IE[InferenceEngine\nTinyLLM v1 推論]
+        ML[Meta-Learner\n17K 參數策略權重]
+    end
 
-    PLN --> MA[MarketAnalyzer]
-    PLN --> PS[PairSelector]
-    PLN --> PRET[PretradeAutomation]
+    subgraph 新聞層
+        NA[NewsAdapter\nevent_score 提供者]
+        NE[EventContract\n衰減驗證]
+        PTC[PreTradeCheck\nRAG 下單前攔截]
+    end
 
-    RMCORE --> T_ACC[trading/virtual_account.py\n帳戶事實層起點]
+    subgraph 記憶與學習層
+        EM[EpisodicMemory\n熱緩衝 50k]
+        EV[ExtremeEventVault\n冷庫永久記憶]
+        OL[OnlineLearner\nLoRA 微更新]
+        TM2[TinyLLM v2\n三模態 + MoE]
+    end
 
-    BT1 -. 以 mock connector / replay 介面接入 .-> TE
+    subgraph 資料與風控層
+        BC[BinanceFuturesConnector]
+        PB[PaperBinanceFuturesConnector]
+        VA[VirtualAccount]
+        RM[RiskManager\nKelly + 回撤]
+        DB[DatabaseManager\nSQLite 9 張表]
+    end
 
-    RAG[src/rag\n正式 RAG 子系統]
-    NLP[src/nlp\nTinyLLM 雙模態 / ChatEngine / 訓練工具]
-    STORE[data/\nhistorical | trading | validation | rag | nlp]
-    CHAT[ChatEngine\n雙語對話助理]
-
-    RAG --> PLN
-    NLP --> TM
-    NLP --> CHAT
-    CLI --> CHAT
-    API --> CHAT
-    STORE --> BT1
-    EVO --> STORE
-    DATAIF --> STORE
+    USER --> CLI & API & FE
+    CLI & API --> TE
+    FE --> API
+    WS --> TE
+    TE --> SS & IE & AR
+    SS --> SF & ML
+    NA --> TE
+    PTC --> TE
+    AR --> EM
+    EM --> EV
+    EM --> OL
+    OL --> TM2
+    TE --> BC & PB
+    PB --> VA
+    TE --> RM & DB
 ```
 
 ---
 
-## 2. 分層說明
+## 2. 真實信號生成時序
 
-### 2.1 對外入口層
+```
+1. WebSocket 收到 ticker data
+2. _process_market_data(data, symbol)
+   a. NewsAdapter.get_event_context(symbol)  → event_score, event_context
+3. generate_trading_signal(symbol, price, klines, event_score, event_context)
+   a. [T0] _record_decision()               → 建立 ActionRecord，填 features + logits
+   b. _generate_strategy_signal()
+      → StrategySelector.get_actionable_signal(event_score=event_score)
+         → 5 策略信號 + Meta-Learner 融合權重
+         → event_score 在極端值時非對稱攔截（|score| > 5）
+   c. InferenceEngine.predict()             → TinyLLM v1，若模型已載入
+   d. _fuse_signals()                       → 策略 70% + AI 25% + 新聞 5%
+4. _handle_trading_signal(signal)
+   → auto_trade=False (預設) → 記錄 log，不下單
+   → auto_trade=True → execute_trade(signal)
+      a. 新聞/資金費率/流動性 多重風控
+      b. connector.place_order()
+      c. [T1] ActionRecord.fill_entry()
+5. [T2] notify_trade_closed()              ← ❌ 目前無呼叫方，為死程式碼
+   → ActionRecord.fill_exit()
+   → EpisodicMemory.push()
+   → OnlineLearner.record_outcome()
+   → LoRA 微更新（每 100 筆）
+```
 
-- `main.py`: 專案根目錄統一入口，將 `src/` 加入路徑後轉交給 CLI。
-- `src/bioneuronai/cli/main.py`: 真正的命令列入口，負責 `status`、`plan`、`pretrade`、`news`、`backtest`、`simulate`、`trade` 等。
-- `src/bioneuronai/api/app.py`: FastAPI 服務（`localhost:8000`），將各交易能力封裝成 HTTP API 供前端與外部呼叫。
+---
 
-### 2.1a 前端子系統 (`frontend/`)
+## 3. 分層說明
 
-`frontend/` 下目前保留三個 React 19 + Vite 7 + TypeScript 應用；截至 2026-05-14，目前操作主線是 `frontend/devops-d/` 的 Operations Dashboard。`admin-da` 與 `trading` 保留原始碼，暫不列入目前操作主線。
+### 3.1 入口層
 
-| 目錄 | 用途 | 部署狀態 |
-|------|------|---------|
-| `frontend/devops-d/` | Operations Dashboard：操作總覽、新聞、預交易、回測、AI 對話、交易控制、paper-live、API 測試台、歷史紀錄、資料目錄、風控設定 | 目前操作主線；build、API/HTTP、本地瀏覽器載入已驗證 |
-| `frontend/admin-da/` | 管理後台：儀表板、風控指標、最大回撤、盤前清單、稽核日誌 | 暫緩；部分後端端點仍需確認 |
-| `frontend/trading/` | 交易操作介面：即時概覽、分析、回測、Chat 助理、交易控制（WebSocket + 價格預警） | 暫緩；WebSocket 與部分 API 對接仍需確認 |
+| 模組 | 路徑 | 說明 |
+|---|---|---|
+| CLI | `src/bioneuronai/cli/main.py` | 統一命令列入口，支援 trade/pretrade/backtest/news/chat |
+| FastAPI | `src/bioneuronai/api/app.py` | HTTP API，localhost:8000 |
+| 前端 | `frontend/devops-d/` | Operations Dashboard，React 19 + Vite 7 |
 
-**目前驗收入口**：
+### 3.2 核心交易層
+
+`core/trading_engine.py`（2100+ 行）是所有邏輯的核心。
+
+關鍵初始化參數：
+- `auto_trade=False`：預設只監控，不執行
+- `enable_ai_model=True`：AI 推論引擎初始化（但模型需另外 load）
+- `paper_trading=False`：預設用真實連接器（testnet/mainnet）
+
+關鍵方法：
+- `start_monitoring(symbol)`: 啟動 WebSocket 監控
+- `load_ai_model(model_name)`: 載入 TinyLLM 模型
+- `enable_auto_trading()`: 開啟自動下單
+- `notify_trade_closed(...)`: 平倉後通知（**目前無呼叫方**）
+- `get_learning_status()`: 查詢記憶層 + LoRA 狀態
+
+### 3.3 信號生成層
+
+**StrategySelector**（`strategies/selector/`）是主信號來源：
+- 5 種子策略：TrendFollowing / SwingTrading / MeanReversion / Breakout / DirectionChange
+- Meta-Learner（17K 參數神經網路）動態調整各策略權重
+- 輸出：`TradeSetup`（方向、強度、SL/TP）
+
+**InferenceEngine**（`core/inference_engine.py`）是 AI 輔助信號：
+- 載入 TinyLLM v1 模型（1024 維輸入 → 512 維輸出）
+- 16 步滾動特徵視窗
+- 輸出：`TradingSignal`（方向、信心、槓桿建議）
+- 若模型未載入：返回 None，系統繼續用純策略信號
+
+### 3.4 新聞層
+
+新聞在現有架構中的**實際角色**是**非對稱過濾器**：
+
+```
+event_score < -5 (極度看空) → 攔截普通做多信號，放行做空
+event_score > +5 (極度看多) → 攔截普通做空信號，放行做多
+-5 ≤ event_score ≤ +5     → 策略信號正常通過
+```
+
+**設計目標（尚未實現）**：新聞分析近期事件後提出主要方向建議，策略信號在方向框架內執行。
+
+### 3.5 記憶與學習層
+
+| 模組 | 狀態 | 說明 |
+|---|---|---|
+| TinyLLM v2 | ✅ 架構完成 | `nlp/tiny_llm_v2.py`，三模態 + MoE，65 維全監督 |
+| ActionRecord | ✅ T0/T1 接通 | T2 待 notify_trade_closed 修正 |
+| EpisodicMemory | ✅ 完成 | 熱緩衝 (50k 條，優先採樣) + 冷庫（極端事件永久保存） |
+| OnlineLearner | ✅ 完成 | LoRA 微更新，每 100 筆完整記錄觸發，4 項損失函數 |
+
+**EpisodicMemory 極端事件判定條件**（自動存入冷庫）：
+- 5 分鐘價格變動 > 3σ
+- 爆倉量 > 過去 24h 均值 × 5 倍
+- 模型信心 > 0.8 但結果為巨虧（> 5%）
+
+### 3.6 資料與風控層
+
+| 模組 | 說明 |
+|---|---|
+| BinanceFuturesConnector | REST + WebSocket，支援 testnet 和 mainnet |
+| PaperBinanceFuturesConnector | 真實市場數據 + 本地虛擬成交，不送 Binance 訂單 |
+| VirtualAccount | 帳戶狀態、持倉管理、SL/TP 觸發 |
+| RiskManager | Kelly 倉位計算、最大回撤 10%、每日最大交易次數 10 |
+| DatabaseManager | SQLite，9 張表 |
+
+---
+
+## 4. TinyLLM 模型架構
+
+### v1（現役）
+
+```
+輸入: 1024 維扁平向量（10 類市場特徵）
+  ↓ Linear(1024 → 1536) → GELU → LayerNorm
+  ↓ Linear(1536 → 768) → LayerNorm
+  ↓ 12 層 Transformer（12 頭，FFN=3072）
+  ↓ Signal Head: Linear(768 → 512)
+
+輸出: 512 維
+  [0:23]   有效信號（方向/信心/風險/槓桿/倉位/SL/TP/市場狀態）
+  [23:512] 潛在嵌入空間（489 維，無監督目標，等同噪音）
+```
+
+### v2（建設中）
+
+```
+輸入（三模態）:
+  數值: 16 根 K 線 × 64 特徵 → 16 個 patch token
+  文字: 新聞/提問 → 最多 128 個 GPT-2 token（可選）
+  圖像: K 線圖 → CNN → 16 個 patch token（可選）
+
+架構:
+  各模態 Encoder → 12 層 TransformerBlockV2
+  （每隔 2 層用 MoE：6 專家，top-2 路由）
+  （Cross-attention：數值 token 主動讀文字）
+  → 最後數值 token → TradingSignalHead
+
+輸出: 65 維（全監督）
+  方向(3) + 信心(3) + 槓桿(10) + 倉位(1) + SL(1) + TP(1) +
+  持倉時間(10) + 多時框一致性(5) + K線形態(20) + 不確定性(1) + 市場狀態(10)
+
+LoRA: 整合在模型內，骨幹凍結後 0.25%（~203K）參數可訓練
+```
+
+---
+
+## 5. 已知問題
+
+| 問題 | 影響 | 修正方向 |
+|---|---|---|
+| `notify_trade_closed()` 無呼叫方 | LoRA 在線學習迴路完全不運作 | 在 VirtualAccount SL/TP 觸發時自動呼叫 |
+| 新聞是過濾器而非主信號 | 不符合設計目標 | 加入 `news_direction_bias` 作為方向框架 |
+| 歷史 RL 訓練管線缺失 | 無法用歷史資料做策略強化 | 建立 `training/rl_trainer.py` |
+| TinyLLM v2 未接上交易引擎 | v2 架構建完但無法使用 | 修改 InferenceEngine 支援 v2 格式 |
+
+---
+
+## 6. 部署模式
+
 ```bash
-docker compose up api frontend          # → http://localhost:3000
-cd frontend/devops-d  &&  npm run dev   # → http://localhost:5173（或 5176 等 Vite 可用 port）
-```
+# 監控模式（不下單）
+python main.py trade --symbol BTCUSDT
 
-後端 API 預設仍為 `http://localhost:8000`。
+# Paper trading（虛擬交易，自動下單）
+python main.py trade --paper-live --paper-balance 10000
 
-### 2.2 核心交易層
+# Testnet（需 API 金鑰）
+python main.py trade --symbol BTCUSDT --auto-trade
 
-- `src/bioneuronai/core/trading_engine.py`: 專案執行中樞，整合 AI 推理、策略融合、資料庫落檔等。
-- `src/bioneuronai/core/inference_engine.py`: 負責提煉 1024 維特徵，維護 16 步滾動特徵視窗。`config/active_model.json` 目前指向 `model/my_100m_model_trained_20260510.pth`；Docker runtime 已驗證可載入。正式交易成效仍需固定區間回測、OOS / walk-forward、paper-live 與 testnet 觀察支撐。
-
-### 2.3 策略層 (`strategies/`)
-
-此層主要存放固定策略、策略選擇與競技融合機制。
-- **Selector 與 Fusion**: 目前正式主線使用 `strategies/selector/core.py` 與 `strategies/strategy_fusion.py`。
-- **Arena / Optimizer**: `strategies/strategy_arena.py` 與 `portfolio_optimizer.py` 已改用真 replay 評估，但仍屬持續收斂中的高階競爭層。
-
-### 2.4 規劃層 (`planning/`)
-
-負責較高階的決策、宏觀市場掃描與執行 SOP：
-- 交易計劃控制與產出
-- 盤前檢查 (Pretrade)
-- 分析宏觀盤勢
-- 交易對選擇 (Pair selection)
-
-### 2.5 交易與帳戶事實層 (`trading/`)
-
-負責管理訂單、帳戶餘額、持倉狀態：
-- **`virtual_account.py`**: 目前已成為正式交易事實層的第一個核心檔案，主要服務 replay / paper-live execution 與帳戶狀態查詢。
-
-### 2.6 風控層 (`risk_management/`)
-
-負責運算倉位大小(sizing)、評估曝險、並控管整體投組的風險閥值，提供客觀標準給 `planning/` 與 `core/` 使用。
-
-### 2.7 數據與支援層 (`data/`, `schemas/`, `rag/`, `nlp/`)
-
-- `data/`: 外部 API (如幣安合約、新聞爬蟲)、SQLite 資料庫寫入的實作。
-- `schemas/`: 規範跨模組使用的 Pydantic v2 模型（訂單、訊號、K 線等），為單一事實來源。
-- `rag/`: 供新聞分析或交易前檢查檢索外部趨勢，寫入 `InternalKnowledgeBase`。
-
----
-
-## 3. 資料流架構圖
-
-```mermaid
-flowchart LR
-    EX1[Binance REST / WebSocket]
-    EX2[外部新聞 / 指標]
-
-    EX1 --> BFC[data.BinanceFuturesConnector]
-    EX2 --> CNA[analysis.news]
-    
-    BFC --> TE[core.TradingEngine]
-    BFC --> PLN[planning.MarketAnalyzer]
-    CNA --> PLN
-    CNA --> RAG[rag.InternalKnowledgeBase]
-
-    TE --> IE[core.InferenceEngine]
-    IE --> SIG[AI Signal]
-
-    SIG --> SEL[strategies.selector]
-    SEL --> TS[strategies.fusion]
-    TS --> RM[risk_management]
-    RM --> TRAD[trading.virtual_account.py]
-
-    TRAD --> DB[(DatabaseManager / SQLite)]
-    TE --> DB
+# API 服務
+uvicorn bioneuronai.api.app:app --host 0.0.0.0 --port 8000
 ```
 
 ---
 
-## 4. 交易執行時序圖
-
-1. **User / CLI** 啟動 `plan` 或 `trade`。
-2. **`planning/`** 進行市場大盤分析、關鍵字搜尋，產出交易對與計劃建議。
-3. **`core.TradingEngine`** 啟動主流程，由 `data/` 抓取當下 K 線。
-4. **`core.InferenceEngine`** 生成特徵，並在 `load_ai_model` 啟用時載入目前 active checkpoint。模型已接回 runtime，但績效驗證仍屬 v2.2 後續工作。
-5. **`strategies/selector` + `strategies/strategy_fusion`** 進行動態策略融合。這裡的「AI Fusion」主要透過啟發式演算法，結合勝率 (`win_rate`)、市場體制與新聞分數 (`event_score`) 來動態調整傳統策略權重。
-6. **`risk_management`** 決定倉位與風險阻擋。
-7. **`trading.VirtualAccount`** 在 replay / mock 路徑下紀錄持倉、餘額與掛單事實。
-8. **`data.DatabaseManager`** 可負責寫入操作紀錄與歷史，但不應在此文件中寫成所有狀態都已完全統一由資料庫接管。
-
----
-
-## 5. 模組職責表
-
-| 模組分佈 | 主要職責 | 在主流程中的位置 |
-|------|------|------|
-| `main.py` & `cli/`, `api/` | CLI與Web API命令分派 | 對外入口 |
-| `frontend/devops-d/` | Operations Dashboard（操作總覽、新聞、預交易、回測、AI 對話、交易控制、paper-live、API 測試台、歷史紀錄、資料目錄、風控設定） | 目前前端入口 |
-| `frontend/admin-da/` | 管理後台（風控儀表板、稽核日誌、盤前清單） | 暫緩，待端點驗收 |
-| `frontend/trading/` | 交易操作介面（即時監控、價格預警、WebSocket） | 暫緩，待 WebSocket 驗收 |
-| `src/bioneuronai/core/` | 交易引擎、AI 推論、進化系統 | 核心中樞 |
-| `src/bioneuronai/strategies/`| 固定策略、selector、fusion、arena、Meta-Learner (v2.2 新增) | 策略實作與競爭 |
-| `src/bioneuronai/planning/` | 高階計劃、盤前檢查、大盤分析、選對 | 決策支援與規劃 |
-| `src/bioneuronai/trading/` | 訂單、帳戶、持倉、資金的事實層 | 帳本追蹤 |
-| `src/bioneuronai/risk_management/` | 風險資料結構、倉位 sizing 計算 | 基礎風控 |
-| `src/bioneuronai/data/` | 交易所接口、資料庫、外部資料服務 | 基礎設施 |
-| `src/schemas/` | 各模組共用的 Pydantic 資料模型 | 契約層 |
-| `backtest/` | 模擬交易所式回測、重播引擎 | 主回測線 |
-| `src/rag/` & `src/nlp/` | 檢索知識庫與 TinyLLM 訓練、推論 | 支援子系統 |
-
----
-
-## 6. 建議閱讀順序
-
-若要理解目前 `v2.1` 正式主線與 `v2.2` 訓練後驗證期系統，建議依序閱讀：
-
-1. `main.py` 與 `src/bioneuronai/cli/main.py`
-2. `src/bioneuronai/core/trading_engine.py` (整合入口)
-3. `src/bioneuronai/core/inference_engine.py` (AI 大腦)
-4. `src/bioneuronai/planning/` (策略執行前的作業)
-5. `src/bioneuronai/strategies/` (訊號產生區)
-6. `backtest/` 與 `src/bioneuronai/trading/virtual_account.py` (驗證與帳本)
-7. `src/schemas/` (掌握系統流轉的所有 Data Types)
+*最後更新：2026-06-06*

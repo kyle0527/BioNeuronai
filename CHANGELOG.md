@@ -1,5 +1,96 @@
 # 更新日誌
 
+## [Architecture] - 2026-06-06
+
+### 🧠 TinyLLM v2：三模態 + MoE + 整合 LoRA 全面重設計
+
+#### 新增 `src/nlp/tiny_llm_v2.py`
+
+原有 v1 輸出 512 維中 479 維閒置（93% 浪費），且輸入為 1024 維扁平向量（丟失時序結構）。
+v2 從頭重新設計：
+
+| 項目 | v1（現役） | v2（新完成） |
+|---|---|---|
+| 輸入 | 1024 維扁平向量 | 16 × 64 patch token + 文字 + 圖像（可選） |
+| 輸出 | 512 維（23 維有效，479 浪費） | 65 維全監督 |
+| 可訓練參數 | 全部 (~100M) | 0.25%（LoRA，骨幹凍結後 ~203K） |
+| 在線學習 | 無 | LoRA 微更新，每 100 筆觸發 |
+| 極端事件記憶 | 無 | 永久冷庫（JSONL） |
+
+**65 維全監督輸出佈局**：
+- 方向(3) + 信心(3) + 槓桿(10) + 倉位(1) + SL(1) + TP(1)
+- 持倉時間(10) + 多時框一致性(5) + K線形態(20) + 不確定性(1) + 市場狀態(10)
+
+**架構關鍵**：
+- `LoRALinear`：base Linear（可凍結）+ lora_A + lora_B，scale = alpha/rank
+- `ModalityMoE`：6 專家 FFN，router 用 LoRALinear，top-2 稀疏路由
+- `TransformerBlockV2`：每隔 2 層用 MoE；文字可選時啟用 Cross-attention
+- `freeze_backbone()`：先凍結全部參數，再解凍所有 LoRALinear 的 lora_A/lora_B
+
+### 🗂️ EpisodicMemory：熱緩衝 + 極端事件冷金庫
+
+#### 新增 `src/bioneuronai/memory/episodic_memory.py`
+
+- **熱緩衝**：50,000 筆 ring buffer，按 |PnL| 優先採樣
+- **ExtremeEventVault（冷庫）**：JSONL 永久存儲，符合下列任一條件自動存入：
+  - 5 分鐘價格變動 > 3σ（歷史標準差）
+  - 爆倉量 > 過去 24h 均值 × 5 倍
+  - 模型信心 > 0.8 但結果為巨虧（> 5%）
+- 余弦相似度檢索：`retrieve_extreme(feature_vector, symbol, top_k=5)`
+- 自動分流：`push()` 判定極端事件 → 存入冷庫；否則 → 推入熱緩衝
+
+#### 新增 `src/bioneuronai/memory/__init__.py`
+
+### 📋 ActionRecord：T0/T1/T2 三時點決策快照
+
+#### 新增 `src/bioneuronai/core/action_record.py`
+
+- **T0**（決策時）：features、raw_signal、decoded_signal、market_snapshot、text_context
+- **T1**（進場時）：order_id、entry_price、leverage、position_size、SL/TP、滑點費率
+- **T2**（出場時）：exit_price、exit_reason、PnL 計算、reward = PnL × 持倉時間因子 × 不確定性懲罰
+- `to_experience_record()`：轉換為 EpisodicMemory 格式
+
+### 🔁 OnlineLearner：LoRA 在線微更新器
+
+#### 新增 `src/bioneuronai/core/online_learner.py`
+
+- AdamW 優化器，只優化 LoRA 參數（backbone 凍結）
+- 每 100 筆完整記錄（T0+T1+T2）觸發一次更新
+- 4 項損失：方向 CrossEntropy + 信心校準 BCE + 不確定性 BCE + MoE 負載均衡
+- 梯度累積=4，梯度裁剪 1.0，每 10 步存儲 LoRA checkpoint
+- 最多保留 10 個 checkpoint，啟動時自動載入最新
+
+### 🔌 TradingEngine + InferenceEngine 接通
+
+#### 修改 `src/bioneuronai/core/trading_engine.py`
+
+- 新增 `_record_decision()`：T0 快照，將 1024 維特徵 reshape 為 (16,64) 供 v2 相容
+- `execute_trade()` 完成 T1 進場快照
+- `notify_trade_closed()` 完成 T2 出場快照 → EpisodicMemory → OnlineLearner
+- `load_ai_model()` 後自動初始化 OnlineLearner，載入最新 LoRA checkpoint
+- 新增 `get_learning_status()` 查詢記憶層 + LoRA 狀態
+
+#### 修改 `src/bioneuronai/core/inference_engine.py`
+
+- 暴露 `last_features_` 和 `last_feature_seq_`，供 ActionRecord T0 捕獲原始特徵
+
+### 📄 文件全面更新
+
+- **`README.md`**：完整重寫，移除虛假的「111.6M 雙模態」描述和舊版性能表，加入準確的架構流程圖、模組狀態表（✅/⚠️/❌）、已知問題、v1 vs v2 技術規格
+- **`docs/ARCHITECTURE_OVERVIEW.md`**：完整重寫，加入準確的 Mermaid 架構圖、真實信號生成時序（含死程式碼標注）、TinyLLM v1/v2 對比、已知問題表
+- **`docs/PROJECT_STATUS.md`**：新建，詳細進度記錄、真實執行流程（含死程式碼標記）、各模組逐一狀態、優先工作 P0-P3、已過時文件清單
+
+### ⚠️ 已知缺口（本次未修正）
+
+| 缺口 | 影響 |
+|---|---|
+| `notify_trade_closed()` 無呼叫方 | T2 從未觸發 → LoRA 在線學習迴路完全不運作 |
+| 新聞是過濾器而非主信號 | 不符合設計目標（新聞應提供主要方向建議） |
+| 歷史 K 線 RL 訓練管線缺失 | 無法用歷史資料驗證/強化策略 |
+| TinyLLM v2 未接上交易引擎 | v2 架構完成但無法實際使用 |
+
+---
+
 ## [Backtest] - 2026-05-03
 
 ### 🔧 回測手續費校正（費率低估 bug 修正）
