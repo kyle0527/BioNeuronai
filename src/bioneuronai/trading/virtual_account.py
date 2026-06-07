@@ -14,7 +14,7 @@ Trading Virtual Account - 訂單 / 帳戶 / 持倉狀態層
 """
 
 import logging
-from typing import Dict, List, Optional, Any
+from typing import Callable, Dict, List, Optional, Any
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
@@ -207,10 +207,21 @@ class VirtualAccount:
         
         # 當前市場價格 {symbol: price}
         self._current_prices: Dict[str, float] = {}
-        
+
+        # 平倉回調（供 TradingEngine 接收出場通知，避免循環 import）
+        self._on_position_closed: Optional[Callable] = None
+        self._last_close_info: Optional[Dict[str, Any]] = None
+
         logger.info(f"虛擬帳戶初始化: 餘額 {initial_balance} USDT, 槓桿 {leverage}x")
         logger.info(f"費率: Maker {maker_fee*100:.2f}%, Taker {taker_fee*100:.2f}%")
     
+    def set_close_callback(self, callback: Callable) -> None:
+        """設置平倉回調函數，當倉位完全關閉時自動呼叫。
+
+        callback 簽名：(symbol, realized_pnl, entry_price, exit_price, exit_reason) -> None
+        """
+        self._on_position_closed = callback
+
     def update_price(
         self,
         symbol: str,
@@ -418,6 +429,29 @@ class VirtualAccount:
 
         realized_pnl = self._update_position(order)
 
+        # 觸發平倉回調（若有倉位在此成交中完全關閉）
+        _close_info = self._last_close_info
+        self._last_close_info = None
+        if _close_info is not None and self._on_position_closed is not None:
+            _EXIT_REASON_MAP = {
+                OrderType.STOP_MARKET: "SL_HIT",
+                OrderType.TAKE_PROFIT_MARKET: "TP_HIT",
+            }
+            _exit_reason = _EXIT_REASON_MAP.get(
+                order.order_type,
+                "MANUAL" if order.reduce_only else "CLOSE",
+            )
+            try:
+                self._on_position_closed(
+                    symbol=_close_info["symbol"],
+                    realized_pnl=_close_info["realized_pnl"],
+                    entry_price=_close_info["entry_price"],
+                    exit_price=_close_info["exit_price"],
+                    exit_reason=_exit_reason,
+                )
+            except Exception as _cb_err:
+                logger.debug("平倉回調執行失敗（非致命）: %s", _cb_err)
+
         trade = TradeRecord(
             trade_id=str(uuid.uuid4())[:8].upper(),
             order_id=order.order_id,
@@ -516,14 +550,23 @@ class VirtualAccount:
                 # 平倉或反向開倉
                 if order.filled_quantity >= existing_pos.quantity:
                     # 全部平倉 (可能有剩餘反向開倉)
+                    _close_entry = existing_pos.entry_price
                     if existing_pos.side == PositionSide.LONG:
                         realized_pnl = (order.filled_price - existing_pos.entry_price) * existing_pos.quantity
                     else:
                         realized_pnl = (existing_pos.entry_price - order.filled_price) * existing_pos.quantity
-                    
+
+                    # 記錄平倉資訊供 _finalize_fill 的回調使用
+                    self._last_close_info = {
+                        "symbol": symbol,
+                        "entry_price": _close_entry,
+                        "exit_price": order.filled_price,
+                        "realized_pnl": realized_pnl,
+                    }
+
                     self.balance += realized_pnl
                     remaining = order.filled_quantity - existing_pos.quantity
-                    
+
                     logger.info(f"📉 平倉: 實現盈虧 {realized_pnl:+.2f} USDT")
                     
                     if remaining > 0:
@@ -651,10 +694,23 @@ class VirtualAccount:
         self.stats['total_commission'] += liquidation_fee
         
         logger.error(f"💀 強制平倉完成: {symbol} 損失 {total_loss:.2f} USDT")
-        
-        # 刪除倉位
+
+        # 刪除倉位（pos 局部變數仍持有引用，可繼續讀取）
         del self.positions[symbol]
-        
+
+        # 觸發強平回調
+        if self._on_position_closed is not None:
+            try:
+                self._on_position_closed(
+                    symbol=symbol,
+                    realized_pnl=-total_loss,
+                    entry_price=pos.entry_price,
+                    exit_price=current_price,
+                    exit_reason="LIQUIDATION",
+                )
+            except Exception as _cb_err:
+                logger.debug("強平回調執行失敗（非致命）: %s", _cb_err)
+
         # 取消相關訂單
         self._cancel_symbol_orders(symbol)
         

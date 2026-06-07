@@ -376,6 +376,13 @@ class TradingEngine:
 
         # 待決策的 ActionRecord（key = symbol，交易出場前保持 PENDING）
         self._pending_action_records: Dict[str, Any] = {}
+        # 同步追蹤各 symbol 對應的策略名稱（用於 notify_trade_closed）
+        self._pending_strategy_names: Dict[str, str] = {}
+
+        # Paper trading 平倉回調接通（VirtualAccount → TradingEngine）
+        if self.paper_trading and hasattr(self.connector, "virtual_account"):
+            self.connector.virtual_account.set_close_callback(self._on_paper_close)
+            logger.info("✅ Paper trading 平倉回調已接通 → notify_trade_closed")
 
         logger.info(" ")
 
@@ -754,6 +761,18 @@ class TradingEngine:
         """"""
         try:
             current_price = float(data['c'])
+
+            # Paper trading：每個 tick 同步更新 VirtualAccount 價格，確保 SL/TP 即時觸發
+            if self.paper_trading and hasattr(self.connector, "virtual_account"):
+                try:
+                    high = float(data.get('h', current_price))
+                    low = float(data.get('l', current_price))
+                    self.connector.virtual_account.update_price(
+                        symbol, current_price, high=high, low=low
+                    )
+                except Exception as _pu_err:
+                    logger.debug("VirtualAccount price update 失敗: %s", _pu_err)
+
             klines = self._get_klines(symbol, interval="1m", limit=200)
             if not klines or len(klines) < 20:
                 return None
@@ -923,6 +942,9 @@ class TradingEngine:
             record.fusion_score = float(getattr(final_signal, "confidence", 0.0) or 0.0)
 
             self._pending_action_records[symbol] = record
+            self._pending_strategy_names[symbol] = str(
+                getattr(strategy_signal, "strategy_name", "strategy_selector")
+            )
             logger.debug("[ActionRecord] T0 recorded | symbol=%s direction=%s conf=%.2f",
                          symbol, record.direction, record.confidence)
         except Exception as _e:
@@ -1786,6 +1808,7 @@ class TradingEngine:
             )
 
         # ── T2：出場快照 + 記憶層推入 + LoRA 更新觸發 ───────────────────────
+        self._pending_strategy_names.pop(symbol, None)
         if symbol and self.episodic_memory is not None:
             pending = self._pending_action_records.pop(symbol, None)
             if pending is not None:
@@ -1818,6 +1841,36 @@ class TradingEngine:
                             )
                 except Exception as _e:
                     logger.debug("[ActionRecord] T2 記錄失敗（非致命）: %s", _e)
+
+    def _on_paper_close(
+        self,
+        symbol: str,
+        realized_pnl: float,
+        entry_price: float,
+        exit_price: float,
+        exit_reason: str,
+    ) -> None:
+        """VirtualAccount 平倉回調 → 自動觸發 T2 + LoRA 更新。
+
+        這是連接 VirtualAccount（知道倉位實際出場）與
+        notify_trade_closed（知道 ActionRecord / 記憶層）的橋樑。
+        """
+        strategy_nm = self._pending_strategy_names.get(symbol, "paper_auto")
+        logger.info(
+            "[Paper] 平倉事件觸發 | symbol=%s reason=%s pnl=%.4f",
+            symbol, exit_reason, realized_pnl,
+        )
+        try:
+            self.notify_trade_closed(
+                strategy_name=strategy_nm,
+                realized_pnl=realized_pnl,
+                entry_price=entry_price,
+                symbol=symbol,
+                exit_price=exit_price,
+                exit_reason=exit_reason,
+            )
+        except Exception as _e:
+            logger.debug("_on_paper_close 回調失敗（非致命）: %s", _e)
 
     def _is_cost_effective(
         self,
