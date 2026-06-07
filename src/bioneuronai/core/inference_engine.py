@@ -1361,6 +1361,10 @@ class InferenceEngine:
             regime_analysis=regime_analysis
         )
 
+        # 暴露給 ActionRecord 使用（(16, 64) 視圖，保持與 v2 patch 格式相容）
+        self.last_features_: np.ndarray = features
+        self.last_feature_seq_: Optional[np.ndarray] = None  # 下方填充
+
         # 2. 更新滾動視窗，構建 (T, 1024) 序列
         self._feature_buffer.append(features)
         seq = list(self._feature_buffer)          # T 個 ndarray，T ≤ _SEQ_LEN
@@ -1368,6 +1372,7 @@ class InferenceEngine:
         while len(seq) < self._SEQ_LEN:
             seq.insert(0, seq[0])
         feature_seq = np.stack(seq, axis=0)       # (T, 1024)
+        self.last_feature_seq_ = feature_seq      # expose (T, 1024) for ActionRecord
 
         # 3. 推論
         if self.predictor is None:

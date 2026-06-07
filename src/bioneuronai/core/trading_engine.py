@@ -358,6 +358,32 @@ class TradingEngine:
             except Exception as e:
                 logger.warning(f"NewsAdapter 初始化失敗: {e}")
 
+        # ── 記憶層 + LoRA 在線學習器 ────────────────────────────────────────────
+        try:
+            from bioneuronai.memory.episodic_memory import EpisodicMemory
+            from bioneuronai.core.online_learner import OnlineLearner
+            _memory_dir = _project_root / "data" / "bioneuronai" / "memory"
+            self.episodic_memory: Optional[Any] = EpisodicMemory(data_dir=_memory_dir)
+            self.online_learner: Optional[Any] = None
+            if enable_ai_model and self.ai_model_loaded:
+                # 模型在 load_model() 後才能初始化 learner；此處設 None，load_model 後補
+                pass
+            logger.info("✅ 記憶層已初始化 | path=%s", _memory_dir)
+        except Exception as _mem_err:
+            self.episodic_memory = None
+            self.online_learner = None
+            logger.warning("記憶層初始化失敗（非致命）: %s", _mem_err)
+
+        # 待決策的 ActionRecord（key = symbol，交易出場前保持 PENDING）
+        self._pending_action_records: Dict[str, Any] = {}
+        # 同步追蹤各 symbol 對應的策略名稱（用於 notify_trade_closed）
+        self._pending_strategy_names: Dict[str, str] = {}
+
+        # Paper trading 平倉回調接通（VirtualAccount → TradingEngine）
+        if self.paper_trading and hasattr(self.connector, "virtual_account"):
+            self.connector.virtual_account.set_close_callback(self._on_paper_close)
+            logger.info("✅ Paper trading 平倉回調已接通 → notify_trade_closed")
+
         logger.info(" ")
 
     def _initialize_rl_meta_agent(self) -> Optional[Any]:
@@ -405,6 +431,21 @@ class TradingEngine:
             
             self.ai_model_loaded = True
             logger.info(" AI ")
+
+            # 模型載入後初始化 LoRA 在線學習器
+            if self.episodic_memory is not None and self.online_learner is None:
+                try:
+                    from bioneuronai.core.online_learner import OnlineLearner
+                    self.online_learner = OnlineLearner(
+                        model=self.inference_engine.model_loader.get_model(),
+                        memory=self.episodic_memory,
+                        device="cpu",
+                    )
+                    self.online_learner.load_latest_lora()
+                    logger.info("✅ LoRA 在線學習器已初始化")
+                except Exception as _le:
+                    logger.warning("LoRA 在線學習器初始化失敗（非致命）: %s", _le)
+
             return True
             
         except FileNotFoundError:
@@ -720,6 +761,18 @@ class TradingEngine:
         """"""
         try:
             current_price = float(data['c'])
+
+            # Paper trading：每個 tick 同步更新 VirtualAccount 價格，確保 SL/TP 即時觸發
+            if self.paper_trading and hasattr(self.connector, "virtual_account"):
+                try:
+                    high = float(data.get('h', current_price))
+                    low = float(data.get('l', current_price))
+                    self.connector.virtual_account.update_price(
+                        symbol, current_price, high=high, low=low
+                    )
+                except Exception as _pu_err:
+                    logger.debug("VirtualAccount price update 失敗: %s", _pu_err)
+
             klines = self._get_klines(symbol, interval="1m", limit=200)
             if not klines or len(klines) < 20:
                 return None
@@ -792,7 +845,110 @@ class TradingEngine:
             except Exception as e:
                 logger.warning(f"AI 信號生成失敗: {e}")
 
-        return self._fuse_signals(strategy_signal, ai_signal, symbol, current_price)
+        final_signal = self._fuse_signals(strategy_signal, ai_signal, symbol, current_price)
+
+        # ── T0：決策快照 ─────────────────────────────────────────────────────
+        self._record_decision(
+            symbol=symbol,
+            current_price=current_price,
+            ai_signal=ai_signal,
+            final_signal=final_signal,
+            strategy_signal=strategy_signal,
+        )
+
+        return final_signal
+
+    def _record_decision(
+        self,
+        symbol: str,
+        current_price: float,
+        ai_signal: Optional[Any],
+        final_signal: Optional[Any],
+        strategy_signal: Optional[Any],
+    ) -> None:
+        """T0：在每次決策時建立 ActionRecord 並存入待決區。"""
+        if self.episodic_memory is None:
+            return
+        if final_signal is None:
+            return
+        try:
+            from bioneuronai.core.action_record import ActionRecord
+            record = ActionRecord(symbol=symbol)
+
+            # 從 inference_engine 取得最近一次的 feature 向量（1024 維 → reshape 16×64）
+            raw_feats: Optional[Any] = None
+            raw_logits: Optional[Any] = None
+            decoded: Dict[str, Any] = {}
+
+            if self.inference_engine is not None:
+                feats = getattr(self.inference_engine, "last_features_", None)
+                if feats is not None:
+                    raw_feats = feats.reshape(16, 64)
+                raw_logits = getattr(final_signal, "raw_output", None)
+
+            if raw_feats is None:
+                raw_feats = np.zeros((16, 64), dtype=np.float32)
+            if raw_logits is None:
+                raw_logits = np.zeros(512, dtype=np.float32)
+
+            # 把 TradingSignal 欄位對應到 decoded 字典格式（相容 ActionRecord.fill_decision）
+            from schemas.enums import SignalType
+            direction = "NEUTRAL"
+            if hasattr(final_signal, "signal_type"):
+                st = final_signal.signal_type
+                if st in (SignalType.STRONG_BUY, SignalType.BUY, SignalType.WEAK_BUY):
+                    direction = "LONG"
+                elif st in (SignalType.STRONG_SELL, SignalType.SELL, SignalType.WEAK_SELL):
+                    direction = "SHORT"
+
+            import torch
+            decoded = {
+                "direction_probs": torch.tensor([
+                    1.0 if direction == "LONG" else 0.0,
+                    1.0 if direction == "NEUTRAL" else 0.0,
+                    1.0 if direction == "SHORT" else 0.0,
+                ]),
+                "confidence_probs": torch.tensor([0.1, 0.3, 0.6]),
+                "leverage_probs": torch.zeros(10),
+                "position_size": torch.tensor(float(getattr(final_signal, "suggested_position_size", 0.0) or 0.0)),
+                "stop_loss_pct": torch.tensor(0.02),
+                "take_profit_pct": torch.tensor(0.04),
+                "hold_period_probs": torch.zeros(10),
+                "multi_tf_align": torch.zeros(5),
+                "pattern_probs": torch.zeros(20),
+                "uncertainty": torch.tensor(1.0 - float(getattr(final_signal, "confidence", 0.5))),
+                "regime_probs": torch.zeros(10),
+            }
+
+            market_snapshot = {
+                "price": current_price,
+                "funding_rate": 0.0,
+                "liquidation_volume_5min": 0.0,
+                "price_change_5min_pct": 0.0,
+                "volatility_1h": 0.0,
+                "bid_ask_spread": 0.0,
+                "orderbook_imbalance": 0.0,
+            }
+
+            record.fill_decision(
+                symbol=symbol,
+                numeric_patches=raw_feats,
+                raw_signal=raw_logits[:65] if len(raw_logits) >= 65 else np.pad(raw_logits, (0, 65 - len(raw_logits))),
+                decoded=decoded,
+                market_snapshot=market_snapshot,
+            )
+            record.strategy_signal_score = float(getattr(strategy_signal, "confidence", 0.0) or 0.0)
+            record.ai_signal_score = float(getattr(ai_signal, "confidence", 0.0) or 0.0)
+            record.fusion_score = float(getattr(final_signal, "confidence", 0.0) or 0.0)
+
+            self._pending_action_records[symbol] = record
+            self._pending_strategy_names[symbol] = str(
+                getattr(strategy_signal, "strategy_name", "strategy_selector")
+            )
+            logger.debug("[ActionRecord] T0 recorded | symbol=%s direction=%s conf=%.2f",
+                         symbol, record.direction, record.confidence)
+        except Exception as _e:
+            logger.debug("[ActionRecord] T0 記錄失敗（非致命）: %s", _e)
 
     def _generate_strategy_signal(
         self,
@@ -1586,7 +1742,24 @@ class TradingEngine:
                 
                 self.risk_manager.record_trade(trade_info)
                 self._save_trade_to_file(trade_info)
-                
+
+                # ── T1：進場快照 ──────────────────────────────────────────
+                pending = self._pending_action_records.get(signal.symbol)
+                if pending is not None:
+                    try:
+                        pending.fill_entry(
+                            order_id=str(order_result.order_id),
+                            entry_price=current_price,
+                            leverage=getattr(signal, "suggested_leverage", 1) or 1,
+                            position_size=position_size,
+                            stop_loss=float(signal.stop_loss or 0),
+                            take_profit=float(signal.take_profit or 0),
+                        )
+                        logger.debug("[ActionRecord] T1 recorded | symbol=%s order=%s",
+                                     signal.symbol, order_result.order_id)
+                    except Exception as _e:
+                        logger.debug("[ActionRecord] T1 記錄失敗（非致命）: %s", _e)
+
                 logger.info(f"  ID: {order_result.order_id}")
                 
             else:
@@ -1602,8 +1775,10 @@ class TradingEngine:
         entry_price: float,
         stop_loss_price: Optional[float] = None,
         symbol: str = "",
+        exit_price: float = 0.0,
+        exit_reason: str = "MANUAL",
     ) -> None:
-        """平倉後呼叫，以實際損益更新策略權重。
+        """平倉後呼叫，以實際損益更新策略權重，並推入記憶層觸發 LoRA 更新。
 
         Args:
             strategy_name: 產生信號的策略名稱
@@ -1611,6 +1786,8 @@ class TradingEngine:
             entry_price: 進場價格
             stop_loss_price: 止損價格（用於計算 R multiple）
             symbol: 交易對符號
+            exit_price: 出場價格（用於 ActionRecord T2）
+            exit_reason: 出場原因 SL_HIT / TP_HIT / MANUAL / TIMEOUT
         """
         if stop_loss_price and entry_price and abs(entry_price - stop_loss_price) > 0:
             risk = abs(entry_price - stop_loss_price)
@@ -1629,6 +1806,71 @@ class TradingEngine:
                 "策略權重已更新: %s | R=%.2f | PnL=%.2f",
                 strategy_name, r_multiple, realized_pnl,
             )
+
+        # ── T2：出場快照 + 記憶層推入 + LoRA 更新觸發 ───────────────────────
+        self._pending_strategy_names.pop(symbol, None)
+        if symbol and self.episodic_memory is not None:
+            pending = self._pending_action_records.pop(symbol, None)
+            if pending is not None:
+                try:
+                    _exit_price = exit_price if exit_price > 0 else entry_price
+                    pending.fill_exit(
+                        exit_price=_exit_price,
+                        exit_reason=exit_reason,
+                    )
+                    experience = pending.to_experience_record()
+
+                    # 注入實際 USDT 損益（realized_pnl）
+                    if pending.actual_position_size > 0:
+                        experience.pnl_usd = realized_pnl  # type: ignore[attr-defined]
+
+                    is_extreme = self.episodic_memory.push(experience)
+                    logger.info(
+                        "[ActionRecord] T2 complete | symbol=%s outcome=%s pnl=%.3f%% extreme=%s",
+                        symbol, experience.outcome, experience.pnl_pct * 100, is_extreme,
+                    )
+
+                    # 觸發 LoRA 在線更新（如果 learner 已初始化）
+                    if self.online_learner is not None:
+                        update_metrics = self.online_learner.record_outcome(experience)
+                        if update_metrics:
+                            logger.info(
+                                "[LoRA] 在線更新完成 | step=%d loss=%.5f",
+                                update_metrics.get("update_step", 0),
+                                update_metrics.get("loss", 0),
+                            )
+                except Exception as _e:
+                    logger.debug("[ActionRecord] T2 記錄失敗（非致命）: %s", _e)
+
+    def _on_paper_close(
+        self,
+        symbol: str,
+        realized_pnl: float,
+        entry_price: float,
+        exit_price: float,
+        exit_reason: str,
+    ) -> None:
+        """VirtualAccount 平倉回調 → 自動觸發 T2 + LoRA 更新。
+
+        這是連接 VirtualAccount（知道倉位實際出場）與
+        notify_trade_closed（知道 ActionRecord / 記憶層）的橋樑。
+        """
+        strategy_nm = self._pending_strategy_names.get(symbol, "paper_auto")
+        logger.info(
+            "[Paper] 平倉事件觸發 | symbol=%s reason=%s pnl=%.4f",
+            symbol, exit_reason, realized_pnl,
+        )
+        try:
+            self.notify_trade_closed(
+                strategy_name=strategy_nm,
+                realized_pnl=realized_pnl,
+                entry_price=entry_price,
+                symbol=symbol,
+                exit_price=exit_price,
+                exit_reason=exit_reason,
+            )
+        except Exception as _e:
+            logger.debug("_on_paper_close 回調失敗（非致命）: %s", _e)
 
     def _is_cost_effective(
         self,
@@ -2107,6 +2349,19 @@ class TradingEngine:
         except Exception as e:
             logger.error(f": {e}", exc_info=True)
 
+    def get_learning_status(self) -> Dict[str, Any]:
+        """回傳記憶層和 LoRA 學習器的當前狀態，供 API 或 Dashboard 查詢。"""
+        result: Dict[str, Any] = {
+            "memory_enabled": self.episodic_memory is not None,
+            "learner_enabled": self.online_learner is not None,
+            "pending_records": list(self._pending_action_records.keys()),
+        }
+        if self.episodic_memory is not None:
+            result["memory"] = self.episodic_memory.get_stats()
+        if self.online_learner is not None:
+            result["learner"] = self.online_learner.get_stats()
+        return result
 
-# 
+
+#
 CryptoFuturesTrader = TradingEngine
