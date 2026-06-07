@@ -50,7 +50,8 @@ python main.py trade --symbol BTCUSDT
          ▼
   _process_market_data()
          │
-         ├─ NewsAdapter.get_event_context()     ← 最近新聞事件分數
+         ├─ VirtualAccount.update_price()        ← Paper trading：每 tick 更新，觸發 SL/TP 檢查
+         ├─ NewsAdapter.get_event_context()       ← 最近新聞事件分數
          │
          ▼
   generate_trading_signal()
@@ -75,9 +76,12 @@ python main.py trade --symbol BTCUSDT
                            │
                            └─ T1: ActionRecord 進場快照
 
-出場（目前需人工觸發 notify_trade_closed）
+出場（SL/TP/強平 自動觸發）
          │
-         └─ T2: ActionRecord 出場快照 → 推入 EpisodicMemory → LoRA 更新
+         └─ VirtualAccount._on_position_closed callback
+                  │
+                  └─ notify_trade_closed()
+                           └─ T2: ActionRecord 出場快照 → EpisodicMemory → LoRA 更新
 ```
 
 ---
@@ -108,15 +112,15 @@ python main.py trade --symbol BTCUSDT
 
 > 目前新聞是「過濾器」（攔截逆勢信號），不是「主信號」（建議方向）。這是設計上待解決的缺口。
 
-### 自我學習層（已建立，尚未完全接通）
+### 自我學習層（完全接通）
 
 | 模組 | 檔案 | 狀態 |
 |---|---|---|
 | TinyLLM v2 | `nlp/tiny_llm_v2.py` | ✅ 三模態 + MoE 架構完成 |
-| Action Record | `core/action_record.py` | ✅ T0/T1 已接通 |
+| Action Record | `core/action_record.py` | ✅ T0/T1/T2 全部接通 |
 | EpisodicMemory | `memory/episodic_memory.py` | ✅ 熱緩衝 + 冷金庫完成 |
 | OnlineLearner | `core/online_learner.py` | ✅ LoRA 微更新器完成 |
-| **T2 出場觸發** | `notify_trade_closed()` | ❌ 未有呼叫方，需修正 |
+| VirtualAccount 平倉回調 | `trading/virtual_account.py` | ✅ SL/TP/強平 自動觸發 T2 |
 | **TinyLLM v2 接上交易引擎** | — | ❌ 尚未完成 |
 
 ### 回測與驗證
@@ -129,19 +133,26 @@ python main.py trade --symbol BTCUSDT
 
 ---
 
-## 已知問題與待完成缺口
+## 待完成缺口
 
-### P0 — 必須修正才能讓在線學習運作
+### P1 — 新聞架構錯置
 
-1. **`notify_trade_closed()` 無呼叫方**：T2 從未被觸發，整個 LoRA 在線更新迴路目前是死程式碼。需要在 VirtualAccount 的持倉平倉事件中自動呼叫。
+**新聞應作為主要方向建議者，目前只是過濾器。**
 
-2. **新聞角色錯置**：新聞應作為主要信號建議方，目前只是過濾器。
+設計目標：`NewsAdapter` 分析當下 + 近期新聞 → 提出主要方向偏好（LONG/SHORT/NEUTRAL）→ 策略信號在此方向框架內執行。
+現狀：新聞只在 event_score 超過 ±5 時才攔截逆勢信號，完全不主動建議方向。
 
-### P1 — 架構層待連接
+需要做的事：在 `NewsAdapter` 加入 `get_direction_bias()` 方法，並修改 `_fuse_signals()` 讓新聞偏好作為方向框架。
 
-3. **TinyLLM v2 尚未接上交易引擎**：新模型建立了，但 `inference_engine.py` 仍用 v1 的 1024→512 路徑。
+### P2 — 歷史資料 RL 訓練管線缺失
 
-4. **歷史資料 RL 訓練管線缺失**：用歷史 K 線做強化學習驗證的路徑尚未建立。
+**目前沒有任何方式用歷史資料做策略驗證或強化學習。**
+
+`backtest/` 只做靜態回測（不更新權重）。需要建立 `src/bioneuronai/training/rl_trainer.py`，以歷史 K 線作為 gym 環境，reward = PnL，連接現有的 `self_improvement.py` 遺傳算法。
+
+### P3 — TinyLLM v2 未接上交易引擎
+
+`InferenceEngine` 仍用 v1 的 1024→512 路徑，v2 的 16×64 patch 格式尚未支援。
 
 ---
 
@@ -155,6 +166,8 @@ python main.py trade --symbol BTCUSDT
 | 2026-06-05 | EpisodicMemory（熱緩衝 + 極端事件冷金庫）實作完成 |
 | 2026-06-05 | ActionRecord T0/T1 接通交易引擎 |
 | 2026-06-05 | OnlineLearner LoRA 微更新器實作完成 |
+| 2026-06-07 | P0 修復：VirtualAccount 平倉回調接通，LoRA 在線學習迴路完整運作 |
+| 2026-06-07 | SL/TP 每 tick 觸發修復（VirtualAccount 不再只在下單時才檢查條件單） |
 
 ---
 

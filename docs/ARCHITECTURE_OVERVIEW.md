@@ -1,7 +1,7 @@
 # BioNeuronAI 系統架構總覽
 
-**版本**: v2.1（現役）/ v2.x（建設中）
-**更新日期**: 2026-06-06
+**版本**: v2.2（現役）/ v2.x（建設中）
+**更新日期**: 2026-06-07
 
 > 本文件描述程式碼**實際執行**的架構，而非設計目標。
 > 未實作的功能在對應章節標注 `⚠️ 缺口` 或 `❌ 未完成`。
@@ -78,7 +78,9 @@ flowchart TD
 ```
 1. WebSocket 收到 ticker data
 2. _process_market_data(data, symbol)
-   a. NewsAdapter.get_event_context(symbol)  → event_score, event_context
+   a. VirtualAccount.update_price(symbol, close, high, low)
+      → _check_trigger_orders()             ← 每 tick 即時觸發 SL/TP 條件單
+   b. NewsAdapter.get_event_context(symbol)  → event_score, event_context
 3. generate_trading_signal(symbol, price, klines, event_score, event_context)
    a. [T0] _record_decision()               → 建立 ActionRecord，填 features + logits
    b. _generate_strategy_signal()
@@ -93,11 +95,14 @@ flowchart TD
       a. 新聞/資金費率/流動性 多重風控
       b. connector.place_order()
       c. [T1] ActionRecord.fill_entry()
-5. [T2] notify_trade_closed()              ← ❌ 目前無呼叫方，為死程式碼
-   → ActionRecord.fill_exit()
-   → EpisodicMemory.push()
-   → OnlineLearner.record_outcome()
-   → LoRA 微更新（每 100 筆）
+5. [T2] 平倉觸發（SL_HIT / TP_HIT / LIQUIDATION / MANUAL）
+   → VirtualAccount._on_position_closed callback
+   → TradingEngine._on_paper_close()
+   → notify_trade_closed()
+      → ActionRecord.fill_exit()
+      → EpisodicMemory.push()
+      → OnlineLearner.record_outcome()
+      → LoRA 微更新（每 100 筆）
 ```
 
 ---
@@ -125,7 +130,7 @@ flowchart TD
 - `start_monitoring(symbol)`: 啟動 WebSocket 監控
 - `load_ai_model(model_name)`: 載入 TinyLLM 模型
 - `enable_auto_trading()`: 開啟自動下單
-- `notify_trade_closed(...)`: 平倉後通知（**目前無呼叫方**）
+- `notify_trade_closed(...)`: 平倉後通知，由 VirtualAccount 回調自動觸發
 - `get_learning_status()`: 查詢記憶層 + LoRA 狀態
 
 ### 3.3 信號生成層
@@ -158,7 +163,7 @@ event_score > +5 (極度看多) → 攔截普通做空信號，放行做多
 | 模組 | 狀態 | 說明 |
 |---|---|---|
 | TinyLLM v2 | ✅ 架構完成 | `nlp/tiny_llm_v2.py`，三模態 + MoE，65 維全監督 |
-| ActionRecord | ✅ T0/T1 接通 | T2 待 notify_trade_closed 修正 |
+| ActionRecord | ✅ T0/T1/T2 全接通 | VirtualAccount 平倉回調自動觸發 T2 |
 | EpisodicMemory | ✅ 完成 | 熱緩衝 (50k 條，優先採樣) + 冷庫（極端事件永久保存） |
 | OnlineLearner | ✅ 完成 | LoRA 微更新，每 100 筆完整記錄觸發，4 項損失函數 |
 
@@ -218,14 +223,13 @@ LoRA: 整合在模型內，骨幹凍結後 0.25%（~203K）參數可訓練
 
 ---
 
-## 5. 已知問題
+## 5. 待完成缺口
 
-| 問題 | 影響 | 修正方向 |
+| 缺口 | 影響 | 修正方向 |
 |---|---|---|
-| `notify_trade_closed()` 無呼叫方 | LoRA 在線學習迴路完全不運作 | 在 VirtualAccount SL/TP 觸發時自動呼叫 |
-| 新聞是過濾器而非主信號 | 不符合設計目標 | 加入 `news_direction_bias` 作為方向框架 |
-| 歷史 RL 訓練管線缺失 | 無法用歷史資料做策略強化 | 建立 `training/rl_trainer.py` |
-| TinyLLM v2 未接上交易引擎 | v2 架構建完但無法使用 | 修改 InferenceEngine 支援 v2 格式 |
+| 新聞是過濾器而非主信號 | 不符合設計目標 | 加入 `news_direction_bias` 作為方向框架（P1） |
+| 歷史 RL 訓練管線缺失 | 無法用歷史資料做策略強化 | 建立 `training/rl_trainer.py`（P2） |
+| TinyLLM v2 未接上交易引擎 | v2 架構建完但無法使用 | 修改 InferenceEngine 支援 v2 格式（P3） |
 
 ---
 
@@ -247,4 +251,4 @@ uvicorn bioneuronai.api.app:app --host 0.0.0.0 --port 8000
 
 ---
 
-*最後更新：2026-06-06*
+*最後更新：2026-06-07*

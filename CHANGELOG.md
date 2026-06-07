@@ -1,5 +1,51 @@
 # 更新日誌
 
+## [Fix] - 2026-06-07
+
+### 🔌 P0 修復：在線學習迴路完整接通
+
+#### 問題根源
+
+`notify_trade_closed()` 在整個 codebase 中無任何呼叫方，導致：
+- ActionRecord T2 永遠不填寫
+- EpisodicMemory 永遠接收不到交易結果
+- OnlineLearner / LoRA 永遠不更新
+- SL/TP 條件單只在下新訂單時才觸發（而非每 tick 即時觸發）
+
+#### 修正內容
+
+**`src/bioneuronai/trading/virtual_account.py`**
+
+- 新增 `set_close_callback(callback)` 方法，接受外部回調函數
+- `_update_position()`：全倉平倉時記錄 `_last_close_info`（symbol / entry_price / exit_price / realized_pnl）
+- `_finalize_fill()`：平倉後自動讀取 `_last_close_info`，依 `OrderType` 決定 exit_reason，呼叫回調
+  - `STOP_MARKET` → `SL_HIT`
+  - `TAKE_PROFIT_MARKET` → `TP_HIT`
+  - reduce_only 市價單 → `MANUAL`
+  - 其他 → `CLOSE`
+- `_liquidate_position()`：強平後以 `exit_reason=LIQUIDATION` 呼叫回調
+
+**`src/bioneuronai/core/trading_engine.py`**
+
+- `__init__`：新增 `_pending_strategy_names` dict（追蹤各 symbol 的策略名稱）
+- `__init__`：paper trading 模式下自動呼叫 `virtual_account.set_close_callback(self._on_paper_close)`
+- `_record_decision()`：T0 時一併記錄策略名稱至 `_pending_strategy_names`
+- 新增 `_on_paper_close()` 橋接方法：接收 VirtualAccount 回調 → 查找策略名稱 → 呼叫 `notify_trade_closed()`
+- `_process_market_data()`：paper trading 時每個 WebSocket tick 呼叫 `virtual_account.update_price(symbol, close, high, low)`，確保 SL/TP 條件單在真實市場時序中即時觸發
+
+#### 修復後的完整出場鏈
+
+```
+WebSocket tick → VirtualAccount.update_price()
+  → _check_trigger_orders() → SL/TP 條件單成交
+    → _finalize_fill() → _on_position_closed callback
+      → TradingEngine._on_paper_close()
+        → notify_trade_closed()
+          → ActionRecord T2 → EpisodicMemory → LoRA 微更新
+```
+
+---
+
 ## [Architecture] - 2026-06-06
 
 ### 🧠 TinyLLM v2：三模態 + MoE + 整合 LoRA 全面重設計

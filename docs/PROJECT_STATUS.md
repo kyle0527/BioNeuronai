@@ -1,4 +1,4 @@
-# 專案現況與進度（2026-06-06）
+# 專案現況與進度（2026-06-07）
 
 > 這份文件是當前最準確的進度記錄。README 是它的摘要版。
 > 每次有重大架構變更時更新此文件。
@@ -13,6 +13,8 @@
 WebSocket (Binance ticker stream)
   → on_ticker_update(data)
   → _process_market_data(data, symbol)
+      ├─ VirtualAccount.update_price(symbol, close, high, low)   # paper trading 時每 tick 同步
+      │       └─ _check_trigger_orders()                          # SL/TP 即時觸發
       ├─ NewsAdapter.get_event_context(symbol)   # event_score, event_context
       └─ generate_trading_signal(...)
               ├─ [T0] _record_decision()          # ActionRecord 快照（已接通）
@@ -46,15 +48,25 @@ _handle_trading_signal(signal)
 - CLI: `python main.py trade --paper-live` 或 `--auto-trade`
 - 程式: `engine.enable_auto_trading()`
 
-### 1.3 已知的死程式碼（T2 問題）
+### 1.3 平倉 → T2 → LoRA 更新（完整迴路）
 
 ```
-notify_trade_closed(...)   # 設計用來在出場後觸發 T2 + LoRA 更新
-  → 整個 codebase 中沒有任何地方呼叫它
-  → 結果：ActionRecord T2 永遠不填寫，EpisodicMemory 永遠不接收資料，LoRA 永遠不更新
+SL/TP 觸發 or 強平
+  → VirtualAccount._finalize_fill() / _liquidate_position()
+  → _on_position_closed callback（已接通，2026-06-07）
+  → TradingEngine._on_paper_close()
+  → notify_trade_closed()
+        ├─ [T2] ActionRecord.fill_exit()        # pnl_pct, reward 計算
+        ├─ EpisodicMemory.push()                # 熱緩衝 or 極端事件冷庫
+        ├─ OnlineLearner.record_outcome()
+        └─ LoRA 微更新（每 100 筆完整記錄觸發）
 ```
 
-**修正方向**：在 `VirtualAccount` 的持倉平倉邏輯（`close_position()` 或 SL/TP 觸發時）自動呼叫 `trading_engine.notify_trade_closed()`。
+exit_reason 自動判定：
+- `OrderType.STOP_MARKET` → `SL_HIT`
+- `OrderType.TAKE_PROFIT_MARKET` → `TP_HIT`
+- `_liquidate_position()` → `LIQUIDATION`
+- 其他 reduce_only → `MANUAL`
 
 ---
 
@@ -70,7 +82,7 @@ notify_trade_closed(...)   # 設計用來在出場後觸發 T2 + LoRA 更新
 | `PreTradeCheckSystem` | RAG 風控（下單前） | 若發現重大負面新聞則攔截 |
 | **新聞作為主信號** | **規劃中，尚未實作** | 目前新聞是過濾器，不是決策者 |
 
-**重要**：策略是主信號來源，新聞是「交戰規則」攔截器。用戶原始設計是讓新聞分析近期事件後提出主要方向建議，目前的實作方向相反。這是待修正的架構缺口。
+**重要**：策略是主信號來源，新聞是「交戰規則」攔截器。原始設計是讓新聞分析近期事件後提出主要方向建議，目前的實作方向相反。這是 P1 待修正的架構缺口。
 
 ### 2.2 AI 模型層
 
@@ -78,17 +90,18 @@ notify_trade_closed(...)   # 設計用來在出場後觸發 T2 + LoRA 更新
 |---|---|---|
 | TinyLLM v1 | ✅ 可用 | `my_100m_model_trained_20260510.pth`，1024→512 輸入/輸出 |
 | TinyLLM v2 | ✅ 架構完成，未接通 | `nlp/tiny_llm_v2.py`，三模態 + MoE + 65 維全監督 |
-| LoRA (v1, `nlp/lora.py`) | ❌ 已有但未連接 | 從未被交易迴路呼叫 |
-| LoRA (v2, 整合在 TinyLLMv2) | ✅ 已整合 | 等待 T2 修正後才能真正運作 |
+| LoRA (v1, `nlp/lora.py`) | ⚠️ 已有但未連接 | 可忽略，v2 已整合 LoRA |
+| LoRA (v2, 整合在 TinyLLMv2) | ✅ 已整合 | 骨幹凍結後 0.25%（~203K）參數可訓練 |
 
 ### 2.3 記憶與在線學習
 
 | 模組 | 狀態 | 說明 |
 |---|---|---|
-| `ActionRecord` | ✅ T0/T1 已接通 | T2 因 `notify_trade_closed()` 無呼叫方而失效 |
-| `EpisodicMemory` | ✅ 已建立 | 熱緩衝 (50k) + 冷永久金庫（極端事件） |
-| `ExtremeEventVault` | ✅ 已建立 | 3σ 價格變動 / 爆倉潮 / 高信心巨虧 永久記錄 |
-| `OnlineLearner` | ✅ 已建立 | 每 100 筆觸發一次 LoRA 微更新，但因 T2 未接通而靜止 |
+| `ActionRecord` | ✅ T0/T1/T2 全接通 | VirtualAccount 平倉回調自動觸發 T2 |
+| `EpisodicMemory` | ✅ 完成 | 熱緩衝 (50k) + 冷永久金庫（極端事件） |
+| `ExtremeEventVault` | ✅ 完成 | 3σ 價格變動 / 爆倉潮 / 高信心巨虧 永久記錄 |
+| `OnlineLearner` | ✅ 完成，已接通 | 每 100 筆完整記錄觸發一次 LoRA 微更新 |
+| `VirtualAccount` 平倉回調 | ✅ 完成 | SL_HIT / TP_HIT / LIQUIDATION / MANUAL 自動通知 |
 
 ### 2.4 策略層
 
@@ -129,15 +142,21 @@ v1 → v2 遷移：骨幹 12 層 attention 權重格式相容，但輸入投影�
 **目標**：新聞模組分析當前 + 最近一段時間的新聞 → 提出主要交易方向建議 → 策略信號配合方向執行  
 **現狀**：策略信號是主信號，新聞只用於非對稱過濾（極空極多時才介入）
 
-修正路徑：在 `_generate_strategy_signal()` 之前，先讓 `NewsAdapter` 產生一個帶方向偏好的「新聞信號」，再讓策略信號在新聞信號的方向框架內運作。
+修正路徑：在 `_process_market_data()` 的策略信號生成之前，加入：
+```python
+news_direction_bias = self.news_adapter.get_direction_bias(symbol)
+# bias: {"direction": "LONG"/"SHORT"/"NEUTRAL", "strength": 0-1, "reason": str}
+```
+然後讓 `_fuse_signals()` 以 news_direction_bias 為主要框架。
 
 ### 在線學習 vs 歷史 RL 訓練
 
-這是兩條平行的路，都需要：
+這是兩條平行的路：
 
-**在線學習（已建 50%）**：
+**在線學習（已完整接通）**：
 - 從每筆 paper trading 交易的結果更新 TinyLLM LoRA 權重
-- 待完成：修正 T2（notify_trade_closed 需要呼叫方）
+- VirtualAccount 平倉 → 回調 → ActionRecord T2 → EpisodicMemory → LoRA 更新
+- 每 100 筆完整記錄（T0+T1+T2）觸發一次 gradient update
 
 **歷史資料 RL 訓練（尚未建立）**：
 - 目的：用歷史 K 線資料做策略強化學習，驗證信號品質
@@ -148,26 +167,14 @@ v1 → v2 遷移：骨幹 12 層 attention 權重格式相容，但輸入投影�
 
 ## 四、下一步優先工作
 
-### P0：讓在線學習真正運作（T2 修正）
-
-找到 `VirtualAccount` 的持倉平倉時機，自動呼叫 `TradingEngine.notify_trade_closed()`：
-```python
-# 在 VirtualAccount.close_position() 或 SL/TP 觸發後：
-if self._engine_ref is not None:
-    self._engine_ref.notify_trade_closed(
-        strategy_name=..., realized_pnl=..., entry_price=...,
-        symbol=..., exit_price=..., exit_reason=...,
-    )
-```
-
 ### P1：修正新聞架構（新聞 → 主信號）
 
-在 `_process_market_data()` 的策略信號生成之前，加入：
+在 `NewsAdapter` 新增 `get_direction_bias(symbol)` 方法：
 ```python
-news_direction_bias = self.news_adapter.get_direction_bias(symbol)
-# bias: {"direction": "LONG"/"SHORT"/"NEUTRAL", "strength": 0-1, "reason": str}
+# 回傳格式
+{"direction": "LONG"/"SHORT"/"NEUTRAL", "strength": 0-1, "reason": str}
 ```
-然後讓 `_fuse_signals()` 以 news_direction_bias 為主要框架。
+修改 `_fuse_signals()`，讓新聞偏好作為方向框架（而非分數加權 5%）。
 
 ### P2：建立歷史 RL 訓練管線
 
@@ -178,7 +185,7 @@ news_direction_bias = self.news_adapter.get_direction_bias(symbol)
 ### P3：TinyLLM v2 接上交易引擎
 
 - 修改 `InferenceEngine` 支援 v2 的 patch 輸入格式
-- 遷移策略：v1 和 v2 並存，v2 在冷啟動後接管
+- 遷移策略：v1 和 v2 並存，v2 在有訓練好的模型後接管
 
 ---
 
