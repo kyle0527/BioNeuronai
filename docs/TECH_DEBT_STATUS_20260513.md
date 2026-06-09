@@ -1,4 +1,4 @@
-# Technical Debt Status — 2026-05-19
+# Technical Debt Status — 2026-06-03（最後更新）
 
 本文件針對截圖中的「已確認的技術債」逐項核對目前程式碼狀態，並記錄實際驗證結果。2026-05-19 起，本輪主要驗證改以本機全域 Python 3.13 + PyTorch CPU 2.8.0 為準；Docker 不作本輪主要驗證入口，待自然語言、交易判斷與 API/UI 流程收斂後最後重建。
 
@@ -25,7 +25,7 @@
 | RAG 接通 `EventContext` | `TradingEngine` 已傳入 `EventContext`，`NewsAdapter` 可從 active event 或 RAG KB 組裝事件分數、類型、衰減、可信度、來源、標題與情緒。 | 主要路徑已完成；歷史相似事件與策略權重仍可強化。 |
 | 方案 C `HardRouter` / Strategy Fusion | 專案沒有獨立 `HardRouter` class；實作主線是 `TradingPhaseRouter`，可透過 `TradingEngine(strategy_type="phase_router")` 接入。 | 截圖名稱不完全對應；PhaseRouter 已可用，HardRouter 仍屬設計文件。 |
 | 語言訓練資料 33 筆 | `docs/TRAINED_MODEL_TECHNICAL_REPORT_20260510.md` 記錄 QA 樣本 33，且明確說 QA 品質不可當投資建議。 | 屬實；不是 runtime blocker，但限制仍需保留。 |
-| Shadow Mode 驗證 | 2026-05-19 已用本機 API 啟動 `paper_live`，確認主網行情 + 本地虛擬帳戶 + AI model loaded 可啟動與停止；尚未完成長時間觀察週期與報告。 | 短流程完成；下一步是長時間跑並回收 ledger。 |
+| Shadow Mode 驗證 | 2026-05-19 本機 API 啟動 `paper_live` 短流程；**2026-06-03 AI 自主分析管線逐層走查完成（TinyLLM 推論 164.9ms → 策略融合 → 新聞 RAG → execute_trade() 5 步驟 → Paper place_order() FILLED）**，`enable_auto_trading()` + `start_monitoring()` 24/7 自主迴圈機制確認可用。 | 核心流程驗證完成；下一步是多小時連續跑並回收 ledger。 |
 | Docker image 重建複驗 | 2026-05-14 曾完成 Docker `api` / `frontend` image 複驗；本輪已改成本機 runtime 先收斂，Docker image 最後重建。 | 需後續重建複驗，不作目前完成標準。 |
 | 訓練前/後權重切換驗證 | 2026-05-15 已用 Docker runtime 以 `MODEL_PATH` 切換 `my_100m_model.pth` 與 `my_100m_model_trained_20260510.pth`。兩者均可載入，且 `forward_signal()` / 真實 K 線推論輸出不同。 | 推論層驗證完成；仍需固定 IS/OOS 回測證明交易績效。 |
 | 模型資產治理 | `config/active_model.json` 指向的現役權重與訓練前基準權重必須可重建取得。複驗時發現基準權重曾被刪除，需從本機 LFS 物件還原；現役包裝權重也需要明確納入 LFS 或外部 artifact 流程。 | 高優先級；否則新環境可能缺權重。 |
@@ -61,7 +61,35 @@ python -m uvicorn bioneuronai.api.app:app --host 127.0.0.1 --port 8000
 # POST /api/v1/trade/stop: 成功停止，running=false
 ```
 
-2026-05-14 Docker 歷史驗證紀錄：
+2026-06-03 Binance Testnet + AI 自主分析管線完整驗證（新增）：
+
+```bash
+# Binance Testnet 驗證
+POST /api/v1/binance/validate  # canTrade=true, totalWalletBalance=5000 USDT
+
+# 實際 Testnet 開倉
+POST /api/v1/binance/order  # BTC LONG 0.002 @ 67,069.20 USDT → 訂單 13869263523
+POST /api/v1/binance/order  # ETH SHORT 0.05 @ 1,899.24 USDT → 訂單 8964845387
+
+# AI 自主分析管線（Python session）
+engine.load_ai_model()  # TinyLLM 111.6M, 0.53s 載入, CPU
+engine.get_ai_prediction()  # NEUTRAL, conf=0.33, latency=164.9ms
+selector.get_strategy_signals()  # 2/6 有效 (swing_trading: SHORT, trend_following: SHORT)
+news_adapter.get_event_context()  # sentiment=-0.543, 16 FAISS 命中, has_major_negative=True
+engine.execute_trade()  # 5 步驟逐一驗證通過（新聞護欄阻擋最終下單，此為設計行為）
+
+# Paper Trade 直接驗證
+connector.place_order()  # status=FILLED, 0.01 BTC @ 67,244 USDT, 保證金 672.82 USDT
+```
+
+## 2026-06-03 新發現問題
+
+| 問題 | 描述 | 優先級 |
+|---|---|---|
+| 4/6 策略回傳 None/Error | `mean_reversion`、`breakout` 等計算所需 K 線週期不足（ATR 出現負值），`get_strategy_signals()` 回傳 None/Error | 中 |
+| `ai_min_confidence=0.5` 門檻偏高 | 現役模型在當前市況信心度 ~0.33，低於 0.5 門檻故輸出 HOLD；可考慮在 testnet 觀察期降至 0.25 | 待觀察 |
+| `get_individual_strategy_signals()` 不存在 | `StrategySelector` 公開 API 無此方法；應使用 `get_strategy_signals(ohlcv, symbol)` | 低 |
+| `OrderResult` 無 `executed_qty` | `OrderResult` 的正確欄位是 `quantity`（非 `executed_qty`）；文件應明確列出 | 低 |
 
 ```bash
 docker compose run --rm status

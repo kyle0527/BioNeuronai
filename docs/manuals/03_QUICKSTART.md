@@ -64,16 +64,46 @@ python main.py plan
 python main.py pretrade --symbol BTCUSDT --action long
 ```
 
-**步驟 D：模擬或測試網執行 (Trade)**
-確認一切正常後，開啟機器人接收即時 WebSocket 數據進行測試網監控（需連網）：
+**步驟 D：啟動主交易引擎（建議先 paper-live）**
+確認一切正常後，先啟動真正的主交易引擎入口；日常建議先用 `paper-live`，而不是直接進 testnet 或 live：
+```bash
+python main.py trade --symbol BTCUSDT --paper-live --paper-balance 10000
+```
+預期行為：
+
+- `TradingEngine` 初始化成功
+- 自動交易狀態被設定
+- AI 模型載入
+- 顯示即時價格與 paper log 目錄
+- 進入持續監控流程；可用 `Ctrl+C` 中止
+
+若要直接用測試網監控：
+
 ```bash
 python main.py trade --symbol BTCUSDT --testnet
 ```
-隨時可按 `Ctrl+C` 平順中止程式。
 
 若要從 UI / API 啟用自動交易，請使用 `Trade Control` 的 `Testnet auto` 模式或 `POST /api/v1/trade/start` 的 `mode=testnet_auto`；不要把 CLI testnet 監控等同於正式網自動下單。
 
-**步驟 E（選用）：AI 對話助理 (Chat)**
+**步驟 E：執行 autonomous 單輪值班判斷**
+
+如果你要的是「像值班操作員一樣，先做一輪 plan + pretrade + adaptation 判斷」，用：
+
+```bash
+python main.py autonomous --mode advisor --symbol BTCUSDT --output output/autonomous_advisor.json
+```
+
+這個入口會：
+
+- 跑一輪高階計畫
+- 挑候選交易對
+- 對候選做 pretrade
+- 給出 `advise_only`、`observe` 或可執行判斷
+- 把結果寫入 decision ledger
+
+它是單輪決策入口，不是長時間監控入口。長時間主線仍然是 `trade`。
+
+**步驟 F（選用）：AI 對話助理 (Chat)**
 以中文或英文詢問交易策略、幣安合約規則、技術分析等問題：
 ```bash
 python main.py chat                     # 自動語言

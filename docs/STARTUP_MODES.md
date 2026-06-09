@@ -1,7 +1,7 @@
 # BioNeuronAI 啟動方式差異
 
-> 更新日期：2026-05-19
-> 目的：釐清 CLI、API、UI、Docker 四種入口在實際操作與功能上的差異。
+> 更新日期：2026-06-03
+> 目的：釐清 CLI、API、UI、Docker 四種入口，以及 AI 自主運作模式（新增）在實際操作與功能上的差異。
 
 ## 1. CLI
 
@@ -62,3 +62,109 @@ docker compose run --rm backtest
 | 正式交易前完整檢查 | CLI `readiness-gate` + API/UI paper-live |
 
 目前專案尚未完成「依原始設計目的完整跑過一次正式長週期自動運作」的驗收，因此舊 training / output / runtime 記錄只作為本機歸檔，不再視為正式進度證據。
+
+---
+
+## 5. AI 自主模式
+
+這裡有兩條不同的自主路徑，不能混為一談。
+
+### 5.1 `autonomous` 單輪決策
+
+CLI：
+
+```powershell
+python main.py autonomous --mode advisor --symbol BTCUSDT
+python main.py autonomous --mode paper_auto --symbol BTCUSDT
+```
+
+這條路徑的作用是：
+
+- 做一輪 observe-plan-pretrade-adapt 判斷
+- 輸出 `advise_only`、`observe` 或更進一步動作
+- 寫入 decision ledger
+
+它會結束，不會自己長時間監控。
+
+### 5.2 `trade` 長時間監控主線
+
+> 2026-06-03 驗證確認；這是 BioNeuronAI 真正持續運作的主線。
+
+AI 自主模式透過 WebSocket 訂閱即時 Ticker，每次 Tick 到達即觸發完整的「市場資料 → AI 推論 → 策略融合 → 新聞 RAG 護欄 → 下單」管線，無需人工介入。
+
+### 啟動方式（Python / API）
+
+**方式 A — 直接呼叫（測試、開發）**
+
+```python
+from bioneuronai.core.trading_engine import TradingEngine
+
+engine = TradingEngine(
+    testnet=True,         # True = Binance Testnet; False = mainnet
+    paper_trading=True,   # True = 虛擬成交，不送真實訂單
+    enable_ai_model=True
+)
+engine.load_ai_model('my_100m_model')  # 載入 config/active_model.json 指定的 checkpoint
+engine.enable_auto_trading()           # 設定 auto_trade = True
+engine.start_monitoring('BTCUSDT')     # 訂閱 WebSocket；阻塞直到 stop_monitoring() 被呼叫
+```
+
+**方式 B — 透過 API**
+
+```http
+POST /api/v1/trade/start
+Content-Type: application/json
+
+{
+  "symbol": "BTCUSDT",
+  "mode": "paper_live",
+  "auto_trade": true
+}
+```
+
+> 當 `mode` 為 `paper_live`、`testnet_auto` 或 `live_auto` 時，`_auto_trade_requested()` 返回 True，系統自動呼叫 `enable_auto_trading()`。
+
+### 自主決策管線（Tick → 訂單）
+
+```
+Binance WebSocket Tick
+    ↓
+on_ticker_update()
+    ↓
+_process_market_data()  →  抓取 K 線（BinanceFuturesConnector._get_klines）
+    ↓
+generate_trading_signal()
+    ├── InferenceEngine.get_ai_prediction()         # TinyLLM 111.6M, ~165ms/次
+    ├── StrategySelector.get_actionable_signal()    # 6 策略融合
+    └── NewsAdapter.get_event_context()             # RAG FAISS 情緒分數
+    ↓
+_handle_trading_signal()
+    └── if auto_trade: execute_trade()
+            ├── _check_news_risk()                  # 新聞護欄（阻擋 has_major_negative）
+            ├── _get_account_balance()
+            ├── _get_current_price()
+            ├── _calculate_position_size()
+            ├── _is_cost_effective()
+            └── connector.place_order()             # FILLED
+```
+
+### 各模式對照表
+
+| 模式 | testnet= | paper_trading= | auto_trade= | 說明 |
+|---|---|---|---|---|
+| `monitor_only` | True | True | False | 只觀察訊號，不下單 |
+| `paper_live` | False | True | True（可選） | 主網行情 + 虛擬成交 |
+| `testnet_auto` | True | False | True | Testnet 真實下單（虛擬資金） |
+| `live_auto` | False | False | True | **主網真實下單**（需謹慎） |
+
+### 信心度門檻說明
+
+`TradingEngine.ai_min_confidence`（預設 `0.5`）是下單前的最低 AI 信心度要求。
+現役模型在當前市況下信心度約 0.33，低於門檻時輸出 `HOLD`。
+Testnet 觀察期間可暫時降至 0.25（`engine.ai_min_confidence = 0.25`）以觀察更多訊號行為。
+
+### 注意事項
+
+- **新聞護欄是硬性阻擋**：`_check_news_risk()` 返回 False 時，即使 AI 訊號強、信心度高，也不會下單。此為設計行為，不是 bug。
+- **4/6 策略目前有問題**：`mean_reversion`、`breakout` 等因 K 線週期不足回傳 None/Error；短期只有 `swing_trading` 和 `trend_following` 有效。
+- **停止自主模式**：呼叫 `engine.stop_monitoring()` 或 `POST /api/v1/trade/stop`。

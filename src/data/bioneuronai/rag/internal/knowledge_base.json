@@ -3138,6 +3138,488 @@
         "ingested_at": "2026-05-19T11:10:52.189975",
         "ingested_by": "NewsAdapter"
       }
+    },
+    {
+      "id": "news_btcusdt_7a832a9c1f380180",
+      "title": "Strive added 2,500 bitcoin last week to reach 19,000 BTC as Strategy sold",
+      "content": "Benchmark's Mark Palmer also initiated coverage of the stock with a Buy rating and $32 price target as ASST shares fell about 4% pre-market.",
+      "doc_type": "news_archive",
+      "created_at": "2026-06-03T04:39:32.560420",
+      "updated_at": "2026-06-03T04:39:32.560420",
+      "tags": [
+        "news",
+        "btcusdt",
+        "www.coindesk.com"
+      ],
+      "metadata": {
+        "symbol": "BTCUSDT",
+        "news_source": "www.coindesk.com",
+        "url": "https://www.coindesk.com/markets/2026/06/02/strive-adds-2-500-bitcoin-to-hit-19-000-btc-just-a-day-after-strategy-turns-seller",
+        "published_at": "2026-06-02T12:23:38",
+        "analysis_hours": 24,
+        "overall_sentiment_score": -0.543,
+        "article_sentiment": "neutral",
+        "article_sentiment_score": -0.543,
+        "importance_score": 8.14,
+        "relevance_score": 2.0,
+        "key_events": [],
+        "ingested_at": "2026-06-03T04:39:32.560323",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_btcusdt_1786c97930e2ff82",
+      "title": "Bitcoin drops below $70,000 as stocks pause and Strategy's BTC sale weighs on crypto",
+      "content": "BTC fell 3.8% in 24 hours to below $69,960 , the lowest level in weeks, as Monday's 8-K filing disclosing Strategy's first publicized bitcoin sale continued to weigh.",
+      "doc_type": "news_archive",
+      "created_at": "2026-06-02T22:40:37.950773",
+      "updated_at": "2026-06-02T22:40:37.950774",
+      "tags": [
+        "news",
+        "btcusdt",
+        "www.coindesk.com"
+      ],
+      "metadata": {
+        "symbol": "BTCUSDT",
+        "news_source": "www.coindesk.com",
+        "url": "https://www.coindesk.com/markets/2026/06/02/bitcoin-slide-to-usd70-000-as-stocks-pause-and-strategy-s-btc-sale-weighs-on-crypto",
+        "published_at": "2026-06-02T05:09:39",
+        "analysis_hours": 24,
+        "overall_sentiment_score": -0.606,
+        "article_sentiment": "negative",
+        "article_sentiment_score": -0.9,
+        "importance_score": 8.64,
+        "relevance_score": 2.0,
+        "key_events": [],
+        "ingested_at": "2026-06-02T22:40:37.950688",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_btcusdt_23534d540ad7346c",
+      "title": "Bitcoin bulls consider fresh positions after BTC price drops under $71K",
+      "content": "<p style=\"float:right; margin:0 0 10px 15px; width:240px;\"><img src=\"https://images.cointelegraph.com/images/528_aHR0cHM6Ly9zMy1pbWFnZXMuY3RtZWRpYS5pby9tZWRpYS9hcnRpY2xlLWNvdmVycy9hbmFseXRpY3MtcmVkLW1",
+      "doc_type": "news_archive",
+      "created_at": "2026-06-02T22:40:37.950784",
+      "updated_at": "2026-06-02T22:40:37.950785",
+      "tags": [
+        "news",
+        "btcusdt",
+        "cointelegraph.com"
+      ],
+      "metadata": {
+        "symbol": "BTCUSDT",
+        "news_source": "cointelegraph.com",
+        "url": "https://cointelegraph.com/markets/bitcoin-bulls-eye-fresh-positions-after-btc-price-drops-under-71k?utm_source=rss_feed&utm_medium=rss&utm_campaign=rss_partner_inbound",
+        "published_at": "2026-06-01T22:54:07",
+        "analysis_hours": 24,
+        "overall_sentiment_score": -0.606,
+        "article_sentiment": "negative",
+        "article_sentiment_score": -0.9,
+        "importance_score": 9.14,
+        "relevance_score": 2.0,
+        "key_events": [],
+        "ingested_at": "2026-06-02T22:40:37.950688",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_btcusdt_9ba6d14ed46f24dc",
+      "title": "Bitcoin Traders Flip Bearish as BTC Falls to Lowest Price in Months",
+      "content": "Myriad predictors think it's increasingly likely that Bitcoin's next stop is $55,000 rather than $84,000 as BTC continues its slide.",
+      "doc_type": "news_archive",
+      "created_at": "2026-06-03T04:39:32.560398",
+      "updated_at": "2026-06-03T04:39:32.560398",
+      "tags": [
+        "news",
+        "btcusdt",
+        "decrypt.co"
+      ],
+      "metadata": {
+        "symbol": "BTCUSDT",
+        "news_source": "decrypt.co",
+        "url": "https://decrypt.co/369728/bitcoin-traders-flip-bearish-btc-lowest-price-months",
+        "published_at": "2026-06-02T15:35:54",
+        "analysis_hours": 24,
+        "overall_sentiment_score": -0.543,
+        "article_sentiment": "negative",
+        "article_sentiment_score": -0.16666666666666669,
+        "importance_score": 8.19,
+        "relevance_score": 2.0,
+        "key_events": [],
+        "ingested_at": "2026-06-03T04:39:32.560323",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_btcusdt_260ba3f6079ed8fa",
+      "title": "HIVE Bitcoin holdings drop by 331 BTC in Q1, reports record $298M revenue",
+      "content": "<p style=\"float:right; margin:0 0 10px 15px; width:240px;\"><img src=\"https://images.cointelegraph.com/images/528_aHR0cHM6Ly9zMy1pbWFnZXMuY3RtZWRpYS5pby9tZWRpYS9hcnRpY2xlLWNvdmVycy9oaS13aGF0LWlzLXdlYWx",
+      "doc_type": "news_archive",
+      "created_at": "2026-06-03T04:39:32.560410",
+      "updated_at": "2026-06-03T04:39:32.560410",
+      "tags": [
+        "news",
+        "btcusdt",
+        "cointelegraph.com"
+      ],
+      "metadata": {
+        "symbol": "BTCUSDT",
+        "news_source": "cointelegraph.com",
+        "url": "https://cointelegraph.com/news/hive-sells-331-btc-q1-record-298-million-revenue?utm_source=rss_feed&utm_medium=rss&utm_campaign=rss_partner_inbound",
+        "published_at": "2026-06-02T14:14:02",
+        "analysis_hours": 24,
+        "overall_sentiment_score": -0.543,
+        "article_sentiment": "negative",
+        "article_sentiment_score": -0.9,
+        "importance_score": 8.64,
+        "relevance_score": 2.0,
+        "key_events": [],
+        "ingested_at": "2026-06-03T04:39:32.560323",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_btcusdt_cd11d2fa982ba5d0",
+      "title": "Bitcoin gets new $50K target after BTC price crashes 6% in a day",
+      "content": "<p style=\"float:right; margin:0 0 10px 15px; width:240px;\"><img src=\"https://images.cointelegraph.com/images/528_aHR0cHM6Ly9zMy1pbWFnZXMuY3RtZWRpYS5pby9tZWRpYS9hcnRpY2xlLWNvdmVycy9kb2N0b3ItbWVkaWNpbmU",
+      "doc_type": "news_archive",
+      "created_at": "2026-06-03T04:39:32.560380",
+      "updated_at": "2026-06-03T04:39:32.560381",
+      "tags": [
+        "news",
+        "btcusdt",
+        "cointelegraph.com"
+      ],
+      "metadata": {
+        "symbol": "BTCUSDT",
+        "news_source": "cointelegraph.com",
+        "url": "https://cointelegraph.com/markets/bitcoin-gets-new-50k-target-after-btc-price-crashes-6-in-a-day?utm_source=rss_feed&utm_medium=rss&utm_campaign=rss_partner_inbound",
+        "published_at": "2026-06-02T17:54:18",
+        "analysis_hours": 24,
+        "overall_sentiment_score": -0.543,
+        "article_sentiment": "negative",
+        "article_sentiment_score": -1.0,
+        "importance_score": 9.64,
+        "relevance_score": 2.0,
+        "key_events": [],
+        "ingested_at": "2026-06-03T04:39:32.560323",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_btcusdt_2f9ae5b8c361576c",
+      "title": "Live updates: Bitcoin tops $63,000 as Strategy adds $100 million BTC in latest purchase",
+      "content": "Meanwhile, Strive bought 32 bitcoin, the same number Strategy dumped last week.",
+      "doc_type": "news_archive",
+      "created_at": "2026-06-09T13:32:30.176094",
+      "updated_at": "2026-06-09T13:32:30.176095",
+      "tags": [
+        "news",
+        "btcusdt",
+        "www.coindesk.com"
+      ],
+      "metadata": {
+        "symbol": "BTCUSDT",
+        "news_source": "www.coindesk.com",
+        "url": "https://www.coindesk.com/business/2026/06/08/live-updates-bitcoin-above-usd63-400-as-strategy-adds-usd100-million-btc-in-latest-purchase",
+        "published_at": "2026-06-08T17:04:38",
+        "analysis_hours": 24,
+        "overall_sentiment_score": 0.383,
+        "article_sentiment": "neutral",
+        "article_sentiment_score": 0.383,
+        "importance_score": 7.64,
+        "relevance_score": 2.0,
+        "key_events": [],
+        "ingested_at": "2026-06-09T13:32:30.176010",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_btcusdt_3a47c5c1302504f2",
+      "title": "Bitcoin price eyes $90K as FTX-era BTC bullish divergence flashes again",
+      "content": "<p style=\"float:right; margin:0 0 10px 15px; width:240px;\"><img src=\"https://images.cointelegraph.com/images/528_aHR0cHM6Ly9zMy1pbWFnZXMuY3RtZWRpYS5pby9tZWRpYS9hcnRpY2xlLWNvdmVycy9hcnRpY2xlLWNvdmVycy0",
+      "doc_type": "news_archive",
+      "created_at": "2026-06-09T13:32:30.176138",
+      "updated_at": "2026-06-09T13:32:30.176138",
+      "tags": [
+        "news",
+        "btcusdt",
+        "cointelegraph.com"
+      ],
+      "metadata": {
+        "symbol": "BTCUSDT",
+        "news_source": "cointelegraph.com",
+        "url": "https://cointelegraph.com/markets/bitcoin-price-eyes-90k-as-ftx-era-btc-bullish-divergence-flashes-again?utm_source=rss_feed&utm_medium=rss&utm_campaign=rss_partner_inbound",
+        "published_at": "2026-06-08T14:30:28",
+        "analysis_hours": 24,
+        "overall_sentiment_score": 0.383,
+        "article_sentiment": "positive",
+        "article_sentiment_score": 1.0,
+        "importance_score": 9.5,
+        "relevance_score": 2.0,
+        "key_events": [],
+        "ingested_at": "2026-06-09T13:32:30.176010",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_btcusdt_f6afe2ace84dd5ae",
+      "title": "Strategy buys 1,550 Bitcoin after controversial 32 BTC sale",
+      "content": "<p style=\"float:right; margin:0 0 10px 15px; width:240px;\"><img src=\"https://images.cointelegraph.com/images/528_aHR0cHM6Ly9zMy1pbWFnZXMuY3RtZWRpYS5pby9tZWRpYS9hcnRpY2xlLWNvdmVycy9oaS13aHktc2F5bG9ycy1",
+      "doc_type": "news_archive",
+      "created_at": "2026-06-09T01:51:19.454064",
+      "updated_at": "2026-06-09T01:51:19.454065",
+      "tags": [
+        "news",
+        "btcusdt",
+        "cointelegraph.com"
+      ],
+      "metadata": {
+        "symbol": "BTCUSDT",
+        "news_source": "cointelegraph.com",
+        "url": "https://cointelegraph.com/news/strategy-resumes-bitcoin-purchases-1550-btc-buy?utm_source=rss_feed&utm_medium=rss&utm_campaign=rss_partner_inbound",
+        "published_at": "2026-06-08T13:45:48",
+        "analysis_hours": 24,
+        "overall_sentiment_score": 0.251,
+        "article_sentiment": "neutral",
+        "article_sentiment_score": 0.251,
+        "importance_score": 7.64,
+        "relevance_score": 2.0,
+        "key_events": [],
+        "ingested_at": "2026-06-09T01:51:19.454011",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_btcusdt_53b88cdc69e2a4b2",
+      "title": "BTC price bottom not due until Q4? Five things to know in Bitcoin this week",
+      "content": "<p style=\"float:right; margin:0 0 10px 15px; width:240px;\"><img src=\"https://images.cointelegraph.com/images/528_aHR0cHM6Ly9zMy1pbWFnZXMuY3RtZWRpYS5pby9tZWRpYS9hcnRpY2xlLWNvdmVycy9oaS13aHktY3J5cHRvLW1",
+      "doc_type": "news_archive",
+      "created_at": "2026-06-09T01:51:19.454073",
+      "updated_at": "2026-06-09T01:51:19.454073",
+      "tags": [
+        "news",
+        "btcusdt",
+        "cointelegraph.com"
+      ],
+      "metadata": {
+        "symbol": "BTCUSDT",
+        "news_source": "cointelegraph.com",
+        "url": "https://cointelegraph.com/markets/btc-price-bottom-not-due-until-q4-five-things-to-know-in-bitcoin-this-week?utm_source=rss_feed&utm_medium=rss&utm_campaign=rss_partner_inbound",
+        "published_at": "2026-06-08T11:40:55",
+        "analysis_hours": 24,
+        "overall_sentiment_score": 0.251,
+        "article_sentiment": "neutral",
+        "article_sentiment_score": 0.251,
+        "importance_score": 8.14,
+        "relevance_score": 2.0,
+        "key_events": [],
+        "ingested_at": "2026-06-09T01:51:19.454011",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_btcusdt_9bf80166d203020f",
+      "title": "Chinese court treats Bitcoin as property in 107 BTC memory theft case",
+      "content": "<p style=\"float:right; margin:0 0 10px 15px; width:240px;\"><img src=\"https://images.cointelegraph.com/images/528_aHR0cHM6Ly9zMy1pbWFnZXMuY3RtZWRpYS5pby9tZWRpYS9hcnRpY2xlLWNvdmVycy9oaS1jYW4tYml0Y29pbi1",
+      "doc_type": "news_archive",
+      "created_at": "2026-06-09T01:51:19.454080",
+      "updated_at": "2026-06-09T01:51:19.454080",
+      "tags": [
+        "news",
+        "btcusdt",
+        "cointelegraph.com"
+      ],
+      "metadata": {
+        "symbol": "BTCUSDT",
+        "news_source": "cointelegraph.com",
+        "url": "https://cointelegraph.com/news/man-who-memorized-wallet-mnemonic-jailed-in-china-for-107-btc-theft?utm_source=rss_feed&utm_medium=rss&utm_campaign=rss_partner_inbound",
+        "published_at": "2026-06-08T11:23:19",
+        "analysis_hours": 24,
+        "overall_sentiment_score": 0.251,
+        "article_sentiment": "neutral",
+        "article_sentiment_score": 0.251,
+        "importance_score": 7.64,
+        "relevance_score": 2.0,
+        "key_events": [],
+        "ingested_at": "2026-06-09T01:51:19.454011",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_btcusdt_23003942f69d2ec0",
+      "title": "Bitcoin spikes, then dumps, from $63,700 as analysts assess Strategy's next BTC moves",
+      "content": "BTC, ETH, XRP and others pulled back from their overnight highs as Iran-Israel tensions and oil rally triggered risk aversion in Asian stocks.",
+      "doc_type": "news_archive",
+      "created_at": "2026-06-09T01:51:19.454087",
+      "updated_at": "2026-06-09T01:51:19.454087",
+      "tags": [
+        "news",
+        "btcusdt",
+        "www.coindesk.com"
+      ],
+      "metadata": {
+        "symbol": "BTCUSDT",
+        "news_source": "www.coindesk.com",
+        "url": "https://www.coindesk.com/tech/2026/06/08/major-cryptocurrencies-under-pressure-as-oil-jumps-3",
+        "published_at": "2026-06-08T05:08:06",
+        "analysis_hours": 24,
+        "overall_sentiment_score": 0.251,
+        "article_sentiment": "positive",
+        "article_sentiment_score": 0.30000000000000004,
+        "importance_score": 8.45,
+        "relevance_score": 2.0,
+        "key_events": [],
+        "ingested_at": "2026-06-09T01:51:19.454011",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_btcusdt_efc704058f4c44a8",
+      "title": "Strategy’s Saylor signals BTC buy as preferred dividend pay date vote looms",
+      "content": "<p style=\"float:right; margin:0 0 10px 15px; width:240px;\"><img src=\"https://images.cointelegraph.com/images/528_aHR0cHM6Ly9zMy1pbWFnZXMuY3RtZWRpYS5pby9tZWRpYS9hcnRpY2xlLWNvdmVycy9hcnRpY2xlLWNvdmVycy0",
+      "doc_type": "news_archive",
+      "created_at": "2026-06-09T01:51:07.629954",
+      "updated_at": "2026-06-09T01:51:07.629955",
+      "tags": [
+        "news",
+        "btcusdt",
+        "cointelegraph.com"
+      ],
+      "metadata": {
+        "symbol": "BTCUSDT",
+        "news_source": "cointelegraph.com",
+        "url": "https://cointelegraph.com/news/strategys-saylor-signals-btc-buy-as-preferred-dividend-pay-date-vote-looms?utm_source=rss_feed&utm_medium=rss&utm_campaign=rss_partner_inbound",
+        "published_at": "2026-06-07T19:45:17",
+        "analysis_hours": 142,
+        "overall_sentiment_score": 0.059,
+        "article_sentiment": "neutral",
+        "article_sentiment_score": 0.059,
+        "importance_score": 6.68,
+        "relevance_score": 2.0,
+        "key_events": [],
+        "ingested_at": "2026-06-09T01:51:07.629844",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_btcusdt_232dd0f2045621b5",
+      "title": "Bitcoin most oversold since 2020 crash: Can BTC rebound to $70K next?",
+      "content": "<p style=\"float:right; margin:0 0 10px 15px; width:240px;\"><img src=\"https://images.cointelegraph.com/images/528_aHR0cHM6Ly9zMy1pbWFnZXMuY3RtZWRpYS5pby9tZWRpYS9hcnRpY2xlLWNvdmVycy9oaS1ob3ctYml0Y29pbi1",
+      "doc_type": "news_archive",
+      "created_at": "2026-06-09T01:51:07.629963",
+      "updated_at": "2026-06-09T01:51:07.629963",
+      "tags": [
+        "news",
+        "btcusdt",
+        "cointelegraph.com"
+      ],
+      "metadata": {
+        "symbol": "BTCUSDT",
+        "news_source": "cointelegraph.com",
+        "url": "https://cointelegraph.com/markets/bitcoin-most-oversold-since-2020-crash-can-btc-rebound-to-70k-next?utm_source=rss_feed&utm_medium=rss&utm_campaign=rss_partner_inbound",
+        "published_at": "2026-06-06T16:06:54",
+        "analysis_hours": 142,
+        "overall_sentiment_score": 0.059,
+        "article_sentiment": "negative",
+        "article_sentiment_score": -1.0,
+        "importance_score": 8.7,
+        "relevance_score": 2.0,
+        "key_events": [],
+        "ingested_at": "2026-06-09T01:51:07.629844",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_btcusdt_a1e6e8789edef1f9",
+      "title": "Strategy buys 1,550 Bitcoin after controversial 32 BTC sale",
+      "content": "<p style=\"float:right; margin:0 0 10px 15px; width:240px;\"><img src=\"https://images.cointelegraph.com/images/528_aHR0cHM6Ly9zMy1pbWFnZXMuY3RtZWRpYS5pby9tZWRpYS9hcnRpY2xlLWNvdmVycy9oaS13aHktc2F5bG9ycy1",
+      "doc_type": "news_archive",
+      "created_at": "2026-06-09T13:32:30.176158",
+      "updated_at": "2026-06-09T13:32:30.176158",
+      "tags": [
+        "news",
+        "btcusdt",
+        "cointelegraph.com"
+      ],
+      "metadata": {
+        "symbol": "BTCUSDT",
+        "news_source": "cointelegraph.com",
+        "url": "https://cointelegraph.com/news/strategy-resumes-bitcoin-purchases-1550-btc-buy?utm_source=rss_feed&utm_medium=rss&utm_campaign=rss_partner_inbound",
+        "published_at": "2026-06-08T13:50:00",
+        "analysis_hours": 24,
+        "overall_sentiment_score": 0.383,
+        "article_sentiment": "neutral",
+        "article_sentiment_score": 0.383,
+        "importance_score": 7.64,
+        "relevance_score": 2.0,
+        "key_events": [],
+        "ingested_at": "2026-06-09T13:32:30.176010",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_ethusdt_7377a801e940d271",
+      "title": "Bored Ape Maker Yuga Labs Rescues Dozens of Ethereum NFTs From Exploit",
+      "content": "The Bored Ape Yacht Club creator now holds more than 60 rescued NFTs in its custody as it works to return them to their rightful owners.",
+      "doc_type": "news_archive",
+      "created_at": "2026-06-09T13:06:52.731376",
+      "updated_at": "2026-06-09T13:06:52.731376",
+      "tags": [
+        "news",
+        "ethusdt",
+        "decrypt.co",
+        "🔒_安全事件"
+      ],
+      "metadata": {
+        "symbol": "ETHUSDT",
+        "news_source": "decrypt.co",
+        "url": "https://decrypt.co/370445/bored-ape-maker-yuga-labs-rescues-ethereum-nfts-exploit",
+        "published_at": "2026-06-08T20:54:45",
+        "analysis_hours": 24,
+        "overall_sentiment_score": -1.0,
+        "article_sentiment": "negative",
+        "article_sentiment_score": -1.0,
+        "importance_score": 10.0,
+        "relevance_score": 2.0,
+        "key_events": [
+          "🔒 安全事件"
+        ],
+        "ingested_at": "2026-06-09T13:06:52.731329",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_ethusdt_14bc5ff145cf5702",
+      "title": "Tom Lee's BitMine Buys the Dip Amid 'Superficial' Crypto Selloff, Adding $214M in Ethereum",
+      "content": "Leading Ethereum treasury firm BitMine Immersion Technologies bought the dip, making its largest weekly ETH purchase so far this year.",
+      "doc_type": "news_archive",
+      "created_at": "2026-06-09T13:06:52.731400",
+      "updated_at": "2026-06-09T13:06:52.731400",
+      "tags": [
+        "news",
+        "ethusdt",
+        "decrypt.co",
+        "🔒_安全事件"
+      ],
+      "metadata": {
+        "symbol": "ETHUSDT",
+        "news_source": "decrypt.co",
+        "url": "https://decrypt.co/370315/tom-lees-bitmine-buys-dip-superficial-crypto-selloff-214m-ethereum",
+        "published_at": "2026-06-08T15:18:37",
+        "analysis_hours": 24,
+        "overall_sentiment_score": -1.0,
+        "article_sentiment": "negative",
+        "article_sentiment_score": -1.0,
+        "importance_score": 8.8,
+        "relevance_score": 2.0,
+        "key_events": [
+          "🔒 安全事件"
+        ],
+        "ingested_at": "2026-06-09T13:06:52.731329",
+        "ingested_by": "NewsAdapter"
+      }
     }
   ]
 }

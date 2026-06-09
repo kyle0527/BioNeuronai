@@ -411,13 +411,21 @@ class VirtualAccount:
         """統一處理成交後的帳戶更新。"""
         commission = self._calculate_commission(order.quantity, fill_price, is_taker=is_taker)
 
-        required_margin = (order.quantity * fill_price) / self.leverage
-        if required_margin + commission > self.available_balance:
-            order.status = OrderStatus.REJECTED
-            logger.error(
-                f"❌ 訂單拒絕: 餘額不足 (需要 {required_margin + commission:.2f}, 可用 {self.available_balance:.2f})"
-            )
-            return
+        # ── 保證金充足性檢查 ────────────────────────────────────────────
+        # 只有開倉訂單（非 reduce_only）才需要新的保證金。
+        # 平倉/止損/止盈訂單（reduce_only=True）會釋放已佔用的保證金，
+        # 不需額外資金 — 因此跳過此檢查，否則會讓止損無法觸發，
+        # 導致虧損持倉長期掛單，帳戶餘額持續耗損。
+        if not order.reduce_only:
+            required_margin = (order.quantity * fill_price) / self.leverage
+            if required_margin + commission > self.available_balance:
+                order.status = OrderStatus.REJECTED
+                logger.error(
+                    f"❌ 訂單拒絕: 餘額不足 (需要 {required_margin + commission:.2f}, 可用 {self.available_balance:.2f})"
+                )
+                return
+        # ────────────────────────────────────────────────────────────────
+
 
         order.filled_quantity = order.quantity
         order.filled_price = fill_price

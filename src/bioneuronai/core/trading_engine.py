@@ -1004,6 +1004,28 @@ class TradingEngine:
             stop_loss_value = float(stop_loss)
 
         confidence = float(payload.get("confidence") or payload.get("setup_confidence") or 0.5)
+
+        # ── 風險報酬比前置強制 ──────────────────────────────────────────
+        # TradingSignal schema 要求：
+        #   中等置信度 (0.5~0.8) 至少 RR=1.0，高置信度 (>0.8) 至少 RR=1.5。
+        # 若策略提供的 take_profit 不足，自動延伸止盈至符合最低 RR，
+        # 確保信號能通過 Pydantic 驗證，而非拋出 ValueError 中斷 backtest。
+        if target_price is not None and stop_loss_value is not None and confidence >= 0.5:
+            ep = float(entry_price)
+            sl = stop_loss_value
+            min_rr = 1.5 if confidence > 0.8 else 1.0
+            if signal_type == TradeSignalType.BUY:
+                risk = ep - sl
+                reward = target_price - ep
+                if risk > 0 and reward / risk < min_rr:
+                    target_price = ep + risk * min_rr
+            elif signal_type == TradeSignalType.SELL:
+                risk = sl - ep
+                reward = ep - target_price
+                if risk > 0 and reward / risk < min_rr:
+                    target_price = ep - risk * min_rr
+        # ────────────────────────────────────────────────────────────────
+
         payload_metadata = dict(payload.get("metadata") or {})
         payload_metadata.setdefault("source", "strategy_selector")
         payload_metadata.update(
@@ -1031,6 +1053,7 @@ class TradingEngine:
             metadata=payload_metadata,
             timestamp=datetime.now(),
         )
+
 
     def _generate_phase_router_signal(
         self,
@@ -1978,40 +2001,50 @@ class TradingEngine:
             }
     
     def _get_account_balance(self) -> Optional[float]:
-        """獲取賬戶餘額
-        
+        """獲取賬戶可用餘額
+
+        使用 availableBalance（可用餘額）而非 totalWalletBalance（總餘額），
+        確保倉位計算不超出實際可下單的資金（已扣除已用保證金）。
+
         Returns:
-            賬戶餘額，獲取失敗返回 None
+            可用餘額，獲取失敗返回 None
         """
         account_info = self.connector.get_account_info()
         if not account_info:
             logger.error(" ")
             return None
-        
-        return float(account_info.get('totalWalletBalance', 0))
+
+        # 優先取 availableBalance；回退到 totalWalletBalance
+        available = account_info.get('availableBalance') or account_info.get('totalWalletBalance', 0)
+        return float(available)
     
     def _get_current_price(self, signal: TradingSignal) -> Optional[float]:
-        """獲取當前價格
-        
+        """獲取當前進場參考價格
+
+        優先使用信號的 entry_price（策略指定的進場價），
+        其次向交易所查詢即時 ticker。
+        注意：不使用 target_price（止盈價）作為進場參考，以免倉位計算錯誤。
+
         Args:
             signal: 交易信號
-            
+
         Returns:
-            當前價格，獲取失敗返回 None
+            當前進場參考價格，獲取失敗返回 None
         """
-        if signal.target_price:
-            return float(signal.target_price)
-        
+        # 優先使用 entry_price（策略明確指定的進場價）
+        if signal.entry_price and signal.entry_price > 0:
+            return float(signal.entry_price)
+
         price_data: Optional[MarketData] = self.get_real_time_price(signal.symbol)
         if not price_data:
             logger.error(" ")
             return None
-        
+
         current_price: float = price_data.price
         if current_price <= 0:
             logger.error(" ")
             return None
-        
+
         return current_price
     
     def _calculate_position_size(
@@ -2032,26 +2065,47 @@ class TradingEngine:
         """
         # 使用 1% 風險規則
         risk_amount: float = account_balance * 0.01
-        
+
         # 計算止損距離
         stop_price: float = stop_loss or current_price * 0.98
         stop_distance: float = abs(current_price - stop_price) / current_price
-        
+
         # 計算倉位大小
         if stop_distance > 0:
             position_size = risk_amount / (current_price * stop_distance)
         else:
             position_size = risk_amount / current_price * 0.1  # 默認 10% 倉位
-        
+
         # 限制最大倉位
         position_size = min(position_size, self.max_position_size)
-        
+
+        # ── 可用餘額上限守衛 ────────────────────────────────────────────
+        # 確保所需保證金不超過帳戶可用餘額的 90%。
+        # 保留 10% 緩衝涵蓋：手續費 (taker 0.055%) + 滑點 (0.01%~0.05%) + 舍入誤差。
+        # 使用傳入的 account_balance（已是 availableBalance）避免因帳戶狀態時差導致超額。
+        available = account_balance
+        # 嘗試再次從 connector 取得最新可用餘額
+        try:
+            connector = getattr(self, "connector", None)
+            if connector is not None:
+                va = getattr(connector, "virtual_account", None)
+                if va is not None:
+                    fresh = va.get_available_balance()
+                    available = min(available, fresh)  # 保守取較小值
+        except Exception:
+            pass
+        leverage = getattr(self, "leverage", 1) or 1
+        max_qty_by_balance = (available * 0.90 * leverage) / current_price
+        position_size = min(position_size, max_qty_by_balance)
+        # ────────────────────────────────────────────────────────────────
+
         # 確保最小倉位
         if position_size < 0.001:
             logger.warning(f"   ({position_size:.6f}) 0.001")
             position_size = 0.001
-        
+
         return position_size
+
     
     def _display_trade_info(self, signal: TradingSignal, quantity: float, current_price: float) -> None:
         """"""

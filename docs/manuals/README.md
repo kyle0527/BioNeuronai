@@ -52,7 +52,7 @@
 |---:|---|---|---|---|
 | 02 | [02_STARTUP_AND_SHUTDOWN.md](02_STARTUP_AND_SHUTDOWN.md) | `STARTUP_AND_SHUTDOWN_MANUAL.md` | 開機、關機、API、Dashboard、Docker | 新增，可用 |
 | 03 | [03_QUICKSTART.md](03_QUICKSTART.md) | `QUICKSTART_V2.1.md` | 快速開始 | 可用，部分內容與 02 重疊 |
-| 04 | [04_CLI_OPERATION.md](04_CLI_OPERATION.md) | `OPERATION_MANUAL.md` | CLI 與標準 SOP | 可用，部分內容與 03 重疊 |
+| 04 | [04_CLI_OPERATION.md](04_CLI_OPERATION.md) | `OPERATION_MANUAL.md` | CLI 與標準 SOP | 可用；已納入 `autonomous` 單輪值班入口 |
 | 05 | [05_API_USER_MANUAL.md](05_API_USER_MANUAL.md) | `API_USER_MANUAL.md` | REST API / WebSocket | 已用本地 API 逐端點驗證 |
 | 06 | [06_FRONTEND_DASHBOARD.md](06_FRONTEND_DASHBOARD.md) | `FRONTEND_DASHBOARD_MANUAL.md` | Operations Dashboard | 已改為 Operations / Validation / Config / Dev Tools / Chat；已補 paper-live、Training / Model、Live Market Chart；2026-05-19 已修復 JSON/Request History/長文字版面溢出 |
 | 07 | [07_DOCKER_DEPLOYMENT.md](07_DOCKER_DEPLOYMENT.md) | `DOCKER_DEPLOYMENT_MANUAL.md` | Docker Compose | 本輪先不作主要驗證；本機功能收斂後最後重建 image |
@@ -60,7 +60,7 @@
 | 09 | [09_ANALYSIS_MODULE.md](09_ANALYSIS_MODULE.md) | `ANALYSIS_MODULE_USER_MANUAL.md` | news / plan / pretrade | 已用 CLI 與 API 驗證 |
 | 10 | [10_STRATEGY_MODULE.md](10_STRATEGY_MODULE.md) | `STRATEGY_MODULE_USER_MANUAL.md` | strategy-backtest / strategy-run | 已用短區間 CLI 與 API 驗證 |
 | 11 | [11_RISK_MANAGEMENT.md](11_RISK_MANAGEMENT.md) | `RISK_MANAGEMENT_USER_MANUAL.md` | 風控與 pretrade 風險解讀 | 已用 pretrade / dashboard risk 驗證 |
-| 14 | [14_TESTNET_AND_LIVE_TRADING.md](14_TESTNET_AND_LIVE_TRADING.md) | 新增 | testnet / paper-live / live 啟停與緊急停止 | 已驗證本地 API 啟停與 AI 載入；live 依安全限制未執行 |
+| 14 | [14_TESTNET_AND_LIVE_TRADING.md](14_TESTNET_AND_LIVE_TRADING.md) | 新增 | testnet / paper-live / autonomous / live 啟停與緊急停止 | 已驗證本地 API 啟停與 AI 載入；live 依安全限制未執行 |
 | 15 | [15_DATA_ACQUISITION.md](15_DATA_ACQUISITION.md) | 新增 | 歷史資料與 catalog 操作 | 已驗證 |
 | 16 | [16_RUNTIME_ARTIFACTS.md](16_RUNTIME_ARTIFACTS.md) | 新增 | runtime、logs、output、模型產物位置 | 已驗證 |
 | 17 | [17_ENVIRONMENT_VARIABLES.md](17_ENVIRONMENT_VARIABLES.md) | 新增 | `.env` 與環境變數 | 已驗證 |
@@ -87,6 +87,7 @@
 |---|---|---|---|
 | 開機與基礎驗證 | 02、03、04 | 03/04 都有部分啟動與 status 指令 | 以 02 作為「開機關機」唯一入口，03 保留新手快速版，04 專注 CLI 指令參考 |
 | backtest / simulate | 02、04、08 | 三份都有回測或模擬命令 | 02 只保留短驗收，08 保留完整回測說明，04 只列命令入口 |
+| autonomous 值班 | 04、14 | 先前曾獨立成單檔，容易和 trade 主線平行重複 | 已整併回 04 的 CLI 命令說明與 14 的交易/自主值班操作，不再保留獨立平行手冊 |
 | API 啟動 | 02、05、06、07 | 本地與 Docker 啟動資訊分散 | 02 放操作入口，05 放 API 規格，06 放前端操作，07 放 Docker 細節 |
 | Chat 使用 | 04、05、06 | CLI、API、Dashboard 都會碰到 Chat | 04/05/06 只講使用，不在這裡整理模型訓練 |
 | 風控 / pretrade | 09、11、05、06 | pretrade 既是分析、API、前端、風控交會點 | 09 講操作，11 講風控意義，05/06 只講入口 |

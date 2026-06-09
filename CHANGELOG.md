@@ -1,5 +1,26 @@
 # 更新日誌
 
+## [Sync] - 2026-06-09
+
+### 遠端同步與主線整理
+
+- 同步到 `origin/main` 最新基線後，保留本機主線清理與自主值班入口調整。
+- 移除老舊歸檔、legacy historical 文件、scratch 驗證殘留與舊版工具生成快照，避免舊路徑繼續污染目前文件索引。
+- 將 `autonomous` 單輪 observe-plan-pretrade-adapt 值班入口整併進 CLI、Quickstart、Testnet/Paper-live/Live 操作手冊。
+- 新增 `EXECUTION_PLAN.md`，記錄下一階段把 TinyLLM v2 / 65 維輸出 / 新聞方向 bias / LoRA checkpoint 真正接入交易主線的執行路線。
+- 修正 paper / testnet 交易路徑的資金與風控細節：使用可用餘額、避免 target price 被誤用為進場價、強制最低 RR、reduce-only 平倉不再要求新保證金。
+- 保留 `InferenceEngine.enable_v2_mode()` 與 `AIStrategyFusion.get_direction_bias()` 作為接線起點；目前仍屬原型，尚未代表 v2 已完整接管 `predict()` 主路徑。
+
+### 驗證
+
+- `git diff --check` 通過。
+- 清理引用掃描通過：未再發現舊歸檔路徑與 legacy historical 主線引用。
+- 核心 Python 檔案 `py_compile` 通過。
+- `main.py autonomous --help` 正常。
+- `tests/test_autonomous_operator.py` 目標測試以手動函式呼叫方式通過；目前本地 runtime 未安裝 `pytest`，未跑完整 pytest。
+
+---
+
 ## [Fix] - 2026-06-07
 
 ### 🔌 P0 修復：在線學習迴路完整接通
@@ -505,11 +526,11 @@ BINANCE_API_KEY=xxx BINANCE_API_SECRET=yyy docker compose --profile trade up tra
    - 與 backtest/ 的區別對照表
    - Walk-Forward 測試原理與使用方式
 
-2. **修復 docs/README.md 斷鏈** - DATAFLOW_ANALYSIS.md 已移至 archived/old_docs/
+2. **修復 docs/README.md 斷鏈** - DATAFLOW_ANALYSIS.md 已移至歷史文件區
 
 3. **更新根目錄 README.md** - 子目錄表新增 backtesting/ 連結
 
-4. **完善 archived/README.md** - 新增「歸檔子目錄」段落（列出 8 個子目錄）
+4. **完善歷史歸檔 README** - 新增「歸檔子目錄」段落（列出 8 個子目錄）
 
 ### 📊 修復統計
 | 項目 | 修復前 | 修復後 | 狀態 |

@@ -12,6 +12,7 @@
 - [1. 開機前檢查](#1-開機前檢查)
 - [2. 路線 A：只用 CLI 操作](#2-路線-a只用-cli-操作)
   - [2.1 查資料](#21-查資料)
+  - [2.1A 跑一輪 autonomous 值班判斷](#21a-跑一輪-autonomous-值班判斷)
   - [2.2 跑短區間模擬](#22-跑短區間模擬)
   - [2.3 跑短區間回測](#23-跑短區間回測)
 - [3. 路線 B：本地 API + Dashboard](#3-路線-b本地-api-dashboard)
@@ -100,6 +101,20 @@ python main.py backtest-data --symbol BTCUSDT --interval 1h
 ```
 
 成功標準：能列出本地可用資料區間。
+
+### 2.1A 跑一輪 autonomous 值班判斷
+
+如果今天的目標是先看系統會不會建議進一步操作，而不是直接啟動長時間監控：
+
+```powershell
+python main.py autonomous --mode advisor --symbol BTCUSDT --output output\autonomous_advisor.json
+```
+
+成功標準：
+
+- 顯示 `candidates`、`plan_status`、`final_action`
+- 結果成功寫入 `output\autonomous_advisor.json`
+- 若 `final_action=advise_only` 或 `Pretrade=WAIT`，代表今天這輪先停在觀察
 
 ### 2.2 跑短區間模擬
 
@@ -373,4 +388,4 @@ git status --short
 | 跑回測 | `docs/manuals/08_BACKTEST_SYSTEM.md` |
 | 跑策略比較 | `docs/manuals/10_STRATEGY_MODULE.md` |
 | 做新聞、計畫、pretrade | `docs/manuals/09_ANALYSIS_MODULE.md` |
-| 看整體驗收矩陣 | `docs/manuals/01_01_MANUAL_OPERATION_VERIFICATION_PLAN.md` |
+| 看整體驗收矩陣 | `docs/manuals/01_MANUAL_OPERATION_VERIFICATION_PLAN.md` |

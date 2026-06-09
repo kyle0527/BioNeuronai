@@ -542,7 +542,21 @@ class AIStrategyFusion:
                     return None
         
         return setup
-    
+
+    def get_direction_bias(self, symbol: str = "BTCUSDT", event_score: float = 0.0) -> dict:
+        """新增：新聞作為主要方向偏好提供者（解決 P1 結構性問題）。
+        取代/補強原本只做非對稱過濾的角色。
+        回傳格式：{"direction": "LONG"/"SHORT"/"NEUTRAL", "strength": 0.0-1.0, "reason": str}
+        """
+        if event_score > 1.5:
+            strength = min(1.0, abs(event_score) / 5.0)
+            return {"direction": "LONG", "strength": strength, "reason": f"新聞強烈看多 (event_score={event_score:.2f})"}
+        elif event_score < -1.5:
+            strength = min(1.0, abs(event_score) / 5.0)
+            return {"direction": "SHORT", "strength": strength, "reason": f"新聞強烈看空 (event_score={event_score:.2f})"}
+        else:
+            return {"direction": "NEUTRAL", "strength": 0.2, "reason": f"新聞中性 (event_score={event_score:.2f})"}
+
     def _adjust_weights_by_event(self, event_context: EventContext):
         """根據事件類型動態調整策略權重
 

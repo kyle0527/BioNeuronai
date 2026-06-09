@@ -1,4 +1,4 @@
-# 測試網、Paper-live 與實盤交易操作手冊
+# 測試網、Paper-live、Autonomous 與實盤交易操作手冊
 
 > 範圍：使用者如何啟動、停止、檢查與排查 `trade` 相關操作。  
 > 更新日期：2026-05-19
@@ -11,11 +11,12 @@
 - [1. 前置檢查](#1-前置檢查)
 - [2. Testnet 啟動](#2-testnet-啟動)
 - [3. Paper-live 啟動](#3-paper-live-啟動)
-- [4. API 啟停交易](#4-api-啟停交易)
-- [5. Live 前必做檢查](#5-live-前必做檢查)
-- [6. Live 啟動](#6-live-啟動)
-- [7. 緊急停止](#7-緊急停止)
-- [8. 常見問題](#8-常見問題)
+- [4. Autonomous 單輪值班](#4-autonomous-單輪值班)
+- [5. API 啟停交易](#5-api-啟停交易)
+- [6. Live 前必做檢查](#6-live-前必做檢查)
+- [7. Live 啟動](#7-live-啟動)
+- [8. 緊急停止](#8-緊急停止)
+- [9. 常見問題](#9-常見問題)
 
 ---
 
@@ -109,7 +110,67 @@ Invoke-RestMethod `
 
 ---
 
-## 4. API 啟停交易
+## 4. Autonomous 單輪值班
+
+`autonomous` 和 `trade` 不是同一條路徑。
+
+差別如下：
+
+| 入口 | 性質 | 作用 |
+|---|---|---|
+| `python main.py autonomous ...` | 單輪決策 | 跑一次 plan → pretrade → adaptation → ledger |
+| `python main.py trade ...` | 長時間監控 | 啟動 `TradingEngine`、即時價格、新聞護欄與持續觀察 |
+
+日常值班建議先做 autonomous，再決定要不要進 trade 主線。
+
+### Advisor 模式
+
+```powershell
+python main.py autonomous --mode advisor --symbol BTCUSDT --output output\autonomous_advisor.json
+```
+
+這一輪結束後要看：
+
+- `candidates`
+- `plan_status`
+- `plan_execution_ready`
+- `final_action`
+- `Pretrade`
+- `reasons`
+
+如果 `final_action=advise_only` 或 `Pretrade=WAIT`，就代表今天這輪應先停在觀察。
+
+### Paper-auto 模式
+
+```powershell
+python main.py autonomous --mode paper_auto --symbol BTCUSDT --output output\autonomous_paper_auto.json
+```
+
+這會再做一輪更接近執行前的判斷，但不一定真的送出 paper order。
+
+若你真的要允許它在條件通過時送出本機 paper order：
+
+```powershell
+python main.py autonomous --mode paper_auto --symbol BTCUSDT --execute-paper --paper-balance 10000
+```
+
+### Ledger
+
+Autonomous 的決策紀錄預設會寫到：
+
+```text
+data\bioneuronai\planning\autonomous\decision_ledger.jsonl
+```
+
+查看最近幾筆：
+
+```powershell
+Get-Content data\bioneuronai\planning\autonomous\decision_ledger.jsonl -Tail 5
+```
+
+---
+
+## 5. API 啟停交易
 
 先啟動 API：
 
@@ -162,7 +223,7 @@ Invoke-RestMethod `
 
 ---
 
-## 5. Live 前必做檢查
+## 6. Live 前必做檢查
 
 Live 不是日常驗證入口。啟動前必須完成：
 
@@ -176,7 +237,7 @@ Live 不是日常驗證入口。啟動前必須完成：
 
 ---
 
-## 6. Live 啟動
+## 7. Live 啟動
 
 `.env` 應設定：
 
@@ -213,7 +274,7 @@ CLI live 啟動仍需依 `main.py trade --live` 的互動確認流程；API / UI
 
 ---
 
-## 7. 緊急停止
+## 8. 緊急停止
 
 CLI 模式：
 
@@ -243,12 +304,13 @@ Get-CimInstance Win32_Process -Filter "name = 'python.exe'" |
 
 ---
 
-## 8. 常見問題
+## 9. 常見問題
 
 | 問題 | 可能原因 | 處理 |
 |---|---|---|
 | 無法讀取帳戶 | API key 錯誤、權限不足、testnet/mainnet 不一致 | 重新確認 `.env` 與 Binance 權限 |
 | `pretrade` 一直 REJECT | 餘額不足、風控條件不通過、新聞/RAG 風險 | 依 reject 理由處理，不要繞過 |
+| `autonomous` 有結果但沒有真的開始監控 | 正常；`autonomous` 本來就不是長時間監控入口 | 若要跑主功能，改用 `trade --paper-live` / `trade --testnet` |
 | start 後無法再次 start | API 交易 task 已在運行 | 先呼叫 `/api/v1/trade/stop` |
 | paper-live 有訂單但 Binance 沒成交 | 正常；paper-live 只寫本地虛擬帳戶 | 查看 `data/bioneuronai/trading/paper_live/` |
 | testnet 可用但 live 不可用 | 正式期貨帳戶未開通或未入金 | 到 Binance 檢查 Futures 狀態 |

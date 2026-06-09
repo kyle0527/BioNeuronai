@@ -44,9 +44,6 @@
 - `vendor/`
   第三方材料整合區。
   文件：[vendor/README.md](vendor/README.md)
-- `docs/legacy_historical/`
-  舊資料方案補充文件。
-  文件：[docs/legacy_historical/README.md](docs/legacy_historical/README.md)
 - `ui/`
   回測頁面靜態資產，目前可見 `index.html`。
 
@@ -87,7 +84,6 @@ ui/index.html ──────────────────────
   [data/README.md](data/README.md)
   [runtime/README.md](runtime/README.md)
   [vendor/README.md](vendor/README.md)
-  [docs/legacy_historical/README.md](docs/legacy_historical/README.md)
 - 相關補充文件：
   [docs/CURRENT_STATUS.md](docs/CURRENT_STATUS.md)
   [docs/DEPRECATIONS.md](docs/DEPRECATIONS.md)

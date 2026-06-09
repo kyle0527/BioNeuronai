@@ -39,4 +39,3 @@
 
 - [backtest/README.md](../README.md)
 - [runtime/README.md](../runtime/README.md)
-- [docs/legacy_historical/README.md](../docs/legacy_historical/README.md)

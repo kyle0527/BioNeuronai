@@ -62,8 +62,8 @@ src/nlp/training/
 └── training_log.json             # 訓練日誌
 ```
 
-### 歸檔的訓練資源
-位於：`archived/`（包含早期版本和實驗性腳本；無專屬訓練目錄，歸檔內容請參閱 `archived/ARCHIVE_INDEX.md`）
+### 訓練資源邊界
+早期實驗性訓練材料已移出主線。現行訓練入口以本章列出的 `src/nlp/training/` 腳本與 `model/` 權重目錄為準。
 
 ## 🎯 訓練腳本說明
 
@@ -590,7 +590,7 @@ else:
 1. 查看訓練日誌 `training_log.json`
 2. 運行 `python view_training_history.py` 診斷
 3. 檢查數據格式是否正確
-4. 參考 `archived/llm_development/` 中的範例
+4. 對照本章訓練腳本說明與 `model/README.md`
 
 ---
 

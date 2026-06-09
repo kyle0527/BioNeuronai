@@ -54,7 +54,7 @@ BioNeuronAI 是一套面向加密貨幣期貨市場的 AI 交易系統。
 * **[09_ANALYSIS_MODULE.md](09_ANALYSIS_MODULE.md)**: 新聞、交易計畫與進場前驗核操作手冊，涵蓋 `news`、`plan`、`pretrade`。
 * **[10_STRATEGY_MODULE.md](10_STRATEGY_MODULE.md)**: 策略模組操作手冊，涵蓋 `strategy-backtest`、API `strategy-run` 與策略 runtime 輸出。
 * **[11_RISK_MANAGEMENT.md](11_RISK_MANAGEMENT.md)**: 🛡️ 風險管理使用手冊。涵蓋風險等級、倉位計算邏輯與 pretrade 風險解讀。
-* **[14_TESTNET_AND_LIVE_TRADING.md](14_TESTNET_AND_LIVE_TRADING.md)**: Testnet / paper-live / live 交易啟停手冊，明確區分 `monitor_only`、`paper_live`、`testnet_auto`、`live_auto` 與 live guard。
+* **[14_TESTNET_AND_LIVE_TRADING.md](14_TESTNET_AND_LIVE_TRADING.md)**: Testnet / paper-live / autonomous / live 操作手冊，明確區分 `autonomous` 單輪值班、`trade` 長時間監控主線、`monitor_only`、`paper_live`、`testnet_auto`、`live_auto` 與 live guard。
 * **[15_DATA_ACQUISITION.md](15_DATA_ACQUISITION.md)**: 歷史資料、catalog、inspect 與資料取得操作手冊。
 * **[16_RUNTIME_ARTIFACTS.md](16_RUNTIME_ARTIFACTS.md)**: runtime、logs、output、模型與資料產物位置手冊。
 

@@ -7,10 +7,14 @@
 - 市場環境分析
 - 交易對篩選
 - 單筆交易前檢查
+- 自主運行編排與自適應控制
 
 此模組不負責實際訂單、帳戶、持倉或資金狀態事實。
 """
 
+from .adaptation_controller import AdaptationController
+from .autonomous_operator import AutonomousOperator, AutonomousOperatorConfig
+from .decision_ledger import DecisionLedger
 from .market_analyzer import MarketAnalyzer
 from .pair_selector import PairSelector
 from .plan_controller import TradingPlanController
@@ -18,6 +22,10 @@ from .pretrade_automation import PreTradeCheckSystem
 
 __all__ = [
     "TradingPlanController",
+    "AutonomousOperator",
+    "AutonomousOperatorConfig",
+    "AdaptationController",
+    "DecisionLedger",
     "MarketAnalyzer",
     "PairSelector",
     "PreTradeCheckSystem",
@@ -27,4 +35,3 @@ __all__ = [
 def get_trading_plan_controller() -> TradingPlanController:
     """回傳交易計劃控制器實例。"""
     return TradingPlanController()
-

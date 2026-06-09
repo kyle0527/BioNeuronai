@@ -50,7 +50,7 @@ def test_plan_controller_importable():
 
 
 def test_legacy_model_importable():
-    """HundredMillionModel 可從正式路徑匯入（不依賴 archived/）。"""
+    """HundredMillionModel 可從正式路徑匯入（不依賴舊歸檔目錄）。"""
     from bioneuronai.models.legacy import HundredMillionModel
     model = HundredMillionModel(input_dim=64, hidden_dims=[128], output_dim=32)
     assert model.count_parameters() > 0

@@ -3,7 +3,7 @@ bioneuronai.models.legacy
 =========================
 舊版 MLP 交易模型定義，用於向下相容載入 my_100m_model.pth 等舊格式 checkpoint。
 
-此模組是 archived/pytorch_100m_model.py 中 HundredMillionModel 的正式遷移位置。
+此模組是舊版 HundredMillionModel 的正式遷移位置。
 inference_engine.ModelLoader 偵測到舊版 MLP checkpoint 時（key 以 hidden_layers. 開頭）
 會自動使用此類別進行載入，無需修改舊版 .pth 檔案。
 
@@ -23,8 +23,8 @@ class HundredMillionModel(nn.Module):
     架構: 1024 → 8192 → 8192 → 4096 → 512
     識別特徵: state_dict key 以 ``hidden_layers.`` 開頭
 
-    此類別從 archived/pytorch_100m_model.py 遷移至此，
-    以確保舊版 .pth checkpoint 仍可正確載入，不再依賴 archived/ 路徑。
+    此類別已遷移至正式程式碼路徑，
+    以確保舊版 .pth checkpoint 仍可正確載入。
     """
 
     def __init__(

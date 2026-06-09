@@ -27,6 +27,7 @@
 2. 市場環境分析與風險摘要
 3. 交易對篩選
 4. 單筆交易前檢查
+5. 自主運行編排與自適應控制
 
 和相鄰模組的邊界：
 
@@ -45,6 +46,9 @@ planning/
 ├── market_analyzer.py     # 市場條件 / 技術 / 基本面整合分析
 ├── pair_selector.py       # 依真實 24h 行情篩選交易對
 ├── pretrade_automation.py # 單筆交易前檢查自動化
+├── autonomous_operator.py # 自主運行一輪編排
+├── adaptation_controller.py # 依結果調整模式/風險/頻率
+├── decision_ledger.py     # append-only 決策紀錄
 └── README.md
 ```
 
@@ -82,6 +86,20 @@ PreTradeCheckSystem
   -> risk / liquidity / news / order checks
 ```
 
+### 自主運行路徑
+
+```text
+AutonomousOperator
+  -> TradingPlanController
+  -> PairSelector 候選交易對
+  -> PreTradeCheckSystem
+  -> AdaptationController
+  -> DecisionLedger
+  -> PaperBinanceFuturesConnector（僅在 paper_auto + --execute-paper 時）
+```
+
+這條路徑不重新分析新聞、技術或策略；它只編排既有模組，並根據近期決策結果調整下一輪是否交易、風險倍數、信心門檻與建議運行頻率。
+
 ---
 
 ## 核心檔案
@@ -114,12 +132,40 @@ PreTradeCheckSystem
 4. 已接通：`NewsAdapter`（RAG 事件上下文）、`TradingRetriever`（RAG 檢索）、`TradingCostCalculator`
 5. 結果包含：技術面、基本面、風險計算、訂單參數、最終確認、整體交易標準
 
+### `autonomous_operator.py`
+
+1. 主類：`AutonomousOperator`
+2. 主入口：`run_once()` / `run_once_sync()` — 執行一輪 observe → plan → pretrade → adapt → ledger
+3. 預設 `advisor` 模式只輸出決策，不執行訂單
+4. `paper_auto` 只有在明確設定 `execute_paper=True` 時才會下本機 paper order
+5. `testnet_auto` / `live_guarded` 在 v1 只標記候選與人工確認需求，不直接送單
+
+### `adaptation_controller.py`
+
+1. 主類：`AdaptationController`
+2. 依 plan、pretrade、decision ledger 摘要調整：
+   - final action
+   - risk multiplier
+   - confidence floor
+   - next interval minutes
+3. 初版使用保守規則，不訓練、不改主模型權重
+
+### `decision_ledger.py`
+
+1. 主類：`DecisionLedger`
+2. 以 JSONL append-only 形式記錄每輪自主決策
+3. 提供近期勝率、連虧、回撤與 action count 摘要給自適應規則使用
+
 ---
 
 ## 對外匯出
 
 ```python
 from bioneuronai.planning import (
+    AdaptationController,
+    AutonomousOperator,
+    AutonomousOperatorConfig,
+    DecisionLedger,
     TradingPlanController,
     MarketAnalyzer,
     PairSelector,
@@ -141,6 +187,7 @@ from bioneuronai.planning import get_trading_plan_controller
 1. 本文件維護 `planning/` 的責任切分與主流程。
 2. 若後續在此目錄下新增子目錄與子 README，上層 `src/bioneuronai/README.md` 應加上對應連結。
 3. 不在這層文件重複記錄 `analysis/`、`strategies/`、`trading/` 的內部細節。
+4. 自主運行層只負責編排與決策紀錄，不取代 `TradingEngine` 的實際交易主線。
 
 ---
 

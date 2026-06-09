@@ -11,6 +11,7 @@ BioNeuronai CLI - 統一命令入口
     readiness-gate --dry-run
     simulate  --symbol BTCUSDT --balance 100000 --bars 200
     trade     --symbol BTCUSDT --testnet
+    autonomous --mode advisor --symbol BTCUSDT
     plan      [--output report.json]
     news      --symbol BTCUSDT --max-items 10
     status
@@ -376,6 +377,96 @@ def _print_pretrade_result(result: object) -> None:
             if val is not None:
                 print(f"  {attr}: {val}")
     print(f"  {'─'*50}\n")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+def cmd_autonomous(args: argparse.Namespace) -> None:
+    """Run one autonomous observe-plan-pretrade-adapt cycle."""
+    print(f"\n{'='*60}")
+    print(f"  BioNeuronai Autonomous Run  [{args.mode}]  {args.symbol}")
+    print(f"{'='*60}\n")
+
+    try:
+        from bioneuronai.planning.autonomous_operator import (
+            AutonomousOperator,
+            AutonomousOperatorConfig,
+        )
+    except ImportError as exc:
+        logger.error("AutonomousOperator 載入失敗: %s", exc)
+        sys.exit(1)
+
+    config = AutonomousOperatorConfig(
+        mode=args.mode,
+        symbol=args.symbol,
+        intended_action=args.action,
+        interval=args.interval,
+        account_balance=float(args.balance),
+        klines_limit=int(args.klines_limit),
+        max_pairs=int(args.max_pairs),
+        data_dir=args.data_dir,
+        ledger_path=args.ledger_path,
+        execute_paper=bool(args.execute_paper),
+        paper_initial_balance=float(args.paper_balance),
+        paper_notional_fraction=float(args.paper_notional_fraction),
+    )
+
+    try:
+        operator = AutonomousOperator(config)
+        record = operator.run_once_sync()
+    except Exception as exc:
+        logger.error("自主運行失敗: %s", exc, exc_info=True)
+        sys.exit(1)
+
+    _print_autonomous_record(record)
+
+    output_path: Optional[str] = getattr(args, "output", None)
+    if output_path:
+        with open(output_path, "w", encoding="utf-8") as f:
+            json.dump(record, f, ensure_ascii=False, indent=2, default=str)
+        print(f"  結果已儲存至: {output_path}")
+
+
+def _print_autonomous_record(record: dict) -> None:
+    adaptation = record.get("adaptation", {})
+    print("  決策摘要")
+    print(f"    mode: {record.get('mode')}")
+    print(f"    symbol: {record.get('symbol')}")
+    print(f"    candidates: {', '.join(record.get('candidates', []))}")
+    print(f"    plan_status: {record.get('plan_status')}")
+    print(f"    plan_execution_ready: {record.get('plan_execution_ready')}")
+    print(f"    final_action: {record.get('final_action')}")
+    print(f"    can_execute: {adaptation.get('can_execute')}")
+    print(f"    risk_multiplier: {adaptation.get('risk_multiplier')}")
+    print(f"    confidence_floor: {adaptation.get('confidence_floor')}")
+    print(f"    next_interval_minutes: {adaptation.get('next_interval_minutes')}")
+    print(f"    reasons: {', '.join(adaptation.get('reasons', []))}")
+
+    pretrade_summary = record.get("pretrade_summary", [])
+    if pretrade_summary:
+        print("\n  Pretrade")
+        for item in pretrade_summary:
+            print(
+                "    "
+                f"{item.get('symbol')}: {item.get('status')} "
+                f"score={item.get('score_percentage')} "
+                f"tech={item.get('technical_status')} "
+                f"fund={item.get('fundamental_status')} "
+                f"risk={item.get('risk_status')}"
+            )
+
+    paper_execution = record.get("paper_execution")
+    if paper_execution:
+        order = paper_execution.get("order") or {}
+        print("\n  Paper Execution")
+        print(
+            f"    {paper_execution.get('symbol')} {paper_execution.get('side')} "
+            f"qty={paper_execution.get('quantity'):.8f} "
+            f"status={order.get('status')}"
+        )
+
+    print()
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -972,6 +1063,7 @@ def _build_parser() -> argparse.ArgumentParser:
   python main.py backtest-data --symbol ETHUSDT --interval 1h
   python main.py trade     --testnet
   python main.py trade     --paper-live --paper-balance 10000
+  python main.py autonomous --mode advisor --symbol BTCUSDT
   python main.py plan      --output daily_plan.json
   python main.py news      --symbol BTCUSDT --max-items 5
   python main.py pretrade  --symbol BTCUSDT --action long
@@ -1190,6 +1282,55 @@ def _build_parser() -> argparse.ArgumentParser:
     prtp.add_argument("--output", default=None, metavar="FILE",
                       help="輸出 JSON 檔案路徑  (可選)")
     prtp.set_defaults(func=cmd_pretrade)
+
+    # ── autonomous ───────────────────────────────────────────────────────────
+    autop = subparsers.add_parser(
+        "autonomous",
+        help="自主運行一輪：plan -> pretrade -> adaptation -> ledger",
+    )
+    autop.add_argument(
+        "--mode",
+        choices=["advisor", "paper_auto", "testnet_auto", "live_guarded"],
+        default="advisor",
+        help="自主模式；預設 advisor 不執行訂單",
+    )
+    autop.add_argument("--symbol", default="BTCUSDT", metavar="SYMBOL",
+                       help="主要交易對  (預設: BTCUSDT)")
+    autop.add_argument(
+        "--action",
+        choices=["BUY", "SELL", "LONG", "SHORT", "buy", "sell", "long", "short"],
+        default="BUY",
+        help="pretrade 預期方向  (預設: BUY)",
+    )
+    autop.add_argument("--interval", default="1h", metavar="INTERVAL",
+                       help="K線週期  (預設: 1h)")
+    autop.add_argument("--balance", type=float, default=10000.0, metavar="AMOUNT",
+                       help="計劃用帳戶餘額  (預設: 10000)")
+    autop.add_argument("--klines-limit", type=int, default=300, metavar="N",
+                       help="載入 K 線數量  (預設: 300)")
+    autop.add_argument("--max-pairs", type=int, default=3, metavar="N",
+                       help="最多 pretrade 候選交易對  (預設: 3)")
+    autop.add_argument("--data-dir", default=None, dest="data_dir", metavar="PATH",
+                       help="歷史資料根目錄")
+    autop.add_argument("--ledger-path", default=None, metavar="PATH",
+                       help="decision ledger JSONL 路徑")
+    autop.add_argument("--output", default=None, metavar="FILE",
+                       help="輸出本輪決策 JSON")
+    autop.add_argument(
+        "--execute-paper",
+        action="store_true",
+        help="僅在 paper_auto 且 pretrade 通過時送出本機 paper order",
+    )
+    autop.add_argument("--paper-balance", type=float, default=10000.0, metavar="AMOUNT",
+                       help="paper 初始餘額  (預設: 10000)")
+    autop.add_argument(
+        "--paper-notional-fraction",
+        type=float,
+        default=0.01,
+        metavar="RATIO",
+        help="paper 單筆名義金額佔初始餘額比例  (預設: 0.01)",
+    )
+    autop.set_defaults(func=cmd_autonomous)
 
     # ── evolve ────────────────────────────────────────────────────────────────
     ep = subparsers.add_parser("evolve", help="遺傳演算法策略競技場（找出最優策略組合）")

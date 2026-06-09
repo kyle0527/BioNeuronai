@@ -82,6 +82,6 @@
 
 ## 保留但降級為歷史參考
 
-- `backtest/docs/legacy_historical/`
+- 舊版歷史資料方案補充文件已移除；正式資料規格以 `backtest/data/README.md` 為準。
 
 這個資料夾只保留歷史資料相關舊文件，不代表目前正式規格。

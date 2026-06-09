@@ -421,7 +421,8 @@ flowchart TD
 - `src/bioneuronai/strategies/selector/core.py`
 
 ### 5.3 先不要當成唯一真相來源
-- `archived/` 內所有內容
+- 一次性驗證報告
+- runtime 輸出、暫存檔與手動實驗紀錄
 
 ---
 

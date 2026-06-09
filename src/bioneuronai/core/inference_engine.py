@@ -201,12 +201,12 @@ class ModelLoader:
         root_path = str(project_root)
         if src_path not in sys.path:
             sys.path.insert(0, src_path)
-        # archived/ 在 project_root 下；確保根目錄在路徑中才能找到它
+        # 確保根目錄在路徑中，支援專案層級模組與相對資源解析。
         if root_path not in sys.path:
             sys.path.insert(0, root_path)
 
         if self._is_legacy_mlp_checkpoint(state_dict):
-            # 使用正式遷移的 legacy 模組，不再依賴 archived/ 路徑
+            # 使用正式遷移的 legacy 模組載入舊版 MLP checkpoint。
             from bioneuronai.models.legacy import HundredMillionModel
 
             logger.warning("偵測到舊版 MLP checkpoint，將使用 HundredMillionModel 向下相容載入")
@@ -1296,6 +1296,7 @@ class InferenceEngine:
 
         self._warmup_on_load = warmup
         self._is_ready = False
+        self.use_v2_mode: bool = False   # 新增：切換到 v2 patch + 65 維全監督路徑
 
         logger.info("InferenceEngine ")
     
@@ -1389,7 +1390,14 @@ class InferenceEngine:
         )
 
         return signal
-    
+
+    def enable_v2_mode(self) -> None:
+        """開啟 v2 模式：預期模型輸出 65 維，輸入使用 16x64 patches。
+        目前為 stub，後續會在 predict 內走 patch 路徑 + SignalInterpreterV2。
+        """
+        self.use_v2_mode = True
+        logger.info("[InferenceEngine] v2 mode enabled (65-dim full supervision path)")
+
     def reset_buffer(self) -> None:
         """清空滾動特徵視窗（回測切換 episode 或重新開始時呼叫）"""
         self._feature_buffer.clear()

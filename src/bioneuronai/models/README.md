@@ -21,7 +21,7 @@
 
 目前這個資料夾做兩件事：
 
-1. 讓 `InferenceEngine` 在遇到舊版 MLP checkpoint 時，有穩定且不依賴 `archived/` 的載入位置
+1. 讓 `InferenceEngine` 在遇到舊版 MLP checkpoint 時，有穩定的相容載入位置
 2. 明確定義 checkpoint 樣式詘別規則，供 `ModelLoader` 自動判斷使用 `HundredMillionModel`
 
 這表示：

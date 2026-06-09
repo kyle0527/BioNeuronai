@@ -28,7 +28,7 @@
 | [manuals/03_QUICKSTART.md](manuals/03_QUICKSTART.md) | v2.1 / v2.2 訓練後驗證期快速開始指南（本機 Python 3.13 + 環境變數；Docker 最後重建） |
 | [manuals/02_STARTUP_AND_SHUTDOWN.md](manuals/02_STARTUP_AND_SHUTDOWN.md) | 本地 CLI、API + Dashboard、Docker 的開機與關機流程 |
 | [STARTUP_MODES.md](STARTUP_MODES.md) | CLI、API、UI、Docker 四種啟動入口的實際操作與功能差異 |
-| [manuals/04_CLI_OPERATION.md](manuals/04_CLI_OPERATION.md) | v2.1 / v2.2 訓練後驗證期 CLI 實際操作手冊 |
+| [manuals/04_CLI_OPERATION.md](manuals/04_CLI_OPERATION.md) | v2.1 / v2.2 訓練後驗證期 CLI 實際操作手冊（含 `autonomous` 單輪值班與 `trade` 主線） |
 | [manuals/01_MANUAL_OPERATION_VERIFICATION_PLAN.md](manuals/01_MANUAL_OPERATION_VERIFICATION_PLAN.md) | 手冊盤點、缺口與實際操作驗收順序 |
 | [ARCHITECTURE_OVERVIEW.md](ARCHITECTURE_OVERVIEW.md) | 系統整體架構總覽 (資料流與模組分工) |
 | [TECH_DEBT_STATUS_20260513.md](TECH_DEBT_STATUS_20260513.md) | 2026-05-19 技術債截圖逐項核對、paper-live 修復與本機 runtime 複驗狀態 |
@@ -86,40 +86,9 @@
 | [DOCUMENTATION_GOVERNANCE_PLAN.md](DOCUMENTATION_GOVERNANCE_PLAN.md) | 文件治理與清理規範 (核心守則) |
 | [DEVELOPMENT_TOOLS.md](DEVELOPMENT_TOOLS.md) | 目錄產生等 PowerShell 開發腳本說明 |
 | [TESTING_AND_VALIDATION_GUIDE.md](TESTING_AND_VALIDATION_GUIDE.md) | 測試哲學、核心測試路徑與 CI Smoke Test |
-| [OPERATION_VALIDATION_REPORT_20260511.md](OPERATION_VALIDATION_REPORT_20260511.md) | 已訓練權重接入後的 CLI、API、WebSocket、前端全功能實際操作驗證紀錄 |
+| [OPERATION_VALIDATION_REPORT_20260603.md](OPERATION_VALIDATION_REPORT_20260603.md) | 較新的實際操作驗證報告：補上 Testnet 真實下單、AI 自主分析管線與自主運作機制走查 |
 | [adr/README.md](adr/README.md) | Architecture Decision Records：核心架構決策紀錄 |
 | [V2.2_ROADMAP_AND_SPEC.md](V2.2_ROADMAP_AND_SPEC.md) | v2.2 路線圖與功能規格 |
-
----
-
-## 📚 歸檔文件
-
-以下文件為目前主線收斂前的歷史快照，保留於 `archived/docs_v2_1_legacy/` 供考古比對。
-若同名文件已恢復到 `docs/` 根目錄，請以 `docs/` 內版本為目前相容入口。
-
-| 文檔 | 說明 |
-|------|------|
-| [../archived/docs_v2_1_legacy/BIONEURONAI_MASTER_MANUAL.legacy_20260405.md](../archived/docs_v2_1_legacy/BIONEURONAI_MASTER_MANUAL.legacy_20260405.md) | 主線收斂前舊版主手冊 |
-| [../archived/docs_v2_1_legacy/MANUAL_IMPLEMENTATION_STATUS.legacy_20260405.md](../archived/docs_v2_1_legacy/MANUAL_IMPLEMENTATION_STATUS.legacy_20260405.md) | 主線收斂前舊版手冊實作狀態 |
-| [../archived/docs_v2_1_legacy/FEATURE_STATUS.legacy_20260405.md](../archived/docs_v2_1_legacy/FEATURE_STATUS.legacy_20260405.md) | 主線收斂前舊版功能狀態總覽 |
-| [../archived/docs_v2_1_legacy/ARCHITECTURE_OVERVIEW.legacy_20260406.md](../archived/docs_v2_1_legacy/ARCHITECTURE_OVERVIEW.legacy_20260406.md) | 主線收斂前舊版架構總覽 |
-| [../archived/docs_v2_1_legacy/SRC_DIRECTORY_ANALYSIS.legacy_20260406.md](../archived/docs_v2_1_legacy/SRC_DIRECTORY_ANALYSIS.legacy_20260406.md) | 主線收斂前舊版 src 目錄分析 |
-| [../archived/docs_v2_1_legacy/PROJECT_HANDOVER_MAP.legacy_20260406.md](../archived/docs_v2_1_legacy/PROJECT_HANDOVER_MAP.legacy_20260406.md) | 主線收斂前舊版接手地圖 |
-| [../archived/docs_v2_1_legacy/OPERATION_MANUAL.legacy_20260406.md](../archived/docs_v2_1_legacy/OPERATION_MANUAL.legacy_20260406.md) | 主線收斂前舊版操作手冊 |
-| [../archived/docs_v2_1_legacy/QUICKSTART_V2.1.legacy_20260406.md](../archived/docs_v2_1_legacy/QUICKSTART_V2.1.legacy_20260406.md) | 主線收斂前含有舊版 API 幻覺的快速開始指南 |
-| [../archived/docs_v2_1_legacy/BACKTEST_SYSTEM_GUIDE.legacy_20260406.md](../archived/docs_v2_1_legacy/BACKTEST_SYSTEM_GUIDE.legacy_20260406.md) | 主線收斂前舊版回測系統指南 |
-| [../archived/docs_v2_1_legacy/DAILY_REPORT_CHECKLIST.legacy_20260406.md](../archived/docs_v2_1_legacy/DAILY_REPORT_CHECKLIST.legacy_20260406.md) | 舊版 `daily_market_report.py` 之純 To-Do 確認清單 |
-| [../archived/docs_v2_1_legacy/DATA_SOURCES_GUIDE.legacy_20260406.md](../archived/docs_v2_1_legacy/DATA_SOURCES_GUIDE.legacy_20260406.md) | 舊版外部數據 API 調用指南 (充斥舊版 `market_scanner.py` 位址) |
-| [../archived/docs_v2_1_legacy/PROJECT_STRUCTURE.legacy_20260406.md](../archived/docs_v2_1_legacy/PROJECT_STRUCTURE.legacy_20260406.md) | 舊版存在多處執行檔幻覺的目錄結構總覽 |
-| [../archived/docs_v2_1_legacy/TRADING_PLAN_10_STEPS.legacy_20260406.md](../archived/docs_v2_1_legacy/TRADING_PLAN_10_STEPS.legacy_20260406.md) | 舊版交易計畫架構 (引用不存在的 `trading_plan/` 路徑) |
-| [../archived/docs_v2_1_legacy/TRADING_COSTS_GUIDE.legacy_20260406.md](../archived/docs_v2_1_legacy/TRADING_COSTS_GUIDE.legacy_20260406.md) | 舊版交易成本計算器規劃文件 |
-| [../archived/docs_v2_1_legacy/BINANCE_TESTNET_STEP_BY_STEP.legacy_20260406.md](../archived/docs_v2_1_legacy/BINANCE_TESTNET_STEP_BY_STEP.legacy_20260406.md) | 舊版測試網教學 (基於互動式選單 CLI) |
-| [../archived/docs_v2_1_legacy/STRATEGIES_QUICK_REFERENCE.legacy_20260406.md](../archived/docs_v2_1_legacy/STRATEGIES_QUICK_REFERENCE.legacy_20260406.md) | 舊版三策略參考 (基於過時啟動腳本) |
-| [../archived/docs_v2_1_legacy/CODE_FIX_GUIDE.legacy_20260406.md](../archived/docs_v2_1_legacy/CODE_FIX_GUIDE.legacy_20260406.md) | 舊版代碼維護規範 (存在舊版腳本驗證幻覺) |
-| [../archived/docs_v2_1_legacy/STRATEGY_EVOLUTION_GUIDE.legacy_20260406.md](../archived/docs_v2_1_legacy/STRATEGY_EVOLUTION_GUIDE.legacy_20260406.md) | 舊版進化系統指南 (引用 `trading/risk_manager.py`) |
-| [../archived/docs_v2_1_legacy/STRATEGY_EVOLUTION_WEB_INTEGRATION_PLAN.legacy_20260406.md](../archived/docs_v2_1_legacy/STRATEGY_EVOLUTION_WEB_INTEGRATION_PLAN.legacy_20260406.md) | 舊版 Web 整合計畫 (未實作/過期) |
-| [../archived/docs_v2_1_legacy/ANALYSIS_RAG_INTEGRATION_IMPROVEMENT_PLAN.legacy_20260406.md](../archived/docs_v2_1_legacy/ANALYSIS_RAG_INTEGRATION_IMPROVEMENT_PLAN.legacy_20260406.md) | 舊版 RAG 整合計畫 (與當前架構脫節) |
-| [../archived/docs_v2_1_legacy/RISK_MANAGEMENT_MANUAL.legacy_20260406.md](../archived/docs_v2_1_legacy/RISK_MANAGEMENT_MANUAL.legacy_20260406.md) | 舊版風險管理手冊 (引用不存在的 `risk_management/` 目錄) |
 
 ---
 

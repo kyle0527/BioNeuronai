@@ -27,6 +27,7 @@
   - [collect-signal-data](#collect-signal-data)
   - [evolve](#evolve)
   - [trade](#trade)
+  - [autonomous](#autonomous)
   - [chat](#chat)
 - [5. 設定檔與資料契約說明](#5-設定檔與資料契約說明)
   - [Data Schemas (src/schemas/)](#data-schemas-srcschemas)
@@ -210,6 +211,31 @@ python main.py trade --live
 ```
 `--paper-live` 使用 Binance mainnet 行情，但訂單只寫入本地虛擬帳戶，不送出真實 Binance order。使用 `--live` 時系統會有強制二次確認，避免意外進入實盤。若要從 Dashboard / API 啟用自動交易，請使用 `paper_live`、`testnet_auto` 或 `live_auto` 模式並確認 `/api/v1/trade/status`。
 
+### `autonomous`
+**依賴子系統**：`planning/autonomous_operator.py`、`planning/adaptation_controller.py`、`planning/decision_ledger.py`
+**用途**：執行一輪 observe-plan-pretrade-adapt 決策循環，輸出「今天這輪該觀察、等待還是可進下一步」，並把結果寫進 decision ledger。
+```bash
+python main.py autonomous --mode advisor --symbol BTCUSDT
+python main.py autonomous --mode advisor --symbol BTCUSDT --output output/autonomous_advisor.json
+python main.py autonomous --mode paper_auto --symbol BTCUSDT --output output/autonomous_paper_auto.json
+python main.py autonomous --mode paper_auto --symbol BTCUSDT --execute-paper --paper-balance 10000
+```
+
+這個命令會顯示的核心欄位：
+
+- `candidates`
+- `plan_status`
+- `plan_execution_ready`
+- `final_action`
+- `Pretrade`
+- `reasons`
+
+請注意：
+
+- `autonomous` 是單輪決策入口，不是長時間監控主線
+- 真正持續跑 WebSocket、接即時價格、進入 `TradingEngine` 主循環的是 `trade`
+- 日常值班建議順序是：先 `autonomous --mode advisor`，再視結果決定要不要進 `trade --paper-live` 或 `autonomous --mode paper_auto`
+
 ### `chat`
 **依賴子系統**：`src/nlp/chat_engine.py`、`src/nlp/training/trading_dialogue_data.py`  
 **用途**：與 AI 交易助理進行雙語對話（繁體中文 / 英文），可詢問策略、合約規則、技術分析、系統操作等。
@@ -254,8 +280,9 @@ v2.1 的正式主線以 Pydantic v2 模型作為跨模組主要資料契約。
 1. **盤前檢查** (`status`) => 確保網路與環境變數載入。
 2. **大盤掃描** (`plan`) => 產出高階交易計劃或觀望建議。
 3. **特定幣種確認** (`pretrade`) => 對候選標的做進場前檢查。
-4. **啟動回放、paper-live 或測試網觀測** (`backtest` / `simulate` / `trade --paper-live` / `trade --testnet`)。
-5. **檢閱結果與帳戶狀態** => 依情境查看 replay runtime、資料庫記錄或帳戶快照。
+4. **先跑一輪 autonomous 值班判斷** (`autonomous --mode advisor`)。
+5. **若需要主交易引擎長時間觀察，再啟動 `trade`** (`trade --paper-live` / `trade --testnet`)。
+6. **檢閱結果與帳戶狀態** => 依情境查看 replay runtime、decision ledger、paper ledger、資料庫記錄或帳戶快照。
 
 ---
 

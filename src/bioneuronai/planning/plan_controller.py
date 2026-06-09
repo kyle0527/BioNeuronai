@@ -13,7 +13,7 @@
 9. 交易對篩選
 10. 執行計劃監控
 
-參考文檔: archived/docs_v2_1_legacy/TRADING_PLAN_10_STEPS.legacy_20260406.md
+參考文檔: docs/manuals/04_CLI_OPERATION.md、docs/ARCHITECTURE_OVERVIEW.md
 """
 
 from typing import Any, Callable, Dict, List, Optional, cast
@@ -86,7 +86,14 @@ class TradingPlanController:
         if SELECTORS_AVAILABLE and StrategySelector is not None and PairSelector is not None:
             try:
                 self._strategy_selector = StrategySelector()
-                self._pair_selector = PairSelector()
+                from bioneuronai.data.binance_futures import BinanceFuturesConnector
+                from config.trading_config import resolve_binance_testnet
+                import os
+                api_key = os.getenv("BINANCE_API_KEY", "")
+                api_secret = os.getenv("BINANCE_API_SECRET", "")
+                testnet = resolve_binance_testnet(default=True)
+                connector = BinanceFuturesConnector(api_key=api_key, api_secret=api_secret, testnet=testnet)
+                self._pair_selector = PairSelector(connector=connector)
                 logger.info("📊 策略選擇器與交易對選擇器已初始化")
             except Exception as e:
                 logger.warning(f"⚠️ 選擇器初始化失敗: {e}")

@@ -447,7 +447,7 @@ asyncio.run(main())
 - **使用手冊**: [USAGE_GUIDE.md](./USAGE_GUIDE.md)
 - **數據庫升級指南**: [DATABASE_UPGRADE_GUIDE.md](../../../docs/DATABASE_UPGRADE_GUIDE.md)
 - **數據存儲策略**: [DATA_STORAGE_AND_RETRIEVAL_STRATEGY.md](../../../docs/DATA_STORAGE_AND_RETRIEVAL_STRATEGY.md)
-- **數據來源指南**: [DATA_SOURCES_GUIDE.md](../../../archived/docs_v2_1_legacy/DATA_SOURCES_GUIDE.legacy_20260406.md)
+- **數據管線與 Schema**: [DATA_PIPELINE_AND_SCHEMA.md](../../../docs/DATA_PIPELINE_AND_SCHEMA.md)
 - **父模組**: [BioNeuronai 主模組](../README.md)
 
 ---
