@@ -161,6 +161,52 @@ def test_run_forever_stops_on_drawdown_stop(tmp_path):
     assert records[0]["final_action"] == AutonomousAction.STOP.value
 
 
+def test_state_provider_merged_into_learning_state(tmp_path):
+    """擴充點：LoRA learner / 記憶層統計可註冊進自主迴圈的學習狀態。"""
+    operator = make_operator(tmp_path, mode="advisor", execute_paper=False)
+    operator.register_state_provider("lora", lambda: {"update_count": 7, "loss_trend": "improving"})
+
+    record = asyncio.run(operator.run_once())
+    assert record["learning_state"]["lora"]["update_count"] == 7
+
+
+def test_goal_tracker_report_recorded(tmp_path):
+    from bioneuronai.planning.goal_manager import GoalConfig, GoalTracker
+
+    operator = make_operator(tmp_path, mode="advisor", execute_paper=False)
+    operator.goal_tracker = GoalTracker(GoalConfig(min_trades_to_judge=1))
+    for _ in range(3):
+        operator.learning_hub.record_trade("trend_following", "BTCUSDT", pnl_pct=-0.02)
+
+    record = asyncio.run(operator.run_once())
+    assert record["goal_report"] is not None
+    assert record["goal_report"]["status"] in {"AT_RISK", "OFF_TRACK"}
+    assert record["goal_report"]["violations"]
+
+
+def test_stale_position_detected_but_not_auto_closed(tmp_path):
+    """卡單偵測：超過 N 輪未平倉 → 標記進紀錄（自動出場為未實作的擴充點）。"""
+    operator = make_operator(tmp_path, mode="advisor", execute_paper=False)
+    operator.config.max_position_hold_cycles = 2
+    operator._open_executions["BTCUSDT"] = {
+        "side": "BUY",
+        "quantity": 1.0,
+        "entry_price": 100.0,
+        "strategy": "autonomous_paper",
+        "opened_cycle": 0,
+    }
+
+    record = asyncio.run(operator.run_once())   # cycle 1：held=1 < 2
+    assert record["stale_positions"] == []
+
+    record = asyncio.run(operator.run_once())   # cycle 2：held=2 >= 2
+    assert record["stale_positions"] == [
+        {"symbol": "BTCUSDT", "held_cycles": 2, "limit": 2}
+    ]
+    # 只偵測不平倉：倉位仍在
+    assert "BTCUSDT" in operator._open_executions
+
+
 def test_legacy_adaptation_controller_without_learning_state(tmp_path):
     """注入不支援 learning_state 的舊版 controller 仍可運作。"""
 

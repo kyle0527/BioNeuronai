@@ -23,11 +23,17 @@ __all__ = [
     "MarketAnalyzer",
     "PairSelector",
     "PreTradeCheckSystem",
+    "GoalConfig",
+    "GoalReport",
+    "GoalTracker",
 ]
 
 # PEP 562 延遲載入：輕量模組（adaptation_controller / decision_ledger /
 # autonomous_operator）不因 import 本套件而載入計劃/檢查系統的完整依賴鏈。
 _LAZY_IMPORTS = {
+    "GoalConfig": ("bioneuronai.planning.goal_manager", "GoalConfig"),
+    "GoalReport": ("bioneuronai.planning.goal_manager", "GoalReport"),
+    "GoalTracker": ("bioneuronai.planning.goal_manager", "GoalTracker"),
     "AdaptationController": ("bioneuronai.planning.adaptation_controller", "AdaptationController"),
     "AutonomousOperator": ("bioneuronai.planning.autonomous_operator", "AutonomousOperator"),
     "AutonomousOperatorConfig": ("bioneuronai.planning.autonomous_operator", "AutonomousOperatorConfig"),

@@ -368,6 +368,51 @@ class NewsAdapter:
             logger.error(f"獲取事件上下文失敗: {e}")
             return self._event_context_from_kb(symbol)
 
+    def get_direction_bias(self, symbol: str) -> Dict[str, Any]:
+        """P1 擴充點：新聞作為主要方向建議者（目前為最小過渡版）。
+
+        回傳契約（docs/PROJECT_STATUS.md P1 規格，未來完整版不變）：
+            {"direction": "LONG"/"SHORT"/"NEUTRAL", "strength": 0-1, "reason": str}
+
+        ⚠️ 實作層級 = minimal：目前僅由既有 event_score（單一主導事件）推導，
+        且門檻保守（|score| >= 3 才給方向）。完整版需要：
+        1. 近期新聞時序聚合（多事件加權，而非單一主導事件）
+        2. 與 _fuse_signals() 整合，讓 bias 作為方向框架而非加權分數
+        完整版完成前，呼叫端應只把這個 bias 當參考，不可作為唯一信號。
+        """
+        bias: Dict[str, Any] = {
+            "direction": "NEUTRAL",
+            "strength": 0.0,
+            "reason": "no_active_events",
+            "source": "event_score_minimal",
+            "implemented_level": "minimal",
+        }
+        try:
+            context = self.get_event_context(symbol)
+        except Exception as e:
+            logger.warning(f"get_direction_bias 失敗，回傳中性: {e}")
+            bias["reason"] = f"error: {e}"
+            return bias
+
+        if context is None:
+            return bias
+
+        score = float(getattr(context, "event_score", 0.0) or 0.0)
+        decay = float(getattr(context, "decay_factor", 1.0) or 1.0)
+        confidence = float(getattr(context, "source_confidence", 0.5) or 0.5)
+
+        if abs(score) < 3.0:  # 保守門檻：弱事件不給方向
+            bias["reason"] = f"event_score_{score:.1f}_below_threshold"
+            return bias
+
+        bias["direction"] = "LONG" if score > 0 else "SHORT"
+        bias["strength"] = round(min(1.0, abs(score) / 10.0 * decay * confidence), 4)
+        bias["reason"] = (
+            f"event_score={score:.1f} decay={decay:.2f} confidence={confidence:.2f}"
+            + (f" headline={context.headline}" if getattr(context, "headline", None) else "")
+        )
+        return bias
+
     def _select_primary_event(self, active_events: List[Dict[str, Any]]) -> Dict[str, Any]:
         """選出目前影響力最大的有效事件。"""
         if not active_events:

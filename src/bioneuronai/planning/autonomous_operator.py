@@ -71,6 +71,9 @@ class AutonomousOperatorConfig:
     paper_initial_balance: float = 10000.0
     paper_notional_fraction: float = 0.01
     learning_state_path: Optional[str] = None
+    # 卡單偵測：持倉超過 N 輪未平倉即標記（0 = 停用）。
+    # ⚠️ 目前只偵測 + 記錄，自動強制出場尚未實作（擴充點見 _check_stale_positions）
+    max_position_hold_cycles: int = 0
 
     def normalized_action(self) -> str:
         action = self.intended_action.strip().upper()
@@ -93,6 +96,7 @@ class AutonomousOperator:
         adaptation_controller: Optional[AdaptationController] = None,
         ledger: Optional[DecisionLedger] = None,
         learning_hub: Optional[Any] = None,
+        goal_tracker: Optional[Any] = None,
     ) -> None:
         self.config = config or AutonomousOperatorConfig()
         # 預設元件延遲載入：注入 stub 時不需要任何重依賴
@@ -119,11 +123,27 @@ class AutonomousOperator:
                 learning_hub = None
         self.learning_hub = learning_hub
 
+        # 目標層級追蹤（最小版：監測並記錄，尚未自動回饋風險參數）
+        self.goal_tracker = goal_tracker
+
+        # 學習狀態 provider 擴充點：讓 OnlineLearner / EpisodicMemory 等
+        # 模組的統計接入自主迴圈（merge 進 learning_state，記入 ledger）
+        self._state_providers: Dict[str, Any] = {}
+
         # 跨循環持續的 paper 連接器與未平倉追蹤
         self._paper_connector: Optional[Any] = None
         self._open_executions: Dict[str, Dict[str, Any]] = {}
         self._settled_this_cycle: List[Dict[str, Any]] = []
         self._cycle_count = 0
+
+    def register_state_provider(self, name: str, provider: Any) -> None:
+        """註冊額外的學習狀態來源（如 LoRA learner 的 get_stats）。
+
+        provider 為無參數 callable，回傳 dict；其輸出會以 ``name`` 為 key
+        併入每輪的 learning_state，寫進 decision ledger 供審計與後續規則使用。
+        例：operator.register_state_provider("lora", online_learner.get_stats)
+        """
+        self._state_providers[str(name)] = provider
 
     # ── 主循環 ───────────────────────────────────────────────────────────
 
@@ -147,6 +167,16 @@ class AutonomousOperator:
         pretrade_results = self._run_pretrade(candidates)
         ledger_summary = self.ledger.summarize(limit=100)
         learning_state = self._build_learning_state()
+        stale_positions = self._check_stale_positions()
+
+        goal_report: Optional[Dict[str, Any]] = None
+        if self.goal_tracker is not None:
+            try:
+                goal_report = self.goal_tracker.evaluate(
+                    learning_state=learning_state, ledger_summary=ledger_summary
+                ).to_dict()
+            except Exception as exc:  # pragma: no cover - defensive
+                logger.warning("goal tracker failed: %s", exc)
 
         adaptation = self._evaluate_adaptation(
             plan_serialized, pretrade_results, ledger_summary, learning_state
@@ -175,6 +205,8 @@ class AutonomousOperator:
             "pretrade_summary": self._pretrade_summary(pretrade_results),
             "ledger_summary": ledger_summary,
             "learning_state": learning_state,
+            "goal_report": goal_report,
+            "stale_positions": stale_positions,
             "settled_outcomes": settled,
             "adaptation": adaptation.to_dict(),
             "final_action": adaptation.action.value,
@@ -220,13 +252,45 @@ class AutonomousOperator:
     # ── 閉環：結果結算與學習狀態 ─────────────────────────────────────────
 
     def _build_learning_state(self) -> Optional[Dict[str, Any]]:
-        if self.learning_hub is None:
-            return None
-        try:
-            return self.learning_hub.get_learning_state()
-        except Exception as exc:  # pragma: no cover - defensive
-            logger.warning("learning state unavailable: %s", exc)
-            return None
+        state: Optional[Dict[str, Any]] = None
+        if self.learning_hub is not None:
+            try:
+                state = self.learning_hub.get_learning_state()
+            except Exception as exc:  # pragma: no cover - defensive
+                logger.warning("learning state unavailable: %s", exc)
+
+        # 註冊的額外狀態來源（LoRA learner、記憶層統計等）
+        if self._state_providers:
+            state = state or {}
+            for name, provider in self._state_providers.items():
+                try:
+                    state[name] = provider()
+                except Exception as exc:  # pragma: no cover - defensive
+                    state[name] = {"error": str(exc)}
+        return state
+
+    def _check_stale_positions(self) -> List[Dict[str, Any]]:
+        """卡單偵測：持倉超過 max_position_hold_cycles 輪即標記。
+
+        ⚠️ 擴充點：目前只偵測 + log + 寫入 ledger 紀錄，
+        自動強制出場（reduce-only 平倉單）尚未實作。
+        實作時應在此處呼叫 connector 下反向 reduce-only 單，
+        並走 _on_paper_close 既有的 outcome 回寫路徑。
+        """
+        limit = int(self.config.max_position_hold_cycles or 0)
+        if limit <= 0:
+            return []
+        stale: List[Dict[str, Any]] = []
+        for symbol, execution in self._open_executions.items():
+            held = self._cycle_count - int(execution.get("opened_cycle", self._cycle_count))
+            if held >= limit:
+                stale.append({"symbol": symbol, "held_cycles": held, "limit": limit})
+                logger.warning(
+                    "STALE position detected | %s held %d cycles (limit=%d) — "
+                    "自動出場尚未實作，需人工處理",
+                    symbol, held, limit,
+                )
+        return stale
 
     def _evaluate_adaptation(
         self,
@@ -464,6 +528,7 @@ class AutonomousOperator:
             "entry_price": price,
             "strategy": "autonomous_paper",
             "opened_at": datetime.now().isoformat(),
+            "opened_cycle": self._cycle_count,
         }
 
         return {
