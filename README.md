@@ -119,9 +119,19 @@ python main.py trade --symbol BTCUSDT
 | TinyLLM v2 | `nlp/tiny_llm_v2.py` | ✅ 三模態 + MoE 架構完成 |
 | Action Record | `core/action_record.py` | ✅ T0/T1/T2 全部接通 |
 | EpisodicMemory | `memory/episodic_memory.py` | ✅ 熱緩衝 + 冷金庫完成 |
-| OnlineLearner | `core/online_learner.py` | ✅ LoRA 微更新器完成 |
+| OnlineLearner | `core/online_learner.py` | ✅ LoRA 微更新器完成（有單元測試覆蓋） |
 | VirtualAccount 平倉回調 | `trading/virtual_account.py` | ✅ SL/TP/強平 自動觸發 T2 |
+| 多目標 Reward | `core/reward.py` | ✅ 盈虧 + 時間效率 + 信心校準 + 風控紀律 |
 | **TinyLLM v2 接上交易引擎** | — | ❌ 尚未完成 |
+
+### 自適應閉環（學習 → 決策回饋）
+
+| 模組 | 檔案 | 狀態 |
+|---|---|---|
+| 自適應中樞 | `core/adaptive_hub.py` | ✅ 策略×幣對 EWMA 績效 → 動態策略權重，JSON 持久化（跨重啟） |
+| 平倉 → 權重回饋 | `core/trading_engine.py` | ✅ notify_trade_closed 自動更新中樞並重注入 selector 權重 |
+| 自主持續迴圈 | `planning/autonomous_operator.py` | ✅ run_forever：執行 → 結算 → outcome 回寫 ledger → 影響下一輪 |
+| 自我修正規則 | `planning/adaptation_controller.py` | ✅ 接收學習狀態：期望值為負/連敗 → 降風險；幣對連虧 → 暫停執行 |
 
 ### 回測與驗證
 
@@ -133,26 +143,45 @@ python main.py trade --symbol BTCUSDT
 
 ---
 
-## 待完成缺口
+## 待完成缺口（每項都已留擴充點，🧩 = 介面存在但實作未完成）
 
-### P1 — 新聞架構錯置
+> 標記原則：還沒完成就是還沒完成。🧩 表示介面/骨架已固定且呼叫時會明確
+> 告知未實作（NotImplementedError / 中性回傳 / 警告），不會默默假裝成功。
+> 完整清單與剩餘工作見 `docs/PROJECT_STATUS.md` 第四、五節。
 
-**新聞應作為主要方向建議者，目前只是過濾器。**
+### P1 🧩 新聞 → 主信號（minimal 版已存在）
 
-設計目標：`NewsAdapter` 分析當下 + 近期新聞 → 提出主要方向偏好（LONG/SHORT/NEUTRAL）→ 策略信號在此方向框架內執行。
-現狀：新聞只在 event_score 超過 ±5 時才攔截逆勢信號，完全不主動建議方向。
+`NewsAdapter.get_direction_bias(symbol)` 已存在，契約固定
+（`{"direction", "strength", "reason"}`），目前由單一主導事件的 event_score
+保守推導，`implemented_level="minimal"`。剩餘：多事件時序聚合、
+`_fuse_signals()` 以 bias 為方向框架。
 
-需要做的事：在 `NewsAdapter` 加入 `get_direction_bias()` 方法，並修改 `_fuse_signals()` 讓新聞偏好作為方向框架。
+### P2 🧩 歷史資料 RL 訓練管線（骨架已建）
 
-### P2 — 歷史資料 RL 訓練管線缺失
+`src/bioneuronai/training/rl_trainer.py`：`RLTrainerConfig` /
+`HistoricalReplayEnv`（gym 風格）/ `RLTrainer` 介面契約固定，
+全部 NotImplementedError。前置依賴（歷史回放、reward、權重落地通道）皆已存在。
 
-**目前沒有任何方式用歷史資料做策略驗證或強化學習。**
+### P3 🧩 TinyLLM v2 未接上交易引擎（誠實 stub）
 
-`backtest/` 只做靜態回測（不更新權重）。需要建立 `src/bioneuronai/training/rl_trainer.py`，以歷史 K 線作為 gym 環境，reward = PnL，連接現有的 `self_improvement.py` 遺傳算法。
+`InferenceEngine.enable_v2_mode()` 只設旗標並發出明確警告，
+predict() 仍走 v1 的 1024→512 路徑。剩餘：patch 特徵管線、
+SignalInterpreterV2、v2 訓練權重。
 
-### P3 — TinyLLM v2 未接上交易引擎
+### P4 🧩 目標層級自動回饋（監測版已可用）
 
-`InferenceEngine` 仍用 v1 的 1024→512 路徑，v2 的 16×64 patch 格式尚未支援。
+`planning/goal_manager.py` GoalTracker 每輪評估 ON_TRACK/AT_RISK/OFF_TRACK
+並寫入 ledger；`recommended_risk_scale` 尚未自動回饋到風險參數。
+
+### P5 🧩 卡單自動處置（偵測版已可用）
+
+`max_position_hold_cycles` 超限會標記 + 警告 + 記錄；自動強制出場尚未實作。
+
+### 自主迴圈已知限制
+
+`run_forever` 未檢查既有持倉（同 symbol 會重複進場）；閉環各元件有單元測試，
+但長時間連續 paper run 的權重漂移尚未驗證。商用化缺口（API 認證、監控告警、
+訂單重試、DB 索引等）見 `docs/PROJECT_STATUS.md` 第五節。
 
 ---
 
@@ -168,6 +197,7 @@ python main.py trade --symbol BTCUSDT
 | 2026-06-05 | OnlineLearner LoRA 微更新器實作完成 |
 | 2026-06-07 | P0 修復：VirtualAccount 平倉回調接通，LoRA 在線學習迴路完整運作 |
 | 2026-06-07 | SL/TP 每 tick 觸發修復（VirtualAccount 不再只在下單時才檢查條件單） |
+| 2026-06-11 | 自適應閉環：AdaptiveLearningHub（結果→策略權重，跨重啟持久化）、自主持續迴圈 run_forever（outcome 回寫 ledger → 自我修正規則啟用）、多目標 reward、首批 40 個單元測試 + CI 測試 job |
 
 ---
 

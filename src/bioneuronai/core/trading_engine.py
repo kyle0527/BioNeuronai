@@ -374,6 +374,22 @@ class TradingEngine:
             self.online_learner = None
             logger.warning("記憶層初始化失敗（非致命）: %s", _mem_err)
 
+        # ── 自適應學習中樞：交易結果 → 策略權重閉環（跨重啟持久化）─────────
+        self.adaptive_hub: Optional[Any] = None
+        try:
+            from bioneuronai.core.adaptive_hub import AdaptiveLearningHub
+            self.adaptive_hub = AdaptiveLearningHub(
+                state_path=_project_root / "data" / "bioneuronai" / "learning" / "adaptive_hub.json"
+            )
+            # 重啟後立即恢復上次學到的策略權重，自適應狀態不歸零
+            _learned_weights = self.adaptive_hub.get_strategy_weights()
+            if _learned_weights and hasattr(self.strategy, "load_performance_weights"):
+                self.strategy.load_performance_weights(_learned_weights, blend_alpha=0.3)
+                logger.info("✅ 自適應中樞已恢復策略權重: %s", _learned_weights)
+        except Exception as _hub_err:
+            self.adaptive_hub = None
+            logger.warning("自適應中樞初始化失敗（非致命）: %s", _hub_err)
+
         # 待決策的 ActionRecord（key = symbol，交易出場前保持 PENDING）
         self._pending_action_records: Dict[str, Any] = {}
         # 同步追蹤各 symbol 對應的策略名稱（用於 notify_trade_closed）
@@ -1832,6 +1848,8 @@ class TradingEngine:
 
         # ── T2：出場快照 + 記憶層推入 + LoRA 更新觸發 ───────────────────────
         self._pending_strategy_names.pop(symbol, None)
+        realized_pnl_pct: Optional[float] = None
+        realized_regime: Optional[str] = None
         if symbol and self.episodic_memory is not None:
             pending = self._pending_action_records.pop(symbol, None)
             if pending is not None:
@@ -1848,6 +1866,8 @@ class TradingEngine:
                         experience.pnl_usd = realized_pnl  # type: ignore[attr-defined]
 
                     is_extreme = self.episodic_memory.push(experience)
+                    realized_pnl_pct = experience.pnl_pct
+                    realized_regime = experience.market_regime
                     logger.info(
                         "[ActionRecord] T2 complete | symbol=%s outcome=%s pnl=%.3f%% extreme=%s",
                         symbol, experience.outcome, experience.pnl_pct * 100, is_extreme,
@@ -1864,6 +1884,29 @@ class TradingEngine:
                             )
                 except Exception as _e:
                     logger.debug("[ActionRecord] T2 記錄失敗（非致命）: %s", _e)
+
+        # ── 自適應閉環：結果 → 中樞 → 重算策略權重 → 注入 selector ──────────
+        if self.adaptive_hub is not None and symbol:
+            try:
+                if realized_pnl_pct is None:
+                    # 無 ActionRecord 時以價格估算（方向以實際損益正負判定）
+                    if entry_price > 0 and exit_price > 0:
+                        magnitude = abs(exit_price - entry_price) / entry_price
+                        realized_pnl_pct = magnitude if realized_pnl > 0 else -magnitude
+                    else:
+                        realized_pnl_pct = 0.001 if realized_pnl > 0 else -0.001
+                self.adaptive_hub.record_trade(
+                    strategy_name=strategy_name,
+                    symbol=symbol,
+                    pnl_pct=realized_pnl_pct,
+                    market_regime=realized_regime,
+                )
+                if hasattr(self.strategy, "load_performance_weights"):
+                    self.strategy.load_performance_weights(
+                        self.adaptive_hub.get_strategy_weights(), blend_alpha=0.3
+                    )
+            except Exception as _hub_e:
+                logger.debug("自適應中樞更新失敗（非致命）: %s", _hub_e)
 
     def _on_paper_close(
         self,

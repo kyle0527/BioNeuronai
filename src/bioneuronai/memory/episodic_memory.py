@@ -322,9 +322,14 @@ class EpisodicMemory:
         record.hold_duration_sec = hold_duration_sec
         record.outcome = "WIN" if pnl_pct > 0.001 else ("LOSS" if pnl_pct < -0.001 else "BREAKEVEN")
 
-        # Reward shaping：盈虧比 × 持倉效率（時間越短越好）
-        time_factor = max(0.5, 1.0 - hold_duration_sec / 86400)
-        record.reward = pnl_pct * time_factor
+        # 多目標 Reward shaping（與 ActionRecord.fill_exit 一致）
+        from bioneuronai.core.reward import compute_reward
+        record.reward = compute_reward(
+            pnl_pct=pnl_pct,
+            hold_duration_sec=hold_duration_sec,
+            uncertainty=record.decoded_uncertainty,
+            confidence=record.decoded_confidence,
+        )
 
         # 把更新後的記錄再塞回熱緩衝，更新優先級
         self.hot_buffer.push(record, priority=max(abs(pnl_pct), 1e-6))

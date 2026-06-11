@@ -1,7 +1,13 @@
-# 專案現況與進度（2026-06-07）
+# 專案現況與進度（2026-06-11）
 
 > 這份文件是當前最準確的進度記錄。README 是它的摘要版。
 > 每次有重大架構變更時更新此文件。
+
+**標記慣例（誠實原則）**：
+- ✅ 完成：有實作 + 有單元測試或實際運行驗證
+- 🧩 已留擴充點：介面/骨架存在且契約固定，但核心實作未完成——
+  呼叫會明確告知（NotImplementedError / 中性回傳 / 警告 log），不會默默假裝成功
+- ❌ 未開始：連介面都沒有
 
 ---
 
@@ -80,16 +86,16 @@ exit_reason 自動判定：
 | `NewsAdapter` | 傳遞 event_context 給策略層 | `get_event_context(symbol)` |
 | `EventContract` | 新聞事件衰減與事後驗證 | confirmed_bullish / false_signal 標籤 |
 | `PreTradeCheckSystem` | RAG 風控（下單前） | 若發現重大負面新聞則攔截 |
-| **新聞作為主信號** | **規劃中，尚未實作** | 目前新聞是過濾器，不是決策者 |
+| **新聞作為主信號** | 🧩 **已留擴充點（minimal）** | `NewsAdapter.get_direction_bias()` 已存在（2026-06-11），由 event_score 推導保守 bias；完整版（多事件時序聚合 + 接入 `_fuse_signals()` 作為方向框架）尚未實作 |
 
-**重要**：策略是主信號來源，新聞是「交戰規則」攔截器。原始設計是讓新聞分析近期事件後提出主要方向建議，目前的實作方向相反。這是 P1 待修正的架構缺口。
+**重要**：策略是主信號來源，新聞是「交戰規則」攔截器。原始設計是讓新聞分析近期事件後提出主要方向建議。`get_direction_bias()` 的回傳契約已固定（`{"direction", "strength", "reason"}`），但其 `implemented_level="minimal"` 欄位明確標注目前只是過渡版——呼叫端不可把它當唯一信號。
 
 ### 2.2 AI 模型層
 
 | 模型 | 狀態 | 說明 |
 |---|---|---|
 | TinyLLM v1 | ✅ 可用 | `my_100m_model_trained_20260510.pth`，1024→512 輸入/輸出 |
-| TinyLLM v2 | ✅ 架構完成，未接通 | `nlp/tiny_llm_v2.py`，三模態 + MoE + 65 維全監督 |
+| TinyLLM v2 | 🧩 架構完成，**未接通推論引擎** | `nlp/tiny_llm_v2.py` 架構與 LoRA 完成；`InferenceEngine.enable_v2_mode()` 只設旗標並發出明確警告，predict() 仍走 v1 路徑（P3） |
 | LoRA (v1, `nlp/lora.py`) | ⚠️ 已有但未連接 | 可忽略，v2 已整合 LoRA |
 | LoRA (v2, 整合在 TinyLLMv2) | ✅ 已整合 | 骨幹凍結後 0.25%（~203K）參數可訓練 |
 
@@ -120,7 +126,22 @@ exit_reason 自動判定：
 |---|---|---|
 | Backtest 子系統 | ✅ 可獨立運行 | `backtest/` 目錄 |
 | Walk-forward 驗證 | ✅ 架構已建 | `docs/adr/0002-walk-forward-validation.md` |
-| **歷史資料 RL 訓練** | ❌ 缺失 | 需要建立：歷史 K 線 → RL 環境 → 策略驗證管線 |
+| **歷史資料 RL 訓練** | 🧩 骨架已建（2026-06-11） | `src/bioneuronai/training/rl_trainer.py`：`RLTrainerConfig` / `HistoricalReplayEnv` / `RLTrainer` 介面契約已固定，所有方法 NotImplementedError（P2） |
+
+### 2.6 自適應閉環與自主迴圈（2026-06-11 新增）
+
+| 模組 | 狀態 | 說明 |
+|---|---|---|
+| `core/adaptive_hub.py` AdaptiveLearningHub | ✅ 完成 | 策略×幣對×體制 EWMA 績效 → 動態策略權重 / 迴避清單 / 風險倍率；JSON 持久化跨重啟 |
+| TradingEngine 平倉 → 權重回饋 | ✅ 完成 | `notify_trade_closed` → hub 記錄 → 重算權重 → 注入 selector；啟動時自動恢復 |
+| `core/reward.py` 多目標 reward | ✅ 完成 | 盈虧 × 時間效率 × 不確定性校準 + 過度自信懲罰 + 爆倉懲罰；ActionRecord / EpisodicMemory 統一使用 |
+| AutonomousOperator `run_forever` 持續迴圈 | ✅ 完成 | 結算上輪倉位 → 規劃 → 學習狀態注入決策 → 執行 → 依建議間隔等待；STOP 自動停機 |
+| outcome 回寫 decision ledger | ✅ 完成 | paper 平倉回調 → `trade_outcome` 紀錄 → AdaptationController 的連敗/回撤/勝率規則真正生效（修復原死碼） |
+| AdaptationController 學習狀態規則 | ✅ 完成 | 期望值為負/連敗 → 降風險提門檻；被標記迴避的幣對 → 本輪不執行；`learning_state` 為可選參數向後相容 |
+| `planning/goal_manager.py` GoalTracker | 🧩 最小版 | 對照目標輸出 ON_TRACK/AT_RISK/OFF_TRACK + 違反項，每輪寫入 ledger；**只監測記錄，`recommended_risk_scale` 尚未自動回饋到風險參數**；多時間尺度（1h/1d/1w）欄位已留未分層 |
+| 學習狀態 provider 擴充點 | ✅ 完成 | `operator.register_state_provider("lora", learner.get_stats)` → 併入每輪 learning_state 記入 ledger |
+| 卡單偵測 | 🧩 偵測版 | `max_position_hold_cycles` 超限 → 標記 + 警告 + 寫入紀錄；**自動強制出場尚未實作**（接點在 `_check_stale_positions`） |
+| 測試 | ✅ 54 個單元測試 | `tests/`，CI `unit-tests` job 自動執行 |
 
 ---
 
@@ -165,31 +186,86 @@ news_direction_bias = self.news_adapter.get_direction_bias(symbol)
 
 ---
 
-## 四、下一步優先工作
+## 四、下一步優先工作（每項的擴充點都已存在，按介面契約實作即可）
 
-### P1：修正新聞架構（新聞 → 主信號）
+### P1：新聞 → 主信號（擴充點：`NewsAdapter.get_direction_bias()`，已有 minimal 版）
 
-在 `NewsAdapter` 新增 `get_direction_bias(symbol)` 方法：
-```python
-# 回傳格式
-{"direction": "LONG"/"SHORT"/"NEUTRAL", "strength": 0-1, "reason": str}
-```
-修改 `_fuse_signals()`，讓新聞偏好作為方向框架（而非分數加權 5%）。
+已完成（2026-06-11）：方法存在，契約固定
+`{"direction": "LONG"/"SHORT"/"NEUTRAL", "strength": 0-1, "reason": str}`，
+目前由單一主導事件的 event_score 保守推導（|score| ≥ 3 才給方向）。
 
-### P2：建立歷史 RL 訓練管線
+剩餘工作：
+1. 多事件時序聚合（取代單一主導事件）
+2. 修改 `_fuse_signals()`，讓 bias 作為方向框架（而非分數加權 5%）
+3. 完成後把 `implemented_level` 從 `"minimal"` 改為 `"full"` 並更新此文件
 
-- 建立 `src/bioneuronai/training/rl_trainer.py`
-- 使用已有的 backtest 歷史資料作為訓練環境
-- 連接到 `self_improvement.py` 的遺傳算法
+⚠️ 已知重複：`AIStrategyFusion.get_direction_bias()`（strategy_fusion.py）也有一個
+早期原型（直接吃 event_score、門檻 1.5、無衰減/信心加權）。完整版實作時應收斂為
+單一來源（建議保留 NewsAdapter 版，fusion 層改為呼叫它），避免兩套規則漂移。
 
-### P3：TinyLLM v2 接上交易引擎
+### P2：歷史 RL 訓練管線（擴充點：`src/bioneuronai/training/rl_trainer.py`，骨架已建）
 
-- 修改 `InferenceEngine` 支援 v2 的 patch 輸入格式
-- 遷移策略：v1 和 v2 並存，v2 在有訓練好的模型後接管
+已完成（2026-06-11）：`RLTrainerConfig` / `HistoricalReplayEnv`（gym 風格
+reset/step）/ `RLTrainer`（train/evaluate/export_weights）介面契約固定，
+全部 NotImplementedError，測試保證「未實作必須明確報錯」。
+
+剩餘工作（前置依賴皆已存在，列在模組 docstring）：
+1. `HistoricalReplayEnv` 接 `backtest/HistoricalDataStream`，reward 用 `core/reward.compute_reward`
+2. `RLTrainer.train()` 實作（學習目標三選一：Meta-Learner / LoRA / 遺傳算法）
+3. `export_weights()` 落地到 `core/adaptive_hub` 的權重通道
+
+### P3：TinyLLM v2 接上交易引擎（擴充點：`InferenceEngine.enable_v2_mode()`，誠實 stub）
+
+已完成（2026-06-11）：旗標 + 明確警告（「v2 路徑尚未實作，predict 仍走 v1」），
+測試保證警告不會被拿掉。
+
+剩餘工作：
+1. `FeaturePipeline` 輸出 16×64 patch 格式
+2. `SignalInterpreterV2` 解碼 65 維輸出
+3. v2 訓練權重檔（架構不相容 v1，輸入投影層和輸出頭需重訓）
+
+### P4：目標層級自動回饋（擴充點：`planning/goal_manager.py`，監測版已可用）
+
+已完成（2026-06-11）：GoalTracker 每輪評估並寫入 ledger。
+剩餘工作：
+1. `recommended_risk_scale` 自動回饋到 AdaptationController（接點：
+   `AutonomousOperator._evaluate_adaptation`）
+2. 多時間尺度目標分層（`GoalConfig.horizon` 欄位已留）
+3. Sharpe/Sortino 指標（需逐筆報酬序列持久化）
+
+### P5：卡單自動處置（擴充點：`AutonomousOperator._check_stale_positions`，偵測版已可用）
+
+剩餘工作：偵測到超限持倉時下反向 reduce-only 單強制出場，
+走 `_on_paper_close` 既有的 outcome 回寫路徑。
 
 ---
 
-## 五、不應再看的文件（已過時）
+## 五、已知限制與商用化缺口（誠實清單）
+
+### 自主迴圈已知限制
+1. **重複進場**：`run_forever` 每輪若 adaptation 允許就會再下單，未檢查既有持倉
+   （同 symbol 會累加倉位並覆寫 `opened_cycle` 追蹤）。實盤化前必須加持倉檢查。
+2. **GoalTracker 只監測不行動**（見 P4）。
+3. **卡單只偵測不處置**（見 P5）。
+4. **LoRA 學習與策略權重閉環是兩條速度不同的迴路**：hub（顯性，每筆生效）
+   已閉合；LoRA（隱性，每 100 筆）的更新成效尚未在長時間 paper run 中驗證。
+5. **未做長時間連續運行驗證**：閉環的各元件有單元測試，但「跑一週 paper
+   trading 權重漂移是否合理」尚未驗證。
+
+### 商用化缺口（非 AI 主線，列入記錄）
+| 項目 | 狀態 |
+|---|---|
+| 單元測試 | ✅ 54 個（2026-06-11 起步），核心交易引擎/推論引擎尚未覆蓋 |
+| CI | ✅ unit-tests + Docker 驗證；❌ 無 lint / type check |
+| API 認證 / rate limiting | ❌ 所有 endpoint 公開 |
+| 監控告警（metrics / Slack / email） | ❌ 只有 log |
+| 訂單重試 / dead-letter | ❌ 失敗即丟棄 |
+| SQLite 索引 / 歸檔 | ❌ 無索引，無限增長 |
+| 多實例 / 負載均衡 | ❌ 單機單實例 |
+
+---
+
+## 六、不應再看的文件（已過時）
 
 | 文件 | 問題 |
 |---|---|

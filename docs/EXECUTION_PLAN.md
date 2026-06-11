@@ -1,5 +1,16 @@
 # BioNeuronAI 商業級「一步到位」執行計劃（Week 1-2 具體可執行版）
 
+> **狀態更新 2026-06-11**：本計劃部分內容已被實作覆蓋，閱讀時以
+> `docs/PROJECT_STATUS.md` 為準——
+> - ✅ 已完成（不需照本計劃重做）：自適應閉環（AdaptiveLearningHub →
+>   策略權重）、outcome 回寫 decision ledger、多目標 reward、
+>   `run_forever` 持續迴圈、首批 54 個單元測試
+> - 🧩 已留擴充點（本計劃對應步驟仍有效）：TinyLLM v2 接通 predict()、
+>   新聞方向 bias 接入 `_fuse_signals()`（注意：bias 來源請收斂到
+>   `NewsAdapter.get_direction_bias()`，見 PROJECT_STATUS P1）
+> - 本計劃的「第一個真實 lora_*.pt checkpoint」目標仍未達成（需長時間
+>   paper run 累積 100 筆完整 T0/T1/T2 記錄）
+
 **目標**：讓模型（TinyLLM）的參數真正驅動交易決策結構，並讓自學習閉環產生可驗證的真實 artifact（而非 shim + 空轉）。
 
 **為什麼這是關鍵**：

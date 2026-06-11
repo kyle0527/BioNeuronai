@@ -1392,11 +1392,18 @@ class InferenceEngine:
         return signal
 
     def enable_v2_mode(self) -> None:
-        """開啟 v2 模式：預期模型輸出 65 維，輸入使用 16x64 patches。
-        目前為 stub，後續會在 predict 內走 patch 路徑 + SignalInterpreterV2。
+        """P3 擴充點：切換到 TinyLLM v2 路徑（16x64 patch 輸入 + 65 維全監督輸出）。
+
+        ⚠️ 尚未實作：目前只設定旗標，predict() 仍走 v1 的 1024→512 路徑。
+        完整接通需要：(1) FeaturePipeline 輸出 patch 格式
+        (2) SignalInterpreterV2 解碼 65 維 (3) v2 訓練權重檔。
+        詳見 docs/PROJECT_STATUS.md P3。
         """
         self.use_v2_mode = True
-        logger.info("[InferenceEngine] v2 mode enabled (65-dim full supervision path)")
+        logger.warning(
+            "[InferenceEngine] v2 mode flag set，但 v2 推論路徑尚未實作——"
+            "predict() 仍使用 v1 (1024→512)。請勿依賴此模式做任何決策。"
+        )
 
     def reset_buffer(self) -> None:
         """清空滾動特徵視窗（回測切換 episode 或重新開始時呼叫）"""

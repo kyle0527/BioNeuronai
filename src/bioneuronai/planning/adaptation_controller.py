@@ -50,6 +50,9 @@ class AdaptationPolicy:
     fast_interval_minutes: int = 15
     slow_interval_minutes: int = 120
     executable_statuses: tuple[str, ...] = ("EXECUTE", "CAUTIOUS_EXECUTE")
+    # 學習狀態（AdaptiveLearningHub）相關閾值
+    min_learning_samples: int = 10
+    negative_expectancy_threshold: float = 0.0
 
 
 @dataclass
@@ -94,6 +97,7 @@ class AdaptationController:
         pretrade_results: List[Dict[str, Any]],
         ledger_summary: Dict[str, Any],
         intended_action: str,
+        learning_state: Optional[Dict[str, Any]] = None,
     ) -> AdaptationDecision:
         mode_enum = mode if isinstance(mode, AutonomousMode) else AutonomousMode(str(mode))
         reasons: List[str] = []
@@ -152,9 +156,44 @@ class AdaptationController:
             risk_multiplier = min(risk_multiplier, self.policy.reduced_risk_multiplier)
             confidence_floor = max(confidence_floor, self.policy.raised_confidence_floor)
 
+        # ── 學習狀態（來自 AdaptiveLearningHub）的自我修正規則 ────────────
+        if learning_state:
+            learn_trades = int(learning_state.get("trades", 0) or 0)
+            if learn_trades >= self.policy.min_learning_samples:
+                expectancy = float(learning_state.get("ewma_pnl_pct", 0.0) or 0.0)
+                if expectancy < self.policy.negative_expectancy_threshold:
+                    reasons.append(f"learning_expectancy_negative_{expectancy:.4f}")
+                    risk_multiplier = min(risk_multiplier, self.policy.reduced_risk_multiplier)
+                    confidence_floor = max(confidence_floor, self.policy.raised_confidence_floor)
+
+                learn_consecutive = int(learning_state.get("consecutive_losses", 0) or 0)
+                if learn_consecutive >= self.policy.max_consecutive_losses:
+                    reasons.append(f"learning_consecutive_losses_{learn_consecutive}")
+                    risk_multiplier = min(risk_multiplier, self.policy.reduced_risk_multiplier)
+                    confidence_floor = max(confidence_floor, self.policy.raised_confidence_floor)
+                    next_interval = self.policy.slow_interval_minutes
+
+            # 中樞建議的全域風險倍率（取更保守者）
+            hub_multiplier = learning_state.get("risk_multiplier")
+            if hub_multiplier is not None:
+                risk_multiplier = min(risk_multiplier, float(hub_multiplier))
+
+            # 該幣對近期被學習層標記為應迴避 → 本輪不執行
+            avoid_symbols = {
+                str(s).upper() for s in learning_state.get("avoid_symbols", []) or []
+            }
+            selected_symbol_value = self._result_symbol(selected)
+            if selected_symbol_value and selected_symbol_value.upper() in avoid_symbols:
+                reasons.append("symbol_deprioritized_by_learning")
+
         plan_ok = not any(reason == "plan_not_executable" for reason in reasons)
         pretrade_ok = selected is not None
-        can_execute = plan_ok and pretrade_ok and "news_or_fundamental_block" not in reasons
+        can_execute = (
+            plan_ok
+            and pretrade_ok
+            and "news_or_fundamental_block" not in reasons
+            and "symbol_deprioritized_by_learning" not in reasons
+        )
 
         if mode_enum == AutonomousMode.ADVISOR:
             action = AutonomousAction.ADVISE_ONLY

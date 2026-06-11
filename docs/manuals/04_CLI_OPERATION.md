@@ -212,13 +212,14 @@ python main.py trade --live
 `--paper-live` 使用 Binance mainnet 行情，但訂單只寫入本地虛擬帳戶，不送出真實 Binance order。使用 `--live` 時系統會有強制二次確認，避免意外進入實盤。若要從 Dashboard / API 啟用自動交易，請使用 `paper_live`、`testnet_auto` 或 `live_auto` 模式並確認 `/api/v1/trade/status`。
 
 ### `autonomous`
-**依賴子系統**：`planning/autonomous_operator.py`、`planning/adaptation_controller.py`、`planning/decision_ledger.py`
-**用途**：執行一輪 observe-plan-pretrade-adapt 決策循環，輸出「今天這輪該觀察、等待還是可進下一步」，並把結果寫進 decision ledger。
+**依賴子系統**：`planning/autonomous_operator.py`、`planning/adaptation_controller.py`、`planning/decision_ledger.py`、`planning/goal_manager.py`、`core/adaptive_hub.py`
+**用途**：執行 observe-plan-pretrade-adapt 決策循環，輸出「今天這輪該觀察、等待還是可進下一步」，並把結果寫進 decision ledger。預設單輪；`--cycles N`（N>1）進入持續閉環（`run_forever`）：每輪結算上輪 paper 倉位 → outcome 回寫 ledger 與自適應中樞 → 學習狀態影響下一輪決策，遇 STOP（回撤超限）自動停機。
 ```bash
 python main.py autonomous --mode advisor --symbol BTCUSDT
 python main.py autonomous --mode advisor --symbol BTCUSDT --output output/autonomous_advisor.json
 python main.py autonomous --mode paper_auto --symbol BTCUSDT --output output/autonomous_paper_auto.json
 python main.py autonomous --mode paper_auto --symbol BTCUSDT --execute-paper --paper-balance 10000
+python main.py autonomous --mode paper_auto --symbol BTCUSDT --execute-paper --cycles 24   # 持續閉環 24 輪
 ```
 
 這個命令會顯示的核心欄位：
@@ -232,8 +233,8 @@ python main.py autonomous --mode paper_auto --symbol BTCUSDT --execute-paper --p
 
 請注意：
 
-- `autonomous` 是單輪決策入口，不是長時間監控主線
-- 真正持續跑 WebSocket、接即時價格、進入 `TradingEngine` 主循環的是 `trade`
+- `autonomous` 預設是單輪決策入口；`--cycles N` 為輪詢式持續閉環（每輪間隔由 adaptation 決定，分鐘級）
+- 真正持續跑 WebSocket、接即時價格、進入 `TradingEngine` 主循環的是 `trade`（tick 級）
 - 日常值班建議順序是：先 `autonomous --mode advisor`，再視結果決定要不要進 `trade --paper-live` 或 `autonomous --mode paper_auto`
 
 ### `chat`

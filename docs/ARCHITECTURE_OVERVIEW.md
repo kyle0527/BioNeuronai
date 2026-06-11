@@ -1,7 +1,7 @@
 # BioNeuronAI 系統架構總覽
 
 **版本**: v2.2（現役）/ v2.x（建設中）
-**更新日期**: 2026-06-07
+**更新日期**: 2026-06-11
 
 > 本文件描述程式碼**實際執行**的架構，而非設計目標。
 > 未實作的功能在對應章節標注 `⚠️ 缺口` 或 `❌ 未完成`。
@@ -99,10 +99,12 @@ flowchart TD
    → VirtualAccount._on_position_closed callback
    → TradingEngine._on_paper_close()
    → notify_trade_closed()
-      → ActionRecord.fill_exit()
+      → ActionRecord.fill_exit()              # 多目標 reward（core/reward.py）
       → EpisodicMemory.push()
       → OnlineLearner.record_outcome()
       → LoRA 微更新（每 100 筆）
+      → AdaptiveLearningHub.record_trade()    # 2026-06-11：自適應閉環
+         → 重算策略權重 → 注入 StrategySelector（下一筆交易立即生效）
 ```
 
 ---
@@ -156,16 +158,22 @@ event_score > +5 (極度看多) → 攔截普通做空信號，放行做多
 -5 ≤ event_score ≤ +5     → 策略信號正常通過
 ```
 
-**設計目標（尚未實現）**：新聞分析近期事件後提出主要方向建議，策略信號在方向框架內執行。
+**設計目標（🧩 已留擴充點，未完整實現）**：新聞分析近期事件後提出主要方向建議，策略信號在方向框架內執行。
+`NewsAdapter.get_direction_bias()` 已有 minimal 過渡版（由主導事件 event_score 推導，
+`implemented_level="minimal"`），但尚未接入 `_fuse_signals()` 作為方向框架。詳見 PROJECT_STATUS P1。
 
 ### 3.5 記憶與學習層
 
 | 模組 | 狀態 | 說明 |
 |---|---|---|
-| TinyLLM v2 | ✅ 架構完成 | `nlp/tiny_llm_v2.py`，三模態 + MoE，65 維全監督 |
+| TinyLLM v2 | 🧩 架構完成，未接通推論引擎 | `nlp/tiny_llm_v2.py`，三模態 + MoE，65 維全監督；`enable_v2_mode()` 為誠實 stub |
 | ActionRecord | ✅ T0/T1/T2 全接通 | VirtualAccount 平倉回調自動觸發 T2 |
 | EpisodicMemory | ✅ 完成 | 熱緩衝 (50k 條，優先採樣) + 冷庫（極端事件永久保存） |
 | OnlineLearner | ✅ 完成 | LoRA 微更新，每 100 筆完整記錄觸發，4 項損失函數 |
+| 多目標 Reward | ✅ 完成（2026-06-11） | `core/reward.py`：盈虧 × 時間效率 × 校準 + 過度自信/爆倉懲罰 |
+| AdaptiveLearningHub | ✅ 完成（2026-06-11） | `core/adaptive_hub.py`：結果 → 策略權重閉環，JSON 持久化跨重啟 |
+| GoalTracker | 🧩 監測版（2026-06-11） | `planning/goal_manager.py`：每輪寫入 ledger，自動回饋風險參數未實作 |
+| AutonomousOperator 持續迴圈 | ✅ 完成（2026-06-11） | `run_forever`：執行 → 結算 outcome 回寫 ledger → 自我修正下一輪 |
 
 **EpisodicMemory 極端事件判定條件**（自動存入冷庫）：
 - 5 分鐘價格變動 > 3σ
