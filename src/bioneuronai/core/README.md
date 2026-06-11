@@ -2,7 +2,7 @@
 
 **路徑**: `src/bioneuronai/core/`  
 **版本**: v2.2
-**更新日期**: 2026-05-13
+**更新日期**: 2026-06-11
 **架構層級**: Layer 1 — 核心引擎層
 
 ---
@@ -24,13 +24,15 @@
 
 ## 模組概述
 
-Core 模組是 BioNeuronai 的中樞神經，承上啟下地協調數據層、策略層與交易執行層。它包含三大子系統：交易引擎、AI 推理管線與基因演算法進化系統。
+Core 模組是 BioNeuronai 的中樞神經，承上啟下地協調數據層、策略層與交易執行層。它包含五大子系統：交易引擎、AI 推理管線、基因演算法進化系統、在線學習（ActionRecord + OnlineLearner）與自適應閉環（AdaptiveLearningHub + 多目標 reward）。
 
 ### 模組職責
 - ✅ 主交易引擎（策略執行 + 風險管理 + 訂單管理）
 - ✅ AI 推理管線（模型載入 → 特徵工程 → 預測 → 訊號解讀）
 - ✅ 基因演算法自我進化系統（族群管理 + 淘汰 + 交配突變）
 - ✅ 新聞情緒與市場微結構整合
+- ✅ 在線學習：ActionRecord T0/T1/T2 快照 + LoRA 微更新（2026-06-07 接通）
+- ✅ 自適應閉環：交易結果 → 策略權重，跨重啟持久化（2026-06-11）
 
 ---
 
@@ -38,10 +40,14 @@ Core 模組是 BioNeuronai 的中樞神經，承上啟下地協調數據層、�
 
 ```text
 src/bioneuronai/core/
-├── __init__.py            # 模組入口，匯出 core 層主要符號
+├── __init__.py            # 模組入口（PEP 562 延遲載入，輕量模組不拉重依賴）
 ├── trading_engine.py      # 主交易引擎
 ├── inference_engine.py    # AI 推理管線
-└── self_improvement.py    # 基因演算法進化系統
+├── self_improvement.py    # 基因演算法進化系統
+├── action_record.py       # 決策快照 T0/T1/T2（在線學習的訓練材料）
+├── online_learner.py      # LoRA 在線微更新器（每 100 筆完整記錄觸發）
+├── adaptive_hub.py        # 自適應學習中樞：結果 → 策略權重閉環
+└── reward.py              # 多目標 reward shaping
 ```
 
 檔案對照：
@@ -49,6 +55,10 @@ src/bioneuronai/core/
 2. [trading_engine.py](trading_engine.py)
 3. [inference_engine.py](inference_engine.py)
 4. [self_improvement.py](self_improvement.py)
+5. [action_record.py](action_record.py)
+6. [online_learner.py](online_learner.py)
+7. [adaptive_hub.py](adaptive_hub.py)
+8. [reward.py](reward.py)
 
 這個資料夾目前沒有更深一層的 README 子文件，因此本文件直接維護到檔案與主要公開類別層級。
 

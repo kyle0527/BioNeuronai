@@ -383,7 +383,7 @@ def _print_pretrade_result(result: object) -> None:
 
 
 def cmd_autonomous(args: argparse.Namespace) -> None:
-    """Run one autonomous observe-plan-pretrade-adapt cycle."""
+    """Run autonomous observe-plan-pretrade-adapt cycle(s); --cycles >1 進入持續閉環."""
     print(f"\n{'='*60}")
     print(f"  BioNeuronai Autonomous Run  [{args.mode}]  {args.symbol}")
     print(f"{'='*60}\n")
@@ -412,19 +412,27 @@ def cmd_autonomous(args: argparse.Namespace) -> None:
         paper_notional_fraction=float(args.paper_notional_fraction),
     )
 
+    cycles = max(1, int(getattr(args, "cycles", 1) or 1))
     try:
         operator = AutonomousOperator(config)
-        record = operator.run_once_sync()
+        if cycles == 1:
+            records = [operator.run_once_sync()]
+        else:
+            # 持續自主迴圈：每輪間隔依 adaptation 決策（next_interval_minutes）
+            import asyncio
+            records = asyncio.run(operator.run_forever(max_cycles=cycles))
     except Exception as exc:
         logger.error("自主運行失敗: %s", exc, exc_info=True)
         sys.exit(1)
 
-    _print_autonomous_record(record)
+    for record in records:
+        _print_autonomous_record(record)
 
     output_path: Optional[str] = getattr(args, "output", None)
     if output_path:
+        payload = records[0] if len(records) == 1 else records
         with open(output_path, "w", encoding="utf-8") as f:
-            json.dump(record, f, ensure_ascii=False, indent=2, default=str)
+            json.dump(payload, f, ensure_ascii=False, indent=2, default=str)
         print(f"  結果已儲存至: {output_path}")
 
 
@@ -1286,7 +1294,15 @@ def _build_parser() -> argparse.ArgumentParser:
     # ── autonomous ───────────────────────────────────────────────────────────
     autop = subparsers.add_parser(
         "autonomous",
-        help="自主運行一輪：plan -> pretrade -> adaptation -> ledger",
+        help="自主運行：plan -> pretrade -> adaptation -> ledger（--cycles N 進入持續閉環）",
+    )
+    autop.add_argument(
+        "--cycles",
+        type=int,
+        default=1,
+        metavar="N",
+        help="運行輪數；1=單輪（預設），>1 進入 run_forever 持續閉環"
+             "（每輪間隔依 adaptation 建議，遇 STOP 自動停機）",
     )
     autop.add_argument(
         "--mode",

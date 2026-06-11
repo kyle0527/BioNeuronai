@@ -199,6 +199,10 @@ news_direction_bias = self.news_adapter.get_direction_bias(symbol)
 2. 修改 `_fuse_signals()`，讓 bias 作為方向框架（而非分數加權 5%）
 3. 完成後把 `implemented_level` 從 `"minimal"` 改為 `"full"` 並更新此文件
 
+⚠️ 已知重複：`AIStrategyFusion.get_direction_bias()`（strategy_fusion.py）也有一個
+早期原型（直接吃 event_score、門檻 1.5、無衰減/信心加權）。完整版實作時應收斂為
+單一來源（建議保留 NewsAdapter 版，fusion 層改為呼叫它），避免兩套規則漂移。
+
 ### P2：歷史 RL 訓練管線（擴充點：`src/bioneuronai/training/rl_trainer.py`，骨架已建）
 
 已完成（2026-06-11）：`RLTrainerConfig` / `HistoricalReplayEnv`（gym 風格

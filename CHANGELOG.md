@@ -1,5 +1,52 @@
 # 更新日誌
 
+## [Feature] - 2026-06-11
+
+### 🔄 自主運作閉環：學習結果回饋決策 + 持續迴圈 + 多目標 reward
+
+#### 問題根源
+
+學習迴路（LoRA）和決策迴路（AutonomousOperator / StrategySelector）是兩條平行線：
+- LoRA 更新後沒有任何機制影響下一輪規劃或策略選擇
+- AdaptationController 的連敗降風險/回撤停機/勝率規則依賴 ledger 的
+  `outcome.pnl`，但整個系統從無任何地方把交易結果寫回 ledger → 自我修正規則為死碼
+- AutonomousOperator 每次 new 一個 paper 連接器，倉位狀態不跨循環
+- 策略適應狀態存在記憶體，重啟歸零
+
+#### 新增
+
+- **`core/adaptive_hub.py` AdaptiveLearningHub**：策略×幣對×體制 EWMA 績效
+  → 動態策略權重 / 迴避清單 / 風險倍率，JSON 持久化跨重啟
+- **`core/reward.py` 多目標 reward**：盈虧 × 時間效率 × 不確定性校準
+  + 過度自信懲罰 + 爆倉懲罰；ActionRecord / EpisodicMemory 統一使用
+- **`planning/goal_manager.py` GoalTracker（監測版）**：每輪對照目標輸出
+  ON_TRACK/AT_RISK/OFF_TRACK 寫入 ledger
+- **AutonomousOperator.run_forever**：持續閉環（結算 → 規劃 → 學習狀態注入
+  → 執行 → outcome 回寫 ledger），CLI `autonomous --cycles N` 可啟動
+- **`register_state_provider()`**：LoRA learner / 記憶層統計接入自主迴圈
+- **卡單偵測** `max_position_hold_cycles`（偵測 + 記錄；自動出場為擴充點）
+- **首批自動化測試**：54 個單元測試（tests/），CI 新增 unit-tests job
+
+#### 修改
+
+- `TradingEngine.notify_trade_closed`：平倉 → hub 記錄 → 重算權重 → 注入 selector
+- `AdaptationController.evaluate` 新增可選 `learning_state` 參數（向後相容）：
+  期望值為負/連敗 → 降風險；被標記迴避的幣對 → 本輪不執行
+- `core/` `planning/` `data/` 套件改 PEP 562 延遲載入（輕量模組不再被重依賴綁架）
+- `InferenceEngine.enable_v2_mode()` 改為誠實 stub（明確警告 v2 路徑未實作）
+- `NewsAdapter.get_direction_bias()` 新增 minimal 過渡版（P1 擴充點，契約固定）
+- `training/rl_trainer.py` 骨架（P2 擴充點，全部 NotImplementedError）
+
+#### 驗證
+
+- `python -m pytest tests -q` → 54 passed
+- 關鍵閉環測試 `test_losing_streak_triggers_self_correction`：連續 4 筆止損
+  → 下一輪 adaptation 風險倍率自動降至 0.5
+- 文件同步：README / PROJECT_STATUS / ARCHITECTURE_OVERVIEW 標記慣例
+  ✅ 完成 / 🧩 已留擴充點 / ❌ 未開始
+
+---
+
 ## [Sync] - 2026-06-09
 
 ### 遠端同步與主線整理

@@ -1,7 +1,7 @@
 # 規劃模組 (Planning)
 
 > 路徑：`src/bioneuronai/planning/`
-> 更新日期：2026-05-11
+> 更新日期：2026-06-11
 > 架構層級：Layer 3 — 高階規劃與交易前檢查
 
 `planning` 負責把分析結果整理成可執行的交易計畫與進場前檢查結論。這一層不處理實際訂單與帳戶事實，也不直接承載基礎策略實作。
@@ -41,14 +41,15 @@
 
 ```text
 planning/
-├── __init__.py
+├── __init__.py            # PEP 562 延遲載入（輕量模組不拉計劃/檢查系統重依賴）
 ├── plan_controller.py     # 10 步驟交易計畫主控制器
 ├── market_analyzer.py     # 市場條件 / 技術 / 基本面整合分析
 ├── pair_selector.py       # 依真實 24h 行情篩選交易對
 ├── pretrade_automation.py # 單筆交易前檢查自動化
-├── autonomous_operator.py # 自主運行一輪編排
-├── adaptation_controller.py # 依結果調整模式/風險/頻率
-├── decision_ledger.py     # append-only 決策紀錄
+├── autonomous_operator.py # 自主運行編排：單輪 run_once + 持續閉環 run_forever
+├── adaptation_controller.py # 依結果 + 學習狀態調整模式/風險/頻率
+├── decision_ledger.py     # append-only 決策紀錄（含 trade_outcome 回寫）
+├── goal_manager.py        # 目標層級追蹤（監測版，2026-06-11）
 └── README.md
 ```
 
@@ -58,6 +59,10 @@ planning/
 3. [market_analyzer.py](market_analyzer.py)
 4. [pair_selector.py](pair_selector.py)
 5. [pretrade_automation.py](pretrade_automation.py)
+6. [autonomous_operator.py](autonomous_operator.py)
+7. [adaptation_controller.py](adaptation_controller.py)
+8. [decision_ledger.py](decision_ledger.py)
+9. [goal_manager.py](goal_manager.py)
 
 這個資料夾目前沒有更深一層的 README 子文件，因此本文件直接維護到檔案與主流程層級。
 
