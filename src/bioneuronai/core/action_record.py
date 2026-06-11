@@ -221,10 +221,15 @@ class ActionRecord:
             else "BREAKEVEN"
         )
 
-        # Reward shaping：盈虧 × 時間效率 × 不確定性懲罰
-        time_factor = max(0.5, 1.0 - self.hold_duration_sec / 86400)
-        uncertainty_penalty = 1.0 - self.uncertainty * 0.5
-        self.reward = self.pnl_pct * time_factor * uncertainty_penalty
+        # 多目標 Reward shaping：盈虧 × 時間效率 × 校準 × 風控紀律
+        from bioneuronai.core.reward import compute_reward
+        self.reward = compute_reward(
+            pnl_pct=self.pnl_pct,
+            hold_duration_sec=self.hold_duration_sec,
+            uncertainty=self.uncertainty,
+            confidence=self.confidence,
+            exit_reason=exit_reason,
+        )
 
         return self
 

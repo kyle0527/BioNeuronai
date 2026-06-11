@@ -119,9 +119,19 @@ python main.py trade --symbol BTCUSDT
 | TinyLLM v2 | `nlp/tiny_llm_v2.py` | ✅ 三模態 + MoE 架構完成 |
 | Action Record | `core/action_record.py` | ✅ T0/T1/T2 全部接通 |
 | EpisodicMemory | `memory/episodic_memory.py` | ✅ 熱緩衝 + 冷金庫完成 |
-| OnlineLearner | `core/online_learner.py` | ✅ LoRA 微更新器完成 |
+| OnlineLearner | `core/online_learner.py` | ✅ LoRA 微更新器完成（有單元測試覆蓋） |
 | VirtualAccount 平倉回調 | `trading/virtual_account.py` | ✅ SL/TP/強平 自動觸發 T2 |
+| 多目標 Reward | `core/reward.py` | ✅ 盈虧 + 時間效率 + 信心校準 + 風控紀律 |
 | **TinyLLM v2 接上交易引擎** | — | ❌ 尚未完成 |
+
+### 自適應閉環（學習 → 決策回饋）
+
+| 模組 | 檔案 | 狀態 |
+|---|---|---|
+| 自適應中樞 | `core/adaptive_hub.py` | ✅ 策略×幣對 EWMA 績效 → 動態策略權重，JSON 持久化（跨重啟） |
+| 平倉 → 權重回饋 | `core/trading_engine.py` | ✅ notify_trade_closed 自動更新中樞並重注入 selector 權重 |
+| 自主持續迴圈 | `planning/autonomous_operator.py` | ✅ run_forever：執行 → 結算 → outcome 回寫 ledger → 影響下一輪 |
+| 自我修正規則 | `planning/adaptation_controller.py` | ✅ 接收學習狀態：期望值為負/連敗 → 降風險；幣對連虧 → 暫停執行 |
 
 ### 回測與驗證
 
@@ -168,6 +178,7 @@ python main.py trade --symbol BTCUSDT
 | 2026-06-05 | OnlineLearner LoRA 微更新器實作完成 |
 | 2026-06-07 | P0 修復：VirtualAccount 平倉回調接通，LoRA 在線學習迴路完整運作 |
 | 2026-06-07 | SL/TP 每 tick 觸發修復（VirtualAccount 不再只在下單時才檢查條件單） |
+| 2026-06-11 | 自適應閉環：AdaptiveLearningHub（結果→策略權重，跨重啟持久化）、自主持續迴圈 run_forever（outcome 回寫 ledger → 自我修正規則啟用）、多目標 reward、首批 40 個單元測試 + CI 測試 job |
 
 ---
 
