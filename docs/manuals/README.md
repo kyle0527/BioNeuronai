@@ -1,7 +1,8 @@
 # BioNeuronAI 使用者操作手冊集中索引
 
 > 建立日期：2026-05-12
-> 更新日期：2026-05-19
+> 更新日期：2026-06-15
+> 現況權威：[`../PROJECT_STATUS.md`](../PROJECT_STATUS.md)
 > 目的：只整理「使用者實際操作系統時會用到的手冊」，包含開機、關機、CLI、API、Dashboard、Docker、回測、分析、策略、風控、常見問題與操作排查。
 
 ---
@@ -50,23 +51,23 @@
 
 | 編號 | 手冊 | 原始名稱 | 定位 | 目前狀態 |
 |---:|---|---|---|---|
-| 02 | [02_STARTUP_AND_SHUTDOWN.md](02_STARTUP_AND_SHUTDOWN.md) | `STARTUP_AND_SHUTDOWN_MANUAL.md` | 開機、關機、API、Dashboard、Docker | 新增，可用 |
-| 03 | [03_QUICKSTART.md](03_QUICKSTART.md) | `QUICKSTART_V2.1.md` | 快速開始 | 可用，部分內容與 02 重疊 |
-| 04 | [04_CLI_OPERATION.md](04_CLI_OPERATION.md) | `OPERATION_MANUAL.md` | CLI 與標準 SOP | 可用；已納入 `autonomous` 單輪值班入口 |
-| 05 | [05_API_USER_MANUAL.md](05_API_USER_MANUAL.md) | `API_USER_MANUAL.md` | REST API / WebSocket | 已用本地 API 逐端點驗證 |
-| 06 | [06_FRONTEND_DASHBOARD.md](06_FRONTEND_DASHBOARD.md) | `FRONTEND_DASHBOARD_MANUAL.md` | Operations Dashboard | 已改為 Operations / Validation / Config / Dev Tools / Chat；已補 paper-live、Training / Model、Live Market Chart；2026-05-19 已修復 JSON/Request History/長文字版面溢出 |
-| 07 | [07_DOCKER_DEPLOYMENT.md](07_DOCKER_DEPLOYMENT.md) | `DOCKER_DEPLOYMENT_MANUAL.md` | Docker Compose | 本輪先不作主要驗證；本機功能收斂後最後重建 image |
-| 08 | [08_BACKTEST_SYSTEM.md](08_BACKTEST_SYSTEM.md) | `BACKTEST_SYSTEM_GUIDE.md` | 回測與 replay | 已用短區間指令與 API 驗證 |
-| 09 | [09_ANALYSIS_MODULE.md](09_ANALYSIS_MODULE.md) | `ANALYSIS_MODULE_USER_MANUAL.md` | news / plan / pretrade | 已用 CLI 與 API 驗證 |
-| 10 | [10_STRATEGY_MODULE.md](10_STRATEGY_MODULE.md) | `STRATEGY_MODULE_USER_MANUAL.md` | strategy-backtest / strategy-run | 已用短區間 CLI 與 API 驗證 |
-| 11 | [11_RISK_MANAGEMENT.md](11_RISK_MANAGEMENT.md) | `RISK_MANAGEMENT_USER_MANUAL.md` | 風控與 pretrade 風險解讀 | 已用 pretrade / dashboard risk 驗證 |
-| 14 | [14_TESTNET_AND_LIVE_TRADING.md](14_TESTNET_AND_LIVE_TRADING.md) | 新增 | testnet / paper-live / autonomous / live 啟停與緊急停止 | 已驗證本地 API 啟停與 AI 載入；live 依安全限制未執行 |
-| 15 | [15_DATA_ACQUISITION.md](15_DATA_ACQUISITION.md) | 新增 | 歷史資料與 catalog 操作 | 已驗證 |
-| 16 | [16_RUNTIME_ARTIFACTS.md](16_RUNTIME_ARTIFACTS.md) | 新增 | runtime、logs、output、模型產物位置 | 已驗證 |
-| 17 | [17_ENVIRONMENT_VARIABLES.md](17_ENVIRONMENT_VARIABLES.md) | 新增 | `.env` 與環境變數 | 已驗證 |
-| 18 | [18_OPERATION_TROUBLESHOOTING.md](18_OPERATION_TROUBLESHOOTING.md) | 新增 | CLI/API/Backtest/Pretrade 操作排查 | 已驗證 |
-| 19 | [19_DASHBOARD_TROUBLESHOOTING.md](19_DASHBOARD_TROUBLESHOOTING.md) | 新增 | Dashboard / CORS / API 連線 / 版面排查 | 已驗證 |
-| 20 | [20_UI_END_TO_END_OPERATION.md](20_UI_END_TO_END_OPERATION.md) | 新增 | UI 從啟動到完成一輪操作的端到端流程 | 已完成 API/HTTP/build、本地瀏覽器操作與 API/frontend 複驗；Docker image 仍依本輪規劃留到最後重建 |
+| 02 | [02_STARTUP_AND_SHUTDOWN.md](02_STARTUP_AND_SHUTDOWN.md) | `STARTUP_AND_SHUTDOWN_MANUAL.md` | 開機、關機、API、Dashboard、Docker | **2026-06-15** 釐清四入口 vs 雙主線；補 paper-live 開機與 ledger 驗收 |
+| 03 | [03_QUICKSTART.md](03_QUICKSTART.md) | `QUICKSTART_V2.1.md` | 快速開始 | **2026-06-15** 對齊雙主線；與 02 部分重疊 |
+| 04 | [04_CLI_OPERATION.md](04_CLI_OPERATION.md) | `OPERATION_MANUAL.md` | CLI 與標準 SOP | **2026-06-15** 完整重寫：雙主線、autonomous 參數表、產物路徑、已知 B 線限制 |
+| 05 | [05_API_USER_MANUAL.md](05_API_USER_MANUAL.md) | `API_USER_MANUAL.md` | REST API / WebSocket | **2026-06-15** 補 API 覆蓋範圍（無 autonomous/plan）；pretrade 風控層 |
+| 06 | [06_FRONTEND_DASHBOARD.md](06_FRONTEND_DASHBOARD.md) | `FRONTEND_DASHBOARD_MANUAL.md` | Operations Dashboard | **2026-06-15** 雙主線與 UI 覆蓋表；修正 simulate/backtest 說明 |
+| 07 | [07_DOCKER_DEPLOYMENT.md](07_DOCKER_DEPLOYMENT.md) | `DOCKER_DEPLOYMENT_MANUAL.md` | Docker Compose | **2026-06-15** 註明無 autonomous 服務；Docker 非本輪主驗證入口 |
+| 08 | [08_BACKTEST_SYSTEM.md](08_BACKTEST_SYSTEM.md) | `BACKTEST_SYSTEM_GUIDE.md` | 回測與 replay | **2026-06-15** 完整重寫：replay vs 雙主線、CLI 全命令、資料路徑、simulate/backtest 差異 |
+| 09 | [09_ANALYSIS_MODULE.md](09_ANALYSIS_MODULE.md) | `ANALYSIS_MODULE_USER_MANUAL.md` | news / plan / pretrade | **2026-06-15** 補雙主線影響與 pretrade 風控層說明 |
+| 10 | [10_STRATEGY_MODULE.md](10_STRATEGY_MODULE.md) | `STRATEGY_MODULE_USER_MANUAL.md` | strategy-backtest / strategy-run | **2026-06-15** 標明 Replay 路徑 vs 即時雙主線 |
+| 11 | [11_RISK_MANAGEMENT.md](11_RISK_MANAGEMENT.md) | `RISK_MANAGEMENT_USER_MANUAL.md` | 風控與 pretrade 風險解讀 | **2026-06-15** 完整重寫：雙層風控、calibrator、B 線執行脫節 |
+| 14 | [14_TESTNET_AND_LIVE_TRADING.md](14_TESTNET_AND_LIVE_TRADING.md) | 新增 | testnet / paper-live / autonomous / live 啟停與緊急停止 | **2026-06-15** 補雙主線對照與 B 線已知限制；live 依安全限制未執行 |
+| 15 | [15_DATA_ACQUISITION.md](15_DATA_ACQUISITION.md) | 新增 | 歷史資料與 catalog 操作 | **2026-06-15** fallback 路徑、下載與 readiness 資料需求 |
+| 16 | [16_RUNTIME_ARTIFACTS.md](16_RUNTIME_ARTIFACTS.md) | 新增 | runtime、logs、output、模型產物位置 | **2026-06-15** 補 ledger / hub / memory / paper 路徑 |
+| 17 | [17_ENVIRONMENT_VARIABLES.md](17_ENVIRONMENT_VARIABLES.md) | 新增 | `.env` 與環境變數 | **2026-06-15** 雙主線與 live 開關說明 |
+| 18 | [18_OPERATION_TROUBLESHOOTING.md](18_OPERATION_TROUBLESHOOTING.md) | 新增 | CLI/API/Backtest/Pretrade 操作排查 | **2026-06-15** 新增雙主線混淆排查、`[rl]` FAQ |
+| 19 | [19_DASHBOARD_TROUBLESHOOTING.md](19_DASHBOARD_TROUBLESHOOTING.md) | 新增 | Dashboard / CORS / API 連線 / 版面排查 | **2026-06-15** 補 autonomous 無 UI 說明 |
+| 20 | [20_UI_END_TO_END_OPERATION.md](20_UI_END_TO_END_OPERATION.md) | 新增 | UI 端到端流程 | **2026-06-15** 補 B 線 CLI 前置步驟；修正 uvicorn 啟動說明 |
 
 ---
 
@@ -74,8 +75,8 @@
 
 | 編號 | 手冊 | 定位 | 本輪處理方式 |
 |---:|---|---|---|
-| 00 | [00_MASTER_MANUAL.md](00_MASTER_MANUAL.md) | 總入口與閱讀順序 | 保留作入口，不主動擴充技術內容 |
-| 01 | [01_MANUAL_OPERATION_VERIFICATION_PLAN.md](01_MANUAL_OPERATION_VERIFICATION_PLAN.md) | 手冊操作驗收矩陣 | 保留作操作驗收輔助 |
+| 00 | [00_MASTER_MANUAL.md](00_MASTER_MANUAL.md) | 總入口與閱讀順序 | **2026-06-15** 三徑架構、PROJECT_STATUS 權威 |
+| 01 | [01_MANUAL_OPERATION_VERIFICATION_PLAN.md](01_MANUAL_OPERATION_VERIFICATION_PLAN.md) | 手冊操作驗收矩陣 | **2026-06-15** Level 2 autonomous、Level 3 paper-live |
 | 12 | [12_NLP_TRAINING.md](12_NLP_TRAINING.md) | TinyLLM / unified trainer | 訓練手冊，暫不列入一般使用者操作主線 |
 | 13 | [13_CLOUD_TRAINING_RUNBOOK.md](13_CLOUD_TRAINING_RUNBOOK.md) | 雲端 GPU 訓練 | 訓練/雲端手冊，暫不列入一般使用者操作主線 |
 
@@ -102,6 +103,9 @@
 | 手冊原本散在 `docs/` 根目錄 | 多份手冊 | 已集中到 `docs/manuals/` | 後續新增操作手冊都放這裡 |
 | Backtest 有兩份使用者入口 | `08_BACKTEST_SYSTEM.md`、`backtest/docs/USER_MANUAL.md` | 可能重疊 | 保留 `08` 當主入口，`backtest/docs/USER_MANUAL.md` 當子系統細節 |
 | `12`、`13` 不屬一般使用者操作 | `12_NLP_TRAINING.md`、`13_CLOUD_TRAINING_RUNBOOK.md` | 暫時保留 | 本輪不擴充，之後整理訓練範圍時再處理 |
+| 雙執行主線未在手冊中一致描述 | `docs/manuals/` 全系列 | **2026-06-15 已完成**（00–20 主手冊） | 權威：`PROJECT_STATUS` §1.4；`trade`≠`autonomous` |
+| `pip install -e ".[rl]"` 誤導 | 04、DEVELOPMENT_TOOLS、18 | **2026-06-15 已修正** | `pyproject.toml` 無 `[rl]` extra |
+| `docs/STARTUP_MODES.md` 與手冊不同步 | `docs/STARTUP_MODES.md` | **2026-06-15 已對齊** B 線限制 | 與 04/14 一致 |
 
 ---
 
@@ -148,3 +152,4 @@
 5. 每次改 API route、CLI command、Docker service、Dashboard panel，都要同步更新對應操作手冊。
 6. 若某手冊的命令未經實際入口驗證，必須在狀態欄標記「需實測」。
 7. 每次改 Dashboard 使用者流程，都要同步更新 `20_UI_END_TO_END_OPERATION.md`，避免只更新面板參考卻漏掉端到端操作。
+8. 架構或執行主線變更時，先更新 `docs/PROJECT_STATUS.md`，再同步 `04`、`14` 與本索引狀態列。

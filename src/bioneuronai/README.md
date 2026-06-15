@@ -1,19 +1,20 @@
 # BioNeuronai 核心交易系統
 
 > 路徑：`src/bioneuronai/`
-> 版本：v2.2
-> 更新日期：2026-05-13
+> 套件版本：v2.1（`pyproject.toml`）
+> 更新日期：2026-06-15
 
-`bioneuronai` 是交易系統主體，負責把資料接入、分析、策略選擇、AI 融合、風險管理、交易規劃、API 與 CLI 串成可操作的主流程。這一層只維護系統概念、分層與主線；具體 API、方法與限制請看各子模組 README。
+`bioneuronai` 是交易系統主體，負責把資料接入、分析、策略選擇、AI 融合、風險管理、交易規劃、API 與 CLI 串成可操作的主流程。
 
 ---
 
 ## 目錄
 
 1. [子模組導覽](#子模組導覽)
-2. [正式主線](#正式主線)
-3. [分層概念](#分層概念)
-4. [文件層級](#文件層級)
+2. [雙執行主線](#雙執行主線)
+3. [策略主線模式](#策略主線模式)
+4. [分層概念](#分層概念)
+5. [文件鏈](#文件鏈)
 
 ---
 
@@ -21,92 +22,70 @@
 
 | 模組 | 層級定位 | 詳細文件 |
 |------|----------|----------|
-| `data/` | Layer 0：交易所、paper-live connector、DB、匯率、新聞與外部資料 fetcher | [data README](data/README.md) |
-| `core/` | Layer 1：TradingEngine、InferenceEngine、自我改進 | [core README](core/README.md) |
-| `risk_management/` | Layer 1：風險參數與倉位計算 | [risk README](risk_management/README.md) |
-| `strategies/` | Layer 2：基礎策略、selector、AI fusion、競技場/路由/優化 | [strategies README](strategies/README.md) |
-| `planning/` | Layer 3：plan controller、market analyzer、pair selector、pretrade | [planning README](planning/README.md) |
-| `trading/` | Layer 3：虛擬帳戶與交易事實層 | [trading README](trading/README.md) |
-| `analysis/` | Layer 4：新聞、關鍵字、daily report、特徵工程、市場 regime | [analysis README](analysis/README.md) |
-| `api/` | 對外入口：FastAPI app 與 API models | [api README](api/README.md) |
-| `cli/` | 對外入口：CLI commands | [cli README](cli/README.md) |
-| `models/` | legacy checkpoint 相容模型 | [models README](models/README.md) |
+| `data/` | Layer 0：交易所、paper connector、DB、新聞 fetcher | [data README](data/README.md) |
+| `core/` | Layer 1：TradingEngine、InferenceEngine、AdaptiveHub | [core README](core/README.md) |
+| `risk_management/` | Layer 1：RiskManager + AIConfidenceCalibrator | [risk README](risk_management/README.md) |
+| `strategies/` | Layer 2：selector、fusion、Meta-Learner | [strategies README](strategies/README.md) |
+| `planning/` | Layer 3：plan、pretrade、autonomous、reflection | [planning README](planning/README.md) |
+| `trading/` | Layer 3：VirtualAccount、成交事實 | [trading README](trading/README.md) |
+| `memory/` | Layer 1：EpisodicMemory（主線 A 學習） | — |
+| `training/` | 離線：歷史 RL 訓練管線 | — |
+| `analysis/` | Layer 4：新聞、特徵、regime | [analysis README](analysis/README.md) |
+| `api/` | 對外：FastAPI | [api README](api/README.md) |
+| `cli/` | 對外：CLI 入口 | [cli README](cli/README.md) |
+| `models/` | legacy checkpoint 相容 | [models README](models/README.md) |
 
 ---
 
-## 正式主線
+## 雙執行主線
 
-目前支援三種策略主線模式（由 `strategy_type` 參數指定）：
+| | 主線 A | 主線 B |
+|---|---|---|
+| 模組 | `core/trading_engine.py` | `planning/autonomous_operator.py` |
+| CLI | `main.py trade` | `main.py autonomous` |
+| 學習 | LoRA + EpisodicMemory | Ledger + AdaptiveHub |
+
+詳見 [`docs/PROJECT_STATUS.md`](../../docs/PROJECT_STATUS.md) 1.4。
+
+---
+
+## 策略主線模式
+
+由 `strategy_type` 指定（皆經 TradingEngine）：
 
 ```text
-[fusion 模式 — 預設]
-TradingEngine
-  -> StrategySelector (啟動時熱載入 Golden Profile 歷史優化權重)
-  -> AIStrategyFusion
-  -> 基礎策略 signal
-  -> risk / cost / execution
+[fusion — 預設]
+TradingEngine -> StrategySelector -> AIStrategyFusion -> risk / execution
 
-[phase_router 模式]
-TradingEngine
-  -> TradingPhaseRouter
-  -> 主線階段分別路由
-  -> risk / cost / execution
+[phase_router]
+TradingEngine -> TradingPhaseRouter -> risk / execution
 
-[rl_fusion 模式]
-TradingEngine
-  -> StrategySelector (RL Meta-Agent 後處理)
-  -> PPO RLMetaAgent
-  -> risk / cost / execution
+[rl_fusion]
+TradingEngine -> StrategySelector -> RLMetaAgent -> risk / execution
 ```
 
-說明：
-
-1. `fusion` 是預設主線，不需額外環境依賴。
-2. `phase_router` 與 `rl_fusion` 為已完整實作的次要模式，系統已完備启動機制，但現役部署對象為 fusion。
-3. `StrategyArena`、`StrategyPortfolioOptimizer` 已改接 replay，但不是正式交易執行主線。
-4. `trading/` 不承載 SOP、pretrade 或高階規劃；這些已歸入 `planning/`。
+`fusion` 為預設正式主線。`planning/` 的自主迴圈是**平行**編排路徑，不取代上述模式。
 
 ---
 
 ## 分層概念
 
 ```text
-Layer 4  analysis        新聞、關鍵字、特徵、市場 regime、daily report
-Layer 3  planning        計劃控制、pretrade、交易對選擇
-Layer 3  trading         交易事實、虛擬帳戶、paper / replay execution 狀態
-Layer 2  strategies      策略選擇、基礎策略、AI fusion、研究型競技/路由
-Layer 1  core/risk       交易引擎、推理引擎、風險與倉位
-Layer 0  data/schemas    外部資料、DB、交易所 API、共用 schema
+Layer 4  analysis        新聞、關鍵字、特徵、regime
+Layer 3  planning        計劃、pretrade、autonomous、reflection
+Layer 3  trading         虛擬帳戶、paper 成交狀態
+Layer 2  strategies      策略選擇、fusion、競技/路由（研究）
+Layer 1  core/risk/memory  引擎、推理、風控、記憶
+Layer 0  data/schemas    外部資料、DB、API
 ```
 
 ---
 
-## 文件層級
+## 文件鏈
 
-1. 本文件維護系統概念與主線。
-2. 子模組 README 維護該模組責任、公開 API、重要限制。
-3. 更深層 README 維護檔案級細節、方法、資料路徑與實作邊界。
-4. 不在上層文件保留固定行數、覆蓋率或不可由目前 smoke test 證明的品質宣稱。
-
-### 文件鏈
-
-1. `src/bioneuronai/README.md`
-   -> [analysis README](analysis/README.md)
-   -> [api README](api/README.md)
-   -> [cli README](cli/README.md)
-   -> [core README](core/README.md)
-   -> [data README](data/README.md)
-   -> [models README](models/README.md)
-   -> [planning README](planning/README.md)
-   -> [risk README](risk_management/README.md)
-   -> [strategies README](strategies/README.md)
-   -> [trading README](trading/README.md)
-2. `analysis/README.md`
-   -> [daily_report README](analysis/daily_report/README.md)
-   -> [keywords README](analysis/keywords/README.md)
-   -> [news README](analysis/news/README.md)
-3. `strategies/README.md`
-   -> [selector README](strategies/selector/README.md)
+1. 本文件 → 各子模組 README
+2. 現況權威 → [`docs/PROJECT_STATUS.md`](../../docs/PROJECT_STATUS.md)
+3. 架構導覽 → [`docs/ARCHITECTURE_OVERVIEW.md`](../../docs/ARCHITECTURE_OVERVIEW.md)
 
 ---
 

@@ -410,6 +410,9 @@ def cmd_autonomous(args: argparse.Namespace) -> None:
         execute_paper=bool(args.execute_paper),
         paper_initial_balance=float(args.paper_balance),
         paper_notional_fraction=float(args.paper_notional_fraction),
+        max_position_hold_cycles=int(getattr(args, "max_position_hold_cycles", 0) or 0),
+        reflect_every_cycles=int(getattr(args, "reflect_every", 0) or 0),
+        reflection_sample_size=int(getattr(args, "reflection_sample_size", 50) or 50),
     )
 
     cycles = max(1, int(getattr(args, "cycles", 1) or 1))
@@ -466,18 +469,68 @@ def _print_autonomous_record(record: dict) -> None:
 
     paper_execution = record.get("paper_execution")
     if paper_execution:
-        order = paper_execution.get("order") or {}
         print("\n  Paper Execution")
-        print(
-            f"    {paper_execution.get('symbol')} {paper_execution.get('side')} "
-            f"qty={paper_execution.get('quantity'):.8f} "
-            f"status={order.get('status')}"
-        )
+        if paper_execution.get("skipped"):
+            print(
+                f"    skipped: {paper_execution.get('reason')} "
+                f"({paper_execution.get('symbol')})"
+            )
+        else:
+            order = paper_execution.get("order") or {}
+            qty = paper_execution.get("quantity")
+            qty_text = f"{float(qty):.8f}" if qty is not None else "n/a"
+            print(
+                f"    {paper_execution.get('symbol')} {paper_execution.get('side')} "
+                f"qty={qty_text} source={paper_execution.get('quantity_source')} "
+                f"status={order.get('status')}"
+            )
 
     print()
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+
+
+def cmd_reflect(args: argparse.Namespace) -> None:
+    """Run AI reflection loop over EpisodicMemory and refit calibrator temperature."""
+    print(f"\n{'='*60}")
+    print("  BioNeuronai Reflection Loop")
+    print(f"{'='*60}\n")
+
+    try:
+        from bioneuronai.planning.reflection_loop import AIReflectionLoop
+    except ImportError as exc:
+        logger.error("AIReflectionLoop 載入失敗: %s", exc)
+        sys.exit(1)
+
+    try:
+        result = AIReflectionLoop().run_reflection_cycle(k=int(args.sample_size))
+    except Exception as exc:
+        logger.error("反思迴圈執行失敗: %s", exc, exc_info=True)
+        sys.exit(1)
+
+    print(f"  狀態       : {result.status}")
+    print(f"  分析筆數   : {result.total_trades_analyzed}")
+    print(f"  虧損筆數   : {result.losing_trades_count}")
+    print(f"  平均虧損   : {result.average_loss_pct:.4f}")
+    print(f"  建議溫度 T : {result.recommended_temperature}")
+    print(f"  報告路徑   : {result.learning_report_path}")
+    print(f"{'='*60}\n")
+
+    if getattr(args, "json", False):
+        import json as _json
+        print(_json.dumps({
+            "status": result.status,
+            "total_trades_analyzed": result.total_trades_analyzed,
+            "losing_trades_count": result.losing_trades_count,
+            "average_loss_pct": result.average_loss_pct,
+            "recommended_temperature": result.recommended_temperature,
+            "learning_report_path": result.learning_report_path,
+            "feature_insights": result.feature_insights,
+        }, ensure_ascii=False, indent=2, default=str))
+
+    if result.status.startswith("ERROR"):
+        sys.exit(1)
 
 
 def cmd_evolve(args: argparse.Namespace) -> None:
@@ -1344,9 +1397,41 @@ def _build_parser() -> argparse.ArgumentParser:
         type=float,
         default=0.01,
         metavar="RATIO",
-        help="paper 單筆名義金額佔初始餘額比例  (預設: 0.01)",
+        help="pretrade 無 quantity 時的 fallback 比例  (預設: 0.01)",
+    )
+    autop.add_argument(
+        "--max-position-hold-cycles",
+        type=int,
+        default=0,
+        dest="max_position_hold_cycles",
+        metavar="N",
+        help="卡單自動平倉：持倉超過 N 輪強制出場  (0=停用，預設: 0)",
+    )
+    autop.add_argument(
+        "--reflect-every",
+        type=int,
+        default=0,
+        metavar="N",
+        help="run_forever 時每 N 輪執行 reflection_loop  (0=停用，預設: 0)",
+    )
+    autop.add_argument(
+        "--reflection-sample-size",
+        type=int,
+        default=50,
+        metavar="K",
+        help="reflection_loop 抽樣 EpisodicMemory 筆數  (預設: 50)",
     )
     autop.set_defaults(func=cmd_autonomous)
+
+    # ── reflect ───────────────────────────────────────────────────────────────
+    rflp = subparsers.add_parser(
+        "reflect",
+        help="AI 反思迴圈：EpisodicMemory → learning_report → calibrator refit",
+    )
+    rflp.add_argument("--sample-size", type=int, default=50, metavar="K",
+                      help="抽樣分析筆數  (預設: 50)")
+    rflp.add_argument("--json", action="store_true", help="以 JSON 輸出結果")
+    rflp.set_defaults(func=cmd_reflect)
 
     # ── evolve ────────────────────────────────────────────────────────────────
     ep = subparsers.add_parser("evolve", help="遺傳演算法策略競技場（找出最優策略組合）")

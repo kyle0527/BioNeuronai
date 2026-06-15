@@ -30,14 +30,14 @@ logger = logging.getLogger(__name__)
 
 class StrategyState(Enum):
     """"""
-    IDLE = "idle"                    # 
-    ANALYZING = "analyzing"          # 
-    ENTRY_READY = "entry_ready"      # 
-    POSITION_OPEN = "position_open"  # 
-    SCALING_IN = "scaling_in"        # 
-    SCALING_OUT = "scaling_out"      # 
-    EXIT_READY = "exit_ready"        # 
-    COOLDOWN = "cooldown"            # 
+    IDLE = "idle"                    #
+    ANALYZING = "analyzing"          #
+    ENTRY_READY = "entry_ready"      #
+    POSITION_OPEN = "position_open"  #
+    SCALING_IN = "scaling_in"        #
+    SCALING_OUT = "scaling_out"      #
+    EXIT_READY = "exit_ready"        #
+    COOLDOWN = "cooldown"            #
 
 
 class SignalStrength(Enum):
@@ -66,13 +66,13 @@ class RiskParameters:
     max_position_size_pct: float = 5.0       #  (%)
     max_risk_per_trade_pct: float = 1.0      #  (%)
     max_daily_loss_pct: float = 3.0          #  (%)
-    max_concurrent_trades: int = 3           # 
-    min_risk_reward_ratio: float = 2.0       # 
+    max_concurrent_trades: int = 3           #
+    min_risk_reward_ratio: float = 2.0       #
     trailing_stop_activation: float = 1.5    #  (R)
     trailing_stop_distance: float = 0.5      #  (R)
     max_holding_period_hours: int = 168      #  ()
     cooldown_after_loss: int = 2             #  ()
-    correlation_limit: float = 0.7           # 
+    correlation_limit: float = 0.7           #
 
 
 @dataclass
@@ -80,46 +80,46 @@ class TradeSetup:
     """ - """
     symbol: str
     direction: str  # 'long' or 'short'
-    
-    # 
+
+    #
     entry_price: float
     entry_conditions: List[str] = field(default_factory=list)
     entry_confirmations: int = 0
     required_confirmations: int = 3
-    
-    # 
+
+    #
     stop_loss: float = 0.0
     take_profit_1: float = 0.0  #  (R:R 2:1)
     take_profit_2: float = 0.0  #  (R:R 4:1)
     take_profit_3: float = 0.0  #  (R:R 6:1+)
-    
-    # 
+
+    #
     total_position_size: float = 0.0
-    entry_portions: int = 3  # 
+    entry_portions: int = 3  #
     exit_portions: Dict[str, float] = field(default_factory=dict)
     # {'tp1': 0.35, 'tp2': 0.35, 'tp3': 0.30}
-    
-    # 
+
+    #
     risk_amount: float = 0.0
     risk_reward_ratio: float = 0.0
-    
-    # 
+
+    #
     signal_strength: SignalStrength = SignalStrength.MODERATE
     market_condition: MarketCondition = MarketCondition.SIDEWAYS
-    
-    # 
+
+    #
     setup_time: datetime = field(default_factory=datetime.now)
     valid_until: datetime = field(default_factory=datetime.now)
     max_entry_wait_minutes: int = 30
-    
-    # 
+
+    #
     key_levels: Dict[str, float] = field(default_factory=dict)
     invalidation_conditions: List[str] = field(default_factory=list)
-    
+
     def is_valid(self) -> bool:
         """"""
         return datetime.now() < self.valid_until
-    
+
     def has_enough_confirmations(self) -> bool:
         """"""
         return self.entry_confirmations >= self.required_confirmations
@@ -130,36 +130,36 @@ class TradeExecution:
     """"""
     trade_id: str
     setup: TradeSetup
-    
-    # 
+
+    #
     actual_entry_price: float = 0.0
     entry_slippage: float = 0.0
     entry_time: datetime = field(default_factory=datetime.now)
     entry_fills: List[Dict] = field(default_factory=list)
-    
-    # 
+
+    #
     current_position_size: float = 0.0
     average_entry_price: float = 0.0
     unrealized_pnl: float = 0.0
     realized_pnl: float = 0.0
-    
-    # 
+
+    #
     exit_fills: List[Dict] = field(default_factory=list)
     average_exit_price: float = 0.0
     exit_time: Optional[datetime] = None
     exit_reason: str = ""
-    
-    # 
+
+    #
     trailing_stop_price: Optional[float] = None
     trailing_stop_activated: bool = False
-    highest_price_since_entry: float = 0.0  # 
-    lowest_price_since_entry: float = float('inf')  # 
-    
-    # 
+    highest_price_since_entry: float = 0.0  #
+    lowest_price_since_entry: float = float('inf')  #
+
+    #
     max_favorable_excursion: float = 0.0   # MFE
     max_adverse_excursion: float = 0.0     # MAE
     holding_duration: timedelta = field(default_factory=timedelta)
-    
+
     def calculate_r_multiple(self) -> float:
         """ R  ()"""
         if self.setup.risk_amount == 0:
@@ -170,23 +170,23 @@ class TradeExecution:
 @dataclass
 class PositionManagement:
     """"""
-    # 
+    #
     entry_portions_filled: int = 0
     entry_portions_total: int = 3
     next_entry_price: Optional[float] = None
-    
-    # 
+
+    #
     exit_portions_filled: int = 0
     exit_portions_total: int = 3
     tp1_filled: bool = False
     tp2_filled: bool = False
     tp3_filled: bool = False
-    
-    # 
+
+    #
     stop_loss_moved_to_breakeven: bool = False
     stop_loss_trailing: bool = False
     current_stop_loss: float = 0.0
-    
+
     # /
     scaling_in_allowed: bool = True
     scaling_out_in_progress: bool = False
@@ -294,11 +294,11 @@ class StrategyPerformance:
 
 class BaseStrategy(ABC):
     """
-    
-    
-    
+
+
+
     """
-    
+
     def __init__(
         self,
         name: str,
@@ -308,10 +308,10 @@ class BaseStrategy(ABC):
         self.name = name
         self.timeframe = timeframe
         self.risk_params = risk_params or RiskParameters()
-        
+
         self.state = StrategyState.IDLE
         self.performance = StrategyPerformance()
-        
+
         self.current_setup: Optional[TradeSetup] = None
         self.active_trades: Dict[str, TradeExecution] = {}
         self.trade_history: List[TradeExecution] = []
@@ -399,21 +399,21 @@ class BaseStrategy(ABC):
         self.current_setup = None
         self.state = StrategyState.IDLE
         return None
-        
+
     # ========================
-    # 1. 
+    # 1.
     # ========================
-    
+
     @abstractmethod
     def analyze_market(
-        self, 
+        self,
         ohlcv_data: np.ndarray,
         additional_data: Optional[Dict] = None
     ) -> Dict[str, Any]:
         """
-        
-        
-        
+
+
+
         - market_condition: MarketCondition
         - trend_direction: str ('up', 'down', 'sideways')
         - trend_strength: float (0-100)
@@ -422,11 +422,11 @@ class BaseStrategy(ABC):
         - analysis_summary: str
         """
         pass
-    
+
     # ========================
-    # 2. 
+    # 2.
     # ========================
-    
+
     @abstractmethod
     def evaluate_entry_conditions(
         self,
@@ -434,74 +434,74 @@ class BaseStrategy(ABC):
         ohlcv_data: np.ndarray,
     ) -> Optional[TradeSetup]:
         """
-        
-        
-        
-        1. 
-        2. 
-        3. 
-        4. 
-        5. 
-        
+
+
+
+        1.
+        2.
+        3.
+        4.
+        5.
+
          TradeSetup  None
         """
         pass
-    
+
     def validate_setup(self, setup: TradeSetup) -> Tuple[bool, List[str]]:
         """
-        
-        
+
+
         Returns:
             (is_valid, list of validation messages)
         """
         messages = []
         is_valid = True
-        
-        # 1. 
+
+        # 1.
         if setup.risk_reward_ratio < self.risk_params.min_risk_reward_ratio:
             messages.append(
                 f" {setup.risk_reward_ratio:.2f} "
                 f"<  {self.risk_params.min_risk_reward_ratio}"
             )
             is_valid = False
-        
-        # 2. 
+
+        # 2.
         if not setup.has_enough_confirmations():
             messages.append(
                 f" {setup.entry_confirmations} "
                 f"<  {setup.required_confirmations}"
             )
             is_valid = False
-        
-        # 3. 
+
+        # 3.
         if setup.total_position_size <= 0:
             messages.append("")
             is_valid = False
-        
-        # 4. 
+
+        # 4.
         if setup.stop_loss == 0:
             messages.append("")
             is_valid = False
-        
-        # 5. 
+
+        # 5.
         if not setup.is_valid():
             messages.append("")
             is_valid = False
-        
-        # 6. 
+
+        # 6.
         if self._cooldown_until and datetime.now() < self._cooldown_until:
             messages.append(
                 f" {self._cooldown_until.strftime('%H:%M')}"
             )
             is_valid = False
-        
-        # 7. 
+
+        # 7.
         if len(self.active_trades) >= self.risk_params.max_concurrent_trades:
             messages.append(
                 f" {self.risk_params.max_concurrent_trades}"
             )
             is_valid = False
-        
+
         return is_valid, messages
 
     def _entry_side_for_setup(self, setup: TradeSetup) -> str:
@@ -575,11 +575,20 @@ class BaseStrategy(ABC):
     def _estimate_liquidation_price(
         self,
         setup: TradeSetup,
+        connector: Any = None,
         leverage: Optional[int] = None,
     ) -> float:
         """使用既有交易成本計算器估算強平價。"""
         if setup.entry_price <= 0 or setup.total_position_size <= 0:
             return 0.0
+
+        leverage_brackets = None
+        if connector and hasattr(connector, "get_leverage_brackets"):
+            try:
+                leverage_brackets = connector.get_leverage_brackets(setup.symbol)
+            except Exception as exc:
+                pass  # Ignore log or just rely on default
+
         costs = self.cost_calculator.calculate_entry_exit_costs(
             position_size_usd=setup.total_position_size * setup.entry_price,
             entry_price=setup.entry_price,
@@ -587,6 +596,7 @@ class BaseStrategy(ABC):
             symbol=setup.symbol,
             leverage=leverage or self.cost_calculator.default_leverage,
             position_side=setup.direction if setup.direction in ("long", "short") else "long",
+            leverage_brackets=leverage_brackets,
         )
         return float(costs.get("liquidation_price", 0.0))
 
@@ -604,7 +614,7 @@ class BaseStrategy(ABC):
     ) -> Tuple[bool, str]:
         """進場前統一檢查：成本效益與止損必須先於強平。"""
         leverage = self.cost_calculator.default_leverage
-        liquidation_price = self._estimate_liquidation_price(setup, leverage=leverage)
+        liquidation_price = self._estimate_liquidation_price(setup, connector=connector, leverage=leverage)
         if liquidation_price > 0:
             if setup.direction == "long" and setup.stop_loss <= liquidation_price:
                 return False, f"止損 {setup.stop_loss:.2f} 未高於強平價 {liquidation_price:.2f}"
@@ -631,11 +641,11 @@ class BaseStrategy(ABC):
                 )
 
         return True, ""
-    
+
     # ========================
-    # 3. 
+    # 3.
     # ========================
-    
+
     @abstractmethod
     def execute_entry(
         self,
@@ -643,21 +653,21 @@ class BaseStrategy(ABC):
         connector: Any,  # BinanceFuturesConnector
     ) -> Optional[TradeExecution]:
         """
-        
-        
-        
-        1. 
-        2. 
+
+
+
+        1.
+        2.
         3.  (/)
-        4. 
-        5. 
+        4.
+        5.
         """
         pass
-    
+
     # ========================
-    # 4. 
+    # 4.
     # ========================
-    
+
     @abstractmethod
     def manage_position(
         self,
@@ -666,17 +676,17 @@ class BaseStrategy(ABC):
         ohlcv_data: np.ndarray,
     ) -> PositionManagement:
         """
-        
-        
-        
-        1. 
-        2. 
-        3. 
-        4. 
-        5. 
+
+
+
+        1.
+        2.
+        3.
+        4.
+        5.
         """
         pass
-    
+
     def update_trailing_stop(
         self,
         trade: TradeExecution,
@@ -684,27 +694,27 @@ class BaseStrategy(ABC):
     ) -> Optional[float]:
         """"""
         r_multiple = trade.calculate_r_multiple()
-        
-        #  1.5R 
+
+        #  1.5R
         if r_multiple >= self.risk_params.trailing_stop_activation:
             if not trade.trailing_stop_activated:
                 trade.trailing_stop_activated = True
                 logger.info(
                     f" @ R={r_multiple:.2f}"
                 )
-            
+
             risk_per_unit = abs(
                 trade.setup.entry_price - trade.setup.stop_loss
             )
             trail_distance = risk_per_unit * self.risk_params.trailing_stop_distance
-            
+
             if trade.setup.direction == 'long':
                 trade.highest_price_since_entry = max(
                     trade.highest_price_since_entry,
                     current_price
                 )
                 new_stop = trade.highest_price_since_entry - trail_distance
-                
+
                 if trade.trailing_stop_price is None or new_stop > trade.trailing_stop_price:
                     trade.trailing_stop_price = new_stop
                     return new_stop
@@ -714,17 +724,17 @@ class BaseStrategy(ABC):
                     current_price
                 )
                 new_stop = trade.lowest_price_since_entry + trail_distance
-                
+
                 if trade.trailing_stop_price is None or new_stop < trade.trailing_stop_price:
                     trade.trailing_stop_price = new_stop
                     return new_stop
-        
+
         return None
-    
+
     # ========================
-    # 5. 
+    # 5.
     # ========================
-    
+
     @abstractmethod
     def evaluate_exit_conditions(
         self,
@@ -733,21 +743,21 @@ class BaseStrategy(ABC):
         ohlcv_data: np.ndarray,
     ) -> Tuple[bool, str]:
         """
-        
-        
-        
-        1. 
-        2. 
-        3. 
-        4. 
-        5. 
-        6. 
-        
+
+
+
+        1.
+        2.
+        3.
+        4.
+        5.
+        6.
+
         Returns:
             (should_exit, exit_reason)
         """
         pass
-    
+
     def check_time_based_exit(
         self,
         trade: TradeExecution,
@@ -755,16 +765,16 @@ class BaseStrategy(ABC):
         """"""
         holding_time = datetime.now() - trade.entry_time
         max_holding = timedelta(hours=self.risk_params.max_holding_period_hours)
-        
+
         if holding_time > max_holding:
             return True, f" ({self.risk_params.max_holding_period_hours}h)"
-        
+
         return False, ""
-    
+
     # ========================
-    # 6. 
+    # 6.
     # ========================
-    
+
     @abstractmethod
     def execute_exit(
         self,
@@ -775,29 +785,29 @@ class BaseStrategy(ABC):
         exit_portion: float = 1.0,
     ) -> bool:
         """
-        
-        
-        
-        1.  vs 
-        2. 
-        3. 
-        4. 
-        5. 
+
+
+
+        1.  vs
+        2.
+        3.
+        4.
+        5.
         """
         pass
-    
+
     # ========================
-    # 7. 
+    # 7.
     # ========================
-    
+
     def control_risk(
         self,
         account_balance: float,
         daily_pnl: float,
     ) -> Dict[str, Any]:
         """
-        
-        
+
+
         Returns:
             {
                 'can_trade': bool,
@@ -812,8 +822,8 @@ class BaseStrategy(ABC):
             'warnings': [],
             'actions': [],
         }
-        
-        # 
+
+        #
         daily_loss_pct = (daily_pnl / account_balance) * 100 if account_balance > 0 else 0
         if daily_loss_pct < 0:
             if abs(daily_loss_pct) >= self.risk_params.max_daily_loss_pct:
@@ -827,21 +837,21 @@ class BaseStrategy(ABC):
                 result['warnings'].append(
                     " 50%"
                 )
-        
-        # 
+
+        #
         if self.performance.current_streak <= -3:
             result['position_size_multiplier'] *= 0.75
             result['warnings'].append(
                 f" {abs(self.performance.current_streak)} "
             )
-        
+
         if self.performance.current_streak <= -5:
             result['can_trade'] = False
             result['warnings'].append("")
             result['actions'].append("")
-        
+
         return result
-    
+
     def calculate_position_size(
         self,
         account_balance: float,
@@ -850,29 +860,29 @@ class BaseStrategy(ABC):
         risk_multiplier: float = 1.0,
     ) -> float:
         """
-        
-        
-        
+
+
+
         """
         risk_amount = account_balance * (self.risk_params.max_risk_per_trade_pct / 100)
         risk_amount *= risk_multiplier
-        
+
         risk_per_unit = abs(entry_price - stop_loss_price)
         if risk_per_unit == 0:
             return 0.0
-        
+
         position_size = risk_amount / risk_per_unit
-        
-        # 
+
+        #
         max_position_value = account_balance * (self.risk_params.max_position_size_pct / 100)
         max_position_size = max_position_value / entry_price
-        
+
         return min(position_size, max_position_size)
-    
+
     # ========================
-    # 8. 
+    # 8.
     # ========================
-    
+
     def track_performance(self) -> Dict[str, Any]:
         """"""
         return {
@@ -890,11 +900,11 @@ class BaseStrategy(ABC):
             'max_consecutive_wins': self.performance.max_consecutive_wins,
             'max_consecutive_losses': self.performance.max_consecutive_losses,
         }
-    
+
     # ========================
-    # 
+    #
     # ========================
-    
+
     def run_iteration(
         self,
         ohlcv_data: np.ndarray,
@@ -904,9 +914,9 @@ class BaseStrategy(ABC):
         additional_data: Optional[Dict] = None,
     ) -> Dict[str, Any]:
         """
-        
-        
-        
+
+
+
         """
         result: Dict[str, Any] = {
             'state': self.state.value,
@@ -914,19 +924,19 @@ class BaseStrategy(ABC):
             'signals': [],
             'errors': [],
         }
-        
+
         try:
-            # 1. 
+            # 1.
             market_analysis = self.analyze_market(ohlcv_data, additional_data)
             result['market_analysis'] = market_analysis
-            
-            # 2. 
+
+            # 2.
             for trade_id, trade in list(self.active_trades.items()):
-                # 
+                #
                 should_exit, exit_reason = self.evaluate_exit_conditions(
                     trade, current_price, ohlcv_data
                 )
-                
+
                 if should_exit:
                     success = self.execute_exit(trade, exit_reason, connector)
                     if success:
@@ -935,19 +945,19 @@ class BaseStrategy(ABC):
                         )
                         del self.active_trades[trade_id]
                 else:
-                    # 
+                    #
                     position_mgmt = self.manage_position(
                         trade, current_price, ohlcv_data
                     )
                     result['position_management'] = position_mgmt
-            
-            # 3. 
+
+            # 3.
             risk_check = self.control_risk(
                 account_balance,
                 self.performance.daily_pnl
             )
             result['risk_check'] = risk_check
-            
+
             if not risk_check['can_trade']:
                 result['signals'].append("")
                 return result
@@ -963,11 +973,11 @@ class BaseStrategy(ABC):
             result['state'] = self.state.value
             if connector_state:
                 result['signals'].append(connector_state)
-            
-            # 4. 
+
+            # 4.
             if self.state == StrategyState.IDLE:
                 setup = self.evaluate_entry_conditions(market_analysis, ohlcv_data)
-                
+
                 if setup:
                     # First calculate position size
                     setup.total_position_size = self.calculate_position_size(
@@ -977,9 +987,9 @@ class BaseStrategy(ABC):
                         risk_check['position_size_multiplier']
                     )
 
-                    # 
+                    #
                     is_valid, messages = self.validate_setup(setup)
-                    
+
                     if is_valid:
                         has_conflict, conflict_reason = self._check_connector_entry_conflict(
                             setup,
@@ -989,7 +999,7 @@ class BaseStrategy(ABC):
                             result['signals'].append(conflict_reason)
                             return result
 
-                        # 
+                        #
                         new_trade: Optional[TradeExecution] = self.execute_entry(setup, connector)
                         if new_trade:
                             self.current_setup = None
@@ -1006,29 +1016,29 @@ class BaseStrategy(ABC):
                         result['signals'].append(
                             f": {', '.join(messages)}"
                         )
-        
+
         except Exception as e:
             logger.error(f": {e}")
             result['errors'].append(str(e))
-        
+
         return result
 
 
 class StrategyRegistry:
     """"""
-    
+
     _strategies: Dict[str, type] = {}
-    
+
     @classmethod
     def register(cls, name: str, strategy_class: type):
         """"""
         cls._strategies[name] = strategy_class
-    
+
     @classmethod
     def get(cls, name: str) -> Optional[type]:
         """"""
         return cls._strategies.get(name)
-    
+
     @classmethod
     def list_all(cls) -> List[str]:
         """"""

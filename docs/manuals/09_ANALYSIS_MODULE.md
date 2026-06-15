@@ -1,28 +1,23 @@
 # 分析模組操作手冊
 
-> 更新日期：2026-05-14
-
-## 📑 目錄
-
-- [適用範圍](#適用範圍)
-- [這個功能實際在做什麼分析](#這個功能實際在做什麼分析)
-  - [1. 新聞情緒分析 (News Analysis)](#1-新聞情緒分析-news-analysis)
-  - [2. 宏觀市場掃描 / 每日計畫 (Daily Plan)](#2-宏觀市場掃描-每日計畫-daily-plan)
-  - [3. 進場前驗核 (Pre-trade Check)](#3-進場前驗核-pre-trade-check)
-- [CLI 操作](#cli-操作)
-  - [1. 新聞情緒分析 (news)](#1-新聞情緒分析-news)
-  - [2. 每日交易計畫 (plan)](#2-每日交易計畫-plan)
-  - [3. 進場前驗核 (pretrade)](#3-進場前驗核-pretrade)
-- [UI / API 操作](#ui-api-操作)
-  - [1. 新聞情緒分析 API](#1-新聞情緒分析-api)
-  - [2. 每日計畫 API](#2-每日計畫-api)
-  - [3. 進場前驗核 API](#3-進場前驗核-api)
-- [分析結果如何影響系統？](#分析結果如何影響系統)
-- [常見問題與除錯](#常見問題與除錯)
+> **套件版本**：v2.1
+> **更新日期**：2026-06-15
+> **現況權威**：[`../PROJECT_STATUS.md`](../PROJECT_STATUS.md)
 
 ---
 
-## 適用範圍
+## 目錄
+
+1. [適用範圍](#1-適用範圍)
+2. [這個功能實際在做什麼分析](#2-這個功能實際在做什麼分析)
+3. [CLI 操作](#3-cli-操作)
+4. [UI / API 操作](#4-ui--api-操作)
+5. [分析結果如何影響系統（雙主線）](#5-分析結果如何影響系統雙主線)
+6. [常見問題與除錯](#6-常見問題與除錯)
+
+---
+
+## 1. 適用範圍
 
 目前這份手冊對應的是分析模組的三大核心操作：
 - **新聞情緒分析 (`news`)**：抓取最新新聞、計算情緒分數、關鍵字過濾。
@@ -31,7 +26,7 @@
 
 ---
 
-## 這個功能實際在做什麼分析
+## 2. 這個功能實際在做什麼分析
 
 ### 1. 新聞情緒分析 (News Analysis)
 - 從 CryptoPanic API 與 RSS Feeds 抓取最新的加密貨幣新聞。
@@ -46,8 +41,12 @@
 - 生成一份包含具體建議的每日交易計畫書。
 
 ### 3. 進場前驗核 (Pre-trade Check)
-在真實下單前，最後一道防線。系統會依序檢查：
-1. **信心度檢查**：AI 或策略的訊號強度是否達標。
+
+在真實下單前，最後一道防線。由 `PreTradeCheckSystem`（`planning/pretrade_automation.py`）執行，風險計算使用**內部 `RiskCalculation`** 與 **`AIConfidenceCalibrator`**，輸出 `order_parameters`（含 quantity、止損止盈）。**此路徑不直接呼叫 `RiskManager.calculate_position_size()`**（`RiskManager` 主要服務 `TradingEngine`）。
+
+依序檢查要點：
+
+1. **信心度檢查**：AI 或策略訊號是否達標（含 calibrator 動態乘數）。
 2. **回撤與風險檢查**：帳戶是否處於過大回撤中。
 3. **過度交易檢查**：是否超過每日最大交易次數。
 4. **資金與保證金檢查**：可用餘額是否足夠。
@@ -56,7 +55,7 @@
 
 ---
 
-## CLI 操作
+## 3. CLI 操作
 
 ### 1. 新聞情緒分析 (`news`)
 
@@ -103,7 +102,7 @@ python main.py pretrade --symbol BTCUSDT --action long
 
 ---
 
-## UI / API 操作
+## 4. UI / API 操作
 
 分析模組的功能已經完全封裝為 FastAPI 的 REST 端點，可以透過 Swagger UI (`http://localhost:8000/docs`) 或自訂的前端直接呼叫。
 
@@ -143,22 +142,36 @@ python main.py plan --symbol BTCUSDT --output daily_plan.json
 
 ---
 
-## 分析結果如何影響系統？
+## 5. 分析結果如何影響系統（雙主線）
 
-分析模組不是孤立運作的，它的產出會直接回饋給交易與策略層：
+分析產出會進入不同執行路徑，請對照 [04_CLI_OPERATION.md](04_CLI_OPERATION.md) §2：
 
-1. **新聞情緒 → 策略融合 (Strategy Fusion)**
-   - 如果新聞情緒極度看空（如跌破 -0.6），即便技術面策略看多，`strategy_fusion` 也會強制降低多單的權重，甚至觸發禁止做多的保護機制。
-   
-2. **宏觀掃描 → 策略選擇器 (Strategy Selector)**
-   - 每日計畫判斷出的「市場體制」(Regime)，會告訴 Router 現在是「震盪」還是「趨勢」。這會決定接下來一天是由「均值回歸」還是「趨勢跟隨」策略主導。
+### 新聞 → 策略融合
 
-3. **Pre-trade → 交易引擎 (Trading Engine)**
-   - 任何由 AI 或策略發出的交易訊號，在送到 testnet/live execution 前都應先通過 Pre-trade。`paper_live` 也會保留相同決策流程，只是 execution connector 不送出真實 Binance order。
+- `AIStrategyFusion.generate_fusion_signal()` 接收 `event_score`（來自新聞分析，約 -10～+10）。
+- `get_direction_bias()` 優先使用 `NewsAdapter` 方向偏好；與技術共識衝突時可作為 **Directional Guard** 攔截（2026-06-12 起）。
+- 極端 `event_score` 仍會觸發 `_apply_asymmetric_filter` 非對稱過濾。
+
+**主線 A**：`TradingEngine._fuse_signals()` 在即時 tick 中帶入 event_score。
+**主線 B**：`autonomous` 透過 plan/pretrade 間接使用分析結果，不經 TradingEngine fusion 路徑。
+
+### Plan → 策略選擇 / 自主規劃
+
+- 每日計畫的市場體制（Regime）影響 `StrategySelector` 權重建議。
+- `autonomous` 每輪會跑 plan，結果寫入 ledger 的 `plan_status`、`plan_execution_ready`。
+
+### Pretrade → 兩條執行路徑
+
+| 消費者 | 如何使用 pretrade 輸出 |
+|--------|------------------------|
+| **主線 A** `TradingEngine` | 引擎內嵌 `PreTradeCheckSystem`；`paper-live` / testnet / live 決策流程一致，僅 connector 不同 |
+| **主線 B** `AutonomousOperator` | 對候選 symbol 跑 pretrade；adaptation 依 summary 決定 `final_action` |
+
+**主線 B 執行層（2026-06-15）**：`--execute-paper` **優先**採 pretrade `order_parameters.quantity`（× `risk_multiplier`）；quantity 無效時 fallback `paper_notional_fraction`。止損/止盈仍從 `order_parameters` 讀取。詳見 [11_RISK_MANAGEMENT.md](11_RISK_MANAGEMENT.md) §9。
 
 ---
 
-## 常見問題與除錯
+## 6. 常見問題與除錯
 
 **Q: 為什麼新聞分析 (`news`) 總是回傳 0 分？**
 - A: 可能是近期沒有該交易對的重大新聞，或者您的 `.env` 中 `CRYPTOPANIC_API_TOKEN` 沒有正確設定。預設使用免費版 API。

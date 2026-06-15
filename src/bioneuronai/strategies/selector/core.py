@@ -637,7 +637,13 @@ class StrategySelector:
             }
 
             if signal.selected_setup is not None:
-                payload.update(self._serialize_setup(signal.selected_setup, "ai_fusion"))
+                # 尋找產生此交易設置的子策略名稱，避免硬編碼 "ai_fusion" 導致學習反饋中斷與權重稀釋
+                selected_sub_strategy = "ai_fusion"
+                for name, setup in signal.strategy_signals.items():
+                    if setup == signal.selected_setup:
+                        selected_sub_strategy = name
+                        break
+                payload.update(self._serialize_setup(signal.selected_setup, selected_sub_strategy))
 
             return payload
         except Exception as e:

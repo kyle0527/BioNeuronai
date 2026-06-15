@@ -1,7 +1,8 @@
 # BioNeuronai Docker 部署操作手冊
 
-> **版本**：v2.1 正式主線 / v2.2 訓練後驗證期
-> **更新日期**：2026-05-14
+> **套件版本**：v2.1（`pyproject.toml`）
+> **更新日期**：2026-06-15
+> **現況權威**：[`../PROJECT_STATUS.md`](../PROJECT_STATUS.md)
 > **適用對象**：開發者、DevOps 工程師
 
 ---
@@ -62,6 +63,8 @@ BioNeuronai 使用 **Docker Compose** 管理預設 8 個服務；啟用 `trade` 
 
 API 與 CLI 工作服務共用 `bioneuronai-api:latest`（由 `Dockerfile` 的 `runtime` 目標建置），透過不同的 `command` 分工；frontend 使用 `bioneuronai-frontend:latest`。
 
+> **執行主線說明**：Compose 的 `trade` 服務對應主線 A（`TradingEngine`）。**沒有**獨立的 `autonomous` 服務；主線 B 請在本機或容器內執行 `python main.py autonomous ...`。本輪仍以本機 Python 3.13 為主要驗證入口，Docker 留待功能收斂後重建 image。
+
 ---
 
 ## 2. 前置需求
@@ -85,7 +88,7 @@ docker compose version
 
 ## 3. 環境變數設定
 
-在專案根目錄建立 `.env` 檔案（不提交至 Git）：
+Docker 若要注入 API key、port 或交易模式設定，才在專案根目錄由 `.env.example` 建立 `.env`（不提交至 Git）。日常不接外部服務時可只保留 `.env.example`：
 
 ```dotenv
 # ===== Binance API =====
@@ -425,6 +428,7 @@ docker compose logs --tail=100 api
 ```
 Dockerfile
 ├── builder stage  — Python 3.11 slim，編譯 ta-lib 並安裝 Python 依賴
+├── training stage — PyTorch CUDA image，供雲端/GPU 訓練時以 `--target training` 明確建置
 └── runtime stage  — Python 3.11 slim，複製 src/config/backtest/model/main.py
 ```
 

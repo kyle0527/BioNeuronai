@@ -16,7 +16,7 @@ Write-Host "🚀 開始生成專案完整報告..." -ForegroundColor Cyan
 # 要排除的目錄
 $excludeDirs = @(
     '.git', '__pycache__', '.mypy_cache', '.ruff_cache',
-    'node_modules', '.venv', 'venv', '.pytest_cache',
+    'node_modules', '.venv', 'venv',
     '.tox', 'dist', 'build', '.egg-info', '.eggs',
     'htmlcov', '.coverage', '.hypothesis', '.idea', '.vscode'
 )

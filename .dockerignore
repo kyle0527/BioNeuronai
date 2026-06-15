@@ -6,7 +6,6 @@
 __pycache__
 *.py[cod]
 *.pyo
-.pytest_cache
 .mypy_cache
 .ruff_cache
 *.egg-info
@@ -51,7 +50,6 @@ output
 backtest/runtime
 backtest/data/binance_historical
 data_downloads
-tests
 *.csv
 *.parquet
 *.jsonl

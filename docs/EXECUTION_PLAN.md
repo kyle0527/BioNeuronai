@@ -1,15 +1,29 @@
 # BioNeuronAI 商業級「一步到位」執行計劃（Week 1-2 具體可執行版）
 
-> **狀態更新 2026-06-11**：本計劃部分內容已被實作覆蓋，閱讀時以
+> **狀態更新 2026-06-15**：本計劃部分內容已被實作覆蓋，閱讀時以
 > `docs/PROJECT_STATUS.md` 為準——
-> - ✅ 已完成（不需照本計劃重做）：自適應閉環（AdaptiveLearningHub →
->   策略權重）、outcome 回寫 decision ledger、多目標 reward、
->   `run_forever` 持續迴圈、首批 54 個單元測試
-> - 🧩 已留擴充點（本計劃對應步驟仍有效）：TinyLLM v2 接通 predict()、
->   新聞方向 bias 接入 `_fuse_signals()`（注意：bias 來源請收斂到
->   `NewsAdapter.get_direction_bias()`，見 PROJECT_STATUS P1）
-> - 本計劃的「第一個真實 lora_*.pt checkpoint」目標仍未達成（需長時間
->   paper run 累積 100 筆完整 T0/T1/T2 記錄）
+> - ✅ 已完成（不需照本計劃重做）：自適應閉環、outcome 回寫 ledger、
+>   多目標 reward、`run_forever`、歷史 RL 訓練管線（2026-06-12）、
+>   新聞 direction_bias minimal 版（已在 `generate_fusion_signal()` 接通）
+> - 🧩 仍有效：TinyLLM v2 接通 predict()、新聞時序聚合（P1）、
+>   主線 B 執行層對齊（pretrade quantity + 持倉檢查）、
+>   reflection_loop 接入、第一個真實 lora_*.pt checkpoint
+> - ⚠️ 本計劃原文「bias 接入 `_fuse_signals()`」已調整語意：
+>   direction_bias 目前在 StrategyFusion 層生效；TradingEngine 最終融合仍用 event_score
+
+## 目錄
+
+1. [先決條件](#先決條件5-分鐘檢查)
+2. [Step 0：建立基線](#step-0-建立基線必須先做30-60-分鐘)
+3. [Step 1：新聞方向提供者](#step-1-讓新聞從過濾器變成方向提供者p1最快見效)
+4. [Step 2：InferenceEngine v2](#step-2-讓-inferenceengine-真正支援-v2-輸出p3核心)
+5. [Step 3：ActionRecord 去 shim](#step-3-清理-actionrecord-產生邏輯去-shim)
+6. [Step 4：OnlineLearner checkpoint](#step-4-確保-onlinelearner-真的被啟動並產生-checkpoint)
+7. [Step 5：執行與驗證](#step-5-執行--驗證最重要)
+8. [執行順序建議](#執行順序建議最現實的-1-週計劃)
+9. [後續 Week 3+](#後續week-3-讓它真正能跟商業產品比)
+
+---
 
 **目標**：讓模型（TinyLLM）的參數真正驅動交易決策結構，並讓自學習閉環產生可驗證的真實 artifact（而非 shim + 空轉）。
 

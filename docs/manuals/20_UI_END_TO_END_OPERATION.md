@@ -1,7 +1,8 @@
 # BioNeuronAI UI 端到端操作手冊
 
-> 版本：v2.1 正式主線 / v2.2 訓練後驗證期
-> 更新日期：2026-05-19
+> **套件版本**：v2.1（`pyproject.toml`）
+> **更新日期**：2026-06-15
+> **現況權威**：[`../PROJECT_STATUS.md`](../PROJECT_STATUS.md)
 > 主要入口：`frontend/devops-d/`  
 > Dashboard：`http://localhost:3000`  
 > API：`http://localhost:8000`
@@ -28,6 +29,14 @@
 `06_FRONTEND_DASHBOARD.md` 是面板功能參考；本文件是端到端操作流程。若兩份文件有重疊，以本文件作為「從開始到結束怎麼操作」的入口，以 `06` 作為欄位與面板細節參考。
 
 目前正式 UI 主線是 `frontend/devops-d/`。`frontend/trading/` 與 `frontend/admin-da/` 原始碼保留，但不是第一階段操作主線。
+
+**UI 覆蓋範圍**：本流程涵蓋 API/UI 可及功能（主線 A `trade`、回測、分析）。**主線 B `autonomous` 無 UI 入口**，盤前值班請在 UI 流程前後以 CLI 執行：
+
+```powershell
+python main.py autonomous --mode advisor --symbol BTCUSDT --output output\ui_shift_advisor.json
+```
+
+並檢查 `data\bioneuronai\planning\autonomous\decision_ledger.jsonl`（見 [04_CLI_OPERATION.md](04_CLI_OPERATION.md) §6）。
 
 ---
 
@@ -79,10 +88,9 @@ http://localhost:3000
 
 ### 本地開發路線
 
-先啟動 API：
+先啟動 API（repo 根目錄，已 `pip install -e .` 時通常不需設 PYTHONPATH）：
 
 ```powershell
-$env:PYTHONPATH="src"
 python -m uvicorn bioneuronai.api.app:app --host 127.0.0.1 --port 8000
 ```
 

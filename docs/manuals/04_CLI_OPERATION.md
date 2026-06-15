@@ -1,303 +1,364 @@
-# BioNeuronai 操作手冊
-**版本**：v2.1 正式主線 / v2.2 訓練後驗證期
-**更新日期**：2026-05-19
+# BioNeuronai CLI 操作手冊
+
+**套件版本**：v2.1（`pyproject.toml`）
+**更新日期**：2026-06-15
 **適用對象**：初次使用者 / 日常操作參考
+**現況權威**：[`../PROJECT_STATUS.md`](../PROJECT_STATUS.md)
 
 ---
 
-## 📑 目錄
+## 目錄
 
-- [1. 系統概述](#1-系統概述)
-  - [核心能力](#核心能力)
-- [2. 安裝與環境設定](#2-安裝與環境設定)
-  - [前置需求](#前置需求)
-  - [安裝步驟](#安裝步驟)
-- [3. Binance API 金鑰設定](#3-binance-api-金鑰設定)
-- [4. CLI 命令完整參考](#4-cli-命令完整參考)
-  - [status](#status)
-  - [plan](#plan)
-  - [pretrade](#pretrade)
-  - [news](#news)
-  - [simulate](#simulate)
-  - [backtest](#backtest)
-  - [backtest-data](#backtest-data)
-  - [backtest-runs](#backtest-runs)
-  - [strategy-backtest](#strategy-backtest)
-  - [readiness-gate](#readiness-gate)
-  - [collect-signal-data](#collect-signal-data)
-  - [evolve](#evolve)
-  - [trade](#trade)
-  - [autonomous](#autonomous)
-  - [chat](#chat)
-- [5. 設定檔與資料契約說明](#5-設定檔與資料契約說明)
-  - [Data Schemas (src/schemas/)](#data-schemas-srcschemas)
-  - [傳統 Config (config/trading_config.py)](#傳統-config-configtradingconfigpy)
-- [6. 標準操作流程 (SOP)](#6-標準操作流程-sop)
-- [7. 常見問題排查](#7-常見問題排查)
-  - [ModuleNotFoundError: No module named 'bioneuronai'](#modulenotfounderror-no-module-named-bioneuronai)
-  - [Pydantic 模型驗證失敗](#pydantic-模型驗證失敗)
-- [8. 風險警示](#8-風險警示)
+1. [系統概述](#1-系統概述)
+2. [雙執行主線（必讀）](#2-雙執行主線必讀)
+3. [安裝與環境設定](#3-安裝與環境設定)
+4. [Binance API 金鑰設定](#4-binance-api-金鑰設定)
+5. [CLI 命令參考](#5-cli-命令參考)
+6. [產出物與驗收路徑](#6-產出物與驗收路徑)
+7. [標準操作流程 (SOP)](#7-標準操作流程-sop)
+8. [常見問題排查](#8-常見問題排查)
+9. [風險警示](#9-風險警示)
+10. [相關文件](#10-相關文件)
 
 ---
 
 ## 1. 系統概述
 
-BioNeuronai (v2.1) 是一套加密貨幣期貨交易系統。  
-目前正式主線已收斂為：
+BioNeuronai 是加密貨幣期貨交易系統，模組分工如下：
 
-- `planning/` 負責高階規劃與盤前檢查
-- `core/` 負責主交易引擎與 AI 推理
-- `strategies/` 負責固定策略、selector、fusion 與競爭層
-- `trading/` 負責訂單 / 帳戶 / 持倉 / 資金的事實層
-- `backtest/` 負責 replay / backtest
+| 模組 | 職責 |
+|------|------|
+| `planning/` | 交易計畫、盤前檢查、自主迴圈 |
+| `core/` | TradingEngine、InferenceEngine、AdaptiveHub |
+| `strategies/` | 策略選擇、fusion、Meta-Learner |
+| `trading/` | VirtualAccount、成交事實 |
+| `risk_management/` | RiskManager + AIConfidenceCalibrator |
+| `backtest/` | 歷史 replay / 回測 |
 
-### 核心能力
+### 核心能力速查
 
-| 功能 | 說明 | 需要 torch | 需要 API 金鑰 | 主責模組 |
-|------|------|:----------:|:------------:|----------|
-| 系統健康檢查 | 診斷所有模組與 runtime readiness | ✅ | ✗ | `cli/` |
-| 每日交易計劃 | 10 步驟 SOP (總經理視角) | ✗ | 部分步驟 | `planning/` |
-| 進場前驗核 | 技術 / 基本面三重確認 (交易員視角) | ✗ | ✅ | `planning/` |
-| 新聞分析 | 情緒與事件提取 | ✗ | ✗ | `rag/` & `analysis/news` |
-| 紙交易模擬 | 在未連線 Binance 情況下驗證主交易邏輯 | ⚠️ 可選 | ✗ | `core/` & `backtest/` |
-| 測試網/實盤交易入口 | 透過 Binance connector 進行即時監控；自動送單需依交易引擎模式與安全限制啟用 | ✅ | ✅ | `core/` & `trading/` |
-| AI 對話助理 | 雙語交易知識問答（中 / 英），可注入即時市場資料 | ✅ | ✗ | `nlp/chat_engine` |
+| 功能 | CLI 入口 | 需要 torch | 需要 API 金鑰 | 主責模組 |
+|------|----------|:----------:|:------------:|----------|
+| 系統健康檢查 | `status` | ✅ | ✗ | `cli/` |
+| 每日交易計畫 | `plan` | ✗ | 部分 | `planning/` |
+| 盤前驗核 | `pretrade` | ✗ | ✅ | `planning/` |
+| 自主值班 | `autonomous` | ✗ | 部分 | `planning/` |
+| AI 反思 / 校準 refit | `reflect` | ✗ | ✗ | `planning/` |
+| 即時交易 / paper | `trade` | ✅ | paper-live 僅行情 | `core/` |
+| 新聞分析 | `news` | ✗ | ✗ | `analysis/` + `rag/` |
+| 回測 | `backtest` 等 | ⚠️ 視模式 | ✗ | `backtest/` |
+| AI 對話 | `chat` | ✅ | ✗ | `nlp/` |
 
 ---
 
-## 2. 安裝與環境設定
+## 2. 雙執行主線（必讀）
+
+操作前請先確認要用哪條主線。**兩者學習閉環不同，不可混用驗收標準。**
+
+| 維度 | 主線 A：`trade` | 主線 B：`autonomous` |
+|------|----------------|----------------------|
+| 驅動 | WebSocket 即時 tick | 定時規劃迴圈（`run_forever`） |
+| 典型用途 | 即時監控、完整「交易即訓練」 | 盤前規劃、值班建議、定時 paper |
+| ActionRecord T0/T1/T2 | ✅ | ❌ |
+| EpisodicMemory / LoRA | ✅（`--paper-live` 平倉觸發） | ❌ |
+| Decision Ledger | ❌ | ✅ JSONL |
+| AdaptiveLearningHub | ✅ | ✅ |
+
+**主線 B 執行層（2026-06-15 更新）**：
+- `--execute-paper` **優先**採 pretrade `order_parameters.quantity`（× `risk_multiplier`）；僅在 quantity 無效時 fallback `--paper-notional-fraction`
+- 已有持倉時跳過進場（`paper_execution.skipped=true`，`reason=existing_position`）
+- 平倉回填 `confidence_calibrator.record_outcome()`（依 `calibration_record_index`）
+- 卡單平倉：`--max-position-hold-cycles N`；反思迴圈：`--reflect-every N`（需 `--cycles >1`）
+- 獨立反思：`python main.py reflect --sample-size 50`
+
+---
+
+## 3. 安裝與環境設定
 
 ### 前置需求
-- Python **3.13**（本機全域 runtime）。本專案目前不使用專案內虛擬環境。
+
+- Python **3.13**（專案 `requires-python` 鎖定 3.13）
+- 本文件假設在 repo 根目錄執行 `python main.py ...`
 
 ### 安裝步驟
 
 ```bash
-git clone https://github.com/BioNeuronai/BioNeuronai.git
+git clone https://github.com/kyle0527/BioNeuronai.git
 cd BioNeuronai
 python -m pip install --upgrade pip
 python -m pip install --index-url https://download.pytorch.org/whl/cpu torch==2.8.0+cpu torchvision==0.23.0+cpu torchaudio==2.8.0+cpu
 python -m pip install -e .
-
-# 選填：額外安裝強化學習模組
-pip install -e ".[rl]"
 ```
 
-若 `torch`、現役交易模型、TinyLLM 聊天模型或必要設定缺失，`status` 應直接回報阻擋項目；目前不把缺失狀態降級成可操作狀態。
+> **注意**：`pyproject.toml` 目前**沒有** `[rl]` optional extra。歷史 RL 訓練（`training/rl_trainer.py`）使用主依賴內的 PyTorch，無需額外 `pip install -e ".[rl]"`。
 
----
+安裝後執行：
 
-## 3. Binance API 金鑰設定
-
-目前建議以**環境變數與動態載入**為主，不建議直接把金鑰寫死在 `config/` 中的 `.py` 檔內。
-
-**設定方式 (.env)**:
-```bash
-cp .env.example .env
-```
-編輯 `.env`，填寫：
-```ini
-BINANCE_API_KEY=你的測試網或正式網_API_KEY
-BINANCE_API_SECRET=你的測試網或正式網_SECRET
-BINANCE_TESTNET=true
-```
-
-> **注意**：使用 `trade --live` 必須同時切換 `BINANCE_TESTNET=false` 以及正式網金鑰，並確保期貨合約權限已開通。
-
----
-
-## 4. CLI 命令完整參考
-
-目前 CLI 正式入口為根目錄下的 `main.py`，再交由 `src/bioneuronai/cli/main.py` 分派。
-
-### `status`
-**用途**：系統健康檢查。
 ```bash
 python main.py status
 ```
 
-> 💡 **進階操作提示**：
-> 關於以下功能的更詳細參數（如 `--walk-forward` 樣本內外驗證、`--max-items` 新聞自適應抓取），請參閱我們最新編寫的專業子手冊：
-> - 📊 [分析模組操作手冊 (09_ANALYSIS_MODULE.md)](09_ANALYSIS_MODULE.md)：涵蓋 `news`, `plan`, `pretrade`。
-> - ⚔️ [策略模組操作手冊 (10_STRATEGY_MODULE.md)](10_STRATEGY_MODULE.md)：涵蓋 `strategy-backtest` 等競技場指令。
+---
+
+## 4. Binance API 金鑰設定
+
+建議使用環境變數，不要把金鑰寫死在程式碼。
+
+```bash
+cp .env.example .env
+```
+
+```ini
+BINANCE_API_KEY=你的_API_KEY
+BINANCE_API_SECRET=你的_SECRET
+BINANCE_TESTNET=true
+```
+
+- `pretrade` / `trade --testnet` / `trade --live` 需要有效金鑰（依模式）
+- `trade --paper-live` 使用主網行情，但**不送**真實訂單，金鑰需求較低（視 connector 實作）
+- `autonomous --mode advisor` 主要用歷史 K 線 + pretrade，不一定需要金鑰，但 pretrade 內部可能嘗試連接器
+
+---
+
+## 5. CLI 命令參考
+
+正式入口：repo 根目錄 `main.py` → `src/bioneuronai/cli/main.py`。
+
+### `status`
+
+```bash
+python main.py status
+```
+
+檢查核心模組是否可 import。不作為交易績效驗收。
 
 ### `plan`
-**依賴子系統**：`planning/plan_controller.py`
-**用途**：產出 10 步驟高階分析。
-```powershell
+
+```bash
 python main.py plan
 python main.py plan --output reports/plan.json
 ```
 
+產出 10 步驟交易計畫。詳見 [09_ANALYSIS_MODULE.md](09_ANALYSIS_MODULE.md)。
+
 ### `pretrade`
-**依賴子系統**：`planning/pretrade_automation.py`
-**用途**：執行交易前的硬性檢查。
+
 ```bash
 python main.py pretrade --symbol BTCUSDT --action long
 ```
 
+執行盤前檢查。終端機會輸出：
+- 技術 / 基本面 / 風險評估
+- **`[AI 信心校準]`**、**`[AI 雙層對齊]`**、**`[AI 動態倉位]`**（來自 `AIConfidenceCalibrator`）
+- 最終 `order_parameters`（含調整後 `quantity`）
+
+> pretrade 使用內部 `RiskCalculation` + calibrator，**不是**直接呼叫 `RiskManager.calculate_position_size()`。詳見 [11_RISK_MANAGEMENT.md](11_RISK_MANAGEMENT.md)。
+
 ### `news`
-**用途**：抓取加密貨幣新聞。
+
 ```bash
 python main.py news --symbol BTCUSDT --max-items 10
 ```
 
-### `simulate`
-**依賴子系統**：`backtest/mock_connector.py`
-**用途**：利用本地歷史資料推送 K 線，模擬實盤行進。
+### `backtest` / `backtest-data` / `backtest-runs`
 
-### `backtest`
-**依賴子系統**：`backtest/backtest_engine.py`
-**用途**：以本地歷史 K 線執行完整策略回測，輸出統計指標與回測 runtime。
 ```bash
 python main.py backtest --symbol BTCUSDT --interval 1h --start-date 2020-01-01 --end-date 2020-01-03
-python main.py backtest --symbol ETHUSDT --balance 10000
-```
-詳細說明請參閱 [08_BACKTEST_SYSTEM.md](08_BACKTEST_SYSTEM.md)。
-
-### `backtest-data`
-**用途**：列出本地可用的歷史資料（OHLCV）資產與時間範圍。
-```bash
-python main.py backtest-data
 python main.py backtest-data --symbol BTCUSDT --interval 1h
-python main.py backtest-data --json           # JSON 輸出
+python main.py backtest-runs --limit 10
 ```
 
-### `backtest-runs`
-**用途**：列出或查詢已執行的回測結果記錄（replay runtime）。
-```bash
-python main.py backtest-runs                  # 最近 10 筆
-python main.py backtest-runs --limit 20
-python main.py backtest-runs --run-id 20260428_132540_50707287  # 詳細資料
-python main.py backtest-runs --json           # JSON 輸出
-```
+詳見 [08_BACKTEST_SYSTEM.md](08_BACKTEST_SYSTEM.md)。
 
-### `strategy-backtest`
-**用途**：執行策略競技場（多策略模板競爭回測），支援 walk-forward 驗證、手續費 / 滑點設定。
-> 完整說明（含 `--walk-forward`、`--execution-mode`、`--commission-bps`、`--params` 等進階參數）請參閱 [10_STRATEGY_MODULE.md](10_STRATEGY_MODULE.md)。
+### `strategy-backtest` / `readiness-gate` / `collect-signal-data` / `evolve`
 
-### `readiness-gate`
-**用途**：正式交易前的 BTCUSDT / ETHUSDT 多時間框架 gate。它使用 `backtest/` replay service 實際跑策略矩陣，並依 `config/trading_readiness_gate.json` 的資料覆蓋、Walk-Forward 與績效門檻輸出 `PASS` / `FAIL`。這個命令不會送出真實訂單。
-```bash
-python main.py readiness-gate --dry-run
-python main.py readiness-gate --output output/readiness_gate.json
-python main.py readiness-gate --symbols BTCUSDT --intervals 1h --start-date 2020-01-01 --end-date 2020-03-31
-```
-若缺少設定矩陣中的資料（例如 `4h` K 線尚未下載），`--dry-run` 會直接列出缺失項；完整執行時未達門檻會以非 0 exit code 阻擋後續上線。
+- `strategy-backtest`：多策略模板回測 → [10_STRATEGY_MODULE.md](10_STRATEGY_MODULE.md)
+- `readiness-gate`：上線前 gate，`PASS` / `FAIL` 退出碼
+- `collect-signal-data`：產生訓練用 JSONL
+- `evolve`：遺傳演算法策略參數優化
 
-### `collect-signal-data`
-**用途**：從本地歷史 K 線產生訊號訓練樣本，輸出為 JSONL 檔供後續模型訓練使用。
-```bash
-python main.py collect-signal-data
-python main.py collect-signal-data --symbol BTCUSDT --interval 1h --output data/signal_history.jsonl
-```
-詳細說明請參閱 [15_DATA_ACQUISITION.md](15_DATA_ACQUISITION.md)。
+### `trade`（主線 A）
 
-### `evolve`
-**用途**：對策略參數執行遺傳演算法優化，找出最優策略設定。
 ```bash
-python main.py evolve --symbol BTCUSDT
-python main.py evolve --symbol BTCUSDT --interval 1h --generations 20 --population 30
-python main.py evolve --output output/best_strategy.json
-```
+# 監控 only（預設不下單）
+python main.py trade --symbol BTCUSDT
 
-### `trade`
-**依賴子系統**：`core/trading_engine.py` 與 connector / 帳戶狀態層  
-**用途**：進行 monitor、paper-live、測試網或實盤監控 / 交易入口。AI 模型預設載入；如需關閉需明確加 `--no-ai-model`。
-```bash
-python main.py trade --testnet
+# Paper-live：主網行情 + 本地虛擬成交 + 完整學習閉環
 python main.py trade --paper-live --paper-balance 10000
+
+# Testnet（需金鑰；需 --auto-trade 或 API 啟用才送單）
+python main.py trade --testnet --auto-trade
+
+# 實盤（強制二次確認）
 python main.py trade --live
 ```
-`--paper-live` 使用 Binance mainnet 行情，但訂單只寫入本地虛擬帳戶，不送出真實 Binance order。使用 `--live` 時系統會有強制二次確認，避免意外進入實盤。若要從 Dashboard / API 啟用自動交易，請使用 `paper_live`、`testnet_auto` 或 `live_auto` 模式並確認 `/api/v1/trade/status`。
 
-### `autonomous`
-**依賴子系統**：`planning/autonomous_operator.py`、`planning/adaptation_controller.py`、`planning/decision_ledger.py`、`planning/goal_manager.py`、`core/adaptive_hub.py`
-**用途**：執行 observe-plan-pretrade-adapt 決策循環，輸出「今天這輪該觀察、等待還是可進下一步」，並把結果寫進 decision ledger。預設單輪；`--cycles N`（N>1）進入持續閉環（`run_forever`）：每輪結算上輪 paper 倉位 → outcome 回寫 ledger 與自適應中樞 → 學習狀態影響下一輪決策，遇 STOP（回撤超限）自動停機。
+| 旗標 | 說明 |
+|------|------|
+| `--paper-live` | 啟用 paper 連接器並 `enable_auto_trading()` |
+| `--paper-balance` | 虛擬初始餘額（預設 10000） |
+| `--auto-trade` | testnet/mainnet 自動送單 |
+| `--no-ai-model` | 不載入 AI 模型 |
+| `--load-ai-model` / `--model-name` | 控制模型載入 |
+
+**學習閉環僅在 paper-live（或 auto_trade 且實際成交）時完整運作**：平倉 → ActionRecord T2 → EpisodicMemory → LoRA（每 100 筆）。
+
+### `autonomous`（主線 B）
+
 ```bash
+# 單輪建議（預設，不送單）
 python main.py autonomous --mode advisor --symbol BTCUSDT
-python main.py autonomous --mode advisor --symbol BTCUSDT --output output/autonomous_advisor.json
-python main.py autonomous --mode paper_auto --symbol BTCUSDT --output output/autonomous_paper_auto.json
+
+# 輸出 JSON
+python main.py autonomous --mode advisor --symbol BTCUSDT --output output/advisor.json
+
+# Paper 執行（需明確 --execute-paper）
 python main.py autonomous --mode paper_auto --symbol BTCUSDT --execute-paper --paper-balance 10000
-python main.py autonomous --mode paper_auto --symbol BTCUSDT --execute-paper --cycles 24   # 持續閉環 24 輪
+
+# 持續閉環 N 輪（輪間隔由 adaptation 的 next_interval_minutes 決定）
+python main.py autonomous --mode paper_auto --symbol BTCUSDT --execute-paper --cycles 24
+
+# 每 10 輪觸發 reflection_loop（需主線 A 累積 EpisodicMemory）
+python main.py autonomous --mode paper_auto --execute-paper --cycles 30 --reflect-every 10
 ```
 
-這個命令會顯示的核心欄位：
+#### `autonomous` 完整參數
 
-- `candidates`
-- `plan_status`
-- `plan_execution_ready`
-- `final_action`
-- `Pretrade`
-- `reasons`
+| 參數 | 預設 | 說明 |
+|------|------|------|
+| `--mode` | `advisor` | `advisor` / `paper_auto` / `testnet_auto` / `live_guarded` |
+| `--cycles` | `1` | `>1` 進入 `run_forever`；遇 `STOP` 自動停機 |
+| `--symbol` | `BTCUSDT` | 主交易對 |
+| `--action` | `BUY` | pretrade 方向（支援 LONG/SHORT 別名） |
+| `--interval` | `1h` | 載入 K 線週期 |
+| `--balance` | `10000` | 計畫用帳戶餘額 |
+| `--klines-limit` | `300` | K 線數量 |
+| `--max-pairs` | `3` | pretrade 候選交易對上限 |
+| `--data-dir` | 自動 | 歷史資料根目錄 |
+| `--ledger-path` | 見 §6 | 自訂 decision ledger 路徑 |
+| `--output` | — | 輸出本輪 JSON |
+| `--execute-paper` | false | **僅** `paper_auto` 且 adaptation 允許時送 paper 單 |
+| `--paper-balance` | `10000` | paper 初始餘額 |
+| `--paper-notional-fraction` | `0.01` | quantity 無效時 fallback：餘額 × 比例 × risk_multiplier |
+| `--max-position-hold-cycles` | `0` | 持倉超過 N 輪自動 reduce-only 平倉（0=停用） |
+| `--reflect-every` | `0` | `run_forever` 每 N 輪執行 reflection_loop（0=停用） |
+| `--reflection-sample-size` | `50` | reflection 抽樣 EpisodicMemory 筆數 |
 
-請注意：
+#### 終端機輸出欄位（與程式一致）
 
-- `autonomous` 預設是單輪決策入口；`--cycles N` 為輪詢式持續閉環（每輪間隔由 adaptation 決定，分鐘級）
-- 真正持續跑 WebSocket、接即時價格、進入 `TradingEngine` 主循環的是 `trade`（tick 級）
-- 日常值班建議順序是：先 `autonomous --mode advisor`，再視結果決定要不要進 `trade --paper-live` 或 `autonomous --mode paper_auto`
+- `candidates`、`plan_status`、`plan_execution_ready`
+- `final_action`、`can_execute`、`risk_multiplier`、`confidence_floor`
+- `next_interval_minutes`、`reasons`
+- `pretrade_summary`（每 symbol 的 status / score）
+- `paper_execution`（symbol、side、qty、`quantity_source`、`skipped`、order status）
+
+#### 模式說明
+
+| mode | 行為 |
+|------|------|
+| `advisor` | 只輸出決策與 ledger，**不送單** |
+| `paper_auto` | adaptation 允許且 `--execute-paper` 時送本機 paper 單 |
+| `testnet_auto` | v1 標記候選，**不直接送 testnet 單** |
+| `live_guarded` | 標記需人工確認，**不直接送 live 單** |
+
+### `reflect`
+
+```bash
+python main.py reflect --sample-size 50
+python main.py reflect --sample-size 50 --json
+```
+
+對 EpisodicMemory 熱緩衝抽樣，分析虧損特徵並嘗試 `refit_temperature()`。樣本來自主線 A（`trade --paper-live` 平倉寫入 memory）；主線 B 單獨運行時可能樣本不足。
 
 ### `chat`
-**依賴子系統**：`src/nlp/chat_engine.py`、`src/nlp/training/trading_dialogue_data.py`  
-**用途**：與 AI 交易助理進行雙語對話（繁體中文 / 英文），可詢問策略、合約規則、技術分析、系統操作等。
-```bash
-python main.py chat                          # 自動語言偵測
-python main.py chat --language zh            # 強制繁體中文
-python main.py chat --language en            # 強制英文
-python main.py chat --symbol BTCUSDT         # 附帶即時市場資料注入對話上下文
-```
-- 輸入 `exit` 或 `quit` 結束對話
-- 若模型未載入，預設報錯並停止；需明確加上 `--allow-rule-based-fallback` 才會進入開發用規則模式
-- 對話知識庫涵蓋：幣安合約機制、訂單類型、風險管理、技術分析、BioNeuronai 系統操作
 
-| 功能 | 需要 torch | 需要 API 金鑰 |
-|------|:----------:|:------------:|
-| 規則型回應（關鍵字匹配）| ✗ | ✗ |
-| AI 模型完整對話 | ✅ | ✗ |
-| 即時市場資料注入 | ✗ | ✅ |
-
-也可透過 REST API 呼叫（含多輪對話 session 管理）：
 ```bash
-POST /api/v1/chat          # 對話
-DELETE /api/v1/chat/{id}   # 清除對話歷史
+python main.py chat --language zh --symbol BTCUSDT
 ```
 
----
-
-## 5. 設定檔與資料契約說明
-
-### Data Schemas (`src/schemas/`)
-v2.1 的正式主線以 Pydantic v2 模型作為跨模組主要資料契約。
-- 欲調整任何設定值，請先確認 `schemas/` 下的定義。
-- 當使用 `trade` 或 `plan` 時，CLI 端點會打包對應的 Schema，然後才傳給 `core/` 或 `planning/`，避免任何 Dictionary 混用。
-
-### 傳統 Config (`config/trading_config.py`)
-> ⚠️ **過渡注意**：此處設定正在逐步過渡，如果您找尋風險閥值的調整（如 `MAX_DRAWDOWN_PERCENTAGE`），目前仍需參照 `risk_management/` 中套用的預設值與 `config/` 檔定義。
+輸入 `exit` / `quit` 結束。模型未載入時預設報錯；可加 `--allow-rule-based-fallback` 進入規則模式。
 
 ---
 
-## 6. 標準操作流程 (SOP)
+## 6. 產出物與驗收路徑
 
-1. **盤前檢查** (`status`) => 確保網路與環境變數載入。
-2. **大盤掃描** (`plan`) => 產出高階交易計劃或觀望建議。
-3. **特定幣種確認** (`pretrade`) => 對候選標的做進場前檢查。
-4. **先跑一輪 autonomous 值班判斷** (`autonomous --mode advisor`)。
-5. **若需要主交易引擎長時間觀察，再啟動 `trade`** (`trade --paper-live` / `trade --testnet`)。
-6. **檢閱結果與帳戶狀態** => 依情境查看 replay runtime、decision ledger、paper ledger、資料庫記錄或帳戶快照。
+直接操作後，可用以下檔案驗收（**非 pytest**）：
+
+| 路徑 | 產生時機 | 內容 |
+|------|----------|------|
+| `data/bioneuronai/planning/autonomous/decision_ledger.jsonl` | `autonomous` 每輪 | `autonomous_cycle` + `trade_outcome` + `reflection_cycle` |
+| `data/bioneuronai/learning/adaptive_hub.json` | 平倉後 hub 更新 | 策略×幣對 EWMA 績效 |
+| `data/bioneuronai/memory/` | 主線 A 平倉 | EpisodicMemory |
+| paper log 目錄 | `trade --paper-live` 啟動時印出 | 虛擬成交紀錄 |
+
+**驗收 autonomous 時建議檢查**：
+1. ledger 最新一筆 `final_action` 與 `reasons` 是否合理
+2. 若有 `--execute-paper`，`paper_execution.quantity_source` 應為 `pretrade_quantity`（或 `notional_fraction` fallback）
+3. 平倉後 ledger 是否出現 `type: trade_outcome`；calibrator JSON 是否有對應 outcome
+4. 若 `--reflect-every N`，ledger 是否週期性出現 `type: reflection_cycle`
 
 ---
 
-## 7. 常見問題排查
+## 7. 標準操作流程 (SOP)
+
+### 日常值班（建議）
+
+1. `python main.py status`
+2. `python main.py plan`（可選）
+3. `python main.py pretrade --symbol BTCUSDT --action long`
+4. `python main.py autonomous --mode advisor --symbol BTCUSDT`
+5. 依 `final_action` 決定：
+   - 觀察 → 結束
+   - 需即時閉環學習 → `trade --paper-live`
+   - 定時規劃 paper → `autonomous --mode paper_auto --execute-paper`
+
+### 不建議的順序
+
+- 同時跑 `trade --paper-live` 與 `autonomous --execute-paper` 於同 symbol 而不檢查持倉
+- 用 `autonomous` 的結果驗證 LoRA 是否更新（LoRA 只走主線 A）
+
+---
+
+## 8. 常見問題排查
 
 ### `ModuleNotFoundError: No module named 'bioneuronai'`
-**原因**：未加載根目錄到 `PYTHONPATH`，建議一律使用 `python main.py [指令]`，因為 `main.py` 已經在頂端掛載了 `sys.path.insert(0, str(project_root / "src"))`。
 
-### Pydantic 模型驗證失敗
-**原因**：系統嚴格檢查資料型別（例如字串傳入整數，或是少給 `symbol`）。通常是因為開發或自建腳本時跳過了 Schema Builder，請回去查閱 `src/schemas/` 的必填欄位。
+請使用 repo 根目錄的 `python main.py`，不要直接 `python -m bioneuronai.cli.main`（除非已正確設定 PYTHONPATH）。
+
+### `pip install -e ".[rl]"` 失敗
+
+正常。目前 `pyproject.toml` 無 `[rl]` extra，請移除該步驟。
+
+### autonomous 有 pretrade 建議但 paper 倉位不符
+
+2026-06-15 起預設優先採 pretrade quantity。若 `quantity_source=notional_fraction`，表示 pretrade quantity 無效而 fallback；檢查 pretrade `order_parameters.quantity` 是否為 0 或缺失。
+
+### `reflect` 回報樣本不足
+
+正常：EpisodicMemory 需由 `trade --paper-live` 平倉累積。可先跑主線 A 再執行 `reflect`。
+
+### Pydantic 驗證失敗
+
+自建腳本繞過 `schemas/` 時常見。請對照 `src/schemas/` 必填欄位。
 
 ---
 
-## 8. 風險警示
+## 9. 風險警示
 
-1. `--testnet` 不等於本地模擬：它仍會連 Binance 測試網，請確保網路穩定且金鑰配置正確。
-2. `--live` 下的實際風險控制，仍以 `risk_management/` 與當前主交易流程為準；若調整上限，應先確認對 sizing 與風險閥值的影響。
+1. `--testnet` 仍連外部測試網，非純本機模擬。
+2. `--live` 有二次確認，但仍可能造成真實虧損。
+3. `--paper-live` 不送 Binance 訂單，但會改變本地虛擬倉位與學習狀態。
+4. `autonomous --execute-paper` 的風控規則來自 AdaptationController + pretrade，與 TradingEngine 路徑不同。
+
+---
+
+## 10. 相關文件
+
+| 文件 | 說明 |
+|------|------|
+| [../PROJECT_STATUS.md](../PROJECT_STATUS.md) | 模組現況權威來源 |
+| [../ARCHITECTURE_OVERVIEW.md](../ARCHITECTURE_OVERVIEW.md) | 雙主線架構圖 |
+| [09_ANALYSIS_MODULE.md](09_ANALYSIS_MODULE.md) | plan / pretrade / news 細節 |
+| [11_RISK_MANAGEMENT.md](11_RISK_MANAGEMENT.md) | RiskManager + calibrator |
+| [08_BACKTEST_SYSTEM.md](08_BACKTEST_SYSTEM.md) | 回測 |
+| [../TESTING_AND_VALIDATION_GUIDE.md](../TESTING_AND_VALIDATION_GUIDE.md) | 驗證哲學（正式入口，非 pytest） |

@@ -1,6 +1,6 @@
 # BioNeuronAI 測試與驗證指南 (Testing & Validation Guide)
 
-> 更新日期：2026-05-19
+> 更新日期：2026-06-09
 > 目的：規範 v2.1 之後的驗證方法。專案目前優先用正式 CLI / API / UI runtime 入口驗證，不以臨時測試檔或 mock 腳本作為功能完成標準。
 
 ## 🚫 測試哲學：End-to-End > 單元測試
@@ -91,15 +91,6 @@ http://127.0.0.1:5176/
 *   **2026-05-19 紀錄**：已修正 `JSONViewer` 高度限制、`NewsPanel` 舊式巢狀捲動、`RequestHistoryPanel` 大量紀錄高度失控、`ChatPanel` 長文字撐版與 `DataCatalogPanel` 長路徑顯示問題；`npm run build` 與本機瀏覽器版面檢查通過。
 
 ---
-
-## 🐛 持續整合 (CI) 與防呆 Smoke Test
-
-CI 可以保留綜合型 Pytest 腳本，用於攔截最低級別的語法錯誤與依賴缺失；但它不是本機功能驗證的主要路徑：
-
-```bash
-python -m pytest tests/test_smoke.py -q
-```
-*   **要求**：CI / PR 可使用；本地功能驗證仍以 CLI / API / UI 正式入口為準。
 
 ## 📝 總結
 1.  **開發階段**：使用 `strategy-backtest` 快速迭代演算法。

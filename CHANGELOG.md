@@ -1,4 +1,114 @@
+
 # 更新日誌
+
+> **版本命名**：套件正式版為 **v2.1**（`pyproject.toml`）。CHANGELOG 中的 v3.x / v4.x 為歷史里程碑標籤；文件中的 **v2.2** 僅指 roadmap / 訓練後驗證期，不是已發布套件版。現況以 `docs/PROJECT_STATUS.md` 為準。
+
+## [Docs] - 2026-06-15
+
+### 文件一致性同步（三批）
+
+#### 第一批：核心文件對齊
+
+- **`README.md`**：同步 PROJECT_STATUS（新聞方向框架、RL、卡單平倉）；新增雙執行主線章節；重建目錄。
+- **`docs/ARCHITECTURE_OVERVIEW.md`**：版本改為 v2.1；新增雙主線架構圖與對照表；修正新聞/RL 缺口表；重建目錄。
+- **`docs/PROJECT_STATUS.md`**：新增 1.4 雙執行主線對照；修正信號流程註記；新增 P2/P5（執行脫節、reflection）；重建目錄。
+
+#### 第二批：子模組文件
+
+- **`planning/README.md`**：加入 `reflection_loop.py`、calibrator 接入、已知斷點表；重建目錄。
+- **`risk_management/README.md`**：加入 `confidence_calibrator.py`、接入現況與斷點；重建目錄。
+
+#### 第三批：索引與治理
+
+- **`docs/README.md`**：PROJECT_STATUS 提升為權威入口；過時文件移入歸檔區；版本命名說明；重建目錄。
+- **`src/bioneuronai/README.md`**：版本 v2.1；雙主線說明；子模組表更新。
+- **`docs/EXECUTION_PLAN.md`**：狀態更新 2026-06-15；重建目錄。
+
+#### 第四批：操作手冊（manuals）
+
+- **`docs/manuals/04_CLI_OPERATION.md`**：完整重寫；雙主線、autonomous 參數表、產物路徑、移除無效 `[rl]` 安裝。
+- **`docs/manuals/11_RISK_MANAGEMENT.md`**：完整重寫；雙層風控、pretrade 非 RiskManager、calibrator、B 線執行脫節。
+- **`docs/manuals/03_QUICKSTART.md`**：對齊 v2.1 與雙主線；建議驗證順序與產物快查。
+- **`docs/manuals/14_TESTNET_AND_LIVE_TRADING.md`**：新增 §1 雙主線；擴充 autonomous 與已知限制。
+- **`docs/manuals/16_RUNTIME_ARTIFACTS.md`**：依主線分類 ledger / hub / memory / paper 路徑。
+- **`docs/manuals/09_ANALYSIS_MODULE.md`**：pretrade 風控層修正；雙主線影響章節。
+- **`docs/manuals/README.md`**：索引日期與各手冊狀態列更新。
+
+#### 第五批（逐份）：`02_STARTUP_AND_SHUTDOWN.md`
+
+- 釐清「四種啟動入口（路線 A/B/C）」與「雙執行主線（trade/autonomous）」術語。
+- 補 paper-live 開機（§5.1）、ledger 驗收、Level 0～4 連結；移除 v2.2 標題混淆。
+
+#### 第五批（逐份）：`08_BACKTEST_SYSTEM.md`
+
+- 新增 replay 與 `trade`/`autonomous` 三徑對照；補全 CLI（含 readiness-gate、collect-signal-data、backtest-runs）。
+- 修正資料路徑 fallback、`simulate` vs `backtest` 行為差異；移除錯誤的 `database_manager` 敘述。
+
+#### 第六批（一次完成剩餘手冊與治理）
+
+- **`05_API_USER_MANUAL.md`**：API 覆蓋範圍（無 autonomous/plan）；pretrade 風控層。
+- **`06_FRONTEND_DASHBOARD.md`**：UI 與雙主線；simulate/backtest 表修正。
+- **`07_DOCKER_DEPLOYMENT.md`**：無 autonomous Compose 服務說明。
+- **`10_STRATEGY_MODULE.md`**：Replay vs 即時主線。
+- **`15_DATA_ACQUISITION.md`**：資料 fallback 與 readiness 需求。
+- **`17_ENVIRONMENT_VARIABLES.md`**～**`20_UI_END_TO_END_OPERATION.md`**：版本、雙主線、排查。
+- **`00_MASTER_MANUAL.md`**、**`01_MANUAL_OPERATION_VERIFICATION_PLAN.md`**：三徑架構與驗收矩陣。
+- **`docs/STARTUP_MODES.md`**、**`docs/DEVELOPMENT_TOOLS.md`**：B 線限制、`[rl]` 修正。
+- **`docs/manuals/README.md`**：全手冊狀態列與維護規則 §9.8。
+
+> **手冊一致性批次（2026-06-15）至此完成**：`docs/manuals/` 00–20 主線手冊已對齊 v2.1 與雙執行主線；訓練手冊 12/13 僅標頭版本修正。
+
+---
+
+## [Feature] - 2026-06-15
+
+### 主線 B 執行層對齊（P2）與反思迴圈接入（P5）
+
+#### P2：AutonomousOperator 執行層
+
+- **`autonomous_operator.py`**：`_resolve_paper_quantity()` 優先採 pretrade `order_parameters.quantity`（× `risk_multiplier`）；無效時 fallback `paper_notional_fraction`。
+- **持倉檢查**：`_has_open_position()` 跳過重複進場，ledger 記 `skipped=true`、`reason=existing_position`。
+- **calibrator 回填**：`pretrade_automation.py` 寫入 `RiskCalculation.calibration_record_index`；平倉呼叫 `record_outcome_by_index()`。
+- **`confidence_calibrator.py`**：新增 `record_outcome_by_index()`；`record_outcome()` 防禦性持久化。
+
+#### P5：Reflection loop
+
+- **CLI**：`python main.py reflect --sample-size 50`（`--json` 可選）。
+- **自主排程**：`autonomous --reflect-every N`、`--reflection-sample-size`；ledger 寫入 `reflection_cycle`。
+- **卡單平倉 CLI**：`--max-position-hold-cycles`。
+
+#### 文件同步（P2/P5 後續）
+
+- `planning/README.md`、`risk_management/README.md`、`PROJECT_STATUS.md` 1.4
+- `manuals/03`、`04`、`11`、`14`、`STARTUP_MODES.md`
+
+---
+
+## [Feature] - 2026-06-12
+
+### 🚀 歷史 RL 訓練管線與卡單自動平倉強制出場實作落地
+
+#### 新增
+
+- **`HistoricalReplayEnv` 歷史回放環境**：
+  - 成功對接 `HistoricalDataStream` 與 `FeatureExtractor`，產生包含 60 維技術指標特徵與 8 維事件特徵的 68 維 state 輸出。
+  - 實作 Gym 風格 `reset()`（隨機起點 seek）與 `step(action)`，其中步進 action（0=LONG, 1=NEUTRAL, 2=SHORT）以未來 5 根 K 線的 forward return 搭配多目標 `compute_reward` 計算獎勵。
+- **`RLTrainer` 強化學習訓練器**：
+  - 基於 PyTorch 實作 REINFORCE 政策梯度（Policy Gradient）優化 `MetaLearnerModel` 權重（Categorical Policy 分佈採樣）。
+  - 提供 `evaluate()` argmax 評估模組與 `export_weights()` 儲存功能。
+
+#### 修改
+
+- **`AutonomousOperator._check_stale_positions()`**：
+  - 超限持倉強制出場：讀取模擬帳戶 `positions` 以確認持倉，並下達反向 `reduce_only=True` 的市價平倉委託，閉環回寫 decision ledger。
+  - 自動清理 `open_executions` 中已不存在真實持倉的幽靈倉位紀錄。
+- **`AIStrategyFusion` 新聞方向框架與收斂**：
+  - 整合 `NewsAdapter.get_direction_bias()` 到 `get_direction_bias()`，優先取用 NewsAdapter 的真實看多/看空偏好。
+  - 修改 `generate_fusion_signal()`，將新聞方向偏好作為方向限制框架（Directional Guard）過濾共識信號，若兩者方向衝突則對交易進行攔截。
+- **檔案更新與過時清理**：
+  - 更新了 `PROJECT_STATUS.md`、`CHANGELOG.md` 及 `__init__.py` 等文件，將歷史資料 RL 訓練、卡單自動處置與新聞主方向 bias 從「骨架/Stub/未實作」狀態同步更新為「實作完成 (2026-06-12)」，並移除所有重複冗餘段落。
+
+---
 
 ## [Feature] - 2026-06-11
 
@@ -25,7 +135,7 @@
   → 執行 → outcome 回寫 ledger），CLI `autonomous --cycles N` 可啟動
 - **`register_state_provider()`**：LoRA learner / 記憶層統計接入自主迴圈
 - **卡單偵測** `max_position_hold_cycles`（偵測 + 記錄；自動出場為擴充點）
-- **首批自動化測試**：54 個單元測試（tests/），CI 新增 unit-tests job
+- **正式入口驗證策略維持**：不保留 `tests/` / pytest 單元測試入口；CI 保留 Docker operational validation
 
 #### 修改
 
@@ -39,9 +149,8 @@
 
 #### 驗證
 
-- `python -m pytest tests -q` → 54 passed
-- 關鍵閉環測試 `test_losing_streak_triggers_self_correction`：連續 4 筆止損
-  → 下一輪 adaptation 風險倍率自動降至 0.5
+- `python -m compileall -q src/bioneuronai` → 通過
+- `git diff --check` → 通過
 - 文件同步：README / PROJECT_STATUS / ARCHITECTURE_OVERVIEW 標記慣例
   ✅ 完成 / 🧩 已留擴充點 / ❌ 未開始
 
@@ -49,12 +158,21 @@
 
 ## [Sync] - 2026-06-09
 
+### 根目錄去重與單一入口整理
+
+- 刪除本機 `.env`，保留 `.env.example` 作為唯一安全範本；正式驗證前再由範本產生實際 `.env`。
+- 將 `CODE_OF_CONDUCT.md`、`CONTRIBUTING.md`、`SECURITY.md` 移至 `.github/`，保留 GitHub 識別入口但減少根目錄雜訊。
+- 將 `Dockerfile.train` 併入 `Dockerfile` 的 `training` target；runtime 仍為預設 target，訓練 image 改用 `docker build --target training ...`。
+- 將 `EXECUTION_PLAN.md` 移至 `docs/EXECUTION_PLAN.md`，使根目錄只保留主入口與建置/設定檔。
+- 移除核心交易、策略、風控模組尾端的大型自我驗證區塊；後續確認改走既有 `autonomous` / `pretrade` / `trade` 主流程，不新增額外驗證入口。
+- 移除測試目錄、測試工具開發依賴與測試工具設定；手冊與工具說明改以正式 CLI / API / UI / Docker 實際操作作為驗收方式。
+
 ### 遠端同步與主線整理
 
 - 同步到 `origin/main` 最新基線後，保留本機主線清理與自主值班入口調整。
 - 移除老舊歸檔、legacy historical 文件、scratch 驗證殘留與舊版工具生成快照，避免舊路徑繼續污染目前文件索引。
 - 將 `autonomous` 單輪 observe-plan-pretrade-adapt 值班入口整併進 CLI、Quickstart、Testnet/Paper-live/Live 操作手冊。
-- 新增 `EXECUTION_PLAN.md`，記錄下一階段把 TinyLLM v2 / 65 維輸出 / 新聞方向 bias / LoRA checkpoint 真正接入交易主線的執行路線。
+- 新增 `docs/EXECUTION_PLAN.md`，記錄下一階段把 TinyLLM v2 / 65 維輸出 / 新聞方向 bias / LoRA checkpoint 真正接入交易主線的執行路線。
 - 修正 paper / testnet 交易路徑的資金與風控細節：使用可用餘額、避免 target price 被誤用為進場價、強制最低 RR、reduce-only 平倉不再要求新保證金。
 - 保留 `InferenceEngine.enable_v2_mode()` 與 `AIStrategyFusion.get_direction_bias()` 作為接線起點；目前仍屬原型，尚未代表 v2 已完整接管 `predict()` 主路徑。
 
@@ -64,7 +182,7 @@
 - 清理引用掃描通過：未再發現舊歸檔路徑與 legacy historical 主線引用。
 - 核心 Python 檔案 `py_compile` 通過。
 - `main.py autonomous --help` 正常。
-- `tests/test_autonomous_operator.py` 目標測試以手動函式呼叫方式通過；目前本地 runtime 未安裝 `pytest`，未跑完整 pytest。
+- 自主入口改以 `main.py autonomous --help` 與後續正式 CLI 操作確認，不再依賴測試目錄。
 
 ---
 
@@ -353,8 +471,8 @@ v2 從頭重新設計：
 - 補上正式 live 路徑 smoke：`news_adapter -> trading_engine -> selector -> strategy_fusion`
 - 明確記錄 `pretrade` 不是正式 fusion 消費入口，避免文件誤導
 
-#### 測試記錄
-- `python -m pytest tests/test_smoke.py -q` 更新為 `23 passed`
+#### 操作記錄
+- 早期使用過綜合測試腳本作為輔助訊號；目前已改以正式 CLI / API / UI / Docker 入口驗收。
 
 ---
 
@@ -693,7 +811,7 @@ BINANCE_API_KEY=xxx BINANCE_API_SECRET=yyy docker compose --profile trade up tra
 ### 中期
 - [ ] SOP 回測驗證（啟用 `_perform_plan_backtest()`）
 - [ ] StrategyArena / TradingPhaseRouter 整合至 CLI
-- [ ] Walk-Forward 測試框架
+- [ ] Walk-Forward 驗證流程
 - [ ] TinyLLM 擴展至 300M+（考慮 Cross-Attention 市場–語言融合）
 
 ### 長期

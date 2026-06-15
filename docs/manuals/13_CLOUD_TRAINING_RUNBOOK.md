@@ -88,7 +88,7 @@ Pass criteria:
 ## 3. Build Training Image
 
 ```bash
-docker build -f Dockerfile.train -t bioneuronai-train:latest .
+docker build --target training -t bioneuronai-train:latest .
 ```
 
 ## 4. Run Cloud Training

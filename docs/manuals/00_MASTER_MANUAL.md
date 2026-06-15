@@ -1,8 +1,9 @@
 # BioNeuronAI 系統主手冊 (Master Manual)
 
-> **版本**: v2.1 正式主線 / v2.2 訓練後驗證期
-> **更新日期**: 2026-05-14
-> **系統狀態**: 目前正式主線文件
+> **套件版本**：v2.1（`pyproject.toml`）
+> **更新日期**：2026-06-15
+> **現況權威**：[`../PROJECT_STATUS.md`](../PROJECT_STATUS.md)
+> **v2.2**：僅 roadmap／訓練後驗證期用語，非已發布套件版
 
 ---
 
@@ -28,13 +29,22 @@
 
 ## 🌟 1. 系統總覽
 
-BioNeuronAI 是一套面向加密貨幣期貨市場的 AI 交易系統。  
-目前 `v2.1` 的正式主線已從早期混合式 CLI 腳本收斂成較清楚的模組分層；`v2.2` 目前處於第一輪雲端訓練接回 runtime 後的驗證期，重點是：
+BioNeuronAI 是面向加密貨幣期貨的 AI 交易系統（套件 **v2.1**）。操作與架構現況以 [`PROJECT_STATUS.md`](../PROJECT_STATUS.md) 為準。
 
-* **決策與執行分層**：目前已把高階規劃 (`planning`) 與訂單 / 帳戶事實層 (`trading`) 分開。
-* **契約化資料模型**：跨模組資料交換以 `src/schemas/` 為單一事實來源。
-* **多入口運行**：目前同時保留 CLI、FastAPI、Operations Dashboard 與 Docker 入口；Docker `api` / `frontend` 已重建複驗，但不應把所有執行方式都寫成唯一正式形態。
-* **訓練後驗證**：`config/active_model.json` 已指向訓練後 checkpoint；這代表模型可載入，不代表交易績效已完成正式驗證。
+**三條執行路徑**（不可混用驗收標準）：
+
+| 路徑 | 入口 | 產物重點 |
+|------|------|----------|
+| Replay 回測 | `backtest` / `strategy-backtest` | `backtest/runtime/` |
+| 主線 A | `trade` / API `trade/start` | paper log、`memory/`、LoRA |
+| 主線 B | `autonomous`（僅 CLI） | `decision_ledger.jsonl` |
+
+核心原則：
+
+* **決策與執行分層**：`planning/` 與 `trading/` 分職。
+* **契約化**：`src/schemas/` 為跨模組資料單一來源。
+* **多入口**：CLI、API、Dashboard、Docker 並存；本輪驗收以本機 Python 3.13 為主。
+* **模型可載入 ≠ 績效已驗證**：`config/active_model.json` 只代表 runtime 可載入權重。
 
 ---
 
@@ -85,10 +95,11 @@ BioNeuronAI 是一套面向加密貨幣期貨市場的 AI 交易系統。
 所有資料結構（包含市場數據、訂單狀態、甚至新聞分析結果）**唯一**的定義來源是在 `src/schemas/` 目錄中。禁止任何模組私自重複定義相同概念的 `BaseModel`。
 
 ### B. 決策與執行的分水嶺
-過往的架構常將「該不該買」與「怎麼買」混在一起，在 v2.1 裡：
-* **`planning/` (總經理)**：負責宏觀市場分析、資金流動觀察，產出「建議交易計畫」。
-* **`trading/` (執行長)**：不帶主觀看法，嚴格依照計畫限額、目前風險暴露狀態，將計算好的數量送到目前 execution layer；可能是 paper ledger、testnet 或 live exchange。
+* **`planning/`**：plan、pretrade、`AutonomousOperator`、decision ledger。
+* **`core/TradingEngine`**：即時 WebSocket 主線 A；完整 ActionRecord → LoRA 閉環（paper-live）。
+* **`trading/`**：VirtualAccount、訂單與持倉事實；paper / testnet / live connector 各異。
 
+主線 B 已知斷點（2026-06-15）：`--execute-paper` 倉位與 pretrade `quantity` 可能不一致；見 PROJECT_STATUS P2。
 ### C. 狀態管理逐步集中
 目前系統正在把訂單、帳戶、持倉、資金等執行事實，逐步集中到 `trading/`。  
 這條線已開始落地，但不應寫成「所有狀態都已完全統一持久化」；較精確的說法是：

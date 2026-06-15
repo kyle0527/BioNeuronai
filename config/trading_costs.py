@@ -1,5 +1,5 @@
 """
- USDT 
+ USDT
 ==================================
 
 
@@ -10,12 +10,12 @@
 - 2026119
 
 
-1.  VIP BNB 
-2. 
+1.  VIP BNB
+2.
 3. 800:00, 08:00, 16:00 UTC
 """
 
-from typing import Any, Dict, Literal, Optional, TYPE_CHECKING
+from typing import Any, Dict, List, Literal, Optional, TYPE_CHECKING
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
@@ -32,16 +32,16 @@ class TradingFees:
     """"""
     maker_fee: float  # Maker
     taker_fee: float  # Taker
-    vip_level: int    # VIP 
-    
+    vip_level: int    # VIP
+
     def calculate_fee(self, notional_value: float, is_maker: bool = False) -> float:
         """
-        
-        
+
+
         Args:
-            notional_value:  × 
+            notional_value:  ×
             is_maker: Maker
-            
+
         Returns:
             float: USDT
         """
@@ -70,7 +70,7 @@ VIP_FEES = {
     9: TradingFees(maker_fee=0.0000, taker_fee=0.0170, vip_level=9),  # > $50B
 }
 
-#  10000 
+#  10000
 # 0.0200 = 0.0200% = 0.0002 ()
 for vip_level, fees in VIP_FEES.items():
     fees.maker_fee /= 10000
@@ -83,7 +83,7 @@ for vip_level, fees in VIP_FEES.items():
 
 BNB_DISCOUNT = {
     "enabled": True,
-    "discount_rate": 0.10,  # 10% 
+    "discount_rate": 0.10,  # 10%
     "description": " BNB  10% "
 }
 
@@ -95,19 +95,19 @@ BNB_DISCOUNT = {
 @dataclass
 class FundingRateInfo:
     """"""
-    settlement_interval_hours: int = 8  # 
+    settlement_interval_hours: int = 8  #
     typical_range: tuple = (-0.01, 0.01)  # -0.01%  0.01%
     extreme_range: tuple = (-0.75, 0.75)  # -0.75%  0.75%
     cap_rate: float = 0.0075  # ±0.75%
-    
+
     def estimate_daily_cost(self, position_value: float, avg_rate: float = 0.0001) -> float:
         """
-        
-        
+
+
         Args:
             position_value: USDT
             avg_rate:  0.01%
-            
+
         Returns:
             float: USDT
         """
@@ -117,7 +117,7 @@ class FundingRateInfo:
 
 FUNDING_RATE = FundingRateInfo()
 
-# 
+#
 FUNDING_RATE_REFERENCE = {
     "BTCUSDT": {
         "avg_7d": 0.0001,      # 70.01%
@@ -179,15 +179,15 @@ def estimate_slippage(
     market_condition: Literal["normal", "volatile", "extreme"] = "normal"
 ) -> float:
     """
-    
-    
+
+
     Args:
         order_size_usd: USDT
-        symbol: 
-        market_condition: 
-        
+        symbol:
+        market_condition:
+
     Returns:
-        float: 
+        float:
     """
     base_slippage = {
         "BTCUSDT": 0.0001,   # 0.01%
@@ -195,8 +195,8 @@ def estimate_slippage(
         "MAJOR_ALTS": 0.0005,  # 0.05%
         "MINOR_ALTS": 0.001,   # 0.1%
     }
-    
-    # 
+
+    #
     size_multiplier = 1.0
     if order_size_usd > 100000:  # > $100K
         size_multiplier = 1.5
@@ -204,15 +204,15 @@ def estimate_slippage(
         size_multiplier = 2.0
     elif order_size_usd > 1000000:  # > $1M
         size_multiplier = 3.0
-    
-    # 
+
+    #
     volatility_multiplier = {
         "normal": 1.0,
         "volatile": 2.0,
         "extreme": 5.0
     }[market_condition]
-    
-    # 
+
+    #
     if symbol in ["BTCUSDT"]:
         category = "BTCUSDT"
     elif symbol in ["ETHUSDT"]:
@@ -221,7 +221,7 @@ def estimate_slippage(
         category = "MAJOR_ALTS"
     else:
         category = "MINOR_ALTS"
-    
+
     return base_slippage[category] * size_multiplier * volatility_multiplier
 
 
@@ -230,22 +230,22 @@ def estimate_slippage(
 # ========================================
 
 MARGIN_INTEREST = {
-    "usdt_perpetual": 0.0,  # USDT 
+    "usdt_perpetual": 0.0,  # USDT
     "description": " USDT "
 }
 
 
 # ========================================
-# 
+#
 # ========================================
 
 class TradingCostCalculator:
     """
-    
-    
-    
+
+
+
     """
-    
+
     def __init__(self, vip_level: int = 0, use_bnb: bool = False, default_leverage: int = 10):
         """
         Args:
@@ -257,7 +257,45 @@ class TradingCostCalculator:
         self.use_bnb = use_bnb
         self.bnb_discount: float = float(BNB_DISCOUNT["discount_rate"]) if use_bnb else 0.0  # type: ignore[arg-type]
         self.default_leverage = default_leverage
-    
+
+    def calculate_dynamic_margin(self, position_size_usd: float, leverage_brackets: Optional[List[Dict]] = None) -> Dict[str, Any]:
+        """計算階梯維持保證金與最高槓桿
+        如果未傳入 leverage_brackets，則回退到保守預設值。
+        """
+        if leverage_brackets and len(leverage_brackets) == 1 and "brackets" in leverage_brackets[0]:
+            leverage_brackets = leverage_brackets[0].get("brackets") or []
+
+        if not leverage_brackets:
+            return {
+                "maintenance_margin_rate": 0.01,
+                "cum": 0.0,
+                "max_leverage": 20,
+                "bracket": 1,
+                "is_default": True
+            }
+
+        for b in leverage_brackets:
+            cap = float(b.get("notionalCap", float('inf')))
+            floor = float(b.get("notionalFloor", 0.0))
+            if floor <= position_size_usd <= cap:
+                return {
+                    "maintenance_margin_rate": float(b.get("maintMarginRatio", 0.01)),
+                    "cum": float(b.get("cum", 0.0)),
+                    "max_leverage": int(b.get("initialLeverage", 20)),
+                    "bracket": int(b.get("bracket", 1)),
+                    "is_default": False
+                }
+
+        # 超出上限，取最後一階
+        highest = leverage_brackets[-1]
+        return {
+            "maintenance_margin_rate": float(highest.get("maintMarginRatio", 0.01)),
+            "cum": float(highest.get("cum", 0.0)),
+            "max_leverage": int(highest.get("initialLeverage", 1)),
+            "bracket": int(highest.get("bracket", 99)),
+            "is_default": False
+        }
+
     def calculate_entry_exit_costs(
         self,
         position_size_usd: float,
@@ -273,6 +311,7 @@ class TradingCostCalculator:
         funding_interval_hours: float = 8.0,
         spread_bps: Optional[float] = None,
         position_side: Literal["long", "short"] = "long",
+        leverage_brackets: Optional[List[Dict]] = None,
     ) -> Dict:
         """
         Args:
@@ -280,11 +319,29 @@ class TradingCostCalculator:
                           由呼叫方從已收集的 MarketMicrostructure 傳入；None 時用靜態預設。
             funding_interval_hours: 實際結算間隔小時數（Binance 可能非固定 8h）。
             spread_bps: 當下買賣價差基點。由呼叫方從 order_book 計算後傳入；None 時用靜態預設。
+            leverage_brackets: 從 Binance API 抓取的該幣種階梯分層數據。
         """
+        # 動態計算維持保證金
+        margin_info = self.calculate_dynamic_margin(position_size_usd, leverage_brackets)
+        maintenance_margin_rate = margin_info["maintenance_margin_rate"]
+        max_leverage = margin_info["max_leverage"]
+
         lev = leverage if leverage is not None else self.default_leverage
+
+        # 槓桿攔截邏輯 (Fail-fast)
+        if lev > max_leverage:
+            return {
+                "error": "LEVERAGE_EXCEEDS_BRACKET_MAX",
+                "message": f"Requested leverage {lev}x exceeds bracket max {max_leverage}x for notional ${position_size_usd:.2f}.",
+                "max_leverage": max_leverage,
+                "bracket": margin_info["bracket"],
+                "total_cost": float('inf'), # 確保策略會放棄
+                "cost_percentage": float('inf')
+            }
+
         required_margin = position_size_usd / lev
-        maintenance_margin_rate = 0.004 if symbol == "BTCUSDT" else 0.01
-        liquidation_distance = (1 / lev) - maintenance_margin_rate
+
+        liquidation_distance = max(0.0, (1 / lev) - maintenance_margin_rate)
         if position_side == "short":
             liquidation_price = entry_price * (1 + liquidation_distance)
         else:
@@ -313,49 +370,49 @@ class TradingCostCalculator:
             SPREAD_COSTS.get(symbol, SPREAD_COSTS["MINOR_ALTS"])["typical_spread_bps"]  # type: ignore[index]
         )
         spread_cost = position_size_usd * (actual_spread_bps / 10000) * 2
-        
-        # 5. 
+
+        # 5.
         slippage_rate = estimate_slippage(position_size_usd, symbol, market_condition)
-        slippage_cost = position_size_usd * slippage_rate * 2  # 
-        
-        # 
+        slippage_cost = position_size_usd * slippage_rate * 2  #
+
+        #
         total_cost = entry_fee + exit_fee + funding_cost + spread_cost + slippage_cost
-        
-        # 
+
+        #
         cost_percentage_on_margin = (total_cost / required_margin) * 100
-        
-        # 
+
+        #
         cost_percentage_on_notional = (total_cost / position_size_usd) * 100
-        
-        # 
+
+        #
         breakeven_price = entry_price * (1 + total_cost / position_size_usd)
-        
-        # 
+
+        #
         if exit_price != entry_price:
             gross_pnl = (exit_price - entry_price) / entry_price * position_size_usd
             net_pnl = gross_pnl - total_cost
-            # ROI 
+            # ROI
             roi_on_margin = (net_pnl / required_margin) * 100
-            #  ROI 
+            #  ROI
             roi_on_notional = (net_pnl / position_size_usd) * 100
         else:
             roi_on_margin = 0
             roi_on_notional = 0
-        
+
         return {
-            # 
+            #
             "entry_fee": round(entry_fee, 4),
             "exit_fee": round(exit_fee, 4),
             "funding_cost": round(funding_cost, 4),
             "spread_cost": round(spread_cost, 4),
             "slippage_cost": round(slippage_cost, 4),
             "total_cost": round(total_cost, 4),
-            
-            # 
-            "cost_percentage": round(cost_percentage_on_notional, 4),  # 
-            "cost_percentage_on_margin": round(cost_percentage_on_margin, 4),  # 
-            
-            # 
+
+            #
+            "cost_percentage": round(cost_percentage_on_notional, 4),  #
+            "cost_percentage_on_margin": round(cost_percentage_on_margin, 4),  #
+
+            #
             "leverage": lev,
             "position_size_usd": position_size_usd,
             "required_margin": round(required_margin, 2),
@@ -374,7 +431,7 @@ class TradingCostCalculator:
                 "maintenance_margin_rate": maintenance_margin_rate,
             }
         }
-    
+
     def get_minimum_profit_target(
         self,
         position_size_usd: float,
@@ -385,23 +442,24 @@ class TradingCostCalculator:
         funding_rate: Optional[float] = None,
         spread_bps: Optional[float] = None,
         position_side: Literal["long", "short"] = "long",
+        leverage_brackets: Optional[List[Dict[str, Any]]] = None,
     ) -> float:
         """
-        
+
         Args:
             position_size_usd: USDT
-            symbol: 
+            symbol:
             desired_profit_margin: 0.01 = 1%
             leverage: None
             based_on:  - "notional" "margin"
-            
+
         Returns:
             float: %
         """
         if leverage is None:
             leverage = self.default_leverage
-        
-        # 24market order 
+
+        # 24market order
         costs = self.calculate_entry_exit_costs(
             position_size_usd=position_size_usd,
             entry_price=50000,
@@ -414,25 +472,26 @@ class TradingCostCalculator:
             funding_rate=funding_rate,
             spread_bps=spread_bps,
             position_side=position_side,
+            leverage_brackets=leverage_brackets,
         )
-        
+
         if based_on == "margin":
-            # 
-            # 10x  10%  = 1% 
+            #
+            # 10x  10%  = 1%
             required_margin = position_size_usd / leverage
             desired_profit_usd = required_margin * desired_profit_margin
             total_required_pnl = desired_profit_usd + costs["total_cost"]
             minimum_price_move_pct = (total_required_pnl / position_size_usd)
         else:
-            # 
+            #
             total_cost_pct = costs["cost_percentage"] / 100
             minimum_price_move_pct = total_cost_pct + desired_profit_margin
-        
-        return float(round(minimum_price_move_pct * 100, 2))  # 
+
+        return float(round(minimum_price_move_pct * 100, 2))  #
 
 
 # ========================================
-# 
+#
 # ========================================
 
 QUICK_REFERENCE = {
@@ -468,14 +527,14 @@ QUICK_REFERENCE = {
 
 
 # ========================================
-# 
+#
 # ========================================
 
 if __name__ == "__main__":
     print("="*80)
     print("  USDT ")
     print("="*80)
-    
+
     # 1: 5x
     print("\n1BTC 5x")
     print("-"*80)
@@ -488,7 +547,7 @@ if __name__ == "__main__":
         holding_hours=24,
         leverage=5
     )
-    
+
     print(f": ${costs_5x['position_size_usd']:,.0f}")
     print(f": {costs_5x['leverage']}x")
     print(f": ${costs_5x['required_margin']:.2f}")
@@ -509,7 +568,7 @@ if __name__ == "__main__":
     print(f"  : ${costs_5x['breakeven_price']:,.2f}")
     print(f"  : {costs_5x['roi_on_margin']:.2f}% ")
     print(f"  :   {costs_5x['roi_on_notional']:.2f}%")
-    
+
     # 2: 20x
     print("\n" + "="*80)
     print("2BTC 20x- ")
@@ -523,7 +582,7 @@ if __name__ == "__main__":
         holding_hours=24,
         leverage=20
     )
-    
+
     print(f": ${costs_20x['position_size_usd']:,.0f}")
     print(f": {costs_20x['leverage']}x")
     print(f": ${costs_20x['required_margin']:.2f} ")
@@ -534,8 +593,8 @@ if __name__ == "__main__":
     print("\n:")
     print(f"  : {costs_20x['roi_on_margin']:.2f}% ")
     print(f"  ( {costs_20x['leverage']}x)")
-    
-    # 
+
+    #
     print("\n" + "="*80)
     print(" $1000 +2% ")
     print("-"*80)
@@ -545,8 +604,8 @@ if __name__ == "__main__":
     print(f"           ${costs_5x['liquidation_price']:>7,.0f}   ${costs_20x['liquidation_price']:>8,.0f}    ")
     print(f"       {costs_5x['cost_percentage_on_margin']:>6.2f}%   {costs_20x['cost_percentage_on_margin']:>7.2f}%   {costs_20x['cost_percentage_on_margin']/costs_5x['cost_percentage_on_margin']:.1f}x")
     print(f"       {costs_5x['roi_on_margin']:>6.2f}%   {costs_20x['roi_on_margin']:>7.2f}%   {costs_20x['roi_on_margin']/costs_5x['roi_on_margin']:.1f}x")
-    
-    # 
+
+    #
     print("\n" + "="*80)
     print(" 10% ")
     print("-"*80)

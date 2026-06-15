@@ -1,7 +1,8 @@
 # BioNeuronai Operations Dashboard 操作手冊
 
-> **版本**：v2.1 正式主線 / v2.2 訓練後驗證期
-> **更新日期**：2026-05-19
+> **套件版本**：v2.1（`pyproject.toml`）
+> **更新日期**：2026-06-15
+> **現況權威**：[`../PROJECT_STATUS.md`](../PROJECT_STATUS.md)
 > **存取網址**：Docker `http://localhost:3000`；本地 Vite 依終端機輸出，常見 `http://localhost:5173` 或 `http://127.0.0.1:5176`
 > **後端 API**：`http://localhost:8000`
 
@@ -56,7 +57,16 @@ BioNeuronai Operations Dashboard 是一個 **React 19 + Vite 7** 前端應用。
 
 所有操作都透過 API 伺服器（`localhost:8000`）執行，Dashboard 本身不直接呼叫 Binance 或任何交易所。
 
-如果目標是「從打開 UI 到完成一輪操作並關機」，請先看 [20_UI_END_TO_END_OPERATION.md](20_UI_END_TO_END_OPERATION.md)。本文件保留為各面板功能參考。
+### 1.1 UI 與雙執行主線
+
+| 功能 | Dashboard | 備註 |
+|------|-----------|------|
+| 主線 A：`trade` 監控 | ✅ Trade Control → `/api/v1/trade/*` | paper-live / testnet / live |
+| 主線 B：`autonomous` | ❌ | 僅 CLI：`python main.py autonomous ...` |
+| Replay 回測 | ✅ Backtest 面板 | 非即時交易主線 |
+| `plan` | ❌ | 僅 CLI |
+
+若目標是「從打開 UI 到完成一輪操作並關機」，請先看 [20_UI_END_TO_END_OPERATION.md](20_UI_END_TO_END_OPERATION.md)。本文件為各面板功能參考。
 
 ---
 
@@ -272,13 +282,13 @@ Dashboard 採用上方 tab + 分區面板佈局。
 
 **查看歷史記錄：** 每次回測完成後，系統會自動儲存結果至 `backtest/runtime/`，可在面板底部查看最近 10 次執行記錄。
 
-**Simulate vs Backtest 差異：**
+**Simulate vs Backtest 差異**（與 [08_BACKTEST_SYSTEM.md](08_BACKTEST_SYSTEM.md) 一致）：
 
 | 功能 | Simulate | Backtest |
 |---|---|---|
-| 策略管道 | 簡化版 | 完整策略（含 AIFusion）|
-| 執行速度 | 快 (< 5s) | 慢 (15s ~ 10min) |
-| 用途 | 快速驗證資料可載入 | 正式策略評估 |
+| mock 下單 | 否（只統計信號） | 是（mock 撮合） |
+| 策略管道 | `generate_trading_signal` 觀測 | 完整 AI 信號 + 模擬成交 |
+| 用途 | 快速驗證資料與信號 | 正式策略績效評估 |
 
 ---
 
@@ -347,7 +357,7 @@ Dashboard 採用上方 tab + 分區面板佈局。
 | `Testnet auto` | true | true | 測試網自動交易；需要 Binance testnet key |
 | `Live auto` | false | true | 正式網自動交易；需要環境變數與確認字串 |
 
-`Paper live` 的紀錄會寫入 `data/bioneuronai/trading/paper_live/`。這是目前建議用來長時間觀察真實行情與策略行為的模式；它不會讓 AI 知道自己在模擬，差異只在 execution connector 不送出真實 Binance order。
+`Paper live` 的紀錄會寫入 `data/bioneuronai/trading/paper_live/`。平倉後會觸發主線 A 學習閉環（EpisodicMemory / LoRA）。**Autonomous 值班**（主線 B）不在此面板，請用 CLI 並檢查 `decision_ledger.jsonl`（見 [14_TESTNET_AND_LIVE_TRADING.md](14_TESTNET_AND_LIVE_TRADING.md) §5）。
 
 ---
 

@@ -1,7 +1,8 @@
 # BioNeuronai REST API 使用手冊
 
-> **版本**：v2.1 正式主線 / v2.2 訓練後驗證期
-> **更新日期**：2026-05-19
+> **套件版本**：v2.1（`pyproject.toml`）
+> **更新日期**：2026-06-15
+> **現況權威**：[`../PROJECT_STATUS.md`](../PROJECT_STATUS.md)
 > **伺服器預設**：`http://localhost:8000`  
 > **互動文件（Swagger UI）**：`http://localhost:8000/docs`
 
@@ -72,6 +73,16 @@ BioNeuronai API 是以 **FastAPI + uvicorn** 建立的 REST 服務，將目前 U
 - **Swagger UI** 互動測試（`/docs`）
 
 API 伺服器本身不含業務邏輯，它只是把呼叫轉發給對應的模組（`analysis/`、`planning/`、`backtest/`、`core/`）。
+
+### 1.1 執行主線與 API 覆蓋範圍
+
+| 主線 | CLI | 本 API |
+|------|-----|--------|
+| A：`trade`（即時監控） | `trade --paper-live` 等 | ✅ `/api/v1/trade/*` |
+| B：`autonomous`（規劃值班） | `autonomous ...` | ❌ **無** REST 端點；請用 CLI |
+| Replay 回測 | `backtest` / `simulate` 等 | ✅ `/api/v1/backtest/*` |
+
+`plan` 亦僅 CLI（`python main.py plan`），API 未暴露 `/api/v1/plan`。雙主線詳見 [04_CLI_OPERATION.md](04_CLI_OPERATION.md) §2。
 
 ---
 
@@ -411,7 +422,7 @@ http://127.0.0.1:8000/backtest/ui
 
 ### POST /api/v1/pretrade
 
-執行進場前六點綜合驗核（技術面 + 基本面 + 資金管理）。
+執行進場前綜合驗核（技術面 + 新聞/RAG + 內部 `RiskCalculation` + `AIConfidenceCalibrator`）。**不直接呼叫** `RiskManager.calculate_position_size()`（見 [11_RISK_MANAGEMENT.md](11_RISK_MANAGEMENT.md)）。
 
 **請求體：**
 ```json
@@ -537,7 +548,7 @@ Invoke-RestMethod -Method DELETE "http://localhost:8000/api/v1/positions/pos_btc
 
 ## 8. 訓練與模型端點 (Training & Model)
 
-本節端點用於銜接訓練作業與本地 runtime。目前第一輪雲端訓練產物已接回 `config/active_model.json`；這些端點主要用於後續再訓練、遠端作業登記、狀態追蹤與模型 promote。若要啟動新的雲端訓練，仍建議用 `Dockerfile.train` / CLI / GCS 執行，API 只負責登記與交接，不直接取代雲端訓練平台。
+本節端點用於銜接訓練作業與本地 runtime。目前第一輪雲端訓練產物已接回 `config/active_model.json`；這些端點主要用於後續再訓練、遠端作業登記、狀態追蹤與模型 promote。若要啟動新的雲端訓練，仍建議用 `Dockerfile` 的 `training` target、CLI 或 GCS 執行，API 只負責登記與交接，不直接取代雲端訓練平台。
 
 ### POST /api/v1/training/start
 
@@ -932,8 +943,9 @@ Invoke-RestMethod -Uri "http://localhost:8000/api/v1/trade/stop" -Method POST
 
 | 文件 | 說明 |
 |---|---|
-| [03_QUICKSTART.md](03_QUICKSTART.md) | 新手快速上手 |
-| [06_FRONTEND_DASHBOARD.md](06_FRONTEND_DASHBOARD.md) | 前端 Dashboard 操作手冊 |
-| [08_BACKTEST_SYSTEM.md](08_BACKTEST_SYSTEM.md) | 回測系統詳細說明 |
-| [04_CLI_OPERATION.md](04_CLI_OPERATION.md) | CLI 操作手冊 |
-| [07_DOCKER_DEPLOYMENT.md](07_DOCKER_DEPLOYMENT.md) | Docker 部署指南 |
+| [04_CLI_OPERATION.md](04_CLI_OPERATION.md) | CLI 與 `autonomous`（API 未覆蓋） |
+| [06_FRONTEND_DASHBOARD.md](06_FRONTEND_DASHBOARD.md) | Dashboard 操作 |
+| [08_BACKTEST_SYSTEM.md](08_BACKTEST_SYSTEM.md) | 回測 API 對照 |
+| [14_TESTNET_AND_LIVE_TRADING.md](14_TESTNET_AND_LIVE_TRADING.md) | `trade/start` 模式細節 |
+| [11_RISK_MANAGEMENT.md](11_RISK_MANAGEMENT.md) | pretrade 風控層 |
+| [07_DOCKER_DEPLOYMENT.md](07_DOCKER_DEPLOYMENT.md) | Docker 部署 |

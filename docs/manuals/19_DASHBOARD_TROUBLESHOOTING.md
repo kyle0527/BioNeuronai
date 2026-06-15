@@ -1,7 +1,9 @@
 # Dashboard 操作排查手冊
 
-> 範圍：使用者操作 `frontend/devops-d` 時遇到的前端、API、CORS、WebSocket 問題。
-> 更新日期：2026-05-19
+> **套件版本**：v2.1
+> **範圍**：`frontend/devops-d` 前端、API、CORS、WebSocket 排查
+> **更新日期**：2026-06-15
+> **現況權威**：[`../PROJECT_STATUS.md`](../PROJECT_STATUS.md)
 
 ---
 
@@ -81,6 +83,8 @@ npm run build
 | Response 顯示大量 JSON | API raw response 正常顯示，不是亂碼 | 只要被限制在框內可捲動，即為正常 |
 | JSON 蓋住下一個面板 | 前端仍在跑舊版或 JSONViewer 高度未生效 | 重新整理頁面；確認 `frontend/devops-d/src/components/JSONViewer.tsx` 已固定高度並重新跑 Vite |
 | Request History 變成超長頁面 | 請求紀錄太多且容器未限制高度 | 2026-05-19 已修正為內部捲動；若仍發生，清除 history 或重新載入新版前端 |
+| 想從 UI 跑 autonomous | Dashboard 無 B 線面板 | 用 CLI：`python main.py autonomous ...`；驗收 ledger |
+| Paper live 與 autonomous paper 混淆 | 兩者不同連接器生命週期 | Trade Control = 主線 A；autonomous 僅 CLI |
 
 ### 版面檢查
 

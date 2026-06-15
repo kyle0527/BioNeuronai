@@ -1,39 +1,57 @@
 # 規劃模組 (Planning)
 
 > 路徑：`src/bioneuronai/planning/`
-> 更新日期：2026-06-11
+> 更新日期：2026-06-15
 > 架構層級：Layer 3 — 高階規劃與交易前檢查
 
-`planning` 負責把分析結果整理成可執行的交易計畫與進場前檢查結論。這一層不處理實際訂單與帳戶事實，也不直接承載基礎策略實作。
+`planning` 負責把分析結果整理成可執行的交易計畫、進場前檢查結論，以及自主運行編排。這一層透過 `AutonomousOperator` 可觸發 paper 下單，但**不等同**於 `TradingEngine` 的 WebSocket 即時交易主線。
 
 ---
 
 ## 目錄
 
 1. [模組定位](#模組定位)
-2. [實際結構](#實際結構)
-3. [主流程](#主流程)
-4. [核心檔案](#核心檔案)
-5. [對外匯出](#對外匯出)
-6. [維護邊界](#維護邊界)
+2. [與 TradingEngine 的關係](#與-tradingengine-的關係)
+3. [實際結構](#實際結構)
+4. [主流程](#主流程)
+5. [核心檔案](#核心檔案)
+6. [已知斷點與擴充點](#已知斷點與擴充點)
+7. [對外匯出](#對外匯出)
+8. [維護邊界](#維護邊界)
 
 ---
 
 ## 模組定位
 
-`planning` 目前承接 4 類工作：
+`planning` 目前承接 5 類工作：
 
 1. 10 步驟交易計畫建立
 2. 市場環境分析與風險摘要
 3. 交易對篩選
-4. 單筆交易前檢查
-5. 自主運行編排與自適應控制
+4. 單筆交易前檢查（含 AI 信心校準倉位）
+5. 自主運行編排、自適應控制與反思學習（2026-06-15 已接入 CLI / 自主迴圈）
 
-和相鄰模組的邊界：
+相鄰模組邊界：
 
-1. `analysis/` 提供新聞、關鍵字、daily report 等分析能力
-2. `strategies/` 提供策略選擇與策略訊號能力
-3. `trading/` 提供交易執行事實與虛擬帳戶狀態
+| 模組 | 關係 |
+|------|------|
+| `analysis/` | 新聞、關鍵字、daily report |
+| `strategies/` | 策略選擇與策略訊號 |
+| `trading/` | 虛擬帳戶與成交事實 |
+| `risk_management/` | `confidence_calibrator` 被 pretrade 呼叫 |
+| `memory/` | `reflection_loop` 讀取 EpisodicMemory（需主線 A 才有資料） |
+
+---
+
+## 與 TradingEngine 的關係
+
+| 維度 | TradingEngine（主線 A） | AutonomousOperator（主線 B） |
+|------|------------------------|------------------------------|
+| CLI | `main.py trade` | `main.py autonomous` |
+| 學習閉環 | ActionRecord → LoRA | Ledger → AdaptiveHub |
+| Pretrade | 可獨立呼叫 | 每輪必經 |
+
+詳見 [`docs/PROJECT_STATUS.md`](../../../docs/PROJECT_STATUS.md) 1.4。
 
 ---
 
@@ -41,30 +59,29 @@
 
 ```text
 planning/
-├── __init__.py            # PEP 562 延遲載入（輕量模組不拉計劃/檢查系統重依賴）
-├── plan_controller.py     # 10 步驟交易計畫主控制器
-├── market_analyzer.py     # 市場條件 / 技術 / 基本面整合分析
-├── pair_selector.py       # 依真實 24h 行情篩選交易對
-├── pretrade_automation.py # 單筆交易前檢查自動化
-├── autonomous_operator.py # 自主運行編排：單輪 run_once + 持續閉環 run_forever
-├── adaptation_controller.py # 依結果 + 學習狀態調整模式/風險/頻率
-├── decision_ledger.py     # append-only 決策紀錄（含 trade_outcome 回寫）
-├── goal_manager.py        # 目標層級追蹤（監測版，2026-06-11）
+├── __init__.py              # PEP 562 延遲載入
+├── plan_controller.py       # 10 步驟交易計畫
+├── market_analyzer.py       # 市場條件整合分析
+├── pair_selector.py         # 24h 行情篩選交易對
+├── pretrade_automation.py   # 盤前檢查 + calibrator 動態倉位
+├── autonomous_operator.py   # run_once / run_forever 自主迴圈
+├── adaptation_controller.py # 連敗/回撤/學習狀態規則
+├── decision_ledger.py       # append-only JSONL 決策紀錄
+├── goal_manager.py          # 目標追蹤（監測版）
+├── reflection_loop.py       # 反思循環（✅ CLI reflect + autonomous --reflect-every）
 └── README.md
 ```
 
 檔案對照：
-1. [__init__.py](__init__.py)
-2. [plan_controller.py](plan_controller.py)
-3. [market_analyzer.py](market_analyzer.py)
-4. [pair_selector.py](pair_selector.py)
-5. [pretrade_automation.py](pretrade_automation.py)
-6. [autonomous_operator.py](autonomous_operator.py)
-7. [adaptation_controller.py](adaptation_controller.py)
-8. [decision_ledger.py](decision_ledger.py)
-9. [goal_manager.py](goal_manager.py)
-
-這個資料夾目前沒有更深一層的 README 子文件，因此本文件直接維護到檔案與主流程層級。
+1. [plan_controller.py](plan_controller.py)
+2. [market_analyzer.py](market_analyzer.py)
+3. [pair_selector.py](pair_selector.py)
+4. [pretrade_automation.py](pretrade_automation.py)
+5. [autonomous_operator.py](autonomous_operator.py)
+6. [adaptation_controller.py](adaptation_controller.py)
+7. [decision_ledger.py](decision_ledger.py)
+8. [goal_manager.py](goal_manager.py)
+9. [reflection_loop.py](reflection_loop.py)
 
 ---
 
@@ -88,78 +105,102 @@ PreTradeCheckSystem
   -> NewsAdapter (RAG 事件上下文)
   -> TradingRetriever (RAG 檢索層)
   -> TradingCostCalculator
+  -> AIConfidenceCalibrator（校準信心 + 對齊度 + 倉位乘數）
   -> risk / liquidity / news / order checks
 ```
 
-### 自主運行路徑
+### 自主運行路徑（主線 B）
 
 ```text
-AutonomousOperator
+AutonomousOperator.run_forever
+  -> _settle_open_positions()          # 更新持倉、觸發 SL/TP
   -> TradingPlanController
-  -> PairSelector 候選交易對
-  -> PreTradeCheckSystem
-  -> AdaptationController
-  -> DecisionLedger
-  -> PaperBinanceFuturesConnector（僅在 paper_auto + --execute-paper 時）
+  -> PreTradeCheckSystem（多候選 symbol）
+  -> AdaptationController（含 learning_state）
+  -> DecisionLedger.append()
+  -> _execute_paper_order()（若 execute_paper 且允許）
+       -> 優先 pretrade quantity × risk_multiplier
+       -> 既有持倉則 skipped（existing_position）
+       -> PaperBinanceFuturesConnector（跨循環持久）
+  -> _on_paper_close()
+       -> ledger trade_outcome
+       -> calibrator.record_outcome_by_index()
+       -> AdaptiveLearningHub
+  -> _maybe_run_reflection()（若 reflect_every_cycles > 0）
 ```
 
-這條路徑不重新分析新聞、技術或策略；它只編排既有模組，並根據近期決策結果調整下一輪是否交易、風險倍數、信心門檻與建議運行頻率。
+### 反思學習路徑（2026-06-15 已接入）
+
+```text
+# 獨立 CLI
+python main.py reflect --sample-size 50
+
+# 或自主迴圈排程（需 --cycles > 1）
+autonomous --reflect-every N
+
+AIReflectionLoop.run_reflection_cycle()
+  -> EpisodicMemory.sample_hot()
+  -> 虧損特徵分析
+  -> AIConfidenceCalibrator.refit_temperature()
+  -> ledger reflection_cycle（自主迴圈觸發時）
+  -> learning_report_*.json
+```
+
+⚠️ 樣本仍來自 EpisodicMemory（主線 A 平倉寫入）；主線 B 單獨運行時 reflection 可能因樣本不足而跳過 refit。
 
 ---
 
 ## 核心檔案
 
-### `plan_controller.py`
-
-1. 主類：`TradingPlanController`
-2. 主入口：`async create_comprehensive_plan(klines, account_balance, symbol)` — 執行完整 10 步驟計劃
-3. 輔助方法：`execute_plan(plan)` — 執行已生成的計劃；`get_active_plans()` — 查詢進行中計劃
-4. 內部分 10 個步驟各為獨立 `async _stepN_*` 方法
-5. 定位：整合 10 步驟流程，不直接做低階交易執行
-
-### `market_analyzer.py`
-
-1. 主類：`MarketAnalyzer`
-2. 提供市場條件、技術環境、基本面環境分析
-3. 被 `plan_controller.py` 作為上游分析器使用
-
-### `pair_selector.py`
-
-1. 主類：`PairSelector`
-2. 依 Binance 24h 行情做候選交易對篩選
-3. connector 不可用時會回退到保守預設清單
-
 ### `pretrade_automation.py`
 
-1. 主類：`PreTradeCheckSystem`
-2. 主入口：`execute_pretrade_check(symbol, intended_action)` — 準同步，回傳完整檢查結果 dict
-3. 專注於單筆交易前檢查，不等同於每日完整交易計劃
-4. 已接通：`NewsAdapter`（RAG 事件上下文）、`TradingRetriever`（RAG 檢索）、`TradingCostCalculator`
-5. 結果包含：技術面、基本面、風險計算、訂單參數、最終確認、整體交易標準
+- 主類：`PreTradeCheckSystem`
+- 主入口：`execute_pretrade_check(symbol, intended_action)`
+- 已接通 `get_confidence_calibrator()`：計算校準信心、宏觀微觀對齊度、動態倉位乘數
+- 輸出 `order_parameters.quantity`（已含 calibrator 調整）
+- `RiskCalculation.calibration_record_index`：供平倉回填 `record_outcome_by_index`
 
 ### `autonomous_operator.py`
 
-1. 主類：`AutonomousOperator`
-2. 主入口：`run_once()` / `run_once_sync()` — 執行一輪 observe → plan → pretrade → adapt → ledger
-3. 預設 `advisor` 模式只輸出決策，不執行訂單
-4. `paper_auto` 只有在明確設定 `execute_paper=True` 時才會下本機 paper order
-5. `testnet_auto` / `live_guarded` 在 v1 只標記候選與人工確認需求，不直接送單
+- 主類：`AutonomousOperator`
+- `run_once()` / `run_forever()`：持續 observe → plan → pretrade → adapt → ledger
+- `_resolve_paper_quantity()`：優先 pretrade quantity，fallback `paper_notional_fraction`
+- `_has_open_position()`：重複進場跳過，ledger 記 `skipped=true`
+- `_check_stale_positions()`：卡單自動 reduce-only 平倉（`--max-position-hold-cycles`）
+- `_on_paper_close()`：outcome 回寫 ledger + hub + calibrator
+- `_maybe_run_reflection()`：`reflect_every_cycles` 排程
+- `register_state_provider()`：接入 LoRA 等外部學習統計
+
+### `reflection_loop.py`
+
+- 主類：`AIReflectionLoop`
+- 主入口：`run_reflection_cycle(k=50)`
+- CLI：`python main.py reflect`
+- 自主排程：`AutonomousOperatorConfig.reflect_every_cycles`
+- 依賴 `EpisodicMemory`（主線 A 平倉才會寫入）
 
 ### `adaptation_controller.py`
 
-1. 主類：`AdaptationController`
-2. 依 plan、pretrade、decision ledger 摘要調整：
-   - final action
-   - risk multiplier
-   - confidence floor
-   - next interval minutes
-3. 初版使用保守規則，不訓練、不改主模型權重
+- 依 plan、pretrade、ledger、learning_state 調整 risk_multiplier / confidence_floor / next_interval
+- 不直接修改模型權重
 
 ### `decision_ledger.py`
 
-1. 主類：`DecisionLedger`
-2. 以 JSONL append-only 形式記錄每輪自主決策
-3. 提供近期勝率、連虧、回撤與 action count 摘要給自適應規則使用
+- JSONL 路徑預設：`data/bioneuronai/planning/autonomous/decision_ledger.jsonl`
+- record type：`autonomous_cycle`、`trade_outcome`、`reflection_cycle`
+
+---
+
+## 已知斷點與擴充點
+
+| 斷點 | 說明 | 優先級 |
+|------|------|--------|
+| ~~執行層忽略 pretrade quantity~~ | 2026-06-15 已優先採用 | — |
+| ~~未檢查既有持倉~~ | 2026-06-15 已檢查 | — |
+| ~~calibrator outcome 未回填~~ | 2026-06-15 B 線平倉已回填 | — |
+| ~~reflection_loop 未接入~~ | 2026-06-15 CLI + `--reflect-every` | — |
+| reflection 樣本來源 | 仍讀 EpisodicMemory，B 線單獨跑樣本可能不足 | P5 後續 |
+| GoalTracker 不行動 | 只寫 ledger | P4 |
 
 ---
 
@@ -177,23 +218,18 @@ from bioneuronai.planning import (
     PreTradeCheckSystem,
 )
 
-# 便利工廠函式（不在 __all__，但可直接呼叫）
-from bioneuronai.planning import get_trading_plan_controller
+# 反思迴圈（尚未列入 __all__，需直接 import）
+from bioneuronai.planning.reflection_loop import AIReflectionLoop
 ```
-
-補充：
-1. `get_trading_plan_controller()` 回傳 `TradingPlanController` 實例，為便利工廠不是獨立規劃主線
-2. `__all__` 不包含 `get_trading_plan_controller`；若要正式導入請直接導入主類
 
 ---
 
 ## 維護邊界
 
-1. 本文件維護 `planning/` 的責任切分與主流程。
-2. 若後續在此目錄下新增子目錄與子 README，上層 `src/bioneuronai/README.md` 應加上對應連結。
-3. 不在這層文件重複記錄 `analysis/`、`strategies/`、`trading/` 的內部細節。
-4. 自主運行層只負責編排與決策紀錄，不取代 `TradingEngine` 的實際交易主線。
+1. 自主運行層編排決策，不取代 `TradingEngine` 的 WebSocket 主線。
+2. Paper 執行經 `PaperBinanceFuturesConnector`，與 engine 使用不同 connector 實例。
+3. 不在此層重複記錄 `analysis/`、`strategies/`、`core/` 內部細節。
 
 ---
 
-> 上層目錄：[BioNeuronai README](../README.md)
+> 上層目錄：[BioNeuronai README](../README.md)｜現況：[PROJECT_STATUS](../../../docs/PROJECT_STATUS.md)

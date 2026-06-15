@@ -1,54 +1,57 @@
-# BioNeuronAI 開機開始與關機手冊
+# BioNeuronai 開機與關機手冊
 
-> 版本：v2.1 正式主線 / v2.2 訓練後驗證期
-> 建立日期：2026-05-02  
-> 更新日期：2026-05-19
-> 適用對象：第一次啟動、日常本地操作、API + Dashboard 操作、Docker 操作
+> **套件版本**：v2.1（`pyproject.toml`）
+> **更新日期**：2026-06-15
+> **現況權威**：[`../PROJECT_STATUS.md`](../PROJECT_STATUS.md)
+> **適用對象**：第一次啟動、日常本地操作、API + Dashboard、Docker
 
 ---
 
-## 📑 目錄
+## 目錄
 
-- [1. 開機前檢查](#1-開機前檢查)
-- [2. 路線 A：只用 CLI 操作](#2-路線-a只用-cli-操作)
-  - [2.1 查資料](#21-查資料)
-  - [2.1A 跑一輪 autonomous 值班判斷](#21a-跑一輪-autonomous-值班判斷)
-  - [2.2 跑短區間模擬](#22-跑短區間模擬)
-  - [2.3 跑短區間回測](#23-跑短區間回測)
-- [3. 路線 B：本地 API + Dashboard](#3-路線-b本地-api-dashboard)
-  - [3.1 啟動 API](#31-啟動-api)
-  - [3.2 啟動 Dashboard](#32-啟動-dashboard)
-  - [3.3 關閉本地 API + Dashboard](#33-關閉本地-api-dashboard)
-- [4. 路線 C：Docker API + Dashboard](#4-路線-cdocker-api-dashboard)
-  - [4.1 建置](#41-建置)
-  - [4.2 啟動核心服務](#42-啟動核心服務)
-  - [4.3 跑 Docker CLI 任務](#43-跑-docker-cli-任務)
-  - [4.4 關閉 Docker](#44-關閉-docker)
-- [5. Testnet 交易開機](#5-testnet-交易開機)
-- [6. Live 交易前禁止跳過的檢查](#6-live-交易前禁止跳過的檢查)
-- [7. 常見關機與清理](#7-常見關機與清理)
-  - [停止本地 uvicorn](#停止本地-uvicorn)
-  - [停止卡住的 uvicorn 程序](#停止卡住的-uvicorn-程序)
-  - [停止 Docker](#停止-docker)
-  - [檢查 Git 狀態](#檢查-git-狀態)
-- [8. 與其他手冊的關係](#8-與其他手冊的關係)
+1. [開機前檢查](#1-開機前檢查)
+2. [路線 A：只用 CLI](#2-路線-a只用-cli)
+3. [路線 B：本地 API + Dashboard](#3-路線-b本地-api--dashboard)
+4. [路線 C：Docker](#4-路線-cdocker)
+5. [交易相關開機](#5-交易相關開機)
+6. [Live 前禁止跳過的檢查](#6-live-前禁止跳過的檢查)
+7. [關機與清理](#7-關機與清理)
+8. [相關手冊](#8-相關手冊)
 
 ---
 
 ## 1. 開機前檢查
 
-### 1.1 四種啟動入口的差異
+### 1.1 四種啟動入口（介面層）
+
+本節的「路線 A/B/C」指**操作介面**，與下方 §1.2 的 `trade` / `autonomous` **執行主線**不同。
 
 | 入口 | 指令 | 使用情境 | 注意事項 |
-|---|---|---|---|
-| CLI | `python main.py <command>` | 單次任務、回測、simulate、paper-live、readiness gate、chat | 不需要常駐服務，最適合確認單一功能是否實際跑完 |
-| API | `python -m uvicorn bioneuronai.api.app:app --host 127.0.0.1 --port 8000` | UI 後端、外部自動化、Swagger 操作 | UI 的所有資料都依賴 API；API 未啟動會導致 `Failed to fetch` |
-| UI | `cd frontend/devops-d; npm run dev` | Operations Dashboard 人工操作與監控 | UI 不直接執行 AI；它透過 API 呼叫後端 |
-| Docker | `docker compose up api frontend` / `docker compose run --rm status` | 部署、重現環境、隔離依賴 | 本輪先不作主要驗證；本機功能收斂後最後重建 image |
+|------|------|----------|----------|
+| CLI | `python main.py <command>` | 單次任務、回測、simulate、paper-live、readiness-gate、chat | 不需常駐服務；最適合確認單一功能是否跑完 |
+| API | `python -m uvicorn bioneuronai.api.app:app --host 127.0.0.1 --port 8000` | UI 後端、Swagger、外部自動化 | UI 依賴 API；未啟動會 `Failed to fetch` |
+| UI | `cd frontend/devops-d; npm run dev` | Operations Dashboard | UI 不直接執行 AI；透過 API 呼叫後端 |
+| Docker | `docker compose up api frontend` | 部署、重現環境 | 本輪非主要驗證入口；本機收斂後再重建 image |
 
 更完整說明見 [../STARTUP_MODES.md](../STARTUP_MODES.md)。
 
-請先在專案根目錄確認本機全域 Python 3.13 與依賴：
+### 1.2 雙執行主線（交易層，必讀）
+
+即使都用 CLI，**`trade` 與 `autonomous` 是兩條不同路徑**，學習閉環與產物不同：
+
+| 維度 | 主線 A：`trade` | 主線 B：`autonomous` |
+|------|----------------|----------------------|
+| 典型指令 | `trade --paper-live` / `--testnet` / `--live` | `autonomous --mode advisor` / `paper_auto` |
+| 執行核心 | `TradingEngine` + WebSocket | `AutonomousOperator` 規劃迴圈 |
+| 長時間監控 | ✅ 預設用途 | 單輪預設；`--cycles N` 才持續迴圈 |
+| LoRA / EpisodicMemory | ✅（paper-live 平倉） | ❌ |
+| Decision Ledger | ❌ | ✅ `decision_ledger.jsonl` |
+
+**開機建議順序**：`status` →（可選）`autonomous --mode advisor` → 再決定是否 `trade --paper-live`。詳見 [04_CLI_OPERATION.md](04_CLI_OPERATION.md) §2、§7。
+
+### 1.3 環境與依賴
+
+在 repo 根目錄確認 Python 3.13 與依賴：
 
 ```powershell
 cd C:\D\E\BioNeuronai
@@ -59,7 +62,7 @@ python -m pip install -e .
 python -c "import torch; print(torch.__version__); print(torch.cuda.is_available())"
 ```
 
-本專案目前不使用專案內虛擬環境；第一次安裝成功後，後續啟動只需要檢查，不需要每次重新設定。PyTorch 2.8.0+cpu 是目前 Windows 本機已確認可 import 的 CPU 組合。
+本專案目前不使用專案內虛擬環境。`pyproject.toml` **沒有** `[rl]` optional extra；RL 訓練使用主依賴內 PyTorch，無需 `pip install -e ".[rl]"`。
 
 接著執行：
 
@@ -70,16 +73,21 @@ python main.py status
 
 成功標準：
 
-- `--help` 能列出 `status`、`news`、`plan`、`pretrade`、`simulate`、`backtest`、`trade`、`chat` 等命令。
-- `status` 顯示核心模組為 `[OK]`，API `/api/v1/status` 對應回傳 `ready: true`、`blocking: []`。
+- `--help` 列出 `status`、`news`、`plan`、`pretrade`、`autonomous`、`simulate`、`backtest`、`trade`、`readiness-gate`、`chat` 等命令。
+- `status` 顯示核心模組 `[OK]`。
+- 若 API 已啟動，`GET /api/v1/status` 應回傳 `ready: true`、`blocking: []`。
 
-如果要使用 Binance、pretrade、testnet 或 live trading，請先確認 `.env`：
+驗收層級定義見 [01_MANUAL_OPERATION_VERIFICATION_PLAN.md](01_MANUAL_OPERATION_VERIFICATION_PLAN.md) §4（Level 0～4）。
+
+### 1.4 環境變數
+
+日常不接交易所時只保留 `.env.example`。要使用 Binance、pretrade、testnet 或 live 時：
 
 ```powershell
 Copy-Item .env.example .env
 ```
 
-必要欄位：
+常用欄位：
 
 ```dotenv
 BINANCE_API_KEY=your_api_key
@@ -88,11 +96,13 @@ BINANCE_TESTNET=true
 ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5173,http://localhost:5176,http://127.0.0.1:5173,http://127.0.0.1:5176
 ```
 
+完整說明見 [17_ENVIRONMENT_VARIABLES.md](17_ENVIRONMENT_VARIABLES.md)。
+
 ---
 
-## 2. 路線 A：只用 CLI 操作
+## 2. 路線 A：只用 CLI
 
-這是最輕量的開機方式，不需要啟動長時間服務。
+最輕量開機方式，不需啟動長時間服務。對應驗收 **Level 0**（§1.3 連結）。
 
 ### 2.1 查資料
 
@@ -102,9 +112,9 @@ python main.py backtest-data --symbol BTCUSDT --interval 1h
 
 成功標準：能列出本地可用資料區間。
 
-### 2.1A 跑一輪 autonomous 值班判斷
+### 2.2 Autonomous 單輪值班（主線 B）
 
-如果今天的目標是先看系統會不會建議進一步操作，而不是直接啟動長時間監控：
+目標是「先看系統建議」，而非啟動長時間監控：
 
 ```powershell
 python main.py autonomous --mode advisor --symbol BTCUSDT --output output\autonomous_advisor.json
@@ -112,11 +122,14 @@ python main.py autonomous --mode advisor --symbol BTCUSDT --output output\autono
 
 成功標準：
 
-- 顯示 `candidates`、`plan_status`、`final_action`
-- 結果成功寫入 `output\autonomous_advisor.json`
-- 若 `final_action=advise_only` 或 `Pretrade=WAIT`，代表今天這輪先停在觀察
+- 終端顯示 `candidates`、`plan_status`、`plan_execution_ready`、`final_action`、`reasons`
+- 若有 pretrade 結果，終端印 **Pretrade** 區塊（JSON 欄位為 `pretrade_summary`）
+- `output\autonomous_advisor.json` 寫入成功
+- `data\bioneuronai\planning\autonomous\decision_ledger.jsonl` 追加一筆 `autonomous_cycle`
 
-### 2.2 跑短區間模擬
+若 `final_action` 為 `advise_only` / `observe`，或 pretrade 顯示 `WAIT` / `REJECT`，本輪應停在觀察，**不要**把這當成已啟動 `TradingEngine`。
+
+### 2.3 短區間模擬
 
 ```powershell
 python main.py simulate `
@@ -128,12 +141,9 @@ python main.py simulate `
   --end-date 2020-01-03
 ```
 
-成功標準：
+成功標準：CLI 印出餘額、PnL、Run ID；`backtest/runtime/<run_id>/` 產生目錄。
 
-- CLI 印出最終餘額、PnL、Run ID。
-- `backtest/runtime/<run_id>/` 產生 runtime 目錄。
-
-### 2.3 跑短區間回測
+### 2.4 短區間回測
 
 ```powershell
 python main.py backtest `
@@ -145,65 +155,44 @@ python main.py backtest `
   --warmup-bars 10
 ```
 
-成功標準：
-
-- CLI 印出總報酬率、夏普比率、最大回撤、勝率、交易次數。
-- `backtest/runtime/<run_id>/` 產生 runtime 目錄。
+成功標準：CLI 印出報酬率、夏普、回撤、勝率、交易次數；`backtest/runtime/<run_id>/` 產生目錄。
 
 ---
 
 ## 3. 路線 B：本地 API + Dashboard
 
-這是建議的日常操作路線。
+建議的日常操作路線。對應驗收 **Level 1**。
 
 ### 3.1 啟動 API
-
-在專案根目錄：
 
 ```powershell
 python -m uvicorn bioneuronai.api.app:app --host 127.0.0.1 --port 8000
 ```
 
-另開一個 PowerShell 驗證：
+另開 PowerShell 驗證：
 
 ```powershell
 Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/v1/status"
 Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/v1/backtest/catalog?symbol=BTCUSDT&interval=1h"
 ```
 
-成功標準：
-
-- `/api/v1/status` 回傳 `ready: true`、`blocking: []`。
-- `/api/v1/backtest/catalog` 回傳 `success: true` 並列出 dataset。
+成功標準：`ready: true`、`blocking: []`；catalog 回傳 `success: true`。
 
 ### 3.2 啟動 Dashboard
-
-另開 PowerShell：
 
 ```powershell
 cd C:\D\E\BioNeuronai\frontend\devops-d
 npm run dev
 ```
 
-瀏覽器開啟：
+瀏覽器開啟終端輸出的 URL（通常 `http://localhost:5173`；port 被占用時可能為 5174～5176）。請確認 `.env` 的 `ALLOWED_ORIGINS` 包含實際 origin。
 
-```text
-http://localhost:5173
-```
+成功標準：Dashboard 可開啟；Status 面板能取得後端狀態；API Playground 可呼叫 `/api/v1/status`。
 
-如果 Vite 顯示 5173 已被占用，會自動改用 5174、5175、5176 等下一個 port；此時以終端輸出的 URL 為準，並確認 `.env` 的 `ALLOWED_ORIGINS` 包含該 origin。
+### 3.3 關閉
 
-成功標準：
-
-- Dashboard 可開啟。
-- Status 面板能取得後端狀態。
-- API Playground 可呼叫 `/api/v1/status`。
-
-### 3.3 關閉本地 API + Dashboard
-
-- 在 API 終端按 `Ctrl+C`。
-- 在 Dashboard 終端按 `Ctrl+C`。
-- 若需要確認沒有殘留：
+- API / Dashboard 終端各按 `Ctrl+C`
+- 確認無殘留 uvicorn：
 
 ```powershell
 Get-CimInstance Win32_Process -Filter "name = 'python.exe'" |
@@ -213,44 +202,23 @@ Get-CimInstance Win32_Process -Filter "name = 'python.exe'" |
 
 ---
 
-## 4. 路線 C：Docker API + Dashboard
+## 4. 路線 C：Docker
 
-本輪調整期間先不使用 Docker 作為主要驗證入口。Docker image 會在本機自然語言、交易判斷、API/UI readiness 與文件收斂後最後重建；以下流程保留給後續部署或乾淨環境複驗。
+本輪非主要驗證入口；以下保留給部署或乾淨環境複驗。
 
-### 4.1 建置
+### 4.1 建置與啟動
 
 ```powershell
 docker compose build
-```
-
-### 4.2 啟動核心服務
-
-```powershell
 docker compose up api frontend
+# 或背景：docker compose up -d api frontend
 ```
 
-或背景執行：
+成功標準：`docker compose ps` 顯示 `api`、`frontend` 為 running / healthy。
 
-```powershell
-docker compose up -d api frontend
-```
+瀏覽器：`http://localhost:3000`、`http://localhost:8000/docs`
 
-成功標準：
-
-```powershell
-docker compose ps
-```
-
-應看到 `api` 與 `frontend` 為 running / healthy。
-
-瀏覽器：
-
-```text
-http://localhost:3000
-http://localhost:8000/docs
-```
-
-### 4.3 跑 Docker CLI 任務
+### 4.2 CLI 容器任務
 
 ```powershell
 docker compose run --rm status
@@ -258,47 +226,48 @@ docker compose run --rm simulate
 docker compose run --rm backtest
 ```
 
-成功標準：CLI 容器執行後正常退出，並印出結果。
-
-### 4.4 關閉 Docker
+### 4.3 關閉
 
 ```powershell
 docker compose down
 ```
 
-不要在一般情況使用：
-
-```powershell
-docker compose down -v
-```
-
-因為 `-v` 會刪除 volume，可能清掉資料。
+不要使用 `docker compose down -v`（會刪除 volume）。
 
 ---
 
-## 5. Testnet 交易開機
+## 5. 交易相關開機
 
-> 這一段只適用測試網，不代表可直接實盤。
+原則：**先 paper-live，再 testnet，最後 live**。完整細節見 [14_TESTNET_AND_LIVE_TRADING.md](14_TESTNET_AND_LIVE_TRADING.md)。
 
-確認 `.env`：
+### 5.1 Paper-live（主線 A，建議優先）
 
-```dotenv
-BINANCE_TESTNET=true
+不需 testnet 金鑰即可驗證引擎與學習閉環（行情用 mainnet public data，下單只進本地虛擬帳戶）：
+
+```powershell
+python main.py trade --symbol BTCUSDT --paper-live --paper-balance 10000
 ```
 
-啟動：
+成功標準：
+
+- `TradingEngine` 初始化；`ai_model_loaded=true`
+- log 目錄位於 `data/bioneuronai/trading/paper_live/`（啟動時 CLI 會印出）
+- 可用 `Ctrl+C` 停止
+- 平倉後可檢查 `data/bioneuronai/memory/`、`data/bioneuronai/learning/adaptive_hub.json`
+
+### 5.2 Testnet（主線 A）
+
+`.env` 設定 `BINANCE_TESTNET=true` 與 testnet 金鑰後：
 
 ```powershell
 python main.py trade --symbol BTCUSDT --testnet
 ```
 
-成功標準：
+成功標準：引擎初始化、能讀取價格或進入監控、`Ctrl+C` 可停止。對應驗收 **Level 3**。
 
-- TradingEngine 初始化。
-- 能讀取即時價格或進入監控。
-- 可用 `Ctrl+C` 停止。
+### 5.3 API 啟停交易（主線 A）
 
-若是 API 控制：
+需先啟動 API（§3.1）：
 
 ```powershell
 $body = @{
@@ -317,75 +286,70 @@ Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/v1/trade/status" -Method GET
 Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/v1/trade/stop" -Method POST
 ```
 
+Paper-live API 範例見 [14_TESTNET_AND_LIVE_TRADING.md](14_TESTNET_AND_LIVE_TRADING.md) §4。
+
+> **注意**：`autonomous` 不經 `/api/v1/trade/start`；它是獨立的 CLI 規劃入口（主線 B）。
+
 ---
 
-## 6. Live 交易前禁止跳過的檢查
+## 6. Live 前禁止跳過的檢查
 
-實盤前必須完成：
+實盤前必須完成（對應 [01_MANUAL_OPERATION_VERIFICATION_PLAN.md](01_MANUAL_OPERATION_VERIFICATION_PLAN.md) Level 0～2 與 Level 4 前置）：
 
-1. Level 0 到 Level 2 手冊驗收全部通過。
-2. Testnet 可啟動、可停止、沒有殘留背景程序。
-3. `pretrade` 能明確給出 PROCEED / CAUTION / REJECT。
-4. 已確認最大單筆風險、最大槓桿、最大回撤限制。
-5. 已跑指定長區間 OOS / walk-forward 回測。
-6. 人工確認 `.env` 使用正式網金鑰與正確 `BINANCE_TESTNET=false`。
-7. 若走 API / UI live 自動交易路線，後端必須設定 `ALLOW_LIVE_TRADING=1`，且請求必須提供 `confirm_live=I_UNDERSTAND_LIVE_RISK`。
+1. Level 0～2 手冊驗收通過（含短回測、API/UI、news/plan/pretrade）。
+2. **Paper-live** 已連續運行並檢查本地 paper log 符合預期。
+3. Testnet 可啟動、可停止、無殘留背景程序（Level 3）。
+4. `pretrade` 能明確給出 PROCEED / CAUTION / REJECT。
+5. 已確認最大單筆風險、槓桿、回撤限制（[11_RISK_MANAGEMENT.md](11_RISK_MANAGEMENT.md)）。
+6. 已跑指定長區間 OOS / walk-forward 回測。
+7. `.env` 使用正式網金鑰、`BINANCE_TESTNET=false`。
+8. API / UI live 路線：`ALLOW_LIVE_TRADING=1` 且 `confirm_live=I_UNDERSTAND_LIVE_RISK`。
 
-實盤啟動：
+CLI live：
 
 ```powershell
 python main.py trade --symbol BTCUSDT --live
 ```
 
-CLI 路線會要求輸入 `YES` 進行二次確認；API / UI 路線則由 `ALLOW_LIVE_TRADING=1` 與 `confirm_live=I_UNDERSTAND_LIVE_RISK` 雙重限制。
+CLI 會要求輸入 `YES` 二次確認。
 
 ---
 
-## 7. 常見關機與清理
+## 7. 關機與清理
 
-### 停止本地 uvicorn
+### 停止 CLI 交易 / autonomous
 
-在啟動終端按：
+在執行終端按 `Ctrl+C`。
 
-```text
-Ctrl+C
-```
-
-### 停止卡住的 uvicorn 程序
+### 停止卡住的 uvicorn
 
 ```powershell
 Get-CimInstance Win32_Process -Filter "name = 'python.exe'" |
-  Where-Object { $_.CommandLine -like '*uvicorn*bioneuronai.api.app*' } |
+  Where-Object { $_.CommandLine -like '*uvicorn*bioneuronai.api.app*' -or $_.CommandLine -like '*main.py trade*' } |
   ForEach-Object { Stop-Process -Id $_.ProcessId -Force }
 ```
 
-### 停止 Docker
-
-```powershell
-docker compose down
-```
-
 ### 檢查 Git 狀態
-
-實際操作可能產生 runtime 或更新資料庫。驗收後請檢查：
 
 ```powershell
 git status --short
 ```
 
-若出現 runtime、logs、DB 類變更，應判斷它是驗收產物還是應提交的文件/程式變更。
+runtime、ledger、logs 多為執行產物，見 [16_RUNTIME_ARTIFACTS.md](16_RUNTIME_ARTIFACTS.md)。
 
 ---
 
-## 8. 與其他手冊的關係
+## 8. 相關手冊
 
-| 想做的事 | 下一份手冊 |
-|---|---|
-| 看完整 CLI 操作 | `docs/manuals/04_CLI_OPERATION.md` |
-| 看 API 端點 | `docs/manuals/05_API_USER_MANUAL.md` |
-| 操作 Dashboard | `docs/manuals/06_FRONTEND_DASHBOARD.md` |
-| 用 Docker 部署 | `docs/manuals/07_DOCKER_DEPLOYMENT.md` |
-| 跑回測 | `docs/manuals/08_BACKTEST_SYSTEM.md` |
-| 跑策略比較 | `docs/manuals/10_STRATEGY_MODULE.md` |
-| 做新聞、計畫、pretrade | `docs/manuals/09_ANALYSIS_MODULE.md` |
-| 看整體驗收矩陣 | `docs/manuals/01_MANUAL_OPERATION_VERIFICATION_PLAN.md` |
+| 想做的事 | 手冊 |
+|----------|------|
+| 快速開始 | [03_QUICKSTART.md](03_QUICKSTART.md) |
+| 完整 CLI | [04_CLI_OPERATION.md](04_CLI_OPERATION.md) |
+| API 端點 | [05_API_USER_MANUAL.md](05_API_USER_MANUAL.md) |
+| Dashboard | [06_FRONTEND_DASHBOARD.md](06_FRONTEND_DASHBOARD.md) |
+| Docker | [07_DOCKER_DEPLOYMENT.md](07_DOCKER_DEPLOYMENT.md) |
+| 回測 | [08_BACKTEST_SYSTEM.md](08_BACKTEST_SYSTEM.md) |
+| news / plan / pretrade | [09_ANALYSIS_MODULE.md](09_ANALYSIS_MODULE.md) |
+| testnet / live / autonomous | [14_TESTNET_AND_LIVE_TRADING.md](14_TESTNET_AND_LIVE_TRADING.md) |
+| 產物路徑 | [16_RUNTIME_ARTIFACTS.md](16_RUNTIME_ARTIFACTS.md) |
+| 驗收矩陣 | [01_MANUAL_OPERATION_VERIFICATION_PLAN.md](01_MANUAL_OPERATION_VERIFICATION_PLAN.md) |

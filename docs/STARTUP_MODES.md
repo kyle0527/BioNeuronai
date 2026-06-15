@@ -1,6 +1,8 @@
 # BioNeuronAI 啟動方式差異
 
-> 更新日期：2026-06-03
+> **套件版本**：v2.1
+> **更新日期**：2026-06-15
+> **現況權威**：[`PROJECT_STATUS.md`](PROJECT_STATUS.md)
 > 目的：釐清 CLI、API、UI、Docker 四種入口，以及 AI 自主運作模式（新增）在實際操作與功能上的差異。
 
 ## 1. CLI
@@ -84,9 +86,11 @@ python main.py autonomous --mode paper_auto --symbol BTCUSDT
 - 輸出 `advise_only`、`observe` 或更進一步動作
 - 寫入 decision ledger
 
-它會結束，不會自己長時間監控。
+它會結束，不會自己長時間監控。學習閉環：**無** LoRA；產物為 `decision_ledger.jsonl`。
 
-### 5.2 `trade` 長時間監控主線
+**執行層（2026-06-15）**：`--execute-paper` 優先採 pretrade `quantity`；已有持倉跳過進場；平倉回填 calibrator。詳見 [`manuals/04_CLI_OPERATION.md`](manuals/04_CLI_OPERATION.md) §2。
+
+### 5.2 `trade` 長時間監控主線（主線 A）
 
 > 2026-06-03 驗證確認；這是 BioNeuronAI 真正持續運作的主線。
 

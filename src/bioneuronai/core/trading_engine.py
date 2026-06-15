@@ -1,5 +1,5 @@
 """
- - 
+ -
 
 """
 
@@ -152,7 +152,7 @@ except ImportError:
     _get_news_adapter = None  # type: ignore
     NEWS_ADAPTER_AVAILABLE = False
 
-#  AI 
+#  AI
 try:
     from .inference_engine import (
         InferenceEngine,
@@ -185,31 +185,31 @@ except ImportError:
 
 class TradingEngine:
     """
-     - 
-    
-    
-    - API 
-    - 
-    - 
-    - 
-    - AI 
-    - 
+     -
+
+
+    - API
+    -
+    -
+    -
+    - AI
+    -
     """
-    
+
     def __init__(
         self,
         api_key: str = "",
         api_secret: str = "",
         testnet: bool = True,
         strategy_type: str = "fusion",
-        use_strategy_fusion: bool = True,  # 
+        use_strategy_fusion: bool = True,  #
         risk_config_path: Optional[str] = None,
-        enable_ai_model: bool = True,       #  AI 
-        ai_min_confidence: float = 0.5,     # AI 
+        enable_ai_model: bool = True,       #  AI
+        ai_min_confidence: float = 0.5,     # AI
         paper_trading: bool = False,
         paper_initial_balance: float = 10000.0,
     ) -> None:
-        # 
+        #
         self.paper_trading = paper_trading
         if paper_trading:
             self.connector = PaperBinanceFuturesConnector(
@@ -225,7 +225,7 @@ class TradingEngine:
         self.strategy_type = str(strategy_type or "fusion").strip().lower()
         self.enable_phase_router = self.strategy_type == "phase_router"
         self.enable_rl_meta_agent = self.strategy_type == "rl_fusion"
-        
+
         # 正式策略主線：StrategySelector + AIStrategyFusion
         if not STRATEGY_SELECTOR_AVAILABLE or StrategySelector is None:
             raise ImportError("StrategySelector 不可用，無法初始化正式策略主線")
@@ -234,7 +234,7 @@ class TradingEngine:
             timeframe="1m",
             enable_ai_fusion=use_strategy_fusion or strategy_type == "fusion",
         )
-        
+
         # 載入固化後的黃金策略配置 (整合後的策略)
         if self.strategy.load_golden_profile():
             logger.info("✨ TradingEngine 已成功載入整合後的黃金策略配置")
@@ -256,7 +256,7 @@ class TradingEngine:
                 raise RuntimeError(f"PhaseRouter 初始化失敗: {e}") from e
 
         self.rl_meta_agent: Optional[Any] = None
-        
+
         self.cost_calculator = TradingCostCalculator(
             vip_level=0,
             use_bnb=False,
@@ -268,10 +268,10 @@ class TradingEngine:
         self.is_monitoring = False
         self.positions: List[Position] = []
         self.signals_history: List[TradingSignal] = []
-        
+
         # 持倉數據與歷史
         self.max_position_size = 0.01  # 最大持倉大小
-        
+
         # 數據存儲目錄與數據庫 — 以本檔案位置為錨點，確保 Docker 路徑正確
         # trading_engine.py 位於 src/bioneuronai/core/，4 層 parent = 專案根目錄
         _project_root = Path(__file__).parent.parent.parent.parent
@@ -279,19 +279,19 @@ class TradingEngine:
         self.data_dir.mkdir(parents=True, exist_ok=True)
         if self.enable_rl_meta_agent:
             self.rl_meta_agent = self._initialize_rl_meta_agent()
-        
+
         # 初始化數據庫管理器
         self.db_manager: DatabaseManager = get_database_manager(
             db_path=str(self.data_dir / "trading.db")
         )
         logger.info("✅ 數據庫管理器已初始化")
-        
+
         # ========== AI 模型引擎 ==========
         self.inference_engine: Optional["InferenceEngine"] = None
         self.enable_ai_model: bool = enable_ai_model
         self.ai_min_confidence: float = ai_min_confidence
         self.ai_model_loaded = False
-        
+
         if enable_ai_model and (not INFERENCE_ENGINE_AVAILABLE or InferenceEngine is None):
             raise ImportError("AI Inference Engine 不可用，無法啟用 AI 模型交易")
 
@@ -299,18 +299,18 @@ class TradingEngine:
             try:
                 self.inference_engine = InferenceEngine(
                     min_confidence=ai_min_confidence,
-                    warmup=False  # 
+                    warmup=False  #
                 )
                 logger.info("[AI] AI Inference Engine initialized (model pending load)")
             except Exception as e:
                 raise RuntimeError(f"AI Inference Engine initialization failed: {e}") from e
-        
+
         # ==========  ==========
         self.market_data_processor = None
         self.regime_detector = None
         self.volume_profile_calculator = None
         self.liquidation_calculator = None
-        
+
         if FEATURE_MODULES_AVAILABLE:
             try:
                 assert MarketDataProcessor is not None
@@ -324,12 +324,12 @@ class TradingEngine:
                 logger.info(" ")
             except Exception as e:
                 logger.warning(f" : {e}")
-        
+
         # K
         self._klines_cache: Dict[str, List[Dict]] = {}
         self._klines_last_update: Dict[str, float] = {}
-        
-        # 
+
+        #
         self.news_analyzer: Optional[CryptoNewsAnalyzer] = None
         self.enable_news_analysis = True
         if NEWS_ANALYZER_AVAILABLE and _get_news_analyzer is not None:
@@ -338,7 +338,7 @@ class TradingEngine:
                 logger.info(" ")
             except Exception as e:
                 logger.warning(f" : {e}")
-        
+
         # RAG 交易前檢查系統
         self.news_checker = None
         self.enable_rag_news_check = True  #
@@ -423,28 +423,28 @@ class TradingEngine:
             return agent
         except Exception as e:
             raise RuntimeError(f"RL Meta-Agent 初始化失敗: {e}") from e
-    
+
     # ========== AI  ==========
-    
+
     def load_ai_model(self, model_name: str = "my_100m_model", warmup: bool = True) -> bool:
-        """ AI 
-        
+        """ AI
+
         Args:
-            model_name: 
-            warmup: 
+            model_name:
+            warmup:
         """
         if not self.inference_engine:
             logger.error(" AI ")
             return False
-        
+
         try:
             logger.info(f"[AI] Loading AI model: {model_name}...")
             self.inference_engine.load_model(model_name)
-            
+
             if warmup:
                 logger.info(" ...")
                 self.inference_engine.model_loader.warmup()
-            
+
             self.ai_model_loaded = True
             logger.info(" AI ")
 
@@ -463,41 +463,41 @@ class TradingEngine:
                     logger.warning("LoRA 在線學習器初始化失敗（非致命）: %s", _le)
 
             return True
-            
+
         except FileNotFoundError:
             logger.error(f" : model/{model_name}.pth")
             return False
         except Exception as e:
             logger.error(f" AI : {e}")
             return False
-    
+
     def get_ai_prediction(self, symbol: str) -> Optional["AITradingSignal"]:
         """ AI 獲取交易信號 - 重構降低複雜度
-        
+
         複雜度降低策略：Extract Method 分離數據收集和處理
-        
+
         Args:
             symbol: 交易對符號，必填參數以支持任意幣種
-            
+
         Returns:
             AI 交易信號或 None
         """
         if not self.ai_model_loaded or not self.inference_engine:
             return None
-        
+
         try:
             # 獲取 K 線數據
             klines = self._get_klines(symbol)
             if not klines or len(klines) < 50:
                 logger.warning(f"K: {len(klines) if klines else 0} ")
                 return None
-            
+
             current_price = float(klines[-1].get('close', klines[-1].get('c', 0)))
-            
+
             # 收集輔助數據 (Extract Method)
             microstructure: Optional[MarketMicrostructure] = self._collect_market_microstructure(symbol, current_price)
             regime_analysis: Optional[RegimeAnalysis] = self._collect_regime_analysis(symbol, klines)
-            
+
             # 調用 AI 引擎預測
             ai_signal: AITradingSignal = self.inference_engine.predict(
                 symbol=symbol,
@@ -508,22 +508,22 @@ class TradingEngine:
                 liquidation_heatmap=None,
                 regime_analysis=regime_analysis
             )
-            
+
             return ai_signal
-            
+
         except Exception as e:
             logger.error(f"AI : {e}")
             return None
-    
+
     def _collect_market_microstructure(
-        self, 
-        symbol: str, 
+        self,
+        symbol: str,
         current_price: float
     ) -> Optional[MarketMicrostructure]:
         """收集市場微觀結構數據"""
         if not self.market_data_processor:
             return None
-        
+
         try:
             order_book_raw = self.connector.get_order_book(symbol, limit=20)
             book_ticker = self.connector.get_book_ticker(symbol)
@@ -531,13 +531,15 @@ class TradingEngine:
             funding_info = self.connector.get_funding_info(symbol)
             funding_history = self.connector.get_funding_rate(symbol)
             oi_raw = self.connector.get_open_interest(symbol)
-            
+            leverage_brackets = self.connector.get_leverage_brackets(symbol)
+
             return self.market_data_processor.build_market_microstructure(
                 symbol=symbol,
                 current_price=current_price,
                 order_book=self._adapt_order_book(order_book_raw, book_ticker),
                 funding_data=self._adapt_funding_data(premium_index, funding_info, funding_history),
                 oi_data=self._adapt_open_interest(oi_raw),
+                leverage_brackets=leverage_brackets
             )
         except Exception as e:
             logger.debug(f": {e}")
@@ -623,19 +625,19 @@ class TradingEngine:
         if open_interest <= 0:
             return None
         return _OpenInterestAdapter(open_interest=open_interest)
-    
+
     def _collect_regime_analysis(self, symbol: str, klines: List) -> Optional[RegimeAnalysis]:
         """收集市場環境分析"""
         if not self.regime_detector:
             return None
-        
+
         try:
             # 提取 OHLCV 數據
             closes: List[float] = [float(k.get('close', k.get('c', 0))) for k in klines]
             highs: List[float] = [float(k.get('high', k.get('h', 0))) for k in klines]
             lows: List[float] = [float(k.get('low', k.get('l', 0))) for k in klines]
             volumes: List[float] = [float(k.get('volume', k.get('v', 0))) for k in klines]
-            
+
             # 批量更新歷史數據（避免逐筆迴圈）
             self.regime_detector.bulk_update_data(
                 symbol=symbol,
@@ -644,22 +646,22 @@ class TradingEngine:
                 lows=lows,
                 volumes=volumes
             )
-            
+
             return self.regime_detector.detect_regime(symbol=symbol)
         except Exception as e:
             logger.debug(f": {e}")
             return None
-    
+
     def _get_klines(self, symbol: str, interval: str = "1m", limit: int = 100) -> List:
         """獲取 K 線數據（Binance 返回 List[List] 格式）"""
         cache_key: str = f"{symbol}_{interval}"
         current_time: float = time.time()
-        
+
         #  (30)
-        if (cache_key in self._klines_cache and 
+        if (cache_key in self._klines_cache and
             current_time - self._klines_last_update.get(cache_key, 0) < 30):
             return self._klines_cache[cache_key]
-        
+
         try:
             klines = self.connector.get_klines(symbol, interval, limit)
             if klines:
@@ -672,7 +674,7 @@ class TradingEngine:
         except Exception as e:
             logger.error(f" K : {e}")
             return self._klines_cache.get(cache_key, [])
-    
+
     def _convert_klines_to_dict(self, klines: List[List]) -> List[Dict]:
         """將 Binance K 線數據從 List[List] 轉換為 List[Dict]"""
         result = []
@@ -693,13 +695,13 @@ class TradingEngine:
                     'v': k[5]
                 })
         return result
-    
+
     def toggle_ai_model(self) -> None:
         """ AI """
         self.enable_ai_model = not self.enable_ai_model
         status: str = "[GREEN] " if self.enable_ai_model else " "
         logger.info(f"[AI] AI : {status}")
-    
+
     def get_ai_status(self) -> Dict:
         """ AI """
         status = {
@@ -708,71 +710,71 @@ class TradingEngine:
             "model_loaded": self.ai_model_loaded,
             "min_confidence": self.ai_min_confidence,
         }
-        
+
         if self.inference_engine and self.ai_model_loaded:
             status.update(self.inference_engine.get_stats())
-        
+
         return status
-    
+
     def get_real_time_price(self, symbol: str) -> Optional[MarketData]:
         """獲取實時價格數據
-        
+
         Args:
             symbol: 交易對符號 (例: BTCUSDT, ETHUSDT)
-        
+
         Returns:
             市場數據或 None
         """
         return self.connector.get_ticker_price(symbol)
-    
+
     def start_monitoring(self, symbol: str) -> None:
         """開始監控指定交易對
-        
+
         Args:
             symbol: 交易對符號 (例: BTCUSDT, ETHUSDT, SOLUSDT)
         """
         if self.is_monitoring:
             logger.warning("已在監控中，請先停止現有監控")
             return
-        
+
         self.is_monitoring = True
-        
-        # RAG 
+
+        # RAG
         if self.enable_rag_news_check and self.news_checker:
             self._check_breaking_news_before_start(symbol)
             if not self.is_monitoring:
                 logger.warning("新聞風險檢查未通過，已停止監控啟動流程")
                 return
-        
-        # 
+
+        #
         if self.enable_news_analysis and self.news_analyzer:
             self._show_news_analysis(symbol)
-        
-        # 
+
+        #
         account_info = self.connector.get_account_info()
         if account_info:
             initial_balance = float(account_info.get('totalWalletBalance', 0))
             self.risk_manager.update_balance(initial_balance)
             logger.info(f" : ${initial_balance:,.2f}")
-        
+
         def on_ticker_update(data) -> None:
             """"""
             try:
                 if not self.is_monitoring:
                     return
-                
+
                 signal: Optional[TradingSignal] = self._process_market_data(data, symbol)
-                
+
                 if signal:
                     self._handle_trading_signal(signal)
-                    
+
             except Exception as e:
                 logger.error(f": {e}", exc_info=True)
-        
-        #  WebSocket 
+
+        #  WebSocket
         logger.info(f"   {symbol} ...")
         self.connector.subscribe_ticker_stream(symbol.lower(), on_ticker_update, auto_reconnect=True)
-    
+
     def _process_market_data(self, data: Dict, symbol: str) -> Optional[TradingSignal]:
         """"""
         try:
@@ -812,14 +814,14 @@ class TradingEngine:
                 event_score=event_score,
                 event_context=event_context,
             )
-            
+
             if final_signal:
                 self.signals_history.append(final_signal)
                 self._display_signal_info(final_signal, current_price)
                 return final_signal
-            
+
             return None
-            
+
         except Exception as e:
             logger.error(f": {e}")
             return None
@@ -912,9 +914,9 @@ class TradingEngine:
             direction = "NEUTRAL"
             if hasattr(final_signal, "signal_type"):
                 st = final_signal.signal_type
-                if st in (SignalType.STRONG_BUY, SignalType.BUY, SignalType.WEAK_BUY):
+                if st == SignalType.BUY:
                     direction = "LONG"
-                elif st in (SignalType.STRONG_SELL, SignalType.SELL, SignalType.WEAK_SELL):
+                elif st == SignalType.SELL:
                     direction = "SHORT"
 
             import torch
@@ -1401,7 +1403,7 @@ class TradingEngine:
         if signal_type == TradeSignalType.SELL:
             return target_price < entry_price
         return False
-    
+
     # ------------------------------------------------------------------
     # 多模態動態融合權重 (strategy, ai_inference, news)
     # 三者加總 = 1.0，依市場 regime 自動切換
@@ -1468,10 +1470,10 @@ class TradingEngine:
             )
 
         return None
-    
+
     def _create_strategy_only_signal(
-        self, 
-        strategy_signal, 
+        self,
+        strategy_signal,
         symbol: str
     ) -> Optional[TradingSignal]:
         """創建僅含策略信號的交易信號"""
@@ -1480,7 +1482,7 @@ class TradingEngine:
 
         if not hasattr(strategy_signal, 'signal_type'):
             return None
-        
+
         return TradingSignal(
             signal_type=strategy_signal.signal_type,
             symbol=getattr(strategy_signal, 'symbol', symbol),
@@ -1496,7 +1498,7 @@ class TradingEngine:
             metadata=getattr(strategy_signal, 'metadata', None),
             timestamp=datetime.now()
         )
-    
+
     def _fuse_both_signals(
         self,
         ai_signal: "AITradingSignal",
@@ -1522,7 +1524,7 @@ class TradingEngine:
             ai_signal, strategy_signal, symbol, current_price,
             ai_action, strategy_action, weights, news_score
         )
-    
+
     def _create_enhanced_signal(
         self,
         ai_signal: "AITradingSignal",
@@ -1545,7 +1547,7 @@ class TradingEngine:
         )
         # 一致信號給予小幅加成，上限 0.95
         enhanced_confidence: float = min(0.95, weighted_confidence + 0.05)
-        
+
         return TradingSignal(
             symbol=symbol,
             signal_type=TradeSignalType(action.lower()),
@@ -1559,16 +1561,16 @@ class TradingEngine:
                 self._is_valid_target_price(TradeSignalType(action.lower()), current_price, ai_signal.suggested_take_profit)
                 else getattr(strategy_signal, 'target_price', None)
             ),
-            stop_loss=ai_signal.suggested_stop_loss if ai_signal.suggested_stop_loss > 0 
+            stop_loss=ai_signal.suggested_stop_loss if ai_signal.suggested_stop_loss > 0
                       else getattr(strategy_signal, 'stop_loss', None),
-            take_profit=ai_signal.suggested_take_profit if ai_signal.suggested_take_profit > 0 
+            take_profit=ai_signal.suggested_take_profit if ai_signal.suggested_take_profit > 0
                         else getattr(strategy_signal, 'take_profit', None),
             position_size=ai_signal.suggested_position_size or getattr(strategy_signal, 'position_size', None),
             indicators=getattr(strategy_signal, 'indicators', None),
             metadata={"source": "ai_strategy_fusion"},
             timestamp=datetime.now()
         )
-    
+
     def _resolve_conflicting_signals(
         self,
         ai_signal: "AITradingSignal",
@@ -1612,33 +1614,33 @@ class TradingEngine:
             )
 
         return None
-    
+
     def _get_ai_action(self, ai_signal: "AITradingSignal") -> str:
         """ AI """
         if not INFERENCE_ENGINE_AVAILABLE:
             return "HOLD"
-        
+
         from .inference_engine import SignalType
-        
+
         long_signals: List[SignalType] = [SignalType.STRONG_LONG, SignalType.LONG, SignalType.WEAK_LONG]
         short_signals: List[SignalType] = [SignalType.STRONG_SHORT, SignalType.SHORT, SignalType.WEAK_SHORT]
-        
+
         if ai_signal.signal_type in long_signals:
             return "BUY"
         elif ai_signal.signal_type in short_signals:
             return "SELL"
         else:
             return "HOLD"
-    
+
     def _convert_ai_signal_to_trading_signal(
-        self, 
+        self,
         ai_signal: "AITradingSignal",
         symbol: str,
         current_price: float
     ) -> TradingSignal:
         """ AI 信號轉換為 TradingSignal """
         action: str = self._get_ai_action(ai_signal)
-        
+
         return TradingSignal(
             symbol=symbol,
             signal_type=TradeSignalType(action.lower()),
@@ -1659,7 +1661,7 @@ class TradingEngine:
             metadata={"source": "ai_inference"},
             timestamp=datetime.now()
         )
-    
+
     def _display_ai_signal(self, ai_signal: "AITradingSignal", current_price: float) -> None:
         """ AI """
         logger.info(f"🤖 AI : {ai_signal}")
@@ -1671,71 +1673,71 @@ class TradingEngine:
             tp_pct: float = abs(ai_signal.suggested_take_profit - current_price) / current_price * 100
             logger.info(f"   : {sl_pct:.1f}% | : {tp_pct:.1f}% | "
                        f"RR: {ai_signal.risk_reward_ratio:.2f}")
-    
+
     def _display_signal_info(self, signal: TradingSignal, current_price: float) -> None:
         """"""
         action_emoji: Dict[str, str] = {"BUY": "[GREEN]", "SELL": "", "HOLD": ""}
         emoji: str = action_emoji.get(signal.action, "")
-        
+
         logger.info(f"{emoji} {signal.symbol}: ${current_price:,.2f} | "
                    f": {signal.action} (: {signal.confidence:.2%})")
-        
-        # 
+
+        #
         if hasattr(self.strategy, 'weights'):
-            weights_str: str = " | ".join([f"{k.split('_')[0][:3]}:{v:.2f}" 
+            weights_str: str = " | ".join([f"{k.split('_')[0][:3]}:{v:.2f}"
                                      for k, v in getattr(self.strategy, 'weights', {}).items()])
             logger.info(f"     : {weights_str}")
-        
+
         reason = signal.reason or ""
         logger.info(f"    {reason[:100]}...")
-    
+
     def _handle_trading_signal(self, signal: TradingSignal) -> None:
         """"""
         if signal.action == "HOLD":
             return
-        
+
         if not self.auto_trade:
             return
-        
-        # 
+
+        #
         account_info = self.connector.get_account_info()
         if not account_info:
             logger.error(" ")
             return
-        
+
         account_balance = float(account_info.get('totalWalletBalance', 0))
-        
+
         can_trade, reason = self.risk_manager.check_can_trade(
-            signal.confidence, 
+            signal.confidence,
             account_balance
         )
-        
+
         if can_trade:
             logger.info(" ")
             self.execute_trade(signal)
         else:
             logger.warning(f" : {reason}")
-    
+
     def execute_trade(self, signal: TradingSignal) -> None:
         """執行交易 - 主流程
-        
+
         根據修復指南降低認知複雜度：將複雜邏輯拆分為多個輔助函數
         """
         try:
             # 1. 新聞風險檢查
             if not self._check_news_risk(signal.symbol):
                 return
-            
+
             # 2. 獲取賬戶信息
             account_balance: Optional[float] = self._get_account_balance()
             if account_balance is None:
                 return
-            
+
             # 3. 獲取當前價格
             current_price: Optional[float] = self._get_current_price(signal)
             if current_price is None or current_price <= 0:
                 return
-            
+
             # 4. 計算倉位大小
             position_size: Optional[float] = self._calculate_position_size(
                 account_balance, current_price, signal.stop_loss
@@ -1756,8 +1758,8 @@ class TradingEngine:
 
             # 5. 顯示交易信息
             self._display_trade_info(signal, position_size, current_price)
-            
-            # 
+
+            #
             order_result: Optional[OrderResult] = self.connector.place_order(
                 symbol=signal.symbol,
                 side="BUY" if signal.action == "BUY" else "SELL",
@@ -1766,9 +1768,9 @@ class TradingEngine:
                 stop_loss=signal.stop_loss,
                 take_profit=signal.take_profit
             )
-            
+
             if order_result and order_result.status != "ERROR":
-                # 
+                #
                 trade_info = {
                     'symbol': signal.symbol,
                     'side': signal.action,
@@ -1778,7 +1780,7 @@ class TradingEngine:
                     'strategy': getattr(signal, 'strategy_name', 'Unknown'),
                     'order_id': order_result.order_id
                 }
-                
+
                 self.risk_manager.record_trade(trade_info)
                 self._save_trade_to_file(trade_info)
 
@@ -1796,17 +1798,18 @@ class TradingEngine:
                         )
                         logger.debug("[ActionRecord] T1 recorded | symbol=%s order=%s",
                                      signal.symbol, order_result.order_id)
+
                     except Exception as _e:
                         logger.debug("[ActionRecord] T1 記錄失敗（非致命）: %s", _e)
 
                 logger.info(f"  ID: {order_result.order_id}")
-                
+
             else:
                 logger.error(f" : {order_result.error if order_result else ''}")
-                
+
         except Exception as e:
             logger.error(f" : {e}", exc_info=True)
-    
+
     def notify_trade_closed(
         self,
         strategy_name: str,
@@ -1860,10 +1863,6 @@ class TradingEngine:
                         exit_reason=exit_reason,
                     )
                     experience = pending.to_experience_record()
-
-                    # 注入實際 USDT 損益（realized_pnl）
-                    if pending.actual_position_size > 0:
-                        experience.pnl_usd = realized_pnl  # type: ignore[attr-defined]
 
                     is_extreme = self.episodic_memory.push(experience)
                     realized_pnl_pct = experience.pnl_pct
@@ -1990,7 +1989,7 @@ class TradingEngine:
 
     def _check_news_risk(self, symbol: str) -> bool:
         """檢查新聞風險
-        
+
         Returns:
             True 如果可以交易，False 如果有新聞風險
         """
@@ -2042,7 +2041,7 @@ class TradingEngine:
                 "has_major_negative": False,
                 "summary": f"新聞評估例外: {e}",
             }
-    
+
     def _get_account_balance(self) -> Optional[float]:
         """獲取賬戶可用餘額
 
@@ -2060,7 +2059,7 @@ class TradingEngine:
         # 優先取 availableBalance；回退到 totalWalletBalance
         available = account_info.get('availableBalance') or account_info.get('totalWalletBalance', 0)
         return float(available)
-    
+
     def _get_current_price(self, signal: TradingSignal) -> Optional[float]:
         """獲取當前進場參考價格
 
@@ -2089,20 +2088,20 @@ class TradingEngine:
             return None
 
         return current_price
-    
+
     def _calculate_position_size(
-        self, 
-        account_balance: float, 
-        current_price: float, 
+        self,
+        account_balance: float,
+        current_price: float,
         stop_loss: Optional[float]
     ) -> Optional[float]:
         """計算倉位大小
-        
+
         Args:
             account_balance: 賬戶餘額
             current_price: 當前價格
             stop_loss: 止損價格
-            
+
         Returns:
             倉位大小，計算失敗返回 None
         """
@@ -2149,7 +2148,7 @@ class TradingEngine:
 
         return position_size
 
-    
+
     def _display_trade_info(self, signal: TradingSignal, quantity: float, current_price: float) -> None:
         """"""
         logger.info(" :")
@@ -2158,14 +2157,14 @@ class TradingEngine:
         logger.info(f"   : ${quantity * current_price:,.2f} USDT")
         logger.info(f"   : ${signal.stop_loss:,.2f}" if signal.stop_loss else "   : ")
         logger.info(f"   : ${signal.take_profit:,.2f}" if signal.take_profit else "   : ")
-    
+
     def _save_trade_to_file(self, trade_info: Dict) -> None:
         """保存交易記錄到數據庫（並備份到 JSONL）"""
         try:
             # 保存到數據庫
             trade_id: Optional[int] = self.db_manager.save_trade(trade_info)
             logger.info(f"💾 交易記錄已保存到數據庫: ID={trade_id}")
-            
+
             # 兼容性：同時保存到 JSONL（可選）
             trades_file: Path = self.data_dir / "trades_history.jsonl"
             with open(trades_file, 'a', encoding='utf-8') as f:
@@ -2174,19 +2173,19 @@ class TradingEngine:
                     'timestamp': datetime.now().isoformat()
                 }, f, ensure_ascii=False)
                 f.write('\\n')
-                
+
         except Exception as e:
             logger.error(f"保存交易記錄失敗: {e}")
-    
+
     def _show_news_analysis(self, symbol: str) -> None:
         """"""
         if not self.news_checker:
             return
-        
+
         print("\\n" + "=" * 60)
         print(" ")
         print("=" * 60)
-        
+
         try:
             assessment = self._assess_major_news(symbol)
             status = str(assessment.get("status", "ERROR"))
@@ -2204,25 +2203,25 @@ class TradingEngine:
                 print("⚠️ 偵測重大利空，建議暫停或降低倉位")
             else:
                 print("✅ 未偵測重大利空")
-            
+
             print("=" * 60 + "\\n")
-            
+
         except Exception as e:
             logger.warning(f": {e}")
-    
+
     def stop_monitoring(self) -> None:
         """"""
         self.is_monitoring = False
         self.connector.close_all_connections()
         logger.info(" ")
-    
+
     def get_news_summary(self, symbol: str) -> str:
         """
         獲取新聞摘要（支持任意幣種）
-        
+
         Args:
             symbol: 交易對符號 (例: BTCUSDT, ETHUSDT)
-        
+
         Returns:
             str: 新聞摘要文本
         """
@@ -2233,37 +2232,37 @@ class TradingEngine:
             return f"[{status}] {summary}"
         except (AttributeError, ValueError) as e:
             return f"[ERROR] {e}"
-    
+
     def set_news_analysis(self, enabled: bool) -> None:
         """"""
         self.enable_news_analysis = enabled
         logger.info(f"新聞分析 {'已啟用' if enabled else '已停用'}")
-    
+
     def save_signals_history(self, _filepath: str = "signals_history.json") -> None:
         """保存信號歷史（目前使用統一的 save_all_data）
-        
+
         Args:
             _filepath: 保留參數以保持 API 兼容性，實際使用 save_all_data()
         """
         self.save_all_data()
-    
+
     def enable_auto_trading(self) -> None:
         """"""
         self.auto_trade = True
         logger.info("🤖 ")
-    
+
     def disable_auto_trading(self) -> None:
         """"""
         self.auto_trade = False
         logger.info("⏸  ")
-    
+
     def _check_breaking_news_before_start(self, symbol: str) -> None:
         """開盤前突發新聞檢查（使用 PreTradeCheckSystem / RAG）"""
         try:
             logger.info(f"\n{'='*70}")
             logger.info("📰 檢查突發新聞中...")
             logger.info(f"{'='*70}")
-            
+
             assessment = self._assess_major_news(symbol)
             status = str(assessment.get("status", "ERROR"))
             summary = str(assessment.get("summary", ""))
@@ -2283,7 +2282,7 @@ class TradingEngine:
                 else:
                     logger.error("\n建議: 等待新聞風險降低後再交易")
                 logger.error(f"{'='*70}\n")
-                
+
                 if sys.stdin is not None and sys.stdin.isatty():
                     response: str = input("\n是否繼續監控? (yes/no): ")
                     if response.lower() in ['yes', 'y', '是']:
@@ -2297,40 +2296,40 @@ class TradingEngine:
                     logger.info("已停止監控")
                     self.is_monitoring = False
                     return
-            
+
             logger.info(f"{'='*70}\n")
-            
+
         except Exception as e:
             logger.error(f"RAG 新聞檢查失敗: {e}")
             if sys.stdin is None or not sys.stdin.isatty():
                 logger.error("非互動環境無法確認新聞檢查異常，保守停止監控")
                 self.is_monitoring = False
-    
+
     def toggle_rag_news_check(self) -> None:
         """ RAG """
         if not self.news_checker:
             logger.warning("RAG ")
             return
-        
+
         self.enable_rag_news_check = not self.enable_rag_news_check
         status: str = "[GREEN] " if self.enable_rag_news_check else " "
         logger.info(f"RAG : {status}")
-    
+
     def get_latest_news(self, hours: int = 6, max_articles: int = 10):
         """獲取最新加密貨幣新聞（使用 news_analyzer）"""
         if not self.news_analyzer:
             logger.warning("新聞分析器不可用")
             logger.info("提示: 確保 CryptoNewsAnalyzer 正確初始化")
             return []
-        
+
         try:
             # 使用 news_analyzer 的 analyze_news 方法
             result: NewsAnalysisResult = self.news_analyzer.analyze_news(symbol="BTCUSDT", hours=hours)
-            
+
             logger.info(f"\n{'='*70}")
             logger.info(f"📰 最近 {hours} 小時內的新聞分析")
             logger.info(f"{'='*70}\n")
-            
+
             if hasattr(result, 'articles') and result.articles:
                 for i, article in enumerate(result.articles[:max_articles], 1):
                     title: Any = getattr(article, 'title', 'Unknown')
@@ -2344,15 +2343,15 @@ class TradingEngine:
             else:
                 logger.info("未找到相關新聞")
                 return []
-            
+
         except Exception as e:
             logger.error(f"獲取新聞失敗: {e}")
             return []
-    
+
     def get_account_summary(self) -> Dict:
         """"""
         account_info = self.connector.get_account_info()
-        
+
         if not account_info:
             return {
                 "status": " ",
@@ -2360,14 +2359,14 @@ class TradingEngine:
                 "positions": [],
                 "risk_stats": self.risk_manager.get_risk_statistics()
             }
-        
+
         total_balance = float(account_info.get('totalWalletBalance', 0))
         available_balance = float(account_info.get('availableBalance', 0))
         total_unrealized_profit = float(account_info.get('totalUnrealizedProfit', 0))
-        
+
         positions = account_info.get('positions', [])
         active_positions = [p for p in positions if float(p.get('positionAmt', 0)) != 0]
-        
+
         return {
             "status": " ",
             "balance": total_balance,
@@ -2378,7 +2377,7 @@ class TradingEngine:
             "risk_stats": self.risk_manager.get_risk_statistics(),
             "strategy_weights": getattr(self.strategy, 'weights', {})
         }
-    
+
     def get_strategy_report(self) -> Dict:
         """"""
         if hasattr(self.strategy, 'get_performance_summary'):
@@ -2386,25 +2385,25 @@ class TradingEngine:
         if hasattr(self.strategy, 'get_strategy_report'):
             return self.strategy.get_strategy_report()
         return {"message": ""}
-    
+
     def save_all_data(self) -> None:
         """"""
         try:
-            # 
+            #
             history_data = []
             for signal in self.signals_history[-1000:]:
                 signal_dict = signal.model_dump()
                 if hasattr(signal.timestamp, 'isoformat'):
                     signal_dict['timestamp'] = signal.timestamp.isoformat()
                 history_data.append(signal_dict)
-            
+
             signals_path: Path = self.data_dir / "signals_history.json"
             with open(signals_path, 'w', encoding='utf-8') as f:
                 json.dump(history_data, f, indent=2, ensure_ascii=False)
-            
+
             logger.info(f" : {signals_path} ({len(history_data)} )")
-            
-            # 
+
+            #
             if hasattr(self.strategy, 'weights'):
                 weights_path: Path = self.data_dir / "strategy_weights.json"
                 with open(weights_path, 'w', encoding='utf-8') as f:
@@ -2416,7 +2415,7 @@ class TradingEngine:
                         'timestamp': datetime.now().isoformat()
                     }, f, indent=2, ensure_ascii=False)
                 logger.info(f"  : {weights_path}")
-            
+
             # 保存風險統計
             risk_stats_path: Path = self.data_dir / "risk_statistics.json"
             with open(risk_stats_path, 'w', encoding='utf-8') as f:
@@ -2425,7 +2424,7 @@ class TradingEngine:
                     'timestamp': datetime.now().isoformat()
                 }, f, indent=2, ensure_ascii=False)
             logger.info(f"風險統計已儲存: {risk_stats_path}")
-            
+
             # 保存風險配置 (使用風險參數)
             risk_config_path: Path = self.data_dir / "risk_config.json"
             with open(risk_config_path, 'w', encoding='utf-8') as f:
@@ -2442,7 +2441,7 @@ class TradingEngine:
                     'timestamp': datetime.now().isoformat()
                 }, f, indent=2, ensure_ascii=False)
             logger.info(f"風險配置已儲存: {risk_config_path}")
-            
+
         except Exception as e:
             logger.error(f": {e}", exc_info=True)
 
@@ -2462,3 +2461,8 @@ class TradingEngine:
 
 #
 CryptoFuturesTrader = TradingEngine
+
+
+# ════════════════════════════════════════════════════════════════════
+# 🚀 程式可運行與直接驗證原則 (CODE_FIX_GUIDE.md)
+# ════════════════════════════════════════════════════════════════════

@@ -1,13 +1,15 @@
 # 環境變數操作手冊
 
-> 範圍：使用者如何建立、檢查與理解 `.env`，不記錄任何真實密鑰。
-> 更新日期：2026-05-14
+> **套件版本**：v2.1
+> **範圍**：`.env.example` 與何時建立 `.env`（不記錄真實密鑰）
+> **更新日期**：2026-06-15
+> **現況權威**：[`../PROJECT_STATUS.md`](../PROJECT_STATUS.md)
 
 ---
 
 ## 📑 目錄
 
-- [1. 建立 .env](#1-建立-env)
+- [1. 預設只保留 .env.example](#1-預設只保留-envexample)
 - [2. 常用變數](#2-常用變數)
 - [3. Testnet 建議設定](#3-testnet-建議設定)
 - [4. Live 前確認](#4-live-前確認)
@@ -16,13 +18,17 @@
 
 ---
 
-## 1. 建立 `.env`
+## 1. 預設只保留 `.env.example`
+
+日常開發、閱讀手冊、執行不需要金鑰的 CLI 時，根目錄只保留 `.env.example`。
+
+只有要使用 Binance、CryptoPanic、GCP Secret Manager、testnet 或 live 交易時，才由範本建立正式 `.env`：
 
 ```powershell
 Copy-Item .env.example .env
 ```
 
-確認存在：
+確認 `.env` 已建立：
 
 ```powershell
 Test-Path .env
@@ -89,22 +95,23 @@ ALLOW_LIVE_TRADING=1
 - Futures 權限已開通。
 - 帳戶有可用餘額。
 - 已完成 testnet 與 pretrade 驗證。
-- 已完成 paper-live 長時間觀察；paper-live 不需要 `ALLOW_LIVE_TRADING=1`，因為不送真實訂單。
+- 已完成 **主線 A** `trade --paper-live` 長時間觀察；paper-live 不需要 `ALLOW_LIVE_TRADING=1`（不送真實訂單）。
+- **主線 B** `autonomous` 與 `ALLOW_LIVE_TRADING` 無關；B 線 v1 的 `testnet_auto`/`live_guarded` 不直接送單。
 - API / UI live 自動交易請求必須另外提供 `confirm_live=I_UNDERSTAND_LIVE_RISK`。
 
 ---
 
 ## 5. 安全檢查
 
-確認 `.env` 不會被提交：
+若已建立 `.env`，確認它不會被提交：
 
 ```powershell
 git check-ignore .env
 ```
 
-成功標準：輸出 `.env`。
+成功標準：輸出 `.env`。若尚未建立 `.env`，這一步可略過。
 
-只查看 `.env` 的 key 名稱，不印出值：
+若已建立 `.env`，只查看 key 名稱，不印出值：
 
 ```powershell
 Get-Content .env |

@@ -1,26 +1,53 @@
 # 測試網、Paper-live、Autonomous 與實盤交易操作手冊
 
-> 範圍：使用者如何啟動、停止、檢查與排查 `trade` 相關操作。  
-> 更新日期：2026-05-19
-> 原則：先 monitor/paper-live，再 testnet，最後才 live；未完成 readiness-gate、固定區間回測、pretrade、風控與長時間觀察前，不進 live。
+> **套件版本**：v2.1
+> **範圍**：使用者如何啟動、停止、檢查與排查 `trade` 與 `autonomous` 相關操作。
+> **更新日期**：2026-06-15
+> **現況權威**：[`../PROJECT_STATUS.md`](../PROJECT_STATUS.md)
+> **原則**：先 paper-live，再 testnet，最後才 live；未完成 readiness-gate、固定區間回測、pretrade、風控與長時間觀察前，不進 live。
 
 ---
 
-## 📑 目錄
+## 目錄
 
-- [1. 前置檢查](#1-前置檢查)
-- [2. Testnet 啟動](#2-testnet-啟動)
-- [3. Paper-live 啟動](#3-paper-live-啟動)
-- [4. Autonomous 單輪值班](#4-autonomous-單輪值班)
-- [5. API 啟停交易](#5-api-啟停交易)
-- [6. Live 前必做檢查](#6-live-前必做檢查)
-- [7. Live 啟動](#7-live-啟動)
-- [8. 緊急停止](#8-緊急停止)
-- [9. 常見問題](#9-常見問題)
+1. [雙執行主線（必讀）](#1-雙執行主線必讀)
+2. [前置檢查](#2-前置檢查)
+3. [Testnet 啟動](#3-testnet-啟動)
+4. [Paper-live 啟動](#4-paper-live-啟動)
+5. [Autonomous 值班](#5-autonomous-值班)
+6. [API 啟停交易](#6-api-啟停交易)
+7. [Live 前必做檢查](#7-live-前必做檢查)
+8. [Live 啟動](#8-live-啟動)
+9. [緊急停止](#9-緊急停止)
+10. [常見問題](#10-常見問題)
 
 ---
 
-## 1. 前置檢查
+## 1. 雙執行主線（必讀）
+
+本手冊涵蓋兩條**不同**的執行路徑，請勿混用驗收標準：
+
+| 維度 | 主線 A：`trade` | 主線 B：`autonomous` |
+|------|----------------|----------------------|
+| CLI 入口 | `python main.py trade ...` | `python main.py autonomous ...` |
+| 執行核心 | `TradingEngine` + WebSocket | `AutonomousOperator` 規劃迴圈 |
+| 長時間監控 | ✅ 預設用途 | ❌ 除非 `--cycles N` 定時迴圈 |
+| LoRA / EpisodicMemory | ✅（paper-live 平倉） | ❌ |
+| Decision Ledger | ❌ | ✅ `decision_ledger.jsonl` |
+| Paper 下單 | `--paper-live`（引擎內） | `--execute-paper`（獨立 paper 連接器） |
+
+**主線 B 執行層（2026-06-15）**：
+- `--execute-paper` **優先**採 pretrade `order_parameters.quantity`（× `risk_multiplier`）；無效時 fallback `--paper-notional-fraction`
+- 已有持倉時跳過進場（`paper_execution.skipped=true`，`reason=existing_position`）
+- 平倉回填 `confidence_calibrator.record_outcome_by_index()`
+- 卡單平倉：`--max-position-hold-cycles`；反思：`--reflect-every`（需 `--cycles >1`）；獨立 `python main.py reflect`
+- `testnet_auto` / `live_guarded` 模式 v1 **不直接送單**，僅標記需人工確認
+
+完整參數表見 [04_CLI_OPERATION.md](04_CLI_OPERATION.md) §5。
+
+---
+
+## 2. 前置檢查
 
 在專案根目錄：
 
@@ -34,7 +61,13 @@ python main.py backtest-data --symbol BTCUSDT --interval 1h
 - `status` 顯示核心模組 OK。
 - `backtest-data` 能列出本地歷史資料。
 
-確認 `.env` 存在：
+日常不接交易所時只保留 `.env.example`。要進行 testnet 或 live 驗證時，才由範本建立 `.env`：
+
+```powershell
+Copy-Item .env.example .env
+```
+
+確認 `.env` 已建立：
 
 ```powershell
 Test-Path .env
@@ -44,7 +77,7 @@ Test-Path .env
 
 ---
 
-## 2. Testnet 啟動
+## 3. Testnet 啟動
 
 `.env` 應設定：
 
@@ -68,7 +101,7 @@ python main.py trade --symbol BTCUSDT --testnet
 
 ---
 
-## 3. Paper-live 啟動
+## 4. Paper-live 啟動
 
 Paper-live 是目前建議的長時間觀察入口：行情使用 Binance mainnet public market data，但下單只進本地 `VirtualAccount`，不送出 Binance order API。
 
@@ -110,67 +143,66 @@ Invoke-RestMethod `
 
 ---
 
-## 4. Autonomous 單輪值班
+## 5. Autonomous 值班
 
-`autonomous` 和 `trade` 不是同一條路徑。
+`autonomous` 是**規劃與決策**入口，不是 `TradingEngine` 的替代品。日常建議：先跑 advisor 單輪，再依 `final_action` 決定是否進 `trade --paper-live` 或 `autonomous --execute-paper`。
 
-差別如下：
-
-| 入口 | 性質 | 作用 |
-|---|---|---|
-| `python main.py autonomous ...` | 單輪決策 | 跑一次 plan → pretrade → adaptation → ledger |
-| `python main.py trade ...` | 長時間監控 | 啟動 `TradingEngine`、即時價格、新聞護欄與持續觀察 |
-
-日常值班建議先做 autonomous，再決定要不要進 trade 主線。
-
-### Advisor 模式
+### Advisor 模式（預設，不送單）
 
 ```powershell
 python main.py autonomous --mode advisor --symbol BTCUSDT --output output\autonomous_advisor.json
 ```
 
-這一輪結束後要看：
+終端機輸出欄位（JSON 對應欄位見括號）：
 
 - `candidates`
-- `plan_status`
-- `plan_execution_ready`
-- `final_action`
-- `Pretrade`
-- `reasons`
+- `plan_status`、`plan_execution_ready`
+- `final_action`、`can_execute`、`risk_multiplier`、`confidence_floor`
+- `next_interval_minutes`、`reasons`（在 `adaptation` 內）
+- **Pretrade** 區塊（JSON：`pretrade_summary`，每 symbol 的 status / score）
 
-如果 `final_action=advise_only` 或 `Pretrade=WAIT`，就代表今天這輪應先停在觀察。
+若 `final_action` 為 `advise_only` / `observe`，或 pretrade 顯示 `WAIT` / `REJECT`，本輪應停在觀察。
 
 ### Paper-auto 模式
 
 ```powershell
+# 只決策、不送單
 python main.py autonomous --mode paper_auto --symbol BTCUSDT --output output\autonomous_paper_auto.json
-```
 
-這會再做一輪更接近執行前的判斷，但不一定真的送出 paper order。
-
-若你真的要允許它在條件通過時送出本機 paper order：
-
-```powershell
+# 條件通過且 adaptation 允許時，送本機 paper 單（需明確旗標）
 python main.py autonomous --mode paper_auto --symbol BTCUSDT --execute-paper --paper-balance 10000
+
+# 持續 N 輪（輪間隔由 next_interval_minutes 決定）
+python main.py autonomous --mode paper_auto --symbol BTCUSDT --execute-paper --cycles 24
 ```
 
-### Ledger
+送單後若有成交，終端機會印 **Paper Execution**（`paper_execution`：symbol、side、qty、`quantity_source`、order status）。驗收時確認 `quantity_source=pretrade_quantity`；若為 `notional_fraction` 表示 pretrade quantity 無效而 fallback。
 
-Autonomous 的決策紀錄預設會寫到：
+### Ledger 與 outcome
+
+預設路徑：
 
 ```text
 data\bioneuronai\planning\autonomous\decision_ledger.jsonl
 ```
 
-查看最近幾筆：
-
 ```powershell
 Get-Content data\bioneuronai\planning\autonomous\decision_ledger.jsonl -Tail 5
 ```
 
+每輪會 append `autonomous_cycle`；平倉結算後會 append `trade_outcome`（供 AdaptationController 讀取連敗/回撤規則）。
+
+自訂路徑：`--ledger-path <path>`。
+
+### 不建議的操作
+
+- 用 autonomous 結果驗證 LoRA 是否更新（LoRA 只走主線 A）
+- 同 symbol 同時跑 `trade --paper-live` 與 `autonomous --execute-paper` 而不檢查持倉
+- 假設 `testnet_auto` / `live_guarded` 會自動下單（v1 不送單）
+
 ---
 
-## 5. API 啟停交易
+## 6. API 啟停交易
 
 先啟動 API：
 
@@ -223,7 +255,7 @@ Invoke-RestMethod `
 
 ---
 
-## 6. Live 前必做檢查
+## 7. Live 前必做檢查
 
 Live 不是日常驗證入口。啟動前必須完成：
 
@@ -237,9 +269,9 @@ Live 不是日常驗證入口。啟動前必須完成：
 
 ---
 
-## 7. Live 啟動
+## 8. Live 啟動
 
-`.env` 應設定：
+Testnet 的 `.env` 應設定：
 
 ```dotenv
 BINANCE_TESTNET=false
@@ -274,7 +306,7 @@ CLI live 啟動仍需依 `main.py trade --live` 的互動確認流程；API / UI
 
 ---
 
-## 8. 緊急停止
+## 9. 緊急停止
 
 CLI 模式：
 
@@ -304,13 +336,16 @@ Get-CimInstance Win32_Process -Filter "name = 'python.exe'" |
 
 ---
 
-## 9. 常見問題
+## 10. 常見問題
 
 | 問題 | 可能原因 | 處理 |
 |---|---|---|
 | 無法讀取帳戶 | API key 錯誤、權限不足、testnet/mainnet 不一致 | 重新確認 `.env` 與 Binance 權限 |
 | `pretrade` 一直 REJECT | 餘額不足、風控條件不通過、新聞/RAG 風險 | 依 reject 理由處理，不要繞過 |
-| `autonomous` 有結果但沒有真的開始監控 | 正常；`autonomous` 本來就不是長時間監控入口 | 若要跑主功能，改用 `trade --paper-live` / `trade --testnet` |
+| `autonomous` 有結果但沒有真的開始監控 | 正常；單輪 advisor 不啟動 TradingEngine | 長時間監控用 `trade --paper-live`；定時規劃用 `--cycles N` |
+| autonomous paper 倉位與 pretrade 不符 | pretrade quantity 無效，fallback `notional_fraction` | 檢查 pretrade 輸出；確認 `quantity_source` |
+| 同 symbol 重複進場 | 2026-06-15 已跳過（`skipped=existing_position`） | 若仍發生，檢查是否雙主線並行於不同 connector |
+| `reflect` 樣本不足 | EpisodicMemory 空 | 先跑 `trade --paper-live` 累積平倉記錄 |
 | start 後無法再次 start | API 交易 task 已在運行 | 先呼叫 `/api/v1/trade/stop` |
 | paper-live 有訂單但 Binance 沒成交 | 正常；paper-live 只寫本地虛擬帳戶 | 查看 `data/bioneuronai/trading/paper_live/` |
 | testnet 可用但 live 不可用 | 正式期貨帳戶未開通或未入金 | 到 Binance 檢查 Futures 狀態 |

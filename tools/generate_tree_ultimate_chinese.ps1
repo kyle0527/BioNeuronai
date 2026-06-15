@@ -27,7 +27,7 @@ Write-Host "🚀 開始生成程式碼樹狀圖（終極整合版）..." -Foregr
 $excludeDirs = @(
     '.git', '__pycache__', '.mypy_cache', '.ruff_cache',
     'node_modules', '.venv', 'venv', 'env', '.env',
-    '.pytest_cache', '.tox', 'dist', 'build', 'target',
+    '.tox', 'dist', 'build', 'target',
     'bin', 'obj', '.egg-info', '.eggs', 'htmlcov',
     '.coverage', '.hypothesis', '.idea', '.vscode',
     'site-packages', '_backup', '_out', 'aiva_platform_integrated.egg-info'
@@ -76,9 +76,6 @@ $chineseComments = @{
     'exchange_client.py' = '交易所客戶端'
     'websocket_client.py' = 'WebSocket 客戶端'
     'market_keywords.json' = '市場關鍵字配置'
-    
-    # 測試檔案
-    'test_integration.py' = '整合測試'
     
     # 功能模組 - BioNeuronai 專案
     'neural_network.py' = '神經網路'

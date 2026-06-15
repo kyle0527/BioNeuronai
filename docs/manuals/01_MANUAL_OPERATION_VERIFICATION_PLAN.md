@@ -1,9 +1,10 @@
 # BioNeuronAI 手冊盤點與實際操作驗收計畫
 
-> 版本：v2.1 / v2.2 訓練後驗證期
-> 建立日期：2026-05-02  
-> 更新日期：2026-05-14
-> 目的：用「使用者手冊能否帶著操作者完成真實操作」作為專案可用性的判斷標準。本文不以 smoke test 作為主要驗收依據，而是以 CLI、API、Dashboard、Docker、Backtest、Testnet 等實際入口驗證。
+> **套件版本**：v2.1（`pyproject.toml`）
+> **建立日期**：2026-05-02
+> **更新日期**：2026-06-15
+> **現況權威**：[`../PROJECT_STATUS.md`](../PROJECT_STATUS.md)
+> 目的：用「使用者手冊能否帶著操作者完成真實操作」作為專案可用性的判斷標準。本文不使用 `tests/` 或臨時測試腳本作為驗收依據，而是以 CLI、API、Dashboard、Docker、Backtest、Testnet 等實際入口驗證。
 
 ---
 
@@ -21,6 +22,7 @@
 - [5. 目前已完成的手冊式實際印證紀錄](#5-目前已完成的手冊式實際印證紀錄)
   - [2026-05-02 第一冊 02_STARTUP_AND_SHUTDOWN.md 實際操作驗證](#2026-05-02-第一冊-02_startup_and_shutdownmd-實際操作驗證)
   - [2026-05-04 AI 自動交易與 UI 文件清理紀錄](#2026-05-04-ai-自動交易與-ui-文件清理紀錄)
+  - [2026-06-09 測試目錄移除後正式入口驗證](#2026-06-09-測試目錄移除後正式入口驗證)
 - [6. 下一步](#6-下一步)
   - [2026-05-02 後續使用者操作手冊實際驗證](#2026-05-02-後續使用者操作手冊實際驗證)
   - [2026-05-14 Docker image 重建與複驗](#2026-05-14-docker-image-重建與複驗)
@@ -37,7 +39,7 @@
 3. 使用者可以照手冊從啟動到完成操作。
 4. 操作完成後有可觀察輸出，例如 CLI 結果、API JSON、Dashboard 畫面、runtime 目錄、模型權重或報告檔。
 5. 若功能需要 API key、Docker、GPU 或實盤資金，手冊必須明確標示前置條件與安全限制。
-6. Smoke tests 只作輔助訊號，不作為主要 gate；若 smoke test 與實際入口操作結果衝突，以 CLI / API / Dashboard / Docker 的直接操作結果為主，並記錄 smoke test 的限制或超時原因。
+6. 不建立或執行 `tests/` 測試檔；驗收只使用 CLI / API / Dashboard / Docker 的直接操作結果。
 
 ---
 
@@ -111,12 +113,14 @@
 | Analysis | `python main.py news --symbol BTCUSDT` | 能完成新聞分析或明確降級 |
 | Analysis | `python main.py plan --symbol BTCUSDT` | 能產出計畫或明確列出外部資料失敗原因 |
 | Analysis | `python main.py pretrade --symbol BTCUSDT --action long` | 能產出 PROCEED / CAUTION / REJECT 與理由 |
+| CLI / 04 | `python main.py autonomous --mode advisor --symbol BTCUSDT` | 終端有 `final_action`；`decision_ledger.jsonl` 追加一筆；**不**啟動 TradingEngine |
 
-### Level 3：Testnet 交易驗收
+### Level 3：Paper-live 與 Testnet（主線 A）
 
 | 手冊 | 實際入口 | 成功標準 |
 |---|---|---|
-| Testnet / Live Trading | `python main.py trade --symbol BTCUSDT --testnet` | 能啟動監控、讀取價格、可用 Ctrl+C 停止 |
+| Testnet / Live | `python main.py trade --symbol BTCUSDT --paper-live --paper-balance 10000` | paper log 目錄、可 Ctrl+C 停止；平倉後可查 `memory/`（選驗） |
+| Testnet / Live | `python main.py trade --symbol BTCUSDT --testnet` | 能啟動監控、讀取價格、可用 Ctrl+C 停止 |
 | API | `POST /api/v1/trade/start` / `GET /api/v1/trade/status` / `POST /api/v1/trade/stop` | API 可啟停交易 task，可觀察 `running`、`mode`、`engine.auto_trade`，不殘留背景程序 |
 | Dashboard | TradeControlPanel | UI 可選 `Monitor only` / `Testnet auto`，可啟停並看到狀態 |
 
@@ -132,7 +136,7 @@
 
 ## 5. 目前已完成的手冊式實際印證紀錄
 
-以下是 2026-05-02 已用實際入口完成的操作，不屬於 smoke test：
+以下是 2026-05-02 已用實際入口完成的操作，不屬於臨時測試腳本：
 
 | 操作 | 結果 |
 |---|---|
@@ -183,7 +187,7 @@
 
 ### 2026-05-04 實際入口操作優先驗證紀錄
 
-本輪原則：不把完整 `tests/test_smoke.py` 當成通過門檻；改用使用者會真正操作的 CLI / API / Dashboard 入口驗證。
+本輪原則：不使用 `tests/` 測試檔；改用使用者會真正操作的 CLI / API / Dashboard 入口驗證。
 
 | 實際入口 | 驗證內容 | 結果 |
 |---|---|---|
@@ -194,15 +198,13 @@
 | API | `POST /api/v1/trade/stop` | 通過；停止後 `running=false`、`mode=stopped` |
 | Dashboard | `GET http://127.0.0.1:5173` | 通過；HTTP 200，代表本地 Dashboard dev server 可開啟 |
 | Frontend | `npm run build` / `npm run lint` | 通過；build 成功；lint exit code 0，保留 7 個既有 Fast Refresh warnings |
-| Smoke test | 完整 `tests/test_smoke.py` | 非主要 gate；本輪 5 分鐘超時，已停止殘留 pytest process，改以實際入口結果作為本階段驗收依據 |
-
 ---
 
 ## 6. 下一步
 
 ### 2026-05-02 後續使用者操作手冊實際驗證
 
-以下操作均使用正式入口執行，未使用 `tests/`、未執行 smoke test、未建立測試檔。
+以下操作均使用正式入口執行，未使用 `tests/`、未執行臨時測試腳本、未建立測試檔。
 
 | 手冊 | 實際入口 | 結果 |
 |---|---|---|
@@ -268,3 +270,19 @@
 8. Docker container 內 AI model load：`loaded=True`
 
 Live trading 仍不納入自動驗證；只保留 testnet 啟停與人工二次確認流程。
+
+### 2026-06-09 測試目錄移除後正式入口驗證
+
+本輪已移除 `tests/` 目錄與測試工具設定；驗收改用正式 CLI 入口直接操作。
+
+| 實際入口 | 結果 |
+|---|---|
+| `python main.py status` | 通過；TradingEngine / BinanceFutures / NewsAnalyzer / SOPSystem / PlanController / PreTradeCheck / BacktestEngine 均為 `[OK]` |
+| `python main.py pretrade --symbol BTCUSDT --action long --output output/manual_pretrade_after_test_cleanup.json` | 通過；產生正式 pretrade 報告，因技術信號不足、新聞偏空與高風險而回傳 `REJECT` |
+| `python main.py autonomous --mode advisor --symbol BTCUSDT --action BUY --max-pairs 1 --output output/manual_autonomous_after_test_cleanup.json` | 通過；產生 advisor 決策，最終 `advise_only`，不執行訂單 |
+
+觀察到的外部條件：
+
+- 未建立正式 `.env` 時，Binance account / leverage bracket 簽名端點回傳 401；系統降級使用本機虛擬餘額。
+- CryptoPanic 未設定 token 時使用免費限制模式；外部 502 不會中斷主流程。
+- 交易結果為拒絕/建議觀望，符合無正式密鑰與風險偏高時的安全行為。

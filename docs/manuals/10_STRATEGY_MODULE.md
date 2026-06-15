@@ -1,6 +1,13 @@
 # 策略模組操作手冊
 
-## 📑 目錄
+> **套件版本**：v2.1
+> **更新日期**：2026-06-15
+> **範圍**：`strategy-backtest` / API `strategy-run`（**Replay 路徑**，非即時 `trade`/`autonomous`）
+> **現況權威**：[`../PROJECT_STATUS.md`](../PROJECT_STATUS.md)
+
+---
+
+## 目錄
 
 - [適用範圍](#適用範圍)
 - [這個功能實際在做什麼分析](#這個功能實際在做什麼分析)
@@ -46,9 +53,11 @@
 
 不包含：
 
-- 真實下單
-- AI 權重訓練
-- PhaseRouter / PortfolioOptimizer 的完整研究流程
+- 即時 `trade` / `autonomous` 主線（見 [04_CLI_OPERATION.md](04_CLI_OPERATION.md) §2）
+- 真實 Binance 下單
+- PhaseRouter / PortfolioOptimizer 完整研究流程
+
+與即時主線的關係：策略競爭結果可供 `StrategySelector` / fusion 參考，但 **replay 產物在 `backtest/runtime/`**，不寫入 `decision_ledger.jsonl` 或觸發 LoRA。
 
 ---
 
@@ -361,6 +370,8 @@ python main.py backtest-runs --limit 10
 
 ## 相關文件
 
+- [08_BACKTEST_SYSTEM.md](08_BACKTEST_SYSTEM.md) — replay CLI 總覽
+- [05_API_USER_MANUAL.md](05_API_USER_MANUAL.md) — `POST /api/v1/backtest/strategy-run`
+- [16_RUNTIME_ARTIFACTS.md](16_RUNTIME_ARTIFACTS.md) — runtime 路徑
 - [策略模組 README](../../src/bioneuronai/strategies/README.md)
 - [Backtest Replay 使用者手冊](../../backtest/docs/USER_MANUAL.md)
-- [API 模組 README](../../src/bioneuronai/api/README.md)

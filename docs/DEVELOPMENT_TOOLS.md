@@ -202,7 +202,6 @@
 
 | 套件 | 版本 | 說明 |
 |------|------|------|
-| `pytest` | >=8.0.0 | 測試框架 |
 | `black` | >=24.0.0 | 程式碼格式化 |
 | `ruff` | >=0.3.0 | 快速檢查工具 |
 | `mypy` | >=1.8.0 | 類型檢查 |
@@ -244,15 +243,6 @@ select = ["E", "F", "I", "N", "W"]
 ignore = ["E501"]
 ```
 
-**Pytest** (測試框架):
-```toml
-[tool.pytest.ini_options]
-testpaths = ["tests"]
-addopts = "-v --tb=short"
-```
-
----
-
 ### ⚙️ VS Code 工作區設定
 
 **配置**: `.vscode/settings.json`
@@ -281,13 +271,12 @@ addopts = "-v --tb=short"
 #### 檔案排除
 ```json
 {
-  "files.exclude": {
-    "**/__pycache__": true,
-    "**/*.pyc": true,
-    "**/.pytest_cache": true,
-    "**/model/*.pth": true,
-    "**/trading_data/**": true
-  }
+    "files.exclude": {
+      "**/__pycache__": true,
+      "**/*.pyc": true,
+      "**/model/*.pth": true,
+      "**/trading_data/**": true
+    }
 }
 ```
 
@@ -306,8 +295,8 @@ addopts = "-v --tb=short"
 2. ✅ **配置 Python 環境**
    ```bash
    pip install -r requirements-crypto.txt
-   pip install -e ".[dev]"        # 開發工具 (pytest, black, ruff, mypy)
-   pip install -e ".[rl]"         # 選填：強化學習模組
+   pip install -e ".[dev]"        # 開發工具 (black, ruff, mypy)
+   pip install -e .               # RL 訓練 (training/rl_trainer.py) 使用主依賴 PyTorch；pyproject.toml 無 [rl] extra
    ```
 
 3. ✅ **安裝 Git 工具組**
@@ -328,7 +317,7 @@ addopts = "-v --tb=short"
 - ⚡ 使用 `diagnosticMode: "openFilesOnly"` 以提升大型專案效能
 - ⚡ 排除大型資料目錄 (`trading_data/`, `model/`, `__pycache__/`)
 - ⚡ 僅在需要時啟用自動格式化
-- ⚡ 定期清理 `.pytest_cache` 和 `__pycache__`
+- ⚡ 定期清理 `__pycache__`
 
 ### 代碼品質檢查
 
@@ -354,7 +343,7 @@ docker compose config --quiet
 1. **開發前**: 確保 SonarLint 和 ErrorLens 已啟用
 2. **編碼中**: 使用 Pylance 自動補全和類型提示
 3. **提交前**: 運行 `black` 和 `ruff` 格式化代碼
-4. **驗證**: 優先跑 CLI / API / UI / Docker 正式入口，CI 檢查只作輔助
+4. **驗證**: 跑 CLI / API / UI / Docker 正式入口，確認使用者流程可實際操作
 5. **文檔**: 使用 Markdown 和 Mermaid 編寫技術文檔
 
 ---

@@ -63,11 +63,11 @@ logger = logging.getLogger(__name__)
 
 class FusionMethod(Enum):
     """"""
-    WEIGHTED_VOTE = "weighted_vote"          # 
-    BEST_PERFORMER = "best_performer"        # 
-    MARKET_ADAPTIVE = "market_adaptive"      # 
-    CONFIDENCE_BASED = "confidence_based"    # 
-    ENSEMBLE = "ensemble"                     # 
+    WEIGHTED_VOTE = "weighted_vote"          #
+    BEST_PERFORMER = "best_performer"        #
+    MARKET_ADAPTIVE = "market_adaptive"      #
+    CONFIDENCE_BASED = "confidence_based"    #
+    ENSEMBLE = "ensemble"                     #
     META_LEARNER = "meta_learner"            # 新增：由神經網路直接給定權重
 
 
@@ -75,21 +75,21 @@ class FusionMethod(Enum):
 class StrategyWeight:
     """"""
     strategy_name: str
-    base_weight: float = 0.25  # 
-    performance_weight: float = 0.0  # 
-    market_condition_weight: float = 0.0  # 
-    recent_performance_weight: float = 0.0  # 
-    final_weight: float = 0.25  # 
-    
-    # 
+    base_weight: float = 0.25  #
+    performance_weight: float = 0.0  #
+    market_condition_weight: float = 0.0  #
+    recent_performance_weight: float = 0.0  #
+    final_weight: float = 0.25  #
+
+    #
     win_rate: float = 0.5
     profit_factor: float = 1.0
     avg_r_multiple: float = 0.0
     total_trades: int = 0
     recent_trades: int = 0
     recent_wins: int = 0
-    
-    # 
+
+    #
     best_conditions: List[MarketCondition] = field(default_factory=list)
     worst_conditions: List[MarketCondition] = field(default_factory=list)
 
@@ -99,22 +99,23 @@ class FusionSignal:
     """"""
     signal_id: str = ""
     timestamp: datetime = field(default_factory=datetime.now)
-    
-    # 
+
+    #
     contributing_strategies: List[str] = field(default_factory=list)
     strategy_signals: Dict[str, Optional[TradeSetup]] = field(default_factory=dict)
-    
-    # 
+
+    #
     consensus_direction: Optional[str] = None  # 'long', 'short', None
     consensus_strength: float = 0.0  # 0-1
     confidence_score: float = 0.0  # 0-1
-    
-    # 
+    alignment_score: float = 1.0  # 新增：宏觀微觀對齊度
+
+    #
     should_trade: bool = False
     selected_setup: Optional[TradeSetup] = None
     fusion_method_used: FusionMethod = FusionMethod.WEIGHTED_VOTE
-    
-    # 
+
+    #
     has_conflict: bool = False
     conflict_description: str = ""
     conflict_resolution: str = ""
@@ -126,19 +127,19 @@ class MarketRegime:
     regime_type: str = "normal"  # 'trending', 'ranging', 'volatile', 'quiet', 'transitioning'
     confidence: float = 0.5
     duration_bars: int = 0
-    
-    # 
+
+    #
     recommended_strategies: List[str] = field(default_factory=list)
     avoid_strategies: List[str] = field(default_factory=list)
 
 
 class AIStrategyFusion:
     """
-    AI 
-    
-    
+    AI
+
+
     """
-    
+
     def __init__(
         self,
         timeframe: str = "1h",
@@ -148,7 +149,7 @@ class AIStrategyFusion:
         self.timeframe = timeframe
         self.fusion_method = fusion_method
         self.enable_learning = enable_learning
-        
+
         # 策略實例
         # 注意：PairTradingStrategy 需要 additional_data['secondary_ohlcv']，
         # 不適合單資產融合流程，請透過 PairTradingStrategy 獨立呼叫。
@@ -186,36 +187,36 @@ class AIStrategyFusion:
                 'worst': [MarketCondition.HIGH_VOLATILITY],
             },
         }
-        
+
         # 初始化權重 (必須在 _market_preference 之後)
         self.strategy_weights: Dict[str, StrategyWeight] = {}
         self._initialize_weights()
-        
-        # 
+
+        #
         self.fusion_history: List[FusionSignal] = []
         self.trade_outcomes: List[Dict[str, Any]] = []
-        
-        # 
+
+        #
         self.current_regime: Optional[MarketRegime] = None
         self._active_trade: Optional[TradeExecution] = None
         self._active_strategy: Optional[str] = None
-        
-        # 
+
+        #
         self.learning_rate = 0.1
-        self.performance_decay = 0.95  # 
+        self.performance_decay = 0.95  #
         self.min_weight = 0.05
         self.max_weight = 0.60
-        
-        # 
+
+        #
         self.min_consensus_strength = 0.4
         self.min_confidence_score = 0.5
         self.conflict_threshold = 0.3
-    
+
     def _initialize_weights(self):
         """"""
         n_strategies = len(self.strategies)
         base_weight = 1.0 / n_strategies
-        
+
         for name in self.strategies:
             self.strategy_weights[name] = StrategyWeight(
                 strategy_name=name,
@@ -224,11 +225,11 @@ class AIStrategyFusion:
                 best_conditions=self._market_preference.get(name, {}).get('best', []),
                 worst_conditions=self._market_preference.get(name, {}).get('worst', []),
             )
-    
+
     # ========================
-    # 
+    #
     # ========================
-    
+
     def identify_market_regime(
         self,
         ohlcv_data: np.ndarray,
@@ -237,19 +238,19 @@ class AIStrategyFusion:
         close = ohlcv_data[:, 4]
         high = ohlcv_data[:, 2]
         low = ohlcv_data[:, 3]
-        
+
         regime = MarketRegime()
-        
+
         if len(close) < 50:
             return regime
-        
-        # 
+
+        #
         sma_20 = np.mean(close[-20:])
         sma_50 = np.mean(close[-50:])
-        
-        # 
+
+        #
         returns = np.diff(close[-21:]) / close[-21:-1]
-        volatility = np.std(returns) * np.sqrt(252)  # 
+        volatility = np.std(returns) * np.sqrt(252)  #
 
         # 使用對齊的一階報酬率視窗，避免 np.diff 後長度與分母不一致
         baseline_window = close[-50:-20]
@@ -258,17 +259,17 @@ class AIStrategyFusion:
             if len(baseline_window) >= 2 else np.array([0.0])
         )
         avg_volatility = np.std(baseline_returns) * np.sqrt(252)
-        
-        # 
+
+        #
         range_20 = (max(high[-20:]) - min(low[-20:])) / np.mean(close[-20:])
-        
-        # 
+
+        #
         trend_strength = abs(sma_20 - sma_50) / sma_50 * 100
-        
+
         # ADX  ()
         adx = self._calculate_adx_simple(high, low, close)
-        
-        # 
+
+        #
         if adx > 30 and trend_strength > 3:
             if close[-1] > sma_20 > sma_50:
                 regime.regime_type = "uptrending"
@@ -279,39 +280,39 @@ class AIStrategyFusion:
                 regime.recommended_strategies = ['trend_following', 'breakout']
                 regime.avoid_strategies = ['mean_reversion']
             regime.confidence = 0.7 + (adx - 30) / 100
-        
+
         elif range_20 < 0.05 and volatility < avg_volatility * 0.8:
             regime.regime_type = "quiet"
-            regime.recommended_strategies = ['breakout']  # 
+            regime.recommended_strategies = ['breakout']  #
             regime.avoid_strategies = ['trend_following', 'swing_trading']
             regime.confidence = 0.6
-        
+
         elif volatility > avg_volatility * 1.5:
             regime.regime_type = "volatile"
-            regime.recommended_strategies = ['swing_trading']  # 
+            regime.recommended_strategies = ['swing_trading']  #
             regime.avoid_strategies = ['breakout']
             regime.confidence = 0.65
-        
+
         elif adx < 20 and range_20 < 0.08:
             regime.regime_type = "ranging"
             regime.recommended_strategies = ['mean_reversion', 'swing_trading']
             regime.avoid_strategies = ['trend_following']
             regime.confidence = 0.6
-        
+
         else:
             regime.regime_type = "normal"
             regime.recommended_strategies = ['swing_trading', 'trend_following']
             regime.avoid_strategies = []
             regime.confidence = 0.5
-        
-        # 
+
+        #
         regime.duration_bars = self._estimate_regime_duration(
             close, high, low, regime.regime_type
         )
-        
+
         self.current_regime = regime
         return regime
-    
+
     def _calculate_adx_simple(
         self,
         high: np.ndarray,
@@ -322,37 +323,37 @@ class AIStrategyFusion:
         """ ADX """
         n = len(close)
         if n < period * 2:
-            return 20.0  # 
-        
+            return 20.0  #
+
         # +DM, -DM
         plus_dm = np.zeros(n)
         minus_dm = np.zeros(n)
         tr = np.zeros(n)
-        
+
         for i in range(1, n):
             h_diff = high[i] - high[i-1]
             l_diff = low[i-1] - low[i]
-            
+
             if h_diff > l_diff and h_diff > 0:
                 plus_dm[i] = h_diff
             if l_diff > h_diff and l_diff > 0:
                 minus_dm[i] = l_diff
-            
+
             tr[i] = max(
                 high[i] - low[i],
                 abs(high[i] - close[i-1]),
                 abs(low[i] - close[i-1])
             )
-        
-        # 
+
+        #
         atr = np.mean(tr[-period:]) if len(tr) >= period else 0
         plus_di = 100 * np.mean(plus_dm[-period:]) / atr if atr > 0 else 0
         minus_di = 100 * np.mean(minus_dm[-period:]) / atr if atr > 0 else 0
-        
+
         dx = 100 * abs(plus_di - minus_di) / (plus_di + minus_di) if (plus_di + minus_di) > 0 else 0
-        
+
         return float(dx)
-    
+
     def _estimate_regime_duration(
         self,
         close: np.ndarray,
@@ -363,20 +364,20 @@ class AIStrategyFusion:
         """"""
         duration = 0
         n = len(close)
-        
+
         for i in range(1, min(100, n)):
             idx = -1 - i
             if abs(idx) >= n:
                 break
-            
-            # 
+
+            #
             window_close = close[idx:idx+20] if idx+20 < 0 else close[idx:]
-            
+
             if len(window_close) < 5:
                 break
-            
+
             local_trend = window_close[-1] - window_close[0]
-            
+
             if regime_type == "trending" and abs(local_trend) > np.std(window_close) * 0.5:
                 duration += 1
             elif regime_type == "ranging" and abs(local_trend) < np.std(window_close) * 0.3:
@@ -385,13 +386,13 @@ class AIStrategyFusion:
                 duration += 1
             else:
                 break
-        
+
         return duration
-    
+
     # ========================
-    # 
+    #
     # ========================
-    
+
     def update_weights_for_market(
         self,
         market_condition: Union[MarketCondition, str],
@@ -399,101 +400,101 @@ class AIStrategyFusion:
     ):
         """"""
         for name, weight in self.strategy_weights.items():
-            # 1. 
+            # 1.
             condition_weight = 0.0
-            
-            # 2. 
+
+            # 2.
             if market_condition in weight.best_conditions:
                 condition_weight += 0.3
             elif market_condition in weight.worst_conditions:
                 condition_weight -= 0.3
-            
-            # 3. 
+
+            # 3.
             if name in regime.recommended_strategies:
                 condition_weight += 0.2
             if name in regime.avoid_strategies:
                 condition_weight -= 0.2
-            
+
             weight.market_condition_weight = condition_weight
-            
-            # 4. 
+
+            # 4.
             total = (
                 weight.base_weight +
                 weight.performance_weight +
                 weight.market_condition_weight +
                 weight.recent_performance_weight
             )
-            
-            # 
+
+            #
             weight.final_weight = max(self.min_weight, min(self.max_weight, total))
-        
-        # 
+
+        #
         self._normalize_weights()
-    
+
     def update_weights_from_performance(self, strategy_name: str, trade_result: Dict):
         """"""
         if not self.enable_learning:
             return
-        
+
         weight = self.strategy_weights.get(strategy_name)
         if not weight:
             return
-        
-        # 
+
+        #
         weight.total_trades += 1
-        
+
         r_multiple = trade_result.get('r_multiple', 0)
         is_win = r_multiple > 0
-        
+
         if is_win:
             weight.win_rate = (
-                (weight.win_rate * (weight.total_trades - 1) + 1) / 
+                (weight.win_rate * (weight.total_trades - 1) + 1) /
                 weight.total_trades
             )
         else:
             weight.win_rate = (
-                (weight.win_rate * (weight.total_trades - 1)) / 
+                (weight.win_rate * (weight.total_trades - 1)) /
                 weight.total_trades
             )
-        
+
         #
         weight.recent_trades = min(weight.recent_trades + 1, 20)  #  20
         if is_win:
             weight.recent_wins += 1
         # recent_wins 不可超過 recent_trades（避免勝率 > 1.0）
         weight.recent_wins = min(weight.recent_wins, weight.recent_trades)
-        
-        # 
+
+        #
         recent_win_rate = weight.recent_wins / weight.recent_trades if weight.recent_trades > 0 else 0.5
-        
-        # 
+
+        #
         performance_score = (weight.win_rate - 0.5) * 2  # -1  1
         recent_score = (recent_win_rate - 0.5) * 2
-        
+
         weight.performance_weight = performance_score * 0.15
         weight.recent_performance_weight = recent_score * 0.1
-        
-        # 
+
+        #
         if weight.recent_trades >= 20:
-            # 
+            #
             weight.recent_wins = int(weight.recent_wins * self.performance_decay)
             weight.recent_trades = int(weight.recent_trades * self.performance_decay)
-        
+
         logger.info(
             f" {strategy_name} : "
             f"={weight.win_rate:.1%}, "
             f"={recent_win_rate:.1%}, "
             f"={weight.final_weight:.2f}"
         )
-    
+
     def _normalize_weights(self):
         """權重正規化，確保總和為 1"""
         total = sum(w.final_weight for w in self.strategy_weights.values())
-        
+
         if total > 0:
             for weight in self.strategy_weights.values():
                 weight.final_weight /= total
-    
+
     def _apply_asymmetric_filter(
         self,
         strategy_name: str,
@@ -501,25 +502,25 @@ class AIStrategyFusion:
         event_score: float
     ) -> Optional[TradeSetup]:
         """非對稱過濾器 - 根據新聞大腦評分過濾信號
-        
+
         這是「司令部(News)對前線(Strategy)下達的交戰規則(ROE)」。
         在極端環境下，對逆勢信號實施嚴格過濾，對順勢信號快速放行。
-        
+
         Args:
             strategy_name: 策略名稱
             setup: 原始交易設置
             event_score: 環境評分 (-10 到 +10)
-            
+
         Returns:
             過濾後的交易設置，被攔截則返回 None
         """
         if not setup:
             return None
-        
+
         # 環境閾值定義 (可由 AI 優化)
         EXTREME_BEARISH = -5.0  # 極度看空
         EXTREME_BULLISH = 5.0   # 極度看多
-        
+
         # --- 情境 A: 環境極度看空 (如：戰爭+監管) ---
         if event_score < EXTREME_BEARISH:
             if setup.direction == 'long':
@@ -531,7 +532,7 @@ class AIStrategyFusion:
                     )
                     return None
             # 對「做空」信號：順風，直接放行
-        
+
         # --- 情境 B: 環境極度看多 ---
         elif event_score > EXTREME_BULLISH:
             if setup.direction == 'short' and setup.signal_strength != SignalStrength.VERY_STRONG:
@@ -540,7 +541,7 @@ class AIStrategyFusion:
                         f"攔截 {strategy_name} 的普通做空信號"
                     )
                     return None
-        
+
         return setup
 
     def get_direction_bias(self, symbol: str = "BTCUSDT", event_score: float = 0.0) -> dict:
@@ -548,6 +549,16 @@ class AIStrategyFusion:
         取代/補強原本只做非對稱過濾的角色。
         回傳格式：{"direction": "LONG"/"SHORT"/"NEUTRAL", "strength": 0.0-1.0, "reason": str}
         """
+        try:
+            from rag.services.news_adapter import get_news_adapter
+            adapter = get_news_adapter()
+            news_bias = adapter.get_direction_bias(symbol)
+            if news_bias and news_bias.get("direction") in ["LONG", "SHORT"]:
+                news_bias["strength"] = float(news_bias.get("strength", 0.0))
+                return news_bias
+        except Exception as e:
+            logger.warning("Failed to load news bias from NewsAdapter: %s", e)
+
         if event_score > 1.5:
             strength = min(1.0, abs(event_score) / 5.0)
             return {"direction": "LONG", "strength": strength, "reason": f"新聞強烈看多 (event_score={event_score:.2f})"}
@@ -578,10 +589,10 @@ class AIStrategyFusion:
                 return
         if not event_context.event_type:
             return
-        
+
         event_type = event_context.event_type.upper()
         intensity = event_context.intensity.upper()
-        
+
         # 強度乘數
         intensity_multiplier = {
             'LOW': 0.5,
@@ -624,14 +635,14 @@ class AIStrategyFusion:
             _scale('direction_change', 1 + adj * 0.5)   # DC 同樣能捕捉宏觀驅動趨勢
             _scale('pair_trading', 1 - adj * 0.3)        # 宏觀事件可能破壞配對相關性
             logger.info(f"[事件權重調整] {event_type}: 提升趨勢/波段/DC")
-        
+
         # 重新正規化權重
         self._normalize_weights()
-    
+
     # ========================
     # 信號融合方法
     # ========================
-    
+
     def generate_fusion_signal(
         self,
         ohlcv_data: np.ndarray,
@@ -640,13 +651,13 @@ class AIStrategyFusion:
         event_context: Optional[EventContext] = None  # 詳細事件上下文
     ) -> FusionSignal:
         """生成融合信號
-        
+
         Args:
             ohlcv_data: OHLCV K線數據
             additional_data: 額外市場數據
             event_score: 環境評分，來自新聞分析大腦 (-10 看空, +10 看多, 0 中性)
             event_context: 詳細事件上下文，包含事件類型、強度等資訊
-        
+
         Returns:
             FusionSignal: 融合後的交易信號
         """
@@ -654,7 +665,7 @@ class AIStrategyFusion:
             signal_id=f"FS_{datetime.now().strftime('%Y%m%d%H%M%S')}_{uuid.uuid4().hex[:8]}",
             timestamp=datetime.now(),
         )
-        
+
         # 0. 處理事件上下文，計算有效的 event_score
         # 若上游傳入 dict，統一轉為 EventContext 物件
         if isinstance(event_context, dict):
@@ -667,14 +678,14 @@ class AIStrategyFusion:
             effective_event_score = event_context.get_effective_score()
             # 根據事件類型調整策略權重
             self._adjust_weights_by_event(event_context)
-        
+
         # 1. 識別市場狀態
         regime = self.identify_market_regime(ohlcv_data)
-        
+
         # 2. 收集各策略信號
         market_analyses = {}
         trade_setups = {}
-        
+
         for name, strategy in self.strategies.items():
             try:
                 # 市場分析
@@ -682,24 +693,24 @@ class AIStrategyFusion:
                 if isinstance(analysis, dict) and additional_data and additional_data.get("symbol"):
                     analysis.setdefault("symbol", additional_data["symbol"])
                 market_analyses[name] = analysis
-                
+
                 # 入場條件評估
                 setup = strategy.evaluate_entry_conditions(analysis, ohlcv_data)
-                
+
                 # 應用非對稱過濾器 (基於事件評分)
                 setup = self._apply_asymmetric_filter(name, setup, effective_event_score)
-                
+
                 trade_setups[name] = setup
-                
+
                 if setup:
                     signal.contributing_strategies.append(name)
-                
+
             except Exception as e:
                 logger.error(f"策略 {name} 分析失敗: {e}")
                 trade_setups[name] = None
-        
+
         signal.strategy_signals = trade_setups
-        
+
         # 取第一個有效的市場狀態
         market_condition: Union[MarketCondition, str] = MarketCondition.SIDEWAYS
         for analysis in market_analyses.values():
@@ -707,10 +718,10 @@ class AIStrategyFusion:
             if mc:
                 market_condition = mc
                 break
-        
+
         self.update_weights_for_market(market_condition, regime)
-        
-        # 4. 
+
+        # 4.
         if self.fusion_method == FusionMethod.WEIGHTED_VOTE:
             self._fuse_by_weighted_vote(signal)
         elif self.fusion_method == FusionMethod.BEST_PERFORMER:
@@ -723,49 +734,77 @@ class AIStrategyFusion:
             self._fuse_by_meta_learner(signal, ohlcv_data, event_context)
         else:
             self._fuse_ensemble(signal, regime)
-        
-        # 5. 
+
+        # 5.
         self._detect_and_resolve_conflicts(signal)
-        
-        # 6. 
+
+        # ── P1 整合：新聞方向偏好作為方向框架 (Directional Guard) ──
+        symbol = additional_data.get("symbol", "BTCUSDT") if additional_data else "BTCUSDT"
+        news_bias = self.get_direction_bias(symbol, effective_event_score)
+
+        if news_bias.get("direction") == "LONG" and signal.consensus_direction == "short":
+            logger.info(
+                f"[新聞方向框架] 新聞看多，攔截共識做空信號 | 原因: {news_bias.get('reason')}"
+            )
+            signal.consensus_direction = None
+        elif news_bias.get("direction") == "SHORT" and signal.consensus_direction == "long":
+            logger.info(
+                f"[新聞方向框架] 新聞看空，攔截共識做多信號 | 原因: {news_bias.get('reason')}"
+            )
+            signal.consensus_direction = None
+
+        # 6.
         self._make_final_decision(signal)
-        
-        # 7. 
+
+        # 6.5 計算 AI 宏觀微觀對齊度
+        if signal.consensus_direction:
+            from bioneuronai.risk_management.confidence_calibrator import get_confidence_calibrator
+            calibrator = get_confidence_calibrator()
+            macro_sentiment = min(1.0, max(-1.0, effective_event_score / 10.0))
+            signal.alignment_score = calibrator.compute_alignment(
+                macro_sentiment=macro_sentiment,
+                micro_direction=signal.consensus_direction,
+                micro_confidence=signal.confidence_score
+            )
+        else:
+            signal.alignment_score = 1.0
+
+        # 7.
         self.fusion_history.append(signal)
-        
+
         return signal
-    
+
     def _fuse_by_weighted_vote(self, signal: FusionSignal):
         """"""
         long_votes = 0.0
         short_votes = 0.0
         total_weight = 0.0
-        
+
         for name, setup in signal.strategy_signals.items():
             if setup is None:
                 continue
-            
+
             weight = self.strategy_weights[name].final_weight
             total_weight += weight
-            
+
             if setup.direction == 'long':
                 long_votes += weight
             else:
                 short_votes += weight
-        
+
         if total_weight == 0:
             return
-        
+
         long_ratio = long_votes / total_weight if total_weight > 0 else 0
         short_ratio = short_votes / total_weight if total_weight > 0 else 0
-        
+
         if long_ratio > short_ratio and long_ratio > self.min_consensus_strength:
             signal.consensus_direction = 'long'
             signal.consensus_strength = long_ratio
         elif short_ratio > long_ratio and short_ratio > self.min_consensus_strength:
             signal.consensus_direction = 'short'
             signal.consensus_strength = short_ratio
-        
+
         signal.confidence_score = max(long_ratio, short_ratio)
         signal.fusion_method_used = FusionMethod.WEIGHTED_VOTE
 
@@ -840,29 +879,29 @@ class AIStrategyFusion:
         # ── 6. 用 AI 權重進行加權投票融合 ──────────────────────────
         self._fuse_by_weighted_vote(signal)
         signal.fusion_method_used = FusionMethod.META_LEARNER
-    
+
     def _fuse_by_best_performer(self, signal: FusionSignal):
         """"""
         best_strategy = None
         best_score = -1.0
-        
+
         for name, setup in signal.strategy_signals.items():
             if setup is None:
                 continue
-            
+
             weight = self.strategy_weights[name]
-            
-            # 
+
+            #
             score = (
                 weight.win_rate * 0.4 +
                 (weight.profit_factor / 3) * 0.3 +  #  profit_factor  3
                 (weight.recent_wins / max(weight.recent_trades, 1)) * 0.3
             )
-            
+
             if score > best_score:
                 best_score = score
                 best_strategy = name
-        
+
         if best_strategy:
             setup = signal.strategy_signals[best_strategy]
             if setup:  #  setup  None
@@ -870,33 +909,33 @@ class AIStrategyFusion:
                 signal.consensus_strength = best_score
                 signal.confidence_score = best_score
                 signal.selected_setup = setup
-        
+
         signal.fusion_method_used = FusionMethod.BEST_PERFORMER
-    
+
     def _fuse_by_market_adaptive(self, signal: FusionSignal, regime: MarketRegime):
         """"""
-        # 
+        #
         prioritized_strategies = regime.recommended_strategies
-        
+
         best_setup = None
         best_score = 0.0
-        
+
         for name, setup in signal.strategy_signals.items():
             if setup is None:
                 continue
-            
-            # 
+
+            #
             score = self.strategy_weights[name].final_weight
-            
-            # 
+
+            #
             if name in prioritized_strategies:
                 score *= 1.5
-            
-            # 
+
+            #
             if name in regime.avoid_strategies:
                 score *= 0.5
-            
-            # 
+
+            #
             strength_multiplier = {
                 SignalStrength.VERY_STRONG: 1.5,
                 SignalStrength.STRONG: 1.2,
@@ -905,80 +944,80 @@ class AIStrategyFusion:
                 SignalStrength.VERY_WEAK: 0.5,
             }
             score *= strength_multiplier.get(setup.signal_strength, 1.0)
-            
+
             if score > best_score:
                 best_score = score
                 best_setup = setup
-        
+
         if best_setup:
             signal.consensus_direction = best_setup.direction
             signal.consensus_strength = min(best_score, 1.0)
             signal.confidence_score = min(best_score, 1.0)
             signal.selected_setup = best_setup
-        
+
         signal.fusion_method_used = FusionMethod.MARKET_ADAPTIVE
-    
+
     def _fuse_by_confidence(self, signal: FusionSignal):
         """"""
         best_setup = None
         best_confidence = 0.0
-        
+
         for name, setup in signal.strategy_signals.items():
             if setup is None:
                 continue
-            
-            # 
+
+            #
             confidence = setup.entry_confirmations / max(setup.required_confirmations, 1)
-            
-            # 
+
+            #
             adjusted_confidence = confidence * self.strategy_weights[name].final_weight
-            
+
             if adjusted_confidence > best_confidence:
                 best_confidence = adjusted_confidence
                 best_setup = setup
-        
+
         if best_setup:
             signal.consensus_direction = best_setup.direction
             signal.consensus_strength = best_confidence
             signal.confidence_score = best_confidence
             signal.selected_setup = best_setup
-        
+
         signal.fusion_method_used = FusionMethod.CONFIDENCE_BASED
-    
+
     def _fuse_ensemble(self, signal: FusionSignal, regime: MarketRegime):
         """"""
-        # 1. 
+        # 1.
         vote_signal = FusionSignal()
         vote_signal.strategy_signals = signal.strategy_signals
         self._fuse_by_weighted_vote(vote_signal)
-        
-        # 2. 
+
+        # 2.
         adaptive_signal = FusionSignal()
         adaptive_signal.strategy_signals = signal.strategy_signals
         self._fuse_by_market_adaptive(adaptive_signal, regime)
-        
-        # 3. 
+
+        # 3.
         confidence_signal = FusionSignal()
         confidence_signal.strategy_signals = signal.strategy_signals
         self._fuse_by_confidence(confidence_signal)
-        
-        # 
+
+        #
         directions = [
             vote_signal.consensus_direction,
             adaptive_signal.consensus_direction,
             confidence_signal.consensus_direction,
         ]
-        
-        # 
+
+        #
         long_count = directions.count('long')
         short_count = directions.count('short')
-        
+
         if long_count > short_count:
             signal.consensus_direction = 'long'
         elif short_count > long_count:
             signal.consensus_direction = 'short'
-        
-        # 
+
+        #
         scores = [
             vote_signal.confidence_score,
             adaptive_signal.confidence_score,
@@ -987,18 +1026,18 @@ class AIStrategyFusion:
         mean_score = np.mean([s for s in scores if s > 0]) if any(scores) else 0
         signal.confidence_score = float(mean_score)
         signal.consensus_strength = signal.confidence_score
-        
-        # 
+
+        #
         if adaptive_signal.selected_setup:
             signal.selected_setup = adaptive_signal.selected_setup
-        
+
         signal.fusion_method_used = FusionMethod.ENSEMBLE
-    
+
     def _detect_and_resolve_conflicts(self, signal: FusionSignal):
         """"""
         long_strategies = []
         short_strategies = []
-        
+
         for name, setup in signal.strategy_signals.items():
             if setup is None:
                 continue
@@ -1006,69 +1045,69 @@ class AIStrategyFusion:
                 long_strategies.append(name)
             else:
                 short_strategies.append(name)
-        
-        # 
+
+        #
         if long_strategies and short_strategies:
             signal.has_conflict = True
             signal.conflict_description = (
                 f": ={long_strategies}, ={short_strategies}"
             )
-            
-            # 
+
+            #
             long_weight = sum(
                 self.strategy_weights[s].final_weight for s in long_strategies
             )
             short_weight = sum(
                 self.strategy_weights[s].final_weight for s in short_strategies
             )
-            
+
             if abs(long_weight - short_weight) < self.conflict_threshold:
-                # 
+                #
                 signal.conflict_resolution = ""
                 signal.should_trade = False
             else:
-                # 
+                #
                 if long_weight > short_weight:
                     signal.conflict_resolution = f" ({long_weight:.2f} vs {short_weight:.2f})"
                 else:
                     signal.conflict_resolution = f" ({short_weight:.2f} vs {long_weight:.2f})"
-    
+
     def _make_final_decision(self, signal: FusionSignal):
         """"""
-        # 
+        #
         if not signal.consensus_direction:
             signal.should_trade = False
             return
-        
+
         if signal.confidence_score < self.min_confidence_score:
             signal.should_trade = False
             return
-        
+
         if signal.has_conflict and "" in signal.conflict_resolution:
             signal.should_trade = False
             return
-        
-        # 
+
+        #
         if not signal.selected_setup:
-            # 
+            #
             best_setup = None
             best_score = 0.0
-            
+
             for name, setup in signal.strategy_signals.items():
                 if setup and setup.direction == signal.consensus_direction:
                     score = self.strategy_weights[name].final_weight
                     if score > best_score:
                         best_score = score
                         best_setup = setup
-            
+
             signal.selected_setup = best_setup
-        
+
         signal.should_trade = signal.selected_setup is not None
-    
+
     # ========================
-    # 
+    #
     # ========================
-    
+
     def execute_fusion_signal(
         self,
         signal: FusionSignal,
@@ -1077,36 +1116,36 @@ class AIStrategyFusion:
         """"""
         if not signal.should_trade or not signal.selected_setup:
             return None
-        
-        # 
+
+        #
         active_strategy_name = None
         for name, setup in signal.strategy_signals.items():
             if setup == signal.selected_setup:
                 active_strategy_name = name
                 break
-        
+
         if not active_strategy_name:
             logger.error("")
             return None
-        
+
         strategy = self.strategies[active_strategy_name]
-        
-        # 
+
+        #
         execution = strategy.execute_entry(signal.selected_setup, connector)
-        
+
         if execution:
             self._active_trade = execution
             self._active_strategy = active_strategy_name
-            
+
             logger.info(
                 f": {signal.signal_id}, "
                 f": {active_strategy_name}, "
                 f": {signal.consensus_direction}, "
                 f": {signal.confidence_score:.2f}"
             )
-        
+
         return execution
-    
+
     def manage_active_trade(
         self,
         current_price: float,
@@ -1115,21 +1154,21 @@ class AIStrategyFusion:
         """"""
         if not self._active_trade or not self._active_strategy:
             return None
-        
+
         strategy = self.strategies[self._active_strategy]
-        
-        # 
+
+        #
         self._active_trade.average_exit_price = current_price
-        
-        # 
+
+        #
         management = strategy.manage_position(
             self._active_trade,
             current_price,
             ohlcv_data
         )
-        
+
         return management
-    
+
     def check_exit_conditions(
         self,
         current_price: float,
@@ -1138,15 +1177,15 @@ class AIStrategyFusion:
         """"""
         if not self._active_trade or not self._active_strategy:
             return False, ""
-        
+
         strategy = self.strategies[self._active_strategy]
-        
+
         return strategy.evaluate_exit_conditions(
             self._active_trade,
             current_price,
             ohlcv_data
         )
-    
+
     def execute_exit(
         self,
         reason: str,
@@ -1155,17 +1194,17 @@ class AIStrategyFusion:
         """"""
         if not self._active_trade or not self._active_strategy:
             return False
-        
+
         strategy = self.strategies[self._active_strategy]
-        
+
         success = strategy.execute_exit(
             self._active_trade,
             reason,
             connector
         )
-        
+
         if success:
-            # 
+            #
             trade_result = {
                 'strategy': self._active_strategy,
                 'r_multiple': self._active_trade.calculate_r_multiple(),
@@ -1173,23 +1212,23 @@ class AIStrategyFusion:
                 'reason': reason,
                 'timestamp': datetime.now().isoformat(),
             }
-            
+
             self.trade_outcomes.append(trade_result)
             self.update_weights_from_performance(
                 self._active_strategy,
                 trade_result
             )
-            
-            # 
+
+            #
             self._active_trade = None
             self._active_strategy = None
-        
+
         return success
-    
+
     # ========================
-    # 
+    #
     # ========================
-    
+
     def get_strategy_report(self) -> Dict[str, Any]:
         """"""
         report: Dict[str, Any] = {
@@ -1200,7 +1239,7 @@ class AIStrategyFusion:
             'strategy_weights': {},
             'recent_performance': {},
         }
-        
+
         for name, weight in self.strategy_weights.items():
             report['strategy_weights'][name] = {
                 'final_weight': weight.final_weight,
@@ -1210,13 +1249,13 @@ class AIStrategyFusion:
                 'win_rate': weight.win_rate,
                 'total_trades': weight.total_trades,
             }
-        
-        # 
+
+        #
         if self.trade_outcomes:
             recent = self.trade_outcomes[-20:]
             wins = sum(1 for t in recent if t.get('r_multiple', 0) > 0)
             total_r = sum(t.get('r_multiple', 0) for t in recent)
-            
+
             report['recent_performance'] = {
                 'trades': len(recent),
                 'wins': wins,
@@ -1224,9 +1263,9 @@ class AIStrategyFusion:
                 'total_r': total_r,
                 'avg_r': total_r / len(recent) if recent else 0,
             }
-        
+
         return report
-    
+
     def save_state(self, filepath: str):
         """"""
         state = {
@@ -1241,23 +1280,23 @@ class AIStrategyFusion:
                 }
                 for name, w in self.strategy_weights.items()
             },
-            'trade_outcomes': self.trade_outcomes[-100:],  #  100 
+            'trade_outcomes': self.trade_outcomes[-100:],  #  100
             'fusion_method': self.fusion_method.value,
             'saved_at': datetime.now().isoformat(),
         }
-        
+
         with open(filepath, 'w') as f:
             json.dump(state, f, indent=2)
-        
+
         logger.info(f" {filepath}")
-    
+
     def load_state(self, filepath: str):
         """"""
         try:
             with open(filepath, 'r') as f:
                 state = json.load(f)
-            
-            # 
+
+            #
             for name, data in state.get('weights', {}).items():
                 if name in self.strategy_weights:
                     w = self.strategy_weights[name]
@@ -1267,13 +1306,18 @@ class AIStrategyFusion:
                     w.total_trades = data.get('total_trades', 0)
                     w.recent_trades = data.get('recent_trades', 0)
                     w.recent_wins = data.get('recent_wins', 0)
-            
+
             self.trade_outcomes = state.get('trade_outcomes', [])
-            
-            # 
+
+            #
             self._normalize_weights()
-            
+
             logger.info(f" {filepath} ")
-            
+
         except Exception as e:
             logger.error(f": {e}")
+
+
+# ════════════════════════════════════════════════════════════════════
+# 🚀 程式可運行與直接驗證原則 (CODE_FIX_GUIDE.md)
+# ════════════════════════════════════════════════════════════════════

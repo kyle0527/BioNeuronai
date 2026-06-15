@@ -45,9 +45,6 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=7.0",
-    "pytest-cov",
-    "pytest-asyncio",
     "black",
     "isort",
     "mypy",
@@ -113,9 +110,3 @@ ignore = [
     "E402",  # module level import not at top of file
     "F401",  # imported but unused (too noisy during dev)
 ]
-
-[tool.pytest.ini_options]
-asyncio_mode = "auto"
-testpaths = ["tests"]
-python_files = ["test_*.py", "*_test.py"]
-norecursedirs = ["archived", "tools", "node_modules", ".git", "dist", "build", "frontend"]

@@ -71,9 +71,12 @@ class AutonomousOperatorConfig:
     paper_initial_balance: float = 10000.0
     paper_notional_fraction: float = 0.01
     learning_state_path: Optional[str] = None
-    # 卡單偵測：持倉超過 N 輪未平倉即標記（0 = 停用）。
-    # ⚠️ 目前只偵測 + 記錄，自動強制出場尚未實作（擴充點見 _check_stale_positions）
+    # 卡單偵測與自動平倉：持倉超過 N 輪未平倉即標記（0 = 停用）。
+    # 實作：已實作自動強制出場，會下達反向 reduce-only 市價單平倉。
     max_position_hold_cycles: int = 0
+    # 每 N 輪執行一次 AIReflectionLoop（0 = 停用；僅在 run_forever 時生效）
+    reflect_every_cycles: int = 0
+    reflection_sample_size: int = 50
 
     def normalized_action(self) -> str:
         action = self.intended_action.strip().upper()
@@ -213,6 +216,7 @@ class AutonomousOperator:
             "paper_execution": paper_execution,
         }
         self.ledger.append(record)
+        self._maybe_run_reflection()
         return record
 
     def run_once_sync(self) -> Dict[str, Any]:
@@ -270,26 +274,66 @@ class AutonomousOperator:
         return state
 
     def _check_stale_positions(self) -> List[Dict[str, Any]]:
-        """卡單偵測：持倉超過 max_position_hold_cycles 輪即標記。
+        """卡單偵測與自動平倉：持倉超過 max_position_hold_cycles 輪即自動下反向 reduce-only 單平倉。
 
-        ⚠️ 擴充點：目前只偵測 + log + 寫入 ledger 紀錄，
-        自動強制出場（reduce-only 平倉單）尚未實作。
-        實作時應在此處呼叫 connector 下反向 reduce-only 單，
-        並走 _on_paper_close 既有的 outcome 回寫路徑。
+        這會透過 connector 下達反向 reduce-only 市價單，並走 _on_paper_close 既有的 outcome 回寫路徑。
         """
         limit = int(self.config.max_position_hold_cycles or 0)
         if limit <= 0:
             return []
         stale: List[Dict[str, Any]] = []
-        for symbol, execution in self._open_executions.items():
+        connector = self._get_paper_connector()
+        from bioneuronai.trading.virtual_account import PositionSide
+
+        for symbol in list(self._open_executions.keys()):
+            execution = self._open_executions[symbol]
             held = self._cycle_count - int(execution.get("opened_cycle", self._cycle_count))
             if held >= limit:
-                stale.append({"symbol": symbol, "held_cycles": held, "limit": limit})
-                logger.warning(
-                    "STALE position detected | %s held %d cycles (limit=%d) — "
-                    "自動出場尚未實作，需人工處理",
-                    symbol, held, limit,
-                )
+                position = connector.virtual_account.positions.get(symbol)
+                if position and position.quantity > 0:
+                    qty = position.quantity
+                    side = "SELL" if position.side == PositionSide.LONG else "BUY"
+                    logger.warning(
+                        "STALE position detected | %s held %d cycles (limit=%d). "
+                        "自動平倉強制出場中... 下單方向: %s, 數量: %.4f",
+                        symbol, held, limit, side, qty
+                    )
+                    try:
+                        order = connector.place_order(
+                            symbol=symbol,
+                            side=side,
+                            order_type="MARKET",
+                            quantity=qty,
+                            reduce_only=True,
+                        )
+                        stale.append({
+                            "symbol": symbol,
+                            "held_cycles": held,
+                            "limit": limit,
+                            "action": "FLATTED",
+                            "order_id": order.order_id if order else None,
+                        })
+                    except Exception as exc:
+                        logger.error("放置卡單平倉委託失敗 (%s): %s", symbol, exc)
+                        stale.append({
+                            "symbol": symbol,
+                            "held_cycles": held,
+                            "limit": limit,
+                            "action": "FLAT_ERROR",
+                            "error": str(exc),
+                        })
+                else:
+                    logger.warning(
+                        "STALE position ghost cleanup | %s 帳戶中已無實質持倉但存在於 open_executions 中。自動清除紀錄。",
+                        symbol
+                    )
+                    self._open_executions.pop(symbol, None)
+                    stale.append({
+                        "symbol": symbol,
+                        "held_cycles": held,
+                        "limit": limit,
+                        "action": "GHOST_CLEANUP",
+                    })
         return stale
 
     def _evaluate_adaptation(
@@ -377,10 +421,93 @@ class AutonomousOperator:
         if hasattr(self, "_settled_this_cycle"):
             self._settled_this_cycle.append(outcome_record["outcome"] | {"symbol": symbol})
 
+        cal_idx = (execution or {}).get("calibration_record_index")
+        if cal_idx is not None:
+            try:
+                from bioneuronai.risk_management.confidence_calibrator import (
+                    get_confidence_calibrator,
+                )
+
+                if get_confidence_calibrator().record_outcome_by_index(int(cal_idx), pnl_pct):
+                    logger.info(
+                        "Calibration outcome recorded | %s index=%s pnl_pct=%.4f",
+                        symbol,
+                        cal_idx,
+                        pnl_pct,
+                    )
+            except Exception as exc:  # pragma: no cover - defensive
+                logger.warning("calibration record_outcome failed: %s", exc)
+
         logger.info(
             "Autonomous outcome settled | %s pnl=%.4f (%.3f%%) reason=%s",
             symbol, realized_pnl, pnl_pct * 100, exit_reason,
         )
+
+    def _maybe_run_reflection(self) -> None:
+        """P5：可選反思迴圈，依 reflect_every_cycles 在 run_forever 中觸發。"""
+        every = int(self.config.reflect_every_cycles or 0)
+        if every <= 0 or self._cycle_count <= 0 or self._cycle_count % every != 0:
+            return
+        try:
+            from bioneuronai.planning.reflection_loop import AIReflectionLoop
+
+            result = AIReflectionLoop().run_reflection_cycle(
+                k=int(self.config.reflection_sample_size or 50)
+            )
+            self.ledger.append({
+                "type": "reflection_cycle",
+                "cycle": self._cycle_count,
+                "status": result.status,
+                "total_trades_analyzed": result.total_trades_analyzed,
+                "losing_trades_count": result.losing_trades_count,
+                "recommended_temperature": result.recommended_temperature,
+                "learning_report_path": result.learning_report_path,
+            })
+            logger.info(
+                "Reflection cycle completed | cycle=%d status=%s analyzed=%d",
+                self._cycle_count,
+                result.status,
+                result.total_trades_analyzed,
+            )
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.warning("reflection cycle failed: %s", exc)
+
+    def _has_open_position(self, connector: Any, symbol: str) -> bool:
+        if symbol in self._open_executions:
+            return True
+        position = connector.virtual_account.positions.get(symbol)
+        if position is None:
+            return False
+        return float(getattr(position, "quantity", 0.0) or 0.0) > 0.0
+
+    def _resolve_paper_quantity(
+        self,
+        adaptation: Dict[str, Any],
+        order_params: Dict[str, Any],
+        price: float,
+    ) -> tuple[float, str]:
+        """優先採 pretrade quantity；無效時退回 legacy notional 公式。"""
+        risk_multiplier = float(adaptation.get("risk_multiplier", 1.0) or 1.0)
+        raw_qty = float(order_params.get("quantity", 0.0) or 0.0)
+        if raw_qty > 0 and price > 0:
+            return max(raw_qty * risk_multiplier, 0.0), "pretrade_quantity"
+
+        notional = (
+            self.config.paper_initial_balance
+            * self.config.paper_notional_fraction
+            * risk_multiplier
+        )
+        return max(notional / price, 0.0), "paper_notional_fraction"
+
+    def _calibration_index_from_pretrade(self, selected: Dict[str, Any]) -> Optional[int]:
+        risk_calc = selected.get("risk_calculation")
+        if isinstance(risk_calc, dict):
+            idx = risk_calc.get("calibration_record_index")
+            return int(idx) if idx is not None else None
+        if risk_calc is not None:
+            idx = getattr(risk_calc, "calibration_record_index", None)
+            return int(idx) if idx is not None else None
+        return None
 
     # ── 既有步驟 ─────────────────────────────────────────────────────────
 
@@ -487,20 +614,36 @@ class AutonomousOperator:
         )
 
         connector = self._get_paper_connector()
-        market = connector.get_ticker_price(str(selected_symbol))
+        symbol_key = str(selected_symbol)
+
+        if self._has_open_position(connector, symbol_key):
+            logger.warning(
+                "paper execution skipped | %s already has open position or pending execution",
+                symbol_key,
+            )
+            return {
+                "symbol": symbol_key,
+                "skipped": True,
+                "reason": "existing_position",
+                "paper_state": connector.get_paper_state(),
+            }
+
+        market = connector.get_ticker_price(symbol_key)
         price = float(getattr(market, "close", 0.0) or 0.0)
         if price <= 0:
             raise RuntimeError(f"paper execution failed: price unavailable for {selected_symbol}")
 
-        notional = (
-            self.config.paper_initial_balance
-            * self.config.paper_notional_fraction
-            * float(adaptation.get("risk_multiplier", 1.0) or 1.0)
-        )
-        quantity = max(notional / price, 0.0)
-
         order_params = selected.get("order_parameters", {})
-        stop_loss = order_params.get("stop_loss_price") if isinstance(order_params, dict) else None
+        if not isinstance(order_params, dict):
+            order_params = _serialize(order_params) if order_params else {}
+
+        quantity, qty_source = self._resolve_paper_quantity(adaptation, order_params, price)
+        if quantity <= 0:
+            raise RuntimeError(
+                f"paper execution failed: invalid quantity for {selected_symbol} (source={qty_source})"
+            )
+
+        stop_loss = order_params.get("stop_loss_price")
         take_profit_targets = (
             order_params.get("take_profit_targets")
             if isinstance(order_params, dict)
@@ -522,20 +665,23 @@ class AutonomousOperator:
             take_profit=float(take_profit) if take_profit else None,
         )
 
-        self._open_executions[str(selected_symbol)] = {
+        self._open_executions[symbol_key] = {
             "side": side,
             "quantity": quantity,
             "entry_price": price,
             "strategy": "autonomous_paper",
             "opened_at": datetime.now().isoformat(),
             "opened_cycle": self._cycle_count,
+            "calibration_record_index": self._calibration_index_from_pretrade(selected),
+            "quantity_source": qty_source,
         }
 
         return {
             "symbol": selected_symbol,
             "side": side,
             "quantity": quantity,
-            "notional": notional,
+            "quantity_source": qty_source,
+            "notional": quantity * price,
             "price": price,
             "order": order.to_dict() if order else None,
             "paper_state": connector.get_paper_state(),
