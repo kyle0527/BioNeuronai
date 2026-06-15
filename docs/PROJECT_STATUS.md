@@ -251,8 +251,8 @@ v1 → v2 遷移需重訓輸入投影層與輸出頭。
 
 ### 商用化缺口（非 AI 主線）
 
-- **正式驗證**：✅ Docker + CLI/API 手冊驗收；❌ 無 pytest 單元測試套件
-- **CI**：✅ Docker 驗證；❌ 無 unit-test / lint / type check
+- **正式驗證**：✅ Docker + CLI/API 手冊驗收；✅ `tests/` pytest 套件（與遠端 main 對齊）
+- **CI**：✅ Docker 驗證 + `unit-tests` job（`pytest tests -q`）
 - **API 認證 / rate limiting**：❌
 - **監控告警**：❌ 只有 log
 - **訂單重試 / dead-letter**：❌

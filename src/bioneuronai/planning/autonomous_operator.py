@@ -289,7 +289,9 @@ class AutonomousOperator:
             execution = self._open_executions[symbol]
             held = self._cycle_count - int(execution.get("opened_cycle", self._cycle_count))
             if held >= limit:
-                position = connector.virtual_account.positions.get(symbol)
+                va = getattr(connector, "virtual_account", None)
+                positions = getattr(va, "positions", None) if va is not None else None
+                position = positions.get(symbol) if positions else None
                 if position and position.quantity > 0:
                     qty = position.quantity
                     side = "SELL" if position.side == PositionSide.LONG else "BUY"
@@ -475,7 +477,11 @@ class AutonomousOperator:
     def _has_open_position(self, connector: Any, symbol: str) -> bool:
         if symbol in self._open_executions:
             return True
-        position = connector.virtual_account.positions.get(symbol)
+        va = getattr(connector, "virtual_account", None)
+        positions = getattr(va, "positions", None) if va is not None else None
+        if not positions:
+            return False
+        position = positions.get(symbol)
         if position is None:
             return False
         return float(getattr(position, "quantity", 0.0) or 0.0) > 0.0
