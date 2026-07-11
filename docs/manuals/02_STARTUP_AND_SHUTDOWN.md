@@ -1,15 +1,19 @@
 # BioNeuronai 開機與關機手冊
 
-> **套件版本**：v2.1（`pyproject.toml`）
-> **更新日期**：2026-06-15
-> **現況權威**：[`../PROJECT_STATUS.md`](../PROJECT_STATUS.md)
-> **適用對象**：第一次啟動、日常本地操作、API + Dashboard、Docker
+> **套件版本**：v2.1（`pyproject.toml`）  
+> **更新日期**：2026-07-11  
+> **方向權威**：[`../CURRENT_DIRECTION.md`](../CURRENT_DIRECTION.md)  
+> **現況權威**：[`../PROJECT_STATUS.md`](../PROJECT_STATUS.md)  
+> **適用對象**：第一次啟動、日常本地操作、API + Dashboard、Docker  
+> **本階段**：優先驗證 CLI 上的 **autonomous paper** 與產物對帳；正式驗收**不用** pytest。
 
 ---
 
 ## 目錄
 
 1. [開機前檢查](#1-開機前檢查)
+   - [1.1 四種啟動入口](#11-四種啟動入口介面層)
+   - [1.2 雙執行主線](#12-雙執行主線交易層必讀)
 2. [路線 A：只用 CLI](#2-路線-a只用-cli)
 3. [路線 B：本地 API + Dashboard](#3-路線-b本地-api--dashboard)
 4. [路線 C：Docker](#4-路線-cdocker)
@@ -37,17 +41,18 @@
 
 ### 1.2 雙執行主線（交易層，必讀）
 
-即使都用 CLI，**`trade` 與 `autonomous` 是兩條不同路徑**，學習閉環與產物不同：
+即使都用 CLI，**`trade` 與 `autonomous` 是兩條控制路徑**；現役應 **共用模型與 paper 執行層**，但產物重點不同：
 
-| 維度 | 主線 A：`trade` | 主線 B：`autonomous` |
-|------|----------------|----------------------|
-| 典型指令 | `trade --paper-live` / `--testnet` / `--live` | `autonomous --mode advisor` / `paper_auto` |
-| 執行核心 | `TradingEngine` + WebSocket | `AutonomousOperator` 規劃迴圈 |
-| 長時間監控 | ✅ 預設用途 | 單輪預設；`--cycles N` 才持續迴圈 |
-| LoRA / EpisodicMemory | ✅（paper-live 平倉） | ❌ |
+| 維度 | 主線 A：`trade` | 主線 B：`autonomous`（預設 AI 自主） |
+|------|-----------------|--------------------------------------|
+| 典型指令 | `trade --paper-live` / `--testnet` / `--live` | `autonomous --mode paper_auto --execute-paper --cycles N` |
+| 執行核心 | TradingEngine + WebSocket | 規劃迴圈 + **共用** TradingEngine paper |
+| 長時間 | tick 長駐 | `--cycles N`（N>1）持續 |
+| LoRA / EpisodicMemory | ✅ paper 平倉 | ✅ 經 shared 平倉回調 |
 | Decision Ledger | ❌ | ✅ `decision_ledger.jsonl` |
 
-**開機建議順序**：`status` →（可選）`autonomous --mode advisor` → 再決定是否 `trade --paper-live`。詳見 [04_CLI_OPERATION.md](04_CLI_OPERATION.md) §2、§7。
+**開機建議順序（本階段）**：`status` → `autonomous --mode advisor` → `autonomous --mode paper_auto --execute-paper --cycles N` →（可選）`trade --paper-live` 做 tick 觀測。  
+詳見 [04_CLI_OPERATION.md](04_CLI_OPERATION.md)、[`CURRENT_DIRECTION.md`](../CURRENT_DIRECTION.md)。
 
 ### 1.3 環境與依賴
 

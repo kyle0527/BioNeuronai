@@ -357,7 +357,7 @@ Dashboard 採用上方 tab + 分區面板佈局。
 | `Testnet auto` | true | true | 測試網自動交易；需要 Binance testnet key |
 | `Live auto` | false | true | 正式網自動交易；需要環境變數與確認字串 |
 
-`Paper live` 的紀錄會寫入 `data/bioneuronai/trading/paper_live/`。平倉後會觸發主線 A 學習閉環（EpisodicMemory / LoRA）。**Autonomous 值班**（主線 B）不在此面板，請用 CLI 並檢查 `decision_ledger.jsonl`（見 [14_TESTNET_AND_LIVE_TRADING.md](14_TESTNET_AND_LIVE_TRADING.md) §5）。
+`Paper live` 的紀錄會寫入 `data/bioneuronai/trading/paper_live/`；平倉後走學習閉環（EpisodicMemory / LoRA / Hub）。**Autonomous（預設 AI 自主）** 目前以 CLI 為主（面板可能未覆蓋），請用 `autonomous` 並檢查 `decision_ledger.jsonl` 與 paper 產物（見 [14_TESTNET_AND_LIVE_TRADING.md](14_TESTNET_AND_LIVE_TRADING.md) §5、[CURRENT_DIRECTION.md](../CURRENT_DIRECTION.md)）。
 
 ---
 

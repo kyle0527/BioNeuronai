@@ -1,32 +1,48 @@
 # BioNeuronAI 手冊盤點與實際操作驗收計畫
 
-> **套件版本**：v2.1（`pyproject.toml`）
-> **建立日期**：2026-05-02
-> **更新日期**：2026-06-15
-> **現況權威**：[`../PROJECT_STATUS.md`](../PROJECT_STATUS.md)
-> 目的：用「使用者手冊能否帶著操作者完成真實操作」作為專案可用性的判斷標準。本文不使用 `tests/` 或臨時測試腳本作為驗收依據，而是以 CLI、API、Dashboard、Docker、Backtest、Testnet 等實際入口驗證。
+> **套件版本**：v2.1（`pyproject.toml`）  
+> **建立日期**：2026-05-02  
+> **更新日期**：2026-07-11  
+> **方向權威**：[`../CURRENT_DIRECTION.md`](../CURRENT_DIRECTION.md)  
+> **現況權威**：[`../PROJECT_STATUS.md`](../PROJECT_STATUS.md)  
+> **目的**：用「使用者手冊能否帶著操作者完成**真實操作**」作為可用性判斷。  
+> **正式驗收**使用 CLI、虛擬帳戶／Paper、歷史回測、必要時 API／Dashboard／Docker。  
+> **不使用** `tests/`、pytest、臨時 mock 腳本作為功能完成或「流程跑通」的依據（它們無法反映真實時機）。
 
 ---
 
-## 📑 目錄
+## 目錄
 
-- [1. 判斷原則](#1-判斷原則)
-- [2. 目前已有的主要使用手冊](#2-目前已有的主要使用手冊)
-- [3. 目前缺少或應補強的手冊](#3-目前缺少或應補強的手冊)
-- [4. 建議驗收順序](#4-建議驗收順序)
-  - [Level 0：不用金鑰、不用 Docker](#level-0不用金鑰不用-docker)
-  - [Level 1：本地 API + Dashboard](#level-1本地-api-dashboard)
-  - [Level 2：需要外部網路或新聞 API](#level-2需要外部網路或新聞-api)
-  - [Level 3：Testnet 交易驗收](#level-3testnet-交易驗收)
-  - [Level 4：Live 前驗收](#level-4live-前驗收)
-- [5. 目前已完成的手冊式實際印證紀錄](#5-目前已完成的手冊式實際印證紀錄)
-  - [2026-05-02 第一冊 02_STARTUP_AND_SHUTDOWN.md 實際操作驗證](#2026-05-02-第一冊-02_startup_and_shutdownmd-實際操作驗證)
-  - [2026-05-04 AI 自動交易與 UI 文件清理紀錄](#2026-05-04-ai-自動交易與-ui-文件清理紀錄)
-  - [2026-06-09 測試目錄移除後正式入口驗證](#2026-06-09-測試目錄移除後正式入口驗證)
-- [6. 下一步](#6-下一步)
-  - [2026-05-02 後續使用者操作手冊實際驗證](#2026-05-02-後續使用者操作手冊實際驗證)
-  - [2026-05-14 Docker image 重建與複驗](#2026-05-14-docker-image-重建與複驗)
-  - [已完成的 image 層驗證](#已完成的-image-層驗證)
+0. [與現行方向對齊](#0-與現行方向對齊)
+1. [判斷原則](#1-判斷原則)
+2. [目前已有的主要使用手冊](#2-目前已有的主要使用手冊)
+3. [目前缺少或應補強的手冊](#3-目前缺少或應補強的手冊)
+4. [建議驗收順序](#4-建議驗收順序)
+   - [Level 0](#level-0不用金鑰不用-docker)
+   - [Level 1](#level-1本地-api-dashboard)
+   - [Level 2](#level-2需要外部網路或新聞-api)
+   - [Level 2.5 預設 AI 自主 paper（本階段核心）](#level-25預設-ai-自主-paper-流程本階段核心)
+   - [Level 3 Paper-live 與 Testnet](#level-3paper-live-與-testnet主線-a)
+   - [Level 4 Live 前](#level-4live-前驗收)
+5. [目前已完成的手冊式實際印證紀錄](#5-目前已完成的手冊式實際印證紀錄)
+6. [下一步](#6-下一步)
+
+---
+
+## 0. 與現行方向對齊
+
+| 議題 | 本計畫立場（2026-07-11） |
+|------|--------------------------|
+| 本階段主目標 | **工程自主**：預設流程跑通 + 記帳正確 |
+| 預設 AI 自主入口 | `python main.py autonomous`（paper + cycles） |
+| 日常驗證 | 幣安虛擬帳戶／本機 Paper，真實時序 |
+| 長期驗證 | **先下載歷史**，再 backtest／readiness-gate |
+| 單元測試 | **非正式驗收** |
+| 未訓練模型 | 可驗流程；不可用 PnL 證明智能 |
+| 多帳戶／API 認證 | **不列入**本階段通過條件 |
+| 訓練改善 | 流程通且記帳穩後；終局邊跑邊學 |
+
+完整論述：[`CURRENT_DIRECTION.md`](../CURRENT_DIRECTION.md)、[`TESTING_AND_VALIDATION_GUIDE.md`](../TESTING_AND_VALIDATION_GUIDE.md)。
 
 ---
 
@@ -34,12 +50,14 @@
 
 一項功能只有在同時滿足以下條件時，才視為「手冊可用」：
 
-1. 有對應手冊或章節。
-2. 手冊列出的命令、URL、環境變數與目前程式碼一致。
-3. 使用者可以照手冊從啟動到完成操作。
-4. 操作完成後有可觀察輸出，例如 CLI 結果、API JSON、Dashboard 畫面、runtime 目錄、模型權重或報告檔。
-5. 若功能需要 API key、Docker、GPU 或實盤資金，手冊必須明確標示前置條件與安全限制。
-6. 不建立或執行 `tests/` 測試檔；驗收只使用 CLI / API / Dashboard / Docker 的直接操作結果。
+1. 有對應手冊或章節。  
+2. 手冊列出的命令、URL、環境變數與目前程式碼一致。  
+3. 使用者可以照手冊從啟動到完成操作。  
+4. 操作完成後有可觀察輸出：CLI 結果、API JSON、Dashboard、runtime、ledger、帳戶狀態或報告檔。  
+5. 若需要 API key、Docker、GPU 或實盤資金，手冊必須標示前置與安全限制。  
+6. **不建立或執行 `tests/` 測試檔作為驗收**；只使用 CLI／API／Dashboard／Docker／真實回測的直接操作結果。  
+7. 區分 **工程自主**（會跑、帳對）與 **智能自主**（模型品質）；後者不得用 untrained 短線盈虧蒙混。  
+8. 抽查「正確證據」：決策→進場→出場是否對得上（見 CURRENT_DIRECTION §3.3）。
 
 ---
 
@@ -113,7 +131,26 @@
 | Analysis | `python main.py news --symbol BTCUSDT` | 能完成新聞分析或明確降級 |
 | Analysis | `python main.py plan --symbol BTCUSDT` | 能產出計畫或明確列出外部資料失敗原因 |
 | Analysis | `python main.py pretrade --symbol BTCUSDT --action long` | 能產出 PROCEED / CAUTION / REJECT 與理由 |
-| CLI / 04 | `python main.py autonomous --mode advisor --symbol BTCUSDT` | 終端有 `final_action`；`decision_ledger.jsonl` 追加一筆；**不**啟動 TradingEngine |
+| CLI / 04 | `python main.py autonomous --mode advisor --symbol BTCUSDT` | 終端有 `final_action`；`decision_ledger.jsonl` 追加一筆 |
+
+### Level 2.5：預設 AI 自主 paper 流程（本階段核心）
+
+> **這是 2026-07-11 方向下的主驗收層。** 通過本層 = 工程自主大致成立；**不要求**模型已訓練或績效漂亮。
+
+| 手冊 | 實際入口 | 成功標準 |
+|---|---|---|
+| 04 / 14 / CURRENT_DIRECTION | `python main.py autonomous --mode paper_auto --execute-paper --cycles 3 --symbol BTCUSDT --paper-balance 10000` | 多輪可完成或合理 STOP；ledger 有多輪 record |
+| 04 / 16 | 同上 | 若允許執行：有 paper_execution 或明確 `skipped=existing_position` |
+| 16 | 抽查 ledger + 虛擬帳戶狀態 | 決策／進場／（若有）出場結果可對帳；餘額變化說得通 |
+| 04 | 可選 `--max-position-hold-cycles` | 卡單行為可觀察或文件化未觸發原因 |
+| CURRENT_DIRECTION | 觀察模型狀態 | `trained: false` 時不將盈虧解釋為 AI 智能達標 |
+| — | **禁止** | 用 `pytest tests` 代替本表任何一列 |
+
+補充：
+
+- Paper 執行應走 **共用 TradingEngine**（非「永遠獨立第二帳戶」的舊描述）。  
+- 平倉後應能觀察引擎學習鏈與／或 ledger outcome（shared callback）。  
+- 學習寫入可先「只記錄」再開滿；見 TESTING_AND_VALIDATION_GUIDE §7。
 
 ### Level 3：Paper-live 與 Testnet（主線 A）
 

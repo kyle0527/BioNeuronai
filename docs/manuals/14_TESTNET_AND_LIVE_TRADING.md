@@ -1,20 +1,29 @@
 # 測試網、Paper-live、Autonomous 與實盤交易操作手冊
 
-> **套件版本**：v2.1
-> **範圍**：使用者如何啟動、停止、檢查與排查 `trade` 與 `autonomous` 相關操作。
-> **更新日期**：2026-06-15
-> **現況權威**：[`../PROJECT_STATUS.md`](../PROJECT_STATUS.md)
-> **原則**：先 paper-live，再 testnet，最後才 live；未完成 readiness-gate、固定區間回測、pretrade、風控與長時間觀察前，不進 live。
+> **套件版本**：v2.1  
+> **範圍**：如何啟動、停止、檢查與排查 `trade` 與 `autonomous`。  
+> **更新日期**：2026-07-11  
+> **方向權威**：[`../CURRENT_DIRECTION.md`](../CURRENT_DIRECTION.md)  
+> **現況權威**：[`../PROJECT_STATUS.md`](../PROJECT_STATUS.md)  
+> **本階段原則**：先把 **虛擬帳戶／Paper 上的預設自主流程** 跑通並記帳正確；再 testnet；最後才 live。  
+> **進 live 前**：readiness-gate、固定區間歷史回測、pretrade、風控與長時間觀察。  
+> **驗收**：真實 CLI 與產物；**不用** pytest。多帳戶等商用周邊**非本手冊本階段重點**。
 
 ---
 
 ## 目錄
 
-1. [雙執行主線（必讀）](#1-雙執行主線必讀)
+1. [現行方向與雙執行主線（必讀）](#1-現行方向與雙執行主線必讀)
+   - [1.1 本階段要證明什麼](#11-本階段要證明什麼)
+   - [1.2 雙入口](#12-雙入口)
 2. [前置檢查](#2-前置檢查)
 3. [Testnet 啟動](#3-testnet-啟動)
-4. [Paper-live 啟動](#4-paper-live-啟動)
-5. [Autonomous 值班](#5-autonomous-值班)
+4. [Paper-live 啟動（主線 A）](#4-paper-live-啟動主線-a)
+5. [Autonomous 自主流程（主線 B，本階段核心）](#5-autonomous-自主流程主線-b本階段核心)
+   - [5.1 Advisor](#51-advisor-模式預設不送單)
+   - [5.2 Paper-auto](#52-paper-auto-模式工程自主主路徑)
+   - [5.3 Ledger 與 outcome](#53-ledger-與-outcome)
+   - [5.4 不建議的操作](#54-不建議的操作)
 6. [API 啟停交易](#6-api-啟停交易)
 7. [Live 前必做檢查](#7-live-前必做檢查)
 8. [Live 啟動](#8-live-啟動)
@@ -23,27 +32,40 @@
 
 ---
 
-## 1. 雙執行主線（必讀）
+## 1. 現行方向與雙執行主線（必讀）
 
-本手冊涵蓋兩條**不同**的執行路徑，請勿混用驗收標準：
+### 1.1 本階段要證明什麼
 
-| 維度 | 主線 A：`trade` | 主線 B：`autonomous` |
-|------|----------------|----------------------|
-| CLI 入口 | `python main.py trade ...` | `python main.py autonomous ...` |
-| 執行核心 | `TradingEngine` + WebSocket | `AutonomousOperator` 規劃迴圈 |
-| 長時間監控 | ✅ 預設用途 | ❌ 除非 `--cycles N` 定時迴圈 |
-| LoRA / EpisodicMemory | ✅（paper-live 平倉） | ❌ |
-| Decision Ledger | ❌ | ✅ `decision_ledger.jsonl` |
-| Paper 下單 | `--paper-live`（引擎內） | `--execute-paper`（獨立 paper 連接器） |
+| 要 | 不要 |
+|----|------|
+| 工程自主：會自己跑、真下平、帳對 | 用未訓練模型盈虧證明「AI 很強」 |
+| 日常：Paper／虛擬帳戶真實時序 | 用單元測試檔充當時機驗收 |
+| 長期：先下載歷史再回測 | 把多帳戶／API 認證當本階段阻塞 |
 
-**主線 B 執行層（2026-06-15）**：
-- `--execute-paper` **優先**採 pretrade `order_parameters.quantity`（× `risk_multiplier`）；無效時 fallback `--paper-notional-fraction`
-- 已有持倉時跳過進場（`paper_execution.skipped=true`，`reason=existing_position`）
-- 平倉回填 `confidence_calibrator.record_outcome_by_index()`
-- 卡單平倉：`--max-position-hold-cycles`；反思：`--reflect-every`（需 `--cycles >1`）；獨立 `python main.py reflect`
-- `testnet_auto` / `live_guarded` 模式 v1 **不直接送單**，僅標記需人工確認
+優先順序：工程自主 → 穩定 → 訓練改善 → 終局邊跑邊學。見 [`CURRENT_DIRECTION.md`](../CURRENT_DIRECTION.md)。
 
-完整參數表見 [04_CLI_OPERATION.md](04_CLI_OPERATION.md) §5。
+### 1.2 雙入口
+
+控制方式不同；**模型與 paper 執行層應共用**。勿混用驗收標籤。
+
+| 維度 | 主線 A：`trade` | 主線 B：`autonomous`（**預設 AI 自主**） |
+|------|-----------------|------------------------------------------|
+| CLI | `python main.py trade ...` | `python main.py autonomous ...` |
+| 執行核心 | TradingEngine + WebSocket | AutonomousOperator 規劃 + **共用** TradingEngine paper |
+| 長時間 | tick 長駐 | `--cycles N`（N>1）`run_forever` |
+| LoRA / Memory | ✅ paper 平倉 | ✅ **經 shared 平倉回調**進引擎鏈 |
+| Decision Ledger | ❌ | ✅ |
+| Paper 下單 | `--paper-live` | `--mode paper_auto` + `--execute-paper` |
+
+**主線 B 執行層（勿寫成「永遠獨立帳戶、無學習」）**：
+
+- quantity 優先 pretrade；無效 fallback notional fraction  
+- 已有持倉：`skipped=existing_position`  
+- 平倉：shared callback → 引擎學習鏈 + ledger + calibrator  
+- 卡單／反思參數見 04 手冊  
+- `testnet_auto`／`live_guarded`：依實作可能**不直接送單**，以 CLI 說明與 ledger 為準  
+
+完整參數：[04_CLI_OPERATION.md](04_CLI_OPERATION.md)。
 
 ---
 
@@ -101,10 +123,11 @@ python main.py trade --symbol BTCUSDT --testnet
 
 ---
 
-## 4. Paper-live 啟動
+## 4. Paper-live 啟動（主線 A）
 
-Paper-live 是目前建議的長時間觀察入口：行情使用 Binance mainnet public market data，但下單只進本地 `VirtualAccount`，不送出 Binance order API。
+Paper-live 是 **即時 tick／T0–T2 觀測** 入口（非預設「規劃自主」主路徑）：行情使用 Binance mainnet public data，下單只進本地 `VirtualAccount`，不送 Binance order API。
 
+**預設 AI 自主長跑**請優先看第 5 節 `autonomous`。
 CLI：
 
 ```powershell
@@ -143,42 +166,59 @@ Invoke-RestMethod `
 
 ---
 
-## 5. Autonomous 值班
+## 5. Autonomous 自主流程（主線 B，本階段核心）
 
-`autonomous` 是**規劃與決策**入口，不是 `TradingEngine` 的替代品。日常建議：先跑 advisor 單輪，再依 `final_action` 決定是否進 `trade --paper-live` 或 `autonomous --execute-paper`。
+`autonomous` 是 **預設 AI 自主** 入口：規劃 → pretrade → adaptation →（可選）paper 執行 → ledger。  
+Paper **不是**另一套永久隔離的交易島，而是透過 **共用 TradingEngine** 下單與平倉回調（學習鏈 + ledger）。
 
-### Advisor 模式（預設，不送單）
+建議順序：
+
+1. advisor 單輪確認規劃鏈  
+2. `paper_auto --execute-paper --cycles N` 驗工程自主與記帳  
+3. 需要 tick 級觀測再加 `trade --paper-live`  
+4. 流程穩後再開滿在線改善／基線訓練  
+
+### 5.1 Advisor 模式（預設，不送單）
 
 ```powershell
 python main.py autonomous --mode advisor --symbol BTCUSDT --output output\autonomous_advisor.json
 ```
 
-終端機輸出欄位（JSON 對應欄位見括號）：
+終端常見欄位：
 
-- `candidates`
-- `plan_status`、`plan_execution_ready`
-- `final_action`、`can_execute`、`risk_multiplier`、`confidence_floor`
-- `next_interval_minutes`、`reasons`（在 `adaptation` 內）
-- **Pretrade** 區塊（JSON：`pretrade_summary`，每 symbol 的 status / score）
+- `candidates`  
+- `plan_status`、`plan_execution_ready`  
+- `final_action`、`can_execute`、`risk_multiplier`、`confidence_floor`  
+- `next_interval_minutes`、`reasons`（在 `adaptation` 內）  
+- Pretrade 區塊（`pretrade_summary`）  
 
-若 `final_action` 為 `advise_only` / `observe`，或 pretrade 顯示 `WAIT` / `REJECT`，本輪應停在觀察。
+若 `final_action` 為 `advise_only`／`observe`，或 pretrade 為 WAIT／REJECT，本輪應停在觀察。
 
-### Paper-auto 模式
+### 5.2 Paper-auto 模式（工程自主主路徑）
 
 ```powershell
 # 只決策、不送單
 python main.py autonomous --mode paper_auto --symbol BTCUSDT --output output\autonomous_paper_auto.json
 
-# 條件通過且 adaptation 允許時，送本機 paper 單（需明確旗標）
+# 條件通過且 adaptation 允許時，送本機 paper 單
 python main.py autonomous --mode paper_auto --symbol BTCUSDT --execute-paper --paper-balance 10000
 
-# 持續 N 輪（輪間隔由 next_interval_minutes 決定）
-python main.py autonomous --mode paper_auto --symbol BTCUSDT --execute-paper --cycles 24
+# 持續 N 輪（本階段核心驗收；輪間隔依 next_interval_minutes）
+python main.py autonomous --mode paper_auto --symbol BTCUSDT --execute-paper --cycles 24 --paper-balance 10000
 ```
 
-送單後若有成交，終端機會印 **Paper Execution**（`paper_execution`：symbol、side、qty、`quantity_source`、order status）。驗收時確認 `quantity_source=pretrade_quantity`；若為 `notional_fraction` 表示 pretrade quantity 無效而 fallback。
+成功時關注：
 
-### Ledger 與 outcome
+- 多輪是否跑完或合理 STOP  
+- `paper_execution`：symbol、side、qty、`quantity_source`、order status  
+- `quantity_source=pretrade_quantity` 為優先；`notional_fraction` 表示 fallback  
+- `skipped=existing_position` 為已有持倉的預期行為  
+- **正確證據**：ledger 決策與帳戶變化可對（見 CURRENT_DIRECTION）  
+- `trained: false` 時不把盈虧當智能達標  
+
+可選：`--max-position-hold-cycles`、`--reflect-every`（以 `-h` 為準）。
+
+### 5.3 Ledger 與 outcome
 
 預設路徑：
 
@@ -190,15 +230,18 @@ data\bioneuronai\planning\autonomous\decision_ledger.jsonl
 Get-Content data\bioneuronai\planning\autonomous\decision_ledger.jsonl -Tail 5
 ```
 
-每輪會 append `autonomous_cycle`；平倉結算後會 append `trade_outcome`（供 AdaptationController 讀取連敗/回撤規則）。
+- 每輪 append 決策紀錄（如 `autonomous_cycle`）  
+- 平倉後可有 `trade_outcome`（供 AdaptationController 連敗／回撤規則）  
+- 平倉同時走 shared callback → 引擎側 memory／LoRA／Hub（是否寫入持久狀態依執行設定；流程未穩時可先以記帳為準）  
 
-自訂路徑：`--ledger-path <path>`。
+自訂：`--ledger-path <path>`。
 
-### 不建議的操作
+### 5.4 不建議的操作
 
-- 用 autonomous 結果驗證 LoRA 是否更新（LoRA 只走主線 A）
-- 同 symbol 同時跑 `trade --paper-live` 與 `autonomous --execute-paper` 而不檢查持倉
-- 假設 `testnet_auto` / `live_guarded` 會自動下單（v1 不送單）
+- 同 symbol 同時跑 `trade --paper-live` 與 `autonomous --execute-paper` 而不協調持倉  
+- 假設 `testnet_auto`／`live_guarded` 一定會自動下單（以實作與 ledger 為準，常為需人工確認）  
+- 用 pytest 代替本節真實操作  
+- 在記帳未對前，把 LoRA／Hub 狀態變化當成「已改善成功」的唯一證據  
 
 ---
 

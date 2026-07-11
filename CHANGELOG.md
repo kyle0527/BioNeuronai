@@ -2,6 +2,23 @@
 
 > **版本命名**：套件正式版為 **v2.1**（`pyproject.toml`）。CHANGELOG 中的 v3.x / v4.x 為歷史里程碑標籤；文件中的 **v2.2** 僅指 roadmap / 訓練後驗證期，不是已發布套件版。現況以 `docs/PROJECT_STATUS.md` 為準。
 
+## [Refactor] - 2026-07-11
+
+### v1 大封存與統一模型主線
+
+- **v1 封存**：舊模型權重（`my_100m_model*.pth`、`best_model_run1/2.pth`、`tiny_llm_100m.pth`）、`tiny_llm_en_zh(_trained)/` 模型包、v1 程式碼（`src/nlp/tiny_llm.py`、`src/nlp/rag_system.py`、`src/bioneuronai/models/legacy.py`、`auto_evolve.py`、`train_with_ai_teacher.py`、`create_model_package.py`）全部移至 `archived/legacy_v1_20260711/`。封存內容經雜湊比對與 git LFS oid 驗證完整。
+- **單一模型主線**：`config/active_model.json` 為唯一模型組態來源，指向 `unified_v2_100m`（TinyLLMv2，98,403,413 參數，`trained: false`、`deterministic_untrained`）。TradingEngine、ChatEngine、AutonomousOperator 共用同一 shared instance；現役 loader 明確拒絕 v1/legacy checkpoint。
+- **訓練資料契約**：`tools/training/prepare_signal_tensors.py` 強制 65 維 signal（schema `unified_v2_numeric_text_signal_65`），標籤來自真實未來 K 線；舊 512 維自我標註被拒絕。
+- **model/ 目錄**：只保留 `tokenizer/`；`unified_v2_100m.pth` 僅在真實資料訓練完成後產生。
+
+### 文件同步（2026-07-11）
+
+- 新增 `docs/CURRENT_DIRECTION.md`（方向、優先級、驗證哲學權威文件）。
+- `README.md`、`docs/README.md`、`docs/PROJECT_STATUS.md`、`docs/ARCHITECTURE_OVERVIEW.md`、模組 README（`src/nlp/`、`core/`、`models/`、`model/`）、訓練手冊 12/13 對齊統一 v2 現況。
+- `docs/EXECUTION_PLAN.md` 移入歸檔區（Step 1–4 已被實作覆蓋）；`PROJECT_HANDOVER_MAP.md`、`SRC_DIRECTORY_ANALYSIS.md`、`KNOWHOW_ANALYSIS.md` 就地修正 v1 殘留敘述；`OPERATION_VALIDATION_REPORT_20260603.md` 標註驗證對象為 v1（v2 尚待新驗證報告）。
+
+---
+
 ## [Docs] - 2026-06-15
 
 ### 文件一致性同步（三批）

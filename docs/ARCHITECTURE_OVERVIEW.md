@@ -1,15 +1,17 @@
 # BioNeuronAI 系統架構總覽
 
-**套件版本**：v2.1（`pyproject.toml`）
-**更新日期**：2026-06-15
+**套件版本**：v2.1（`pyproject.toml`）  
+**更新日期**：2026-07-11  
 
-> 本文件描述程式碼**實際執行**的架構，而非設計目標。
-> 現況細節以 [`PROJECT_STATUS.md`](PROJECT_STATUS.md) 為準；本文件為架構導覽。
+> 本文件描述程式碼**實際執行**的架構，而非空想設計。  
+> **優先級與驗證哲學**以 [`CURRENT_DIRECTION.md`](CURRENT_DIRECTION.md) 為準。  
+> **模組完成度**以 [`PROJECT_STATUS.md`](PROJECT_STATUS.md) 為準；本文件為架構導覽。
 
 ---
 
 ## 目錄
 
+0. [與現行方向的對齊](#0-與現行方向的對齊)
 1. [整體架構圖](#1-整體架構圖)
 2. [雙執行主線](#2-雙執行主線)
 3. [主線 A：信號生成時序](#3-主線-a信號生成時序)
@@ -21,8 +23,22 @@
    - [4.5 記憶與學習層](#45-記憶與學習層)
    - [4.6 資料與風控層](#46-資料與風控層)
 5. [TinyLLM 模型架構](#5-tinyllm-模型架構)
+   - [v1（已封存）](#v1已封存)
+   - [v2（唯一現役架構）](#v2唯一現役架構)
 6. [待完成缺口](#6-待完成缺口)
 7. [部署模式](#7-部署模式)
+
+---
+
+## 0. 與現行方向的對齊
+
+| 架構意涵 | 現行方向 |
+|----------|----------|
+| 雙 CLI 入口 | 控制方式不同；**模型與 paper 執行層應共用** |
+| 預設「AI 自主」敘事 | 以 **`autonomous` 長跑** 為主路徑；`trade --paper-live` 為 tick／T0–T2 觀測 |
+| 交易即訓練 | 終局：平倉 → 記帳 → Hub／LoRA；工程未穩時可降級為只記錄 |
+| 驗證 | 虛擬帳戶真實操作 + 歷史回測；**非** pytest 完成標準 |
+| 商用多帳戶等 | 架構可擴，**本階段不實作、不阻塞** |
 
 ---
 
@@ -89,7 +105,7 @@ flowchart TD
     TE --> HUB
     AO --> LEDGER --> HUB
     TE --> BC & PB
-    AO --> PB
+    AO --> TE
     PB --> VA
     TE --> RM & DB
 ```
@@ -101,19 +117,25 @@ flowchart TD
 | 維度 | 主線 A：TradingEngine | 主線 B：AutonomousOperator |
 |------|----------------------|---------------------------|
 | CLI | `python main.py trade [--paper-live]` | `python main.py autonomous [--execute-paper]` |
-| 驅動方式 | WebSocket 即時 tick | 定時規劃迴圈（`run_forever`） |
+| 角色定位 | 即時 tick 監控與 T0–T2 觀測 | **預設 AI 自主長跑**（規劃閉環） |
+| 驅動方式 | WebSocket 即時 tick | 定時規劃迴圈（`run_forever`，`--cycles N`） |
 | 決策來源 | StrategySelector + shared InferenceEngine | Plan → shared InferenceEngine → Pretrade → AdaptationController |
-| 下單觸發 | `auto_trade=True` / `--paper-live` | `execute_paper=True` 且 adaptation 允許 |
-| ActionRecord T0/T1/T2 | ✅ | ❌ |
-| EpisodicMemory / LoRA | ✅（平倉回調） | ✅（共用 TradingEngine 平倉回調） |
+| 下單觸發 | `auto_trade=True` / `--paper-live` | `--mode paper_auto` + `--execute-paper` 且 adaptation 允許 |
+| Paper 執行 | 引擎內 | **委派** `TradingEngine.execute_prepared_order()` |
+| 模型 | `unified_v2_100m` shared | **同一** shared instance |
+| ActionRecord T0/T1/T2 | ✅ 引擎主路徑 | 平倉經 shared callback 進入引擎鏈；B 以 ledger 為主審計 |
+| EpisodicMemory / LoRA | ✅（平倉回調） | ✅（`_on_shared_paper_close` → `_on_paper_close`） |
 | Decision Ledger | ❌ | ✅ |
 | AdaptiveLearningHub | ✅ | ✅ |
 | 完整學習閉環 | ✅ | ✅（ledger + 共用執行與平倉回調） |
 
-**主線 B 執行層（2026-06-15）**：
+**主線 B 執行層（2026-06-15 起，並與 2026-07-11 方向一致）**：
+
 - `_execute_paper_order()` 優先採 pretrade `order_parameters.quantity`（× `risk_multiplier`）；無效時 fallback `paper_notional_fraction`
 - 下單前檢查既有持倉；重複進場回傳 `skipped=existing_position`
+- Paper connector 取自 TradingEngine；平倉 callback 同時回寫引擎學習鏈與 autonomous ledger
 - 平倉回填 `confidence_calibrator.record_outcome_by_index()`；可選 `--reflect-every` 觸發 reflection_loop
+- **不得**再描述為「B 線永遠獨立帳戶、永遠無 LoRA」
 
 ---
 
@@ -253,13 +275,17 @@ event_score > +5 → 攔截普通做空，放行做多
 
 ## 6. 待完成缺口
 
-| 缺口 | 狀態 | 修正方向 |
-|---|---|---|
-| 新聞時序聚合 | 🧩 P1 | 擴充 `get_direction_bias()`，`implemented_level` → `"full"` |
-| TinyLLM v2 真實資料訓練 | 🧩 | 蒐集未來行情標籤 → 訓練 → walk-forward → 明確 promotion |
-| GoalTracker 自動回饋 | 🧩 P4 | `recommended_risk_scale` → AdaptationController |
-| 主線 B 長時間穩定性 | 🧩 | 以真實行情持續驗證共用執行與平倉回寫 |
-| `_fuse_signals` 改用 direction_bias | 🧩 | 與 StrategyFusion 層對齊（可選） |
+> 優先級以「預設流程跑通」為先，見 [`CURRENT_DIRECTION.md`](CURRENT_DIRECTION.md)。
+
+| 缺口 | 狀態 | 與本階段關係 | 修正方向 |
+|---|---|---|---|
+| 預設自主長跑與對帳驗收 | 🧩 P0 | **本階段主戰場** | 真實 paper／ledger／重啟；非 pytest |
+| 新聞時序聚合 | 🧩 P1 | 流程通後增強 | `get_direction_bias()` → `"full"` |
+| TinyLLM v2 真實資料訓練 | 🧩 | 階段 3；不阻擋工程自主 | 標籤 → 訓練 → promotion → `unified_v2_100m.pth` |
+| GoalTracker 自動回饋 | 🧩 P4 | 非阻塞 | `recommended_risk_scale` → AdaptationController |
+| 主線 B 長時間穩定性 | 🧩 | **本階段** | 真實行情驗證共用執行與平倉回寫 |
+| `_fuse_signals` 與 direction_bias 統一 | 🧩 | 可預期性 | 與 StrategyFusion 語意對齊 |
+| 多帳戶／API 認證等 | 延後 | **非本階段** | 預設流程通後再加 |
 
 ---
 

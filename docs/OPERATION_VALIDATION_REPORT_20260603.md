@@ -4,6 +4,8 @@
 > Environment: Windows 11, Python 3.13, PyTorch CPU 2.8.0, FastAPI `127.0.0.1:8000`  
 > Credentials: Binance Futures Testnet（虛擬帳戶，非真實資金）
 
+> ⚠️ **2026-07-11 歷史快照標註**：本報告驗證的模型為 **v1 `my_100m_model_trained_20260510.pth`**，該權重已移至 `archived/legacy_v1_20260711/`，現役為未訓練的統一模型 `unified_v2_100m`。交易所連線、下單、平倉與管線走查的結論仍具參考價值，但**模型載入與推論相關段落不代表現況**；v2 統一模型的新操作驗證報告尚待產出。
+
 本報告是對 [OPERATION_VALIDATION_REPORT_20260511.md](OPERATION_VALIDATION_REPORT_20260511.md) 的補充，專注於三個 2026-05-11 報告中刻意排除的項目：
 
 1. 真實交易所訂單提交與平倉

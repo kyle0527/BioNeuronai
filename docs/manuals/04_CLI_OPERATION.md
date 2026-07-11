@@ -1,8 +1,9 @@
 # BioNeuronai CLI 操作手冊
 
-**套件版本**：v2.1（`pyproject.toml`）
-**更新日期**：2026-06-15
-**適用對象**：初次使用者 / 日常操作參考
+**套件版本**：v2.1（`pyproject.toml`）  
+**更新日期**：2026-07-11  
+**適用對象**：初次使用者／日常操作／工程自主驗收  
+**方向權威**：[`../CURRENT_DIRECTION.md`](../CURRENT_DIRECTION.md)  
 **現況權威**：[`../PROJECT_STATUS.md`](../PROJECT_STATUS.md)
 
 ---
@@ -10,10 +11,17 @@
 ## 目錄
 
 1. [系統概述](#1-系統概述)
-2. [雙執行主線（必讀）](#2-雙執行主線必讀)
+2. [現行方向與雙執行主線（必讀）](#2-現行方向與雙執行主線必讀)
+   - [2.1 優先級](#21-優先級操作者必讀)
+   - [2.2 雙入口對照](#22-雙入口對照)
 3. [安裝與環境設定](#3-安裝與環境設定)
 4. [Binance API 金鑰設定](#4-binance-api-金鑰設定)
 5. [CLI 命令參考](#5-cli-命令參考)
+   - [status / plan / pretrade / news](#status)
+   - [backtest 系列](#backtest--backtest-data--backtest-runs)
+   - [trade（主線 A）](#trade主線-a)
+   - [autonomous（主線 B）](#autonomous主線-b)
+   - [reflect / chat](#reflect)
 6. [產出物與驗收路徑](#6-產出物與驗收路徑)
 7. [標準操作流程 (SOP)](#7-標準操作流程-sop)
 8. [常見問題排查](#8-常見問題排查)
@@ -51,24 +59,46 @@ BioNeuronai 是加密貨幣期貨交易系統，模組分工如下：
 
 ---
 
-## 2. 雙執行主線（必讀）
+## 2. 現行方向與雙執行主線（必讀）
 
-操作前請先確認要用哪條主線。**兩者學習閉環不同，不可混用驗收標準。**
+### 2.1 優先級（操作者必讀）
 
-| 維度 | 主線 A：`trade` | 主線 B：`autonomous` |
-|------|----------------|----------------------|
-| 驅動 | WebSocket 即時 tick | 定時規劃迴圈（`run_forever`） |
-| 典型用途 | 即時監控、完整「交易即訓練」 | 盤前規劃、值班建議、定時 paper |
-| ActionRecord T0/T1/T2 | ✅ | ❌ |
-| EpisodicMemory / LoRA | ✅（`--paper-live` 平倉觸發） | ❌ |
+| 順序 | 目標 | CLI 重心 |
+|:----:|------|----------|
+| 1 | **工程自主**：預設流程跑通、記帳正確 | `autonomous` paper + cycles |
+| 2 | 穩定長跑／重啟 | 同上 + 抽查產物 |
+| 3 | 訓練改善 | 訓練 runbook + 再開滿在線學習 |
+| 終局 | 自主時直接改善 | paper 平倉 → Hub／LoRA |
+
+- **日常驗證**：虛擬帳戶／Paper 真實操作。  
+- **長期**：先下載歷史 → `backtest`／`readiness-gate`。  
+- **不要**用 `tests/` pytest 當「已驗收」。  
+- **多帳戶／認證**：非本階段操作目標。  
+- **未訓練模型**：可跑流程；勿用盈虧宣稱智能。
+
+詳見 [`CURRENT_DIRECTION.md`](../CURRENT_DIRECTION.md)、[`TESTING_AND_VALIDATION_GUIDE.md`](../TESTING_AND_VALIDATION_GUIDE.md)。
+
+### 2.2 雙入口對照
+
+**控制方式不同，模型與 paper 執行應共用；不可混用驗收標籤。**
+
+| 維度 | 主線 A：`trade` | 主線 B：`autonomous`（預設 AI 自主） |
+|------|-----------------|--------------------------------------|
+| 驅動 | WebSocket 即時 tick | 定時規劃（`run_forever`） |
+| 典型用途 | tick 監控、T0–T2 觀測 | **自主長跑**、規劃閉環 |
+| 模型 | shared `unified_v2_100m` | **同一** shared |
+| Paper | 引擎內 | `execute_prepared_order` |
+| ActionRecord T0/T1/T2 | ✅ | 平倉經 shared callback 進引擎鏈 |
+| EpisodicMemory / LoRA | ✅ paper 平倉 | ✅ 經 `_on_shared_paper_close` |
 | Decision Ledger | ❌ | ✅ JSONL |
 | AdaptiveLearningHub | ✅ | ✅ |
 
-**主線 B 執行層（2026-06-15 更新）**：
-- `--execute-paper` **優先**採 pretrade `order_parameters.quantity`（× `risk_multiplier`）；僅在 quantity 無效時 fallback `--paper-notional-fraction`
-- 已有持倉時跳過進場（`paper_execution.skipped=true`，`reason=existing_position`）
-- 平倉回填 `confidence_calibrator.record_outcome()`（依 `calibration_record_index`）
-- 卡單平倉：`--max-position-hold-cycles N`；反思迴圈：`--reflect-every N`（需 `--cycles >1`）
+**主線 B 執行層**：
+
+- 真下單：`--mode paper_auto` **且** `--execute-paper`  
+- quantity：優先 pretrade；無效 fallback `--paper-notional-fraction`  
+- 已有持倉：`skipped=true`，`reason=existing_position`  
+- 平倉回填 calibrator；卡單 `--max-position-hold-cycles`；反思 `--reflect-every`  
 - 獨立反思：`python main.py reflect --sample-size 50`
 
 ---
@@ -288,34 +318,38 @@ python main.py chat --language zh --symbol BTCUSDT
 |------|----------|------|
 | `data/bioneuronai/planning/autonomous/decision_ledger.jsonl` | `autonomous` 每輪 | `autonomous_cycle` + `trade_outcome` + `reflection_cycle` |
 | `data/bioneuronai/learning/adaptive_hub.json` | 平倉後 hub 更新 | 策略×幣對 EWMA 績效 |
-| `data/bioneuronai/memory/` | 主線 A 平倉 | EpisodicMemory |
-| paper log 目錄 | `trade --paper-live` 啟動時印出 | 虛擬成交紀錄 |
+| `data/bioneuronai/memory/` | paper 平倉（A 直接；B 經 shared callback） | EpisodicMemory |
+| paper log 目錄 | `trade --paper-live` 或 autonomous paper | 虛擬成交紀錄 |
 
 **驗收 autonomous 時建議檢查**：
-1. ledger 最新一筆 `final_action` 與 `reasons` 是否合理
-2. 若有 `--execute-paper`，`paper_execution.quantity_source` 應為 `pretrade_quantity`（或 `notional_fraction` fallback）
-3. 平倉後 ledger 是否出現 `type: trade_outcome`；calibrator JSON 是否有對應 outcome
-4. 若 `--reflect-every N`，ledger 是否週期性出現 `type: reflection_cycle`
+
+1. ledger 最新一筆 `final_action` 與 `reasons` 是否合理  
+2. 若有 `--execute-paper`：`paper_execution.quantity_source` 為 `pretrade_quantity` 或 `notional_fraction` fallback  
+3. 平倉後 ledger 是否有 `trade_outcome`；帳戶餘額是否對得上  
+4. 若開啟學習寫入：Hub／memory 是否有變化（未平倉或未達門檻則可能無）  
+5. 若 `--reflect-every N`：ledger 是否有 `reflection_cycle`  
+
+詳見 [16_RUNTIME_ARTIFACTS.md](16_RUNTIME_ARTIFACTS.md)。
 
 ---
 
 ## 7. 標準操作流程 (SOP)
 
-### 日常值班（建議）
+### 本階段日常（工程自主優先）
 
-1. `python main.py status`
-2. `python main.py plan`（可選）
-3. `python main.py pretrade --symbol BTCUSDT --action long`
-4. `python main.py autonomous --mode advisor --symbol BTCUSDT`
-5. 依 `final_action` 決定：
-   - 觀察 → 結束
-   - 需即時閉環學習 → `trade --paper-live`
-   - 定時規劃 paper → `autonomous --mode paper_auto --execute-paper`
+1. `python main.py status`  
+2. `python main.py pretrade --symbol BTCUSDT --action long`（可選）  
+3. `python main.py autonomous --mode advisor --symbol BTCUSDT`  
+4. **預設主路徑**：`python main.py autonomous --mode paper_auto --execute-paper --cycles N --paper-balance 10000`  
+5. 對帳：ledger + paper 產物（[16_RUNTIME_ARTIFACTS.md](16_RUNTIME_ARTIFACTS.md)）  
+6. （可選）tick 觀測：`trade --paper-live`  
+7. （長期）下載歷史後 `backtest`／`readiness-gate`  
 
 ### 不建議的順序
 
-- 同時跑 `trade --paper-live` 與 `autonomous --execute-paper` 於同 symbol 而不檢查持倉
-- 用 `autonomous` 的結果驗證 LoRA 是否更新（LoRA 只走主線 A）
+- 同時對同 symbol 無協調地跑 `trade --paper-live` 與 `autonomous --execute-paper`  
+- 用 pytest 代替上述真實操作  
+- 假設「B 線永遠不能觸發 LoRA／memory」——平倉應走 shared callback；無變化時先查是否真的平倉  
 
 ---
 
@@ -335,7 +369,7 @@ python main.py chat --language zh --symbol BTCUSDT
 
 ### `reflect` 回報樣本不足
 
-正常：EpisodicMemory 需由 `trade --paper-live` 平倉累積。可先跑主線 A 再執行 `reflect`。
+正常：需要 EpisodicMemory 中有成交樣本。可先跑 `trade --paper-live` 或能真正平倉的 autonomous paper，累積後再 `reflect`。
 
 ### Pydantic 驗證失敗
 

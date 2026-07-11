@@ -1,6 +1,6 @@
 # BioNeuronai 接手地圖
 **版本**: v2.1
-**更新日期**: 2026-04-06
+**更新日期**: 2026-07-11（模型相關敘述對齊統一 v2；模組依賴圖與資料流仍為有效參考）
 **目的**: 提供接手開發時最需要的兩份資訊
 1. 模組依賴圖與實際資料流
 2. 核心檔案與舊版殘留/過渡檔案清單
@@ -95,13 +95,13 @@ flowchart TD
     CNA --> RAGADAPTER[rag.services.news_adapter]
     RAGADAPTER --> IKB[rag.internal.InternalKnowledgeBase]
 
-    IE --> MODEL[config/active_model.json\n-> trained checkpoint]
-    CE --> CHATMODEL[model/tiny_llm_100m.pth]
+    IE --> MODEL[config/active_model.json\n-> unified_v2_100m 共用實例]
+    CE --> MODEL
     IE --> FP[FeaturePipeline]
-    FP --> FEAT[1024 維特徵]
+    FP --> FEAT[1024 維特徵 → to_v2_patch 16x64]
 ```
 
-> 補充：目前 AI 預測模型由 `config/active_model.json` 指向訓練後 checkpoint，2026-05-19 已在本機 Python 3.13 + PyTorch CPU 2.8.0 runtime 驗證可載入；正式交易決策仍以「演算法融合」與風控 gate 主導。這代表模型已接回 runtime，但不代表交易績效已完成正式驗證。對話功能由 `ChatEngine -> model/tiny_llm_100m.pth` 處理。
+> 補充（2026-07-11）：全系統只有一個現役模型 `unified_v2_100m`（TinyLLMv2，98.4M 參數），由 `config/active_model.json` 唯一決定；TradingEngine、ChatEngine、AutonomousOperator 透過 `get_shared_inference_engine()` 共用同一實例，**對話不再有獨立的 `tiny_llm_100m.pth`**。目前 `trained: false`（deterministic untrained），可端到端運作供資料流驗證，但輸出不代表已學習的交易或語言能力；正式交易決策以「演算法融合」與風控 gate 主導。v1 權重與程式碼全部在 `archived/legacy_v1_20260711/`，現役 loader 明確拒絕載入。
 
 ### 1.2 契約層與基礎設施依賴
 
@@ -384,7 +384,7 @@ flowchart TD
 
 | 模組 | 並行情況 |
 |------|------|
-| `src/rag/` 與 `src/nlp/rag_system.py` | 正式的 RAG 現在請使用 `src/rag/`，舊的 NLP script 不再直接作為知識庫掛載點 |
+| `src/rag/` | 正式且唯一的 RAG 掛載點（舊的 `src/nlp/rag_system.py` 已於 2026-07-11 移至 `archived/legacy_v1_20260711/`） |
 
 ### 4.2 已退役或明確刪除的模組（切勿作為參考）
 
@@ -394,6 +394,11 @@ flowchart TD
 | `src/bioneuronai/trading/risk_manager.py` | 舊的交易風控封裝，已刪除，請直接使用 `risk_management/`。 |
 | `src/bioneuronai/trading/trading_plan_system.py` | 舊的計畫自動化模組，已刪除，現由 `planning/plan_controller.py` 負責。 |
 | `src/bioneuronai/strategies/selector/evaluator_new.py` | 棄用的評估器版本。 |
+| `src/nlp/tiny_llm.py`（v1 模型） | 2026-07-11 移至 `archived/legacy_v1_20260711/`，現役為 `src/nlp/tiny_llm_v2.py`。 |
+| `src/nlp/rag_system.py` | 同上封存；RAG 請用 `src/rag/`。 |
+| `src/bioneuronai/models/legacy.py`（舊 MLP） | 同上封存；`bioneuronai.models` 只剩套件邊界，無現役實作。 |
+| `src/nlp/training/auto_evolve.py`、`train_with_ai_teacher.py` | 同上封存；唯一訓練入口為 `src/nlp/training/unified_trainer.py`。 |
+| `model/my_100m_model*.pth`、`model/tiny_llm_en_zh(_trained)/` | v1 權重與模型包，同上封存；`model/` 只保留 `tokenizer/`。 |
 
 ### 4.3 策略子系統目前結構
 

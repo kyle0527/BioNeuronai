@@ -1,8 +1,9 @@
 # 使用者操作排查手冊
 
-> **套件版本**：v2.1
-> **更新日期**：2026-06-15
-> **範圍**：CLI、API、回測、交易主線操作排查
+> **套件版本**：v2.1  
+> **更新日期**：2026-07-11  
+> **範圍**：CLI、API、回測、交易主線操作排查  
+> **方向權威**：[`../CURRENT_DIRECTION.md`](../CURRENT_DIRECTION.md)  
 > **現況權威**：[`../PROJECT_STATUS.md`](../PROJECT_STATUS.md)
 
 ---
@@ -46,16 +47,19 @@ python main.py backtest-data --symbol BTCUSDT --interval 1h
 
 ## 3. 雙主線混淆
 
+> 方向見 [`CURRENT_DIRECTION.md`](../CURRENT_DIRECTION.md)：B 為預設自主；學習可經 shared 平倉回調；**不用** pytest 當驗收。
+
 | 現象 | 解讀 | 處理 |
 |------|------|------|
-| `autonomous` 跑完但沒監控 | 正常；單輪 advisor 不啟動引擎 | 長時間用 `trade --paper-live` |
-| 有 ledger 但 LoRA 沒更新 | B 線無 LoRA | 用主線 A paper-live 驗證學習 |
-| paper 倉位與 pretrade 不符 | pretrade quantity 無效，fallback `notional_fraction` | 檢查 `paper_execution.quantity_source` |
-| UI 找不到 autonomous | API/UI 未覆蓋 B 線 | 用 CLI + ledger |
-| 同 symbol 重複持倉 | 2026-06-15 已跳過（`skipped=existing_position`） | 避免 A/B 並行於不同 connector |
-| `reflect` 樣本不足 | EpisodicMemory 空 | 先跑 `trade --paper-live` |
+| `autonomous` 單輪就結束 | 正常；`cycles` 預設 1 | 長跑用 `--cycles N`（N>1）+ paper 參數 |
+| 有 ledger 但看不到 LoRA 變化 | 可能尚未平倉、筆數未達門檻、或學習寫入未開滿 | 確認有平倉與 shared callback；必要時用 `trade --paper-live` 對照；**不要**再假設「B 永遠無 LoRA」 |
+| paper 倉位與 pretrade 不符 | quantity 無效而 fallback | 查 `paper_execution.quantity_source` |
+| UI 找不到 autonomous | API/UI 覆蓋有限 | 用 CLI + ledger（本階段主證據） |
+| 同 symbol 重複持倉 | 應出現 `skipped=existing_position` | 避免 A/B 無協調並行 |
+| `reflect` 樣本不足 | EpisodicMemory 空 | 先讓 paper 路徑真實成交累積記憶 |
+| 想用 test 檔證明已跑通 | **不符**現行驗證哲學 | 改走 CLI／Paper／歷史回測產物 |
 
-詳見 [04_CLI_OPERATION.md](04_CLI_OPERATION.md) §2、[14_TESTNET_AND_LIVE_TRADING.md](14_TESTNET_AND_LIVE_TRADING.md)。
+詳見 [04_CLI_OPERATION.md](04_CLI_OPERATION.md)、[14_TESTNET_AND_LIVE_TRADING.md](14_TESTNET_AND_LIVE_TRADING.md)。
 
 ---
 

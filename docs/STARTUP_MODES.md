@@ -1,119 +1,184 @@
 # BioNeuronAI 啟動方式差異
 
-> **套件版本**：v2.1
-> **更新日期**：2026-06-15
-> **現況權威**：[`PROJECT_STATUS.md`](PROJECT_STATUS.md)
-> 目的：釐清 CLI、API、UI、Docker 四種入口，以及 AI 自主運作模式（新增）在實際操作與功能上的差異。
+> **套件版本**：v2.1  
+> **更新日期**：2026-07-11  
+> **方向權威**：[`CURRENT_DIRECTION.md`](CURRENT_DIRECTION.md)  
+> **現況權威**：[`PROJECT_STATUS.md`](PROJECT_STATUS.md)  
+> **目的**：釐清 CLI、API、UI、Docker 四種**操作入口**，以及 `trade`／`autonomous` 兩條**執行主線**的差異與預設用途。
 
-## 1. CLI
+---
 
-CLI 是最直接的單次任務入口：
+## 目錄
+
+1. [四種操作入口](#1-四種操作入口)
+   - [1.1 CLI](#11-cli)
+   - [1.2 API](#12-api)
+   - [1.3 UI](#13-ui)
+   - [1.4 Docker](#14-docker)
+2. [建議使用順序](#2-建議使用順序)
+3. [雙執行主線（必讀）](#3-雙執行主線必讀)
+4. [主線 B：`autonomous`（預設 AI 自主）](#4-主線-bautonomous預設-ai-自主)
+   - [4.1 單輪](#41-單輪預設-cycles1)
+   - [4.2 持續閉環](#42-持續閉環工程自主主路徑)
+   - [4.3 執行與學習](#43-執行與學習現行實作要點)
+   - [4.4 與訓練的關係](#44-與訓練的關係)
+5. [主線 A：`trade`（即時 tick）](#5-主線-atrade即時-tick)
+   - [5.1 啟動方式](#51-啟動方式)
+   - [5.2 Tick 管線](#52-tick-管線摘要)
+   - [5.3 信心度與新聞護欄](#53-信心度與新聞護欄)
+6. [模式對照與注意事項](#6-模式對照與注意事項)
+7. [驗證時請用哪條](#7-驗證時請用哪條)
+8. [修訂紀錄](#修訂紀錄)
+
+---
+
+## 1. 四種操作入口
+
+### 1.1 CLI
+
+最直接的單次／長跑任務入口：
 
 ```powershell
 python main.py <command>
 ```
 
-適合健康檢查、資料盤點、pretrade、plan、news、backtest、simulate、readiness-gate、chat，以及 paper-live / testnet / live 交易入口。它不需要常駐服務，最容易確認單一功能是否真的跑完。執行結果會寫入 `backtest/runtime/` 或 `output/`，這些屬於 runtime artifact，不納入 Git。
+適合：`status`、資料盤點、pretrade、plan、news、backtest、simulate、readiness-gate、chat、**autonomous**、**trade**（paper-live／testnet／live）。
 
-目前正式驗證先以本機全域 Python 3.13 為準；PyTorch 使用已確認可 import 的官方 CPU 2.8.0 組合。Docker image 留到本機自然語言、交易判斷與 API/UI readiness 收斂後最後重建。
+- 不需常駐服務即可驗證單一功能是否跑完。  
+- 產物寫入 `backtest/runtime/`、`output/`、ledger／memory 等（見 [`manuals/16_RUNTIME_ARTIFACTS.md`](manuals/16_RUNTIME_ARTIFACTS.md)），屬 runtime，不納入 Git 進度幻想。  
+- **本階段正式驗證以本機 Python 3.13 + CLI 為主。**
 
-## 2. API
+### 1.2 API
 
-API 是 FastAPI 長時間服務入口：
+FastAPI 長時間服務：
 
 ```powershell
 python -m uvicorn bioneuronai.api.app:app --host 127.0.0.1 --port 8000
 ```
 
-它負責提供 UI、外部自動化、Swagger 操作與交易控制端點。若 API 未啟動、port 不一致或 CORS 設定錯誤，UI 會出現 `Failed to fetch`。
+負責 UI、Swagger、部分交易控制。API **未完整覆蓋**所有 CLI（例如完整 `autonomous` 閉環可能僅 CLI）——以 [`manuals/05_API_USER_MANUAL.md`](manuals/05_API_USER_MANUAL.md) 為準。
 
-## 3. UI
+### 1.3 UI
 
-UI 目前主線是 `frontend/devops-d`：
+主線前端：`frontend/devops-d`：
 
 ```powershell
 cd frontend/devops-d
 npm run dev
 ```
 
-UI 是人工操作與監控介面，本身不直接執行 AI 或交易邏輯；所有狀態、聊天、回測、交易控制、資料目錄與風控設定都透過 API 取得。
-Docker frontend 預設是 `http://localhost:3000`；本地 Vite 通常是 `http://localhost:5173`，若 port 被占用會落到 `5176` 等下一個可用 port。
+UI 不直接執行核心 AI／下單邏輯；一律經 API。Docker 前端常為 `http://localhost:3000`；本機 Vite 常為 `5173`（占用時遞增）。
 
-## 4. Docker
-
-Docker 是容器化入口：
+### 1.4 Docker
 
 ```powershell
 docker compose up api frontend
 docker compose run --rm status
-docker compose run --rm pretrade
-docker compose run --rm simulate
-docker compose run --rm backtest
 ```
 
-它適合部署、重現環境與隔離依賴。修改後端、前端或依賴後通常需要 `docker compose build`。本輪 Docker 不作主要驗證入口；待本機流程穩定後再重建 image，並重新確認 `model/` 權重、`backtest/` 掛載與 API/frontend 狀態。
-
-## 建議使用順序
-
-| 情境 | 建議入口 |
-|---|---|
-| 確認某個功能能不能跑 | CLI |
-| 確認 UI / 自動化整合 | API + UI |
-| 日常本機操作與觀察 | API + UI |
-| 部署或重現乾淨環境 | Docker |
-| 正式交易前完整檢查 | CLI `readiness-gate` + API/UI paper-live |
-
-目前專案尚未完成「依原始設計目的完整跑過一次正式長週期自動運作」的驗收，因此舊 training / output / runtime 記錄只作為本機歸檔，不再視為正式進度證據。
+適合部署與乾淨環境重現。**本階段不以 Docker 為唯一驗收入口**；待本機預設流程穩定後再重建 image。
 
 ---
 
-## 5. AI 自主模式
+## 2. 建議使用順序
 
-這裡有兩條不同的自主路徑，不能混為一談。
+| 情境 | 建議入口 |
+|------|----------|
+| 確認功能能不能跑 | **CLI** |
+| **預設 AI 自主流程** | **CLI `autonomous`** |
+| 即時 tick／T0–T2 觀測 | CLI `trade --paper-live` |
+| 長期大區間 | CLI：下載歷史 → backtest／readiness-gate |
+| UI 監控 | API + UI |
+| 部署重現 | Docker（本階段次要） |
 
-### 5.1 `autonomous` 單輪決策
+方向提醒：先證明 **工程自主與記帳**，再談訓練績效；**不要**用 pytest 代替上表。
 
-CLI：
+---
+
+## 3. 雙執行主線（必讀）
+
+兩條路徑**控制方式不同**，但現役目標是 **共用模型與 paper 執行層**：
+
+| 維度 | 主線 A：`trade` | 主線 B：`autonomous` |
+|------|-----------------|----------------------|
+| 定位 | 即時 WebSocket 監控 | **預設 AI 自主長跑** |
+| 驅動 | 每 tick | `run_forever` 定時輪 |
+| 模型 | shared `unified_v2_100m` | **同一** shared |
+| Paper | 引擎內 | 委派 `execute_prepared_order` |
+| 學習 | T0–T2 → Memory → LoRA／Hub | ledger + shared 平倉回調進引擎學習鏈 |
+| 審計 | ActionRecord 等 | **Decision Ledger** 為主 |
+
+**禁止混用驗收標籤**：例如用 A 的 tick 日誌宣稱 B 的 planning 閉環已驗完。
+
+---
+
+## 4. 主線 B：`autonomous`（預設 AI 自主）
+
+### 4.1 單輪（預設 cycles=1）
 
 ```powershell
 python main.py autonomous --mode advisor --symbol BTCUSDT
 python main.py autonomous --mode paper_auto --symbol BTCUSDT
 ```
 
-這條路徑的作用是：
+- 一輪 observe → plan → pretrade → adapt（與 AI 決策依實作）→ 寫 ledger。  
+- 預設結束，不長駐。  
+- `advisor`：不執行訂單。  
+- `paper_auto` 仍須 **`--execute-paper`** 才會送本機 paper 單。
 
-- 做一輪 observe-plan-pretrade-adapt 判斷
-- 輸出 `advise_only`、`observe` 或更進一步動作
-- 寫入 decision ledger
+### 4.2 持續閉環（工程自主主路徑）
 
-它會結束，不會自己長時間監控。學習閉環：**無** LoRA；產物為 `decision_ledger.jsonl`。
+```powershell
+python main.py autonomous --mode paper_auto --execute-paper --cycles 10 --symbol BTCUSDT --paper-balance 10000
+```
 
-**執行層（2026-06-15）**：`--execute-paper` 優先採 pretrade `quantity`；已有持倉跳過進場；平倉回填 calibrator。詳見 [`manuals/04_CLI_OPERATION.md`](manuals/04_CLI_OPERATION.md) §2。
+- `--cycles N` 且 N>1 → `run_forever`。  
+- 每輪間隔依 adaptation；遇 STOP 可停機。  
+- 可選：`--max-position-hold-cycles`、`--reflect-every` 等（以 `-h` 為準）。
 
-### 5.2 `trade` 長時間監控主線（主線 A）
+### 4.3 執行與學習（現行實作要點）
 
-> 2026-06-03 驗證確認；這是 BioNeuronAI 真正持續運作的主線。
+- Paper connector 來自 **TradingEngine**（`paper_trading=True`）。  
+- 下單：`execute_prepared_order`。  
+- 平倉：`_on_shared_paper_close` → 引擎 `_on_paper_close`（T2／memory／LoRA／hub）+ autonomous ledger／calibrator。  
+- quantity：優先 pretrade；無效則 fallback notional fraction。  
+- 已有持倉：`skipped=existing_position`。
 
-AI 自主模式透過 WebSocket 訂閱即時 Ticker，每次 Tick 到達即觸發完整的「市場資料 → AI 推論 → 策略融合 → 新聞 RAG 護欄 → 下單」管線，無需人工介入。
+### 4.4 與「訓練」的關係
 
-### 啟動方式（Python / API）
+- 本階段驗收：**會跑、會記帳**。  
+- 終局：同一自主流程上開啟／依賴在線改善。  
+- 未訓練模型：可跑通工程；**不可**把盈虧當智能證明。
 
-**方式 A — 直接呼叫（測試、開發）**
+---
+
+## 5. 主線 A：`trade`（即時 tick）
+
+### 5.1 啟動方式
+
+**CLI**
+
+```powershell
+python main.py trade --paper-live --paper-balance 10000
+python main.py trade --symbol BTCUSDT --testnet
+```
+
+**程式**
 
 ```python
 from bioneuronai.core.trading_engine import TradingEngine
 
 engine = TradingEngine(
-    testnet=True,         # True = Binance Testnet; False = mainnet
-    paper_trading=True,   # True = 虛擬成交，不送真實訂單
-    enable_ai_model=True
+    testnet=True,
+    paper_trading=True,
+    enable_ai_model=True,
 )
-engine.load_ai_model('unified_v2_100m')  # 載入 config/active_model.json 指定的唯一 checkpoint
-engine.enable_auto_trading()           # 設定 auto_trade = True
-engine.start_monitoring('BTCUSDT')     # 訂閱 WebSocket；阻塞直到 stop_monitoring() 被呼叫
+engine.load_ai_model("unified_v2_100m")
+engine.enable_auto_trading()
+engine.start_monitoring("BTCUSDT")
 ```
 
-**方式 B — 透過 API**
+**API（若路由啟用）**
 
 ```http
 POST /api/v1/trade/start
@@ -126,49 +191,59 @@ Content-Type: application/json
 }
 ```
 
-> 當 `mode` 為 `paper_live`、`testnet_auto` 或 `live_auto` 時，`_auto_trade_requested()` 返回 True，系統自動呼叫 `enable_auto_trading()`。
+### 5.2 Tick 管線（摘要）
 
-### 自主決策管線（Tick → 訂單）
-
-```
-Binance WebSocket Tick
-    ↓
-on_ticker_update()
-    ↓
-_process_market_data()  →  抓取 K 線（BinanceFuturesConnector._get_klines）
-    ↓
-generate_trading_signal()
-    ├── InferenceEngine.predict_with_explanation()  # unified v2 約 98.4M
-    ├── StrategySelector.get_actionable_signal()    # 6 策略融合
-    └── NewsAdapter.get_event_context()             # RAG FAISS 情緒分數
-    ↓
-_handle_trading_signal()
-    └── if auto_trade: execute_trade()
-            ├── _check_news_risk()                  # 新聞護欄（阻擋 has_major_negative）
-            ├── _get_account_balance()
-            ├── _get_current_price()
-            ├── _calculate_position_size()
-            ├── _is_cost_effective()
-            └── connector.place_order()             # FILLED
+```text
+WebSocket Tick
+  → VirtualAccount 更新與 SL/TP
+  → 新聞 event_context
+  → StrategySelector + shared InferenceEngine
+  → 融合與 auto_trade 閘門
+  → 下單 [T1]；平倉 [T2] → Memory → LoRA → Hub
 ```
 
-### 各模式對照表
+現役模型為 **unified v2**（可 `trained: false` 的確定性未訓練初始化），**不是**「仍走 v1 stub」。
 
-| 模式 | testnet= | paper_trading= | auto_trade= | 說明 |
-|---|---|---|---|---|
-| `monitor_only` | True | True | False | 只觀察訊號，不下單 |
-| `paper_live` | False | True | True（可選） | 主網行情 + 虛擬成交 |
-| `testnet_auto` | True | False | True | Testnet 真實下單（虛擬資金） |
-| `live_auto` | False | False | True | **主網真實下單**（需謹慎） |
+### 5.3 信心度與新聞護欄
 
-### 信心度門檻說明
+- `ai_min_confidence` 等門檻會過濾信號；未訓練時信心行為**不可**當產品績效。  
+- 新聞重大負面等護欄可硬擋下單——屬設計，不是 silent bug。
 
-`TradingEngine.ai_min_confidence`（預設 `0.5`）是下單前的最低 AI 信心度要求。
-現役模型在當前市況下信心度約 0.33，低於門檻時輸出 `HOLD`。
-Testnet 觀察期間可暫時降至 0.25（`engine.ai_min_confidence = 0.25`）以觀察更多訊號行為。
+---
 
-### 注意事項
+## 6. 模式對照與注意事項
 
-- **新聞護欄是硬性阻擋**：`_check_news_risk()` 返回 False 時，即使 AI 訊號強、信心度高，也不會下單。此為設計行為，不是 bug。
-- **4/6 策略目前有問題**：`mean_reversion`、`breakout` 等因 K 線週期不足回傳 None/Error；短期只有 `swing_trading` 和 `trend_following` 有效。
-- **停止自主模式**：呼叫 `engine.stop_monitoring()` 或 `POST /api/v1/trade/stop`。
+| 模式概念 | testnet | paper | auto | 說明 |
+|----------|---------|-------|------|------|
+| 只監控 | 可 | 可 | 否 | 只看信號 |
+| paper_live | 否（主網行情） | 是 | 可 | 虛擬成交 |
+| testnet_auto | 是 | 否 | 是 | 測試網真實單 |
+| live | 否 | 否 | 是 | **真金**；需 guard 與 readiness |
+
+注意：
+
+- `--live` 與 `--paper-live` 不可同時使用（CLI 會擋）。  
+- 進 live 前走 readiness-gate、固定區間回測、長時間 paper／testnet 觀察（見手冊 14）。  
+- **多帳戶商用能力非本階段啟動需求。**
+
+---
+
+## 7. 驗證時請用哪條
+
+| 要證明 | 用 |
+|--------|-----|
+| 預設 AI 自主跑通 | `autonomous` + paper 參數 + 多 cycles |
+| Tick 融合與 T0–T2 | `trade --paper-live` |
+| 長期區間 | 歷史資料 + backtest／gate |
+| 單元測試全綠 | **不算**正式完成 |
+
+完整哲學：[`TESTING_AND_VALIDATION_GUIDE.md`](TESTING_AND_VALIDATION_GUIDE.md)。
+
+---
+
+## 修訂紀錄
+
+| 日期 | 說明 |
+|------|------|
+| 2026-06-15 | 雙主線與 B 線執行層 |
+| 2026-07-11 | 對齊 CURRENT_DIRECTION：預設自主、shared 執行、驗證哲學、移除「B 無學習」暗示 |

@@ -1,9 +1,11 @@
 # BioNeuronai 回測系統使用指南
 
-> **套件版本**：v2.1（`pyproject.toml`）
-> **更新日期**：2026-06-15
-> **現況權威**：[`../PROJECT_STATUS.md`](../PROJECT_STATUS.md)
-> **子系統細節**：[`backtest/README.md`](../../backtest/README.md)
+> **套件版本**：v2.1（`pyproject.toml`）  
+> **更新日期**：2026-07-11  
+> **方向權威**：[`../CURRENT_DIRECTION.md`](../CURRENT_DIRECTION.md)  
+> **現況權威**：[`../PROJECT_STATUS.md`](../PROJECT_STATUS.md)  
+> **子系統細節**：[`backtest/README.md`](../../backtest/README.md)  
+> **在驗證哲學中的位置**：**長期／大區間**驗證——**先下載歷史資料**，再跑本手冊命令；與日常虛擬帳戶 Paper **互補**，不能用 pytest 代替。
 
 ---
 
@@ -25,11 +27,17 @@
 
 `backtest/` 是專案的正式 **歷史 replay / 回測** 子系統，與 repo 根目錄的 `python main.py` CLI 及 FastAPI 共用同一套服務層（`backtest/service.py`）。
 
+依 [`CURRENT_DIRECTION.md`](../CURRENT_DIRECTION.md)：
+
+- **日常**工程自主：虛擬帳戶／Paper 真實時序（`autonomous`／`trade --paper-live`）。  
+- **長期**：先備齊歷史 K 線（[15_DATA_ACQUISITION.md](15_DATA_ACQUISITION.md)），再用本系統做大區間與 readiness 矩陣。  
+- 兩者都是正式驗收；**都不是**單元測試。
+
 核心設計：
 
-- 使用 `MockBinanceConnector` 取代即時 `BinanceFuturesConnector`，將歷史 K 線逐 bar 推進。
-- 策略（`strategies/`）與 AI 推理（`core/inference_engine.py`）**沿用實盤程式碼**；撮合與帳戶狀態在 mock connector 內模擬。
-- **資料無未來性**：`HistoricalDataStream` / `get_klines_until_now()` 確保在時刻 `T` 拿不到 `T+1` 收盤價。
+- 使用 `MockBinanceConnector` 取代即時 `BinanceFuturesConnector`，將歷史 K 線逐 bar 推進。  
+- 策略與 AI 推理**沿用**現役程式路徑；撮合在 mock 內模擬。  
+- **資料無未來性**：時刻 `T` 拿不到 `T+1` 收盤價。  
 - 每次執行寫入 `backtest/runtime/<run_id>/`（見 §5）。
 
 ---
@@ -38,15 +46,15 @@
 
 請勿把「回測」與「即時交易」混為同一條驗收路徑：
 
-| 維度 | Replay（本手冊） | 主線 A：`trade` | 主線 B：`autonomous` |
-|------|------------------|-----------------|----------------------|
-| 資料 | 本地歷史 K 線 | WebSocket 即時行情 | 定時載入 K 線做規劃 |
-| 連接器 | `MockBinanceConnector` | 真實 / paper / testnet connector | 獨立 paper connector（`--execute-paper`） |
-| 主要產物 | `backtest/runtime/<run_id>/` | `paper_live/` log、`memory/` | `decision_ledger.jsonl` |
-| LoRA 閉環 | ❌（replay 不觸發即時平倉學習） | ✅（paper-live 平倉） | ❌ |
-| 典型用途 | 策略驗證、readiness-gate | 長時間監控 | 盤前值班 |
+| 維度 | Replay（本手冊，**長期驗證**） | 主線 A：`trade` | 主線 B：`autonomous`（**預設自主**） |
+|------|--------------------------------|-----------------|--------------------------------------|
+| 資料 | 本地歷史 K 線（先下載） | WebSocket 即時 | 定時載入 K 線做規劃 |
+| 連接器 | `MockBinanceConnector` | 真實／paper／testnet | **共用** TradingEngine paper |
+| 主要產物 | `backtest/runtime/<run_id>/` | paper log、`memory/` | `decision_ledger.jsonl` + 平倉學習鏈 |
+| LoRA 閉環 | ❌（replay 不走即時平倉學習） | ✅ paper 平倉 | ✅ 經 shared 平倉回調 |
+| 典型用途 | 大區間、readiness-gate | tick 監控、T0–T2 | 工程自主長跑 |
 
-即時交易操作見 [14_TESTNET_AND_LIVE_TRADING.md](14_TESTNET_AND_LIVE_TRADING.md)；產物總覽見 [16_RUNTIME_ARTIFACTS.md](16_RUNTIME_ARTIFACTS.md)。
+即時／自主操作見 [14_TESTNET_AND_LIVE_TRADING.md](14_TESTNET_AND_LIVE_TRADING.md)；產物見 [16_RUNTIME_ARTIFACTS.md](16_RUNTIME_ARTIFACTS.md)。
 
 ---
 

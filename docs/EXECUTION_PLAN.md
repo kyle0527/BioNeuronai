@@ -1,15 +1,26 @@
 # BioNeuronAI 商業級「一步到位」執行計劃（Week 1-2 具體可執行版）
 
-> **狀態更新 2026-06-15**：本計劃部分內容已被實作覆蓋，閱讀時以
-> `docs/PROJECT_STATUS.md` 為準——
+> ## ⚠️ 本文件已歸檔（2026-07-11）——勿依此執行
+>
+> 本計劃的 Step 1–4 已全部被實作覆蓋，且文中指令引用的 v1 模型
+> （`my_100m_model*`）已移至 `archived/legacy_v1_20260711/`，
+> **照本文指令執行會直接失敗**。現況與剩餘工作一律以
+> [`CURRENT_DIRECTION.md`](CURRENT_DIRECTION.md) 與
+> [`PROJECT_STATUS.md`](PROJECT_STATUS.md) 為準。
+>
 > - ✅ 已完成（不需照本計劃重做）：自適應閉環、outcome 回寫 ledger、
->   多目標 reward、`run_forever`、歷史 RL 訓練管線（2026-06-12）、
->   新聞 direction_bias minimal 版（已在 `generate_fusion_signal()` 接通）
-> - 🧩 仍有效：TinyLLM v2 接通 predict()、新聞時序聚合（P1）、
->   主線 B 執行層對齊（pretrade quantity + 持倉檢查）、
->   reflection_loop 接入、第一個真實 lora_*.pt checkpoint
-> - ⚠️ 本計劃原文「bias 接入 `_fuse_signals()`」已調整語意：
->   direction_bias 目前在 StrategyFusion 層生效；TradingEngine 最終融合仍用 event_score
+>   多目標 reward、`run_forever`、歷史 RL 訓練管線、
+>   新聞 direction_bias minimal 版、reflection_loop（2026-06-15）、
+>   主線 B 執行層對齊（2026-06-15）、
+>   TinyLLM v2 接通 predict() / ActionRecord 去 shim / OnlineLearner
+>   整合（2026-07-11，統一模型未訓練基線）
+> - 🧩 仍未完成（已併入 PROJECT_STATUS 追蹤）：
+>   新聞時序聚合（P1）、GoalTracker 風險回饋（P4）、
+>   真實資料訓練出的 `model/unified_v2_100m.pth` 與第一個 lora checkpoint
+> - ❌ 本文所有 `my_100m_model` / `enable_v2_mode()` 相關指令均已失效
+>
+> **狀態更新 2026-06-15（保留）**：direction_bias 在 StrategyFusion 層生效；
+> TradingEngine 最終融合仍用 event_score。
 
 ## 目錄
 
@@ -279,8 +290,4 @@ Get-Content data/bioneuronai/trading/paper_live/orders.jsonl -Tail 3
 
 ---
 
-需要我現在就產生**第一批精準的 search_replace 修改**（新聞 bias + InferenceEngine v2 flag + record 清理）直接幫你套用嗎？
-
-還是你想先自己跑 Step 0 基線，跑完告訴我結果，我再給下一批精準 patch？
-
-告訴我你的下一步，我立刻給可執行的東西。
+> （本文件到此為歷史計劃內容；後續進度請看 `PROJECT_STATUS.md`。）

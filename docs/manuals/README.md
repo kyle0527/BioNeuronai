@@ -1,23 +1,25 @@
 # BioNeuronAI 使用者操作手冊集中索引
 
-> 建立日期：2026-05-12
-> 更新日期：2026-06-15
-> 現況權威：[`../PROJECT_STATUS.md`](../PROJECT_STATUS.md)
-> 目的：只整理「使用者實際操作系統時會用到的手冊」，包含開機、關機、CLI、API、Dashboard、Docker、回測、分析、策略、風控、常見問題與操作排查。
+> 建立日期：2026-05-12  
+> 更新日期：2026-07-11  
+> 方向權威：[`../CURRENT_DIRECTION.md`](../CURRENT_DIRECTION.md)  
+> 現況權威：[`../PROJECT_STATUS.md`](../PROJECT_STATUS.md)  
+> 目的：整理「使用者實際操作」手冊（開機、CLI、API、Dashboard、Docker、回測、風控、排查等）。  
+> **本階段重點**：預設自主流程在虛擬帳戶／Paper 跑通；驗收用真實入口，**不用** pytest；多帳戶等商用周邊後續再加。
 
 ---
 
-## 📑 目錄
+## 目錄
 
-- [1. 本輪範圍](#1-本輪範圍)
-- [2. 命名規則](#2-命名規則)
-- [3. 本輪使用者操作主手冊](#3-本輪使用者操作主手冊)
-- [4. 本輪輔助文件](#4-本輪輔助文件)
-- [5. 重複與整併判斷](#5-重複與整併判斷)
-- [6. 本輪老舊或需要修正的部分](#6-本輪老舊或需要修正的部分)
-- [7. 本輪仍未列入但應建立的操作手冊](#7-本輪仍未列入但應建立的操作手冊)
-- [8. 建議使用順序](#8-建議使用順序)
-- [9. 維護規則](#9-維護規則)
+1. [本輪範圍](#1-本輪範圍)
+2. [命名規則](#2-命名規則)
+3. [本輪使用者操作主手冊](#3-本輪使用者操作主手冊)
+4. [本輪輔助文件](#4-本輪輔助文件)
+5. [重複與整併判斷](#5-重複與整併判斷)
+6. [本輪老舊或需要修正的部分](#6-本輪老舊或需要修正的部分)
+7. [本輪仍未列入但應建立的操作手冊](#7-本輪仍未列入但應建立的操作手冊)
+8. [建議使用順序](#8-建議使用順序)
+9. [維護規則](#9-維護規則)
 
 ---
 
@@ -60,7 +62,7 @@
 | 08 | [08_BACKTEST_SYSTEM.md](08_BACKTEST_SYSTEM.md) | `BACKTEST_SYSTEM_GUIDE.md` | 回測與 replay | **2026-06-15** 完整重寫：replay vs 雙主線、CLI 全命令、資料路徑、simulate/backtest 差異 |
 | 09 | [09_ANALYSIS_MODULE.md](09_ANALYSIS_MODULE.md) | `ANALYSIS_MODULE_USER_MANUAL.md` | news / plan / pretrade | **2026-06-15** 補雙主線影響與 pretrade 風控層說明 |
 | 10 | [10_STRATEGY_MODULE.md](10_STRATEGY_MODULE.md) | `STRATEGY_MODULE_USER_MANUAL.md` | strategy-backtest / strategy-run | **2026-06-15** 標明 Replay 路徑 vs 即時雙主線 |
-| 11 | [11_RISK_MANAGEMENT.md](11_RISK_MANAGEMENT.md) | `RISK_MANAGEMENT_USER_MANUAL.md` | 風控與 pretrade 風險解讀 | **2026-06-15** 完整重寫：雙層風控、calibrator、B 線執行脫節 |
+| 11 | [11_RISK_MANAGEMENT.md](11_RISK_MANAGEMENT.md) | `RISK_MANAGEMENT_USER_MANUAL.md` | 風控與 pretrade 風險解讀 | **2026-07-11** 對齊方向：B 線 quantity 優先 pretrade；學習可經 shared 回調 |
 | 14 | [14_TESTNET_AND_LIVE_TRADING.md](14_TESTNET_AND_LIVE_TRADING.md) | 新增 | testnet / paper-live / autonomous / live 啟停與緊急停止 | **2026-06-15** 補雙主線對照與 B 線已知限制；live 依安全限制未執行 |
 | 15 | [15_DATA_ACQUISITION.md](15_DATA_ACQUISITION.md) | 新增 | 歷史資料與 catalog 操作 | **2026-06-15** fallback 路徑、下載與 readiness 資料需求 |
 | 16 | [16_RUNTIME_ARTIFACTS.md](16_RUNTIME_ARTIFACTS.md) | 新增 | runtime、logs、output、模型產物位置 | **2026-06-15** 補 ledger / hub / memory / paper 路徑 |
@@ -121,25 +123,20 @@
 
 ## 8. 建議使用順序
 
-第一次接手或驗收時，建議順序如下：
+第一次接手或做**本階段（工程自主）**驗收時：
 
-1. [02_STARTUP_AND_SHUTDOWN.md](02_STARTUP_AND_SHUTDOWN.md)
-2. [03_QUICKSTART.md](03_QUICKSTART.md)
-3. [04_CLI_OPERATION.md](04_CLI_OPERATION.md)
-4. [08_BACKTEST_SYSTEM.md](08_BACKTEST_SYSTEM.md)
-5. [05_API_USER_MANUAL.md](05_API_USER_MANUAL.md)
-6. [06_FRONTEND_DASHBOARD.md](06_FRONTEND_DASHBOARD.md)
-7. [09_ANALYSIS_MODULE.md](09_ANALYSIS_MODULE.md)
-8. [10_STRATEGY_MODULE.md](10_STRATEGY_MODULE.md)
-9. [11_RISK_MANAGEMENT.md](11_RISK_MANAGEMENT.md)
-10. [14_TESTNET_AND_LIVE_TRADING.md](14_TESTNET_AND_LIVE_TRADING.md)
-11. [15_DATA_ACQUISITION.md](15_DATA_ACQUISITION.md)
-12. [16_RUNTIME_ARTIFACTS.md](16_RUNTIME_ARTIFACTS.md)
-13. [17_ENVIRONMENT_VARIABLES.md](17_ENVIRONMENT_VARIABLES.md)
-14. [18_OPERATION_TROUBLESHOOTING.md](18_OPERATION_TROUBLESHOOTING.md)
-15. [19_DASHBOARD_TROUBLESHOOTING.md](19_DASHBOARD_TROUBLESHOOTING.md)
-16. [20_UI_END_TO_END_OPERATION.md](20_UI_END_TO_END_OPERATION.md)
-17. [01_MANUAL_OPERATION_VERIFICATION_PLAN.md](01_MANUAL_OPERATION_VERIFICATION_PLAN.md)
+1. [`../CURRENT_DIRECTION.md`](../CURRENT_DIRECTION.md) — 優先級與什麼叫跑通  
+2. [03_QUICKSTART.md](03_QUICKSTART.md) — 安裝與預設驗證順序  
+3. [04_CLI_OPERATION.md](04_CLI_OPERATION.md) — `autonomous`／`trade` 參數  
+4. [14_TESTNET_AND_LIVE_TRADING.md](14_TESTNET_AND_LIVE_TRADING.md) — Paper／自主長跑  
+5. [16_RUNTIME_ARTIFACTS.md](16_RUNTIME_ARTIFACTS.md) — 記帳產物怎麼對  
+6. [01_MANUAL_OPERATION_VERIFICATION_PLAN.md](01_MANUAL_OPERATION_VERIFICATION_PLAN.md) — Level 2.5 等矩陣  
+7. [15_DATA_ACQUISITION.md](15_DATA_ACQUISITION.md) + [08_BACKTEST_SYSTEM.md](08_BACKTEST_SYSTEM.md) — 長期歷史驗證  
+8. [02_STARTUP_AND_SHUTDOWN.md](02_STARTUP_AND_SHUTDOWN.md)  
+9. [05_API_USER_MANUAL.md](05_API_USER_MANUAL.md)／[06_FRONTEND_DASHBOARD.md](06_FRONTEND_DASHBOARD.md)（可選）  
+10. 其餘 09–11、17–20 依需要  
+
+**不要**把「pytest 全綠」寫進手冊驗收通過條件。
 
 ---
 
@@ -152,4 +149,5 @@
 5. 每次改 API route、CLI command、Docker service、Dashboard panel，都要同步更新對應操作手冊。
 6. 若某手冊的命令未經實際入口驗證，必須在狀態欄標記「需實測」。
 7. 每次改 Dashboard 使用者流程，都要同步更新 `20_UI_END_TO_END_OPERATION.md`，避免只更新面板參考卻漏掉端到端操作。
-8. 架構或執行主線變更時，先更新 `docs/PROJECT_STATUS.md`，再同步 `04`、`14` 與本索引狀態列。
+8. 方向／優先級變更時，先更新 `docs/CURRENT_DIRECTION.md` 與 `docs/PROJECT_STATUS.md`，再同步 `00`、`01`、`03`、`04`、`14` 與本索引。  
+9. 手冊不得再寫成：pytest 即正式驗收；B 線無學習／永遠獨立 paper；現役 v1 stub；多帳戶為本階段 P0。

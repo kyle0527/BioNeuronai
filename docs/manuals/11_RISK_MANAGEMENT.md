@@ -1,8 +1,9 @@
 # BioNeuronai 風險管理使用手冊
 
-**套件版本**：v2.1
-**更新日期**：2026-06-15
-**模組路徑**：`src/bioneuronai/risk_management/`
+**套件版本**：v2.1  
+**更新日期**：2026-07-11  
+**模組路徑**：`src/bioneuronai/risk_management/`  
+**方向權威**：[`../CURRENT_DIRECTION.md`](../CURRENT_DIRECTION.md)  
 **程式參考**：[`risk_management/README.md`](../../src/bioneuronai/risk_management/README.md)
 
 ---
@@ -19,7 +20,7 @@
 8. [進場前驗核中的風險整合](#8-進場前驗核中的風險整合)
 9. [自主迴圈與 TradingEngine 的風控差異](#9-自主迴圈與-tradingengine-的風控差異)
 10. [風險設定檔修改指引](#10-風險設定檔修改指引)
-11. [已知限制（2026-06-15）](#11-已知限制2026-06-15)
+11. [已知限制](#11-已知限制2026-06-15)
 12. [最佳實踐建議](#12-最佳實踐建議)
 13. [相關文件](#13-相關文件)
 
@@ -302,12 +303,13 @@ asyncio.run(main())
 
 | 限制 | 說明 |
 |------|------|
-| 主線 A 未回填 calibrator | TradingEngine 平倉尚未呼叫 `record_outcome()` |
-| reflection 樣本來源 | `reflect` 讀 EpisodicMemory（主線 A），B 線單獨跑可能樣本不足 |
-| pretrade ≠ RiskManager | 文件舊版「Step 3 RiskManager 介入」描述不準確，已於本手冊修正 |
+| 主線 A 與 calibrator | TradingEngine 平倉是否一律回填 calibrator 仍以程式為準；B 線 paper 平倉有 `record_outcome_by_index` 路徑 |
+| reflection 樣本 | `reflect` 讀 EpisodicMemory；需 paper 真實平倉累積樣本（A 或 B shared 鏈），空記憶會樣本不足 |
+| pretrade ≠ RiskManager | pretrade 用內部 RiskCalculation + calibrator，不直接等於 `RiskManager.calculate_position_size()` |
 | `get_risk_params` 匯出路徑 | 需從 `position_manager` import，非套件頂層 |
+| Goal 自動回饋 | GoalTracker 風險自動回饋尚未做（非本階段阻塞） |
 
-主線 B P2/P5 修正詳見 [`../PROJECT_STATUS.md`](../PROJECT_STATUS.md)。
+執行層 quantity／shared 平倉見 [`../PROJECT_STATUS.md`](../PROJECT_STATUS.md)、[`../CURRENT_DIRECTION.md`](../CURRENT_DIRECTION.md)。
 
 ---
 
@@ -316,14 +318,14 @@ asyncio.run(main())
 ### 新手
 
 1. 從 `CONSERVATIVE` 或 pretrade 預設 2% 風險比例開始
-2. 先用 `pretrade` 看 calibrator 輸出，再用 `autonomous --mode advisor` 看 adaptation
-3. 完整學習閉環驗證用 `trade --paper-live`，不要用 autonomous 代替
+2. 先用 `pretrade` 看 calibrator，再用 `autonomous --mode advisor` 看 adaptation  
+3. **工程自主與執行層 quantity**：用 `autonomous --mode paper_auto --execute-paper --cycles N` 驗證 pretrade quantity × risk 與 shared 執行；tick 級 T0–T2 再用 `trade --paper-live` 對照（兩者互補，不是「B 不能驗證學習」）
 
 ### 中階
 
-1. 對照 pretrade `quantity` 與 autonomous `paper_execution.quantity`（確認是否已修 P2）
-2. 觀察 `adaptive_hub.json` 是否在平倉後更新
-3. 注意 `alignment_score` 極低時 fusion 可能攔截信號
+1. 對照 pretrade `quantity` 與 autonomous `paper_execution.quantity`／`quantity_source`  
+2. 觀察 `adaptive_hub.json` 是否在**平倉後**更新  
+3. 注意 `alignment_score` 極低時 fusion 可能攔截信號  
 
 ### 警報回應
 

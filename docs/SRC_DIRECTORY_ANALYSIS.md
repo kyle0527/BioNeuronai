@@ -2,7 +2,7 @@
 
 **用途**: 呈現 `src/` 目錄下各模組的職責劃分與互相依賴關係，包含資料結構、資料層、分析層、規劃層、交易層等分層架構。
 **版本**: v2.1
-**更新日期**: 2026-04-06
+**更新日期**: 2026-07-11（NLP 子系統敘述對齊統一 v2；分層架構仍為有效參考）
 **分析範圍**: `C:\D\E\BioNeuronai\src`
 
 ---
@@ -78,7 +78,7 @@ backtest/          ← 抽換掉真實 Data 層用作回顧測試
 
 ### 2.2 核心大腦 (`bioneuronai/core/`)
 - `trading_engine.py`: 主驅動迴圈，負責協調資料、模型、風控與執行。
-- `inference_engine.py`: AI 推理，提煉出 1024 維特徵交由 model 推算方向。
+- `inference_engine.py`: AI 推理，`FeaturePipeline` 建 1024 維特徵並經 `to_v2_patch()` 映射為 16×64 patch，交由統一模型 `unified_v2_100m`（TinyLLMv2）推算 65 維結構化決策；`ModelLoader` 只接受 v2 checkpoint。
 - `self_improvement.py`: 負責針對過往的回測與實盤資料，對策略參數進行更新或汰換。
 
 ### 2.3 規劃層 (`bioneuronai/planning/`)
@@ -117,9 +117,11 @@ backtest/          ← 抽換掉真實 Data 層用作回顧測試
 提供針對新聞與盤後日報的內置知識搜查。
 - 透過 `core/retriever.py` 與 `internal/knowledge_base.py`，把即時新聞存成 FAISS 向量庫，供 `planning/` 判斷盤前風險。
 
-### 4.2 `src/nlp/` (自研微型模型與訓練鏈)
-提供 100M 以下自研模型的對話與編譯。
-- 包含 Training (AI teacher)、矩陣乘法優化 (LoRA)、量化腳本等模組工具，確保 `my_100m_model.pth` 可持續更新。
+### 4.2 `src/nlp/` (自研統一模型與訓練鏈)
+提供 98.4M 參數統一模型 `unified_v2_100m` 的推論、對話與訓練。
+- 現役實作為 `tiny_llm_v2.py`（16×64 數值 patch + 中英文脈絡 → 65 維決策 + 說明），`chat_engine.py` 與交易引擎共用同一模型實例。
+- 唯一訓練入口為 `training/unified_trainer.py`；LoRA 元件整合於模型內，由 `OnlineLearner` 更新。
+- v1 模型（`tiny_llm.py`）與舊訓練鏈（AI teacher、auto_evolve）已於 2026-07-11 移至 `archived/legacy_v1_20260711/`，不得再引用。
 
 ---
 
