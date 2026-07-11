@@ -9,7 +9,6 @@ from types import SimpleNamespace
 
 import pytest
 
-
 # ── 歷史 RL 訓練管線（2026-06-12 已實作；單元測試只驗契約，不跑完整訓練）──
 
 def test_rl_trainer_interface_implemented():
@@ -83,16 +82,13 @@ def test_direction_bias_error_returns_neutral(monkeypatch):
     assert "error" in bias["reason"]
 
 
-# ── P3：TinyLLM v2 模式旗標（必須警告未實作，不可默默假裝切換）──────────
+# ── P3：TinyLLM v2 已成為唯一現役模式 ─────────────────────────────────
 
-def test_enable_v2_mode_warns_not_implemented(caplog):
+def test_enable_v2_mode_is_implemented():
     pytest.importorskip("torch")
-    import logging
 
     from bioneuronai.core.inference_engine import InferenceEngine
 
     engine = InferenceEngine(warmup=False)
-    with caplog.at_level(logging.WARNING):
-        engine.enable_v2_mode()
+    engine.enable_v2_mode()
     assert engine.use_v2_mode is True
-    assert any("尚未實作" in record.message for record in caplog.records)

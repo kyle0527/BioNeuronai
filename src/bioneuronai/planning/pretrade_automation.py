@@ -10,15 +10,15 @@ from __future__ import annotations
 import json
 import logging
 import os
-from datetime import datetime
-from typing import Dict, List, Optional, Tuple, Any
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
+from typing import Any, Dict, List, Literal, Optional, Tuple
 
+from bioneuronai.risk_management.confidence_calibrator import get_confidence_calibrator
 from config.trading_config import resolve_binance_testnet
 from config.trading_costs import TradingCostCalculator
 from schemas.market import MarketData
-from bioneuronai.risk_management.confidence_calibrator import get_confidence_calibrator
 
 # 錯誤常量定義
 ERROR_MODULE_UNAVAILABLE = "MODULE_UNAVAILABLE"
@@ -120,6 +120,7 @@ class PreTradeCheckSystem:
         api_key: Optional[str] = None,
         api_secret: Optional[str] = None,
         testnet: Optional[bool] = None,
+        account_balance: Optional[float] = None,
     ) -> None:
         # pretrade_automation.py 位於 src/bioneuronai/planning/，4 層 parent = 專案根目錄
         self._project_root = Path(__file__).parent.parent.parent.parent
@@ -130,6 +131,9 @@ class PreTradeCheckSystem:
         self._api_key = api_key
         self._api_secret = api_secret
         self._testnet = testnet
+        if account_balance is not None and account_balance <= 0:
+            raise ValueError("account_balance 必須大於 0")
+        self._configured_account_balance = account_balance
 
         # NewsAdapter 延遲初始化（避免循環 import）
         self._news_adapter: Optional[Any] = None
@@ -140,10 +144,10 @@ class PreTradeCheckSystem:
         self._import_modules()
 
         from config.trading_config import (
-            MAX_RISK_PER_TRADE,
-            MIN_RISK_REWARD_RATIO,
             LEVERAGE,
-            MIN_EXPECTED_RETURN
+            MAX_RISK_PER_TRADE,
+            MIN_EXPECTED_RETURN,
+            MIN_RISK_REWARD_RATIO,
         )
         self.default_risk_params = {
             "risk_percentage": MAX_RISK_PER_TRADE,
@@ -166,8 +170,8 @@ class PreTradeCheckSystem:
         """
         from ..data.binance_futures import BinanceFuturesConnector
 
-        api_key = self._api_key or os.getenv("BINANCE_API_KEY", "")
-        api_secret = self._api_secret or os.getenv("BINANCE_API_SECRET", "")
+        api_key = self._api_key or os.getenv("BINANCE_API_KEY") or ""
+        api_secret = self._api_secret or os.getenv("BINANCE_API_SECRET") or ""
         if self._testnet is not None:
             testnet = self._testnet
         else:
@@ -178,6 +182,12 @@ class PreTradeCheckSystem:
             api_secret=api_secret,
             testnet=testnet,
         )
+
+    def _has_private_api_credentials(self) -> bool:
+        """私有帳戶端點只可在 key 與 secret 都存在時呼叫。"""
+        api_key = self._api_key or os.getenv("BINANCE_API_KEY") or ""
+        api_secret = self._api_secret or os.getenv("BINANCE_API_SECRET") or ""
+        return bool(api_key.strip() and api_secret.strip())
 
     def _get_news_adapter(self) -> Optional[Any]:
         """取得 NewsAdapter 單例（延遲初始化）。
@@ -686,15 +696,16 @@ class PreTradeCheckSystem:
             calc.position_size *= position_multiplier
 
             funding_rate, spread_bps = self._get_dynamic_cost_inputs(symbol)
-            side = "long" if is_buy else "short"
+            side: Literal["long", "short"] = "long" if is_buy else "short"
 
             leverage_brackets = None
-            try:
-                connector = self._get_connector()
-                if connector and hasattr(connector, "get_leverage_brackets"):
-                    leverage_brackets = connector.get_leverage_brackets(symbol)
-            except Exception:
-                pass
+            if self._has_private_api_credentials():
+                try:
+                    connector = self._get_connector()
+                    if connector and hasattr(connector, "get_leverage_brackets"):
+                        leverage_brackets = connector.get_leverage_brackets(symbol)
+                except Exception as exc:
+                    logger.warning("無法取得 Binance 槓桿分層，改用交易成本設定值: %s", exc)
 
             cost_stats = self.cost_calculator.calculate_entry_exit_costs(
                 position_size_usd=calc.position_size * calc.entry_price,
@@ -1320,45 +1331,43 @@ class PreTradeCheckSystem:
         if not self.modules_available:
             raise RuntimeError("交易模組不可用，無法獲取帳戶信息")
 
-        try:
-            connector = self._get_connector()
-
-            # 嘗試獲取帳戶信息（需要有效 API Key）
-            account_data = None
-            try:
-                account_data = connector.get_account_info()
-            except Exception as e:
-                logger.warning(f"⚠️ 呼叫 Binance API 獲取帳戶資訊失敗: {e}，將使用本機模擬餘額")
-
-            if account_data:
-                total_balance = float(account_data.get('totalWalletBalance', 0))
-                available_balance = float(account_data.get('availableBalance', 0))
-                margin_ratio = float(account_data.get('totalMarginBalance', 0))
-
-                logger.info(f"💰 帳戶餘額: ${total_balance:,.2f} | 可用: ${available_balance:,.2f}")
-
-                return {
-                    "total_balance": total_balance,
-                    "available_balance": available_balance,
-                    "margin_ratio": margin_ratio
-                }
-            else:
-                logger.warning("⚠️ 無法獲取真實帳戶資訊，切換至本機虛擬餘額 ($10,000.00)")
-                return {
-                    "total_balance": 10000.0,
-                    "available_balance": 10000.0,
-                    "margin_ratio": 0.0
-                }
-
-        except ImportError as e:
-            raise RuntimeError(f"無法導入配置: {e}")
-        except Exception as e:
-            logger.warning(f"⚠️ 獲取帳戶資訊發生未預期錯誤: {e}，切換至本機虛擬餘額 ($10,000.00)")
+        if self._configured_account_balance is not None:
+            balance = float(self._configured_account_balance)
+            logger.info("💰 使用明確設定的規劃資金: $%.2f", balance)
             return {
-                "total_balance": 10000.0,
-                "available_balance": 10000.0,
-                "margin_ratio": 0.0
+                "total_balance": balance,
+                "available_balance": balance,
+                "margin_ratio": 0.0,
+                "source": "configured_planning_balance",
             }
+
+        if not self._has_private_api_credentials():
+            raise RuntimeError(
+                "缺少 BINANCE_API_KEY / BINANCE_API_SECRET；"
+                "請設定有效憑證，或由 advisor/paper 流程明確傳入規劃資金"
+            )
+
+        try:
+            account_data = self._get_connector().get_account_info()
+        except Exception as exc:
+            raise RuntimeError(f"Binance 帳戶資訊取得失敗: {exc}") from exc
+
+        if not account_data:
+            raise RuntimeError("Binance 帳戶資訊回應為空")
+
+        total_balance = float(account_data.get('totalWalletBalance', 0))
+        available_balance = float(account_data.get('availableBalance', 0))
+        margin_ratio = float(account_data.get('totalMarginBalance', 0))
+        if total_balance <= 0 or available_balance < 0:
+            raise RuntimeError("Binance 帳戶資訊包含無效餘額")
+
+        logger.info(f"💰 帳戶餘額: ${total_balance:,.2f} | 可用: ${available_balance:,.2f}")
+        return {
+            "total_balance": total_balance,
+            "available_balance": available_balance,
+            "margin_ratio": margin_ratio,
+            "source": "binance_account",
+        }
 
     def _get_current_price(self, symbol: str) -> float:
         """獲取當前價格 - 從真實 API 獲取"""

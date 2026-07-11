@@ -24,7 +24,7 @@ export function TradeControlPanel() {
   const [mode, setMode] = useState<TradeMode>('monitor_only')
   const [loadAiModel, setLoadAiModel] = useState(true)
   const [warmupModel, setWarmupModel] = useState(false)
-  const [modelName, setModelName] = useState('my_100m_model')
+  const [modelName, setModelName] = useState('unified_v2_100m')
   const [confirmLive, setConfirmLive] = useState('')
   const [paperInitialBalance, setPaperInitialBalance] = useState(10000)
 

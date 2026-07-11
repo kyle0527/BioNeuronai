@@ -88,7 +88,7 @@ docker compose version
 
 ## 3. 環境變數設定
 
-Docker 若要注入 API key、port 或交易模式設定，才在專案根目錄由 `.env.example` 建立 `.env`（不提交至 Git）。日常不接外部服務時可只保留 `.env.example`：
+Docker 若要注入 API key、port 或交易模式設定，才在專案根目錄由 `.env.example` 建立 `.env`（不提交至 Git）。日常不接外部服務時可只保留 `.env.example`；`docker-compose.yml` 將 `.env` 設為 optional，讓 `docker compose config --quiet` 可在乾淨 checkout 上通過：
 
 ```dotenv
 # ===== Binance API =====

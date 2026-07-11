@@ -21,42 +21,41 @@ BioNeuronAI 交易策略集合：
 
 from .base_strategy import (
     BaseStrategy,
-    StrategyState,
-    TradeSetup,
-    TradeExecution,
     PositionManagement,
     RiskParameters,
     StrategyPerformance,
+    StrategyState,
+    TradeExecution,
+    TradeSetup,
 )
-
-from .trend_following import TrendFollowingStrategy
-from .swing_trading import SwingTradingStrategy
-from .mean_reversion import MeanReversionStrategy
 from .breakout_trading import BreakoutTradingStrategy
 from .direction_change_strategy import DirectionChangeStrategy
+from .mean_reversion import MeanReversionStrategy
 from .pair_trading_strategy import PairTradingStrategy
-from .strategy_fusion import AIStrategyFusion, FusionMethod, FusionSignal, MarketRegime
 
 # 階段路由模組 (2026-02-15 AI 策略編排)
 from .phase_router import (
-    TradingPhaseRouter,
-    TradingPhase,
-    TradeActionPhase,
     PhaseConfig,
     PhaseState,
     StrategyPerformanceRecord,
+    TradeActionPhase,
+    TradingPhase,
+    TradingPhaseRouter,
 )
 
 # 策略選擇器模組 (2026-01-25 新增)
 from .selector import (
+    MarketEvaluator,
+    StrategyConfigTemplate,
+    StrategyRecommendation,
+    StrategySelectionResult,
     StrategySelector,
     StrategyType,
-    StrategyConfigTemplate,
-    StrategySelectionResult,
-    StrategyRecommendation,
-    MarketEvaluator,
     get_recommended_strategy,
 )
+from .strategy_fusion import AIStrategyFusion, FusionMethod, FusionSignal, MarketRegime
+from .swing_trading import SwingTradingStrategy
+from .trend_following import TrendFollowingStrategy
 
 __all__ = [
     # 基礎類
@@ -67,7 +66,7 @@ __all__ = [
     'PositionManagement',
     'RiskParameters',
     'StrategyPerformance',
-    
+
     # 策略實現
     'TrendFollowingStrategy',
     'SwingTradingStrategy',
@@ -75,13 +74,13 @@ __all__ = [
     'BreakoutTradingStrategy',
     'DirectionChangeStrategy',
     'PairTradingStrategy',
-    
+
     # AI 融合
     'AIStrategyFusion',
     'FusionMethod',
     'FusionSignal',
     'MarketRegime',
-    
+
     # 階段路由 (2026-02-15 AI 策略編排)
     'TradingPhaseRouter',
     'TradingPhase',
@@ -89,7 +88,7 @@ __all__ = [
     'PhaseConfig',
     'PhaseState',
     'StrategyPerformanceRecord',
-    
+
     # 策略選擇器 (2026-01-25 新增)
     'StrategySelector',
     'StrategyType',

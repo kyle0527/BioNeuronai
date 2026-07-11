@@ -1,4 +1,4 @@
-# 專案現況與進度（2026-06-15）
+# 專案現況與進度（2026-07-11）
 
 > 這份文件是當前最準確的進度記錄。README 是它的摘要版。
 > 每次有重大架構變更時更新此文件。
@@ -45,7 +45,8 @@ WebSocket (Binance ticker stream)
               │               ├─ generate_fusion_signal()
               │               │       └─ get_direction_bias() 方向框架（minimal，攔截逆勢共識）
               │               └─ event_score 非對稱過濾（極空/極多時攔截逆勢）
-              ├─ InferenceEngine.predict()        # 若模型已載入，TinyLLM v1
+              ├─ InferenceEngine.predict_with_explanation()
+              │       # unified v2：數值 + 中英文脈絡 → 決策 + 說明
               └─ _fuse_signals()                  # 策略 70% + AI 25% + event_score 5%
 ```
 
@@ -72,7 +73,7 @@ _handle_trading_signal(signal)
 - CLI: `python main.py trade --paper-live` 或 `--auto-trade`
 - 程式: `engine.enable_auto_trading()`
 
-### 1.3 平倉 → T2 → LoRA 更新（僅主線 A）
+### 1.3 平倉 → T2 → LoRA 更新（統一執行層）
 
 ```
 SL/TP 觸發 or 強平
@@ -86,32 +87,33 @@ SL/TP 觸發 or 強平
         └─ AdaptiveLearningHub.record_trade() → 重注入 selector 權重
 ```
 
-### 1.4 雙執行主線對照
+### 1.4 兩種控制入口、單一模型與執行層
 
-系統存在兩條**平行**執行路徑，驗收與除錯時必須先確認使用的是哪一條。
+`trade` 與 `autonomous` 保留不同的驅動方式，但不再各自擁有模型或 paper connector。
 
 | 維度 | 主線 A：TradingEngine | 主線 B：AutonomousOperator |
 |------|----------------------|---------------------------|
 | CLI 入口 | `main.py trade` | `main.py autonomous` |
 | 驅動 | WebSocket 即時 tick | `run_forever` 定時迴圈 |
-| 信號/決策 | StrategySelector + InferenceEngine | Plan → Pretrade → AdaptationController |
-| Paper 執行 | `connector.place_order()` via engine | `_execute_paper_order()` |
-| ActionRecord | ✅ T0/T1/T2 | ❌ |
-| EpisodicMemory | ✅ | ❌ |
-| OnlineLearner / LoRA | ✅ | ❌（可透過 `register_state_provider` 讀統計，但不觸發更新） |
+| 信號/決策 | StrategySelector + shared InferenceEngine | Plan → shared InferenceEngine → Pretrade → AdaptationController |
+| Paper 執行 | `TradingEngine.execute_prepared_order()` | 委派 `TradingEngine.execute_prepared_order()` |
+| 模型 | `unified_v2_100m` shared instance | 同一個 shared instance |
+| Connector | TradingEngine 持有 | 使用同一個 TradingEngine connector |
+| ActionRecord | ✅ T0/T1/T2 | 平倉透過 shared callback 同步回寫 |
+| EpisodicMemory | ✅ | 透過 TradingEngine shared callback |
+| OnlineLearner / LoRA | ✅ | 透過 TradingEngine shared callback |
 | Decision Ledger | ❌ | ✅ append-only JSONL |
 | AdaptiveLearningHub | ✅ | ✅ |
 | Pretrade calibrator | 經 pretrade 間接使用 | ✅ 計算 alignment / quantity |
 | 執行層採用 pretrade quantity | N/A（engine 自有倉位邏輯） | ✅ 優先 `order_parameters.quantity`（2026-06-15）；無效時 fallback `paper_notional_fraction` |
 | 持倉檢查再進場 | base_strategy 有檢查 | ✅ 2026-06-15 檢查 virtual account；跳過時 `skipped=existing_position` |
 
-**主線 B 平倉路徑**（無 LoRA）：
+**Autonomous 平倉路徑**：
 ```
 VirtualAccount 平倉回調
-  → AutonomousOperator._on_paper_close()
-  → decision ledger 寫入 trade_outcome
-  → confidence_calibrator.record_outcome_by_index(calibration_record_index)
-  → AdaptiveLearningHub.record_trade(strategy="autonomous_paper")
+  → AutonomousOperator._on_shared_paper_close()
+      ├─ TradingEngine._on_paper_close() → T2 / memory / LoRA / adaptive hub
+      └─ AutonomousOperator._on_paper_close() → decision ledger / calibrator
 ```
 
 ---
@@ -133,9 +135,10 @@ VirtualAccount 平倉回調
 
 | 模型 | 狀態 | 說明 |
 |---|---|---|
-| TinyLLM v1 | ✅ 可用 | `my_100m_model_trained_20260510.pth`，1024→512 |
-| TinyLLM v2 | 🧩 未接通推論引擎 | `src/nlp/tiny_llm_v2.py`；`enable_v2_mode()` 為誠實 stub |
-| LoRA (v2) | ✅ 已整合於模型內 | 骨幹凍結後 0.25%（~203K）可訓練 |
+| Unified TinyLLM v2 | ✅ 未訓練端到端已接通 | 98,403,413 參數；16×64 數值 + 中英文脈絡 → 65 維決策 + 說明 logits |
+| v2 trained checkpoint | ❌ 尚未產生 | `active_model.json` 明確標記 `trained: false`；目前固定 seed 初始化只供運作驗證 |
+| LoRA (v2) | ✅ 已整合於模型內 | 由同一 checkpoint 與 OnlineLearner 更新，不再有獨立文字模型 |
+| TinyLLM v1 / MLP | 📦 已封存 | 位於 `archived/legacy_v1_20260711/`，現役 loader 明確拒絕 |
 
 ### 2.3 記憶與在線學習（主線 A）
 
@@ -218,11 +221,14 @@ v1 → v2 遷移需重訓輸入投影層與輸出頭。
 2. ✅ 下單前檢查 `_open_executions` 與 virtual account 持倉，重複進場回傳 `skipped: existing_position`。
 3. ✅ 平倉時依 `risk_calculation.calibration_record_index` 回填 `confidence_calibrator.record_outcome()`。
 
-### P3：TinyLLM v2 接上交易引擎
+### P3：TinyLLM v2 接上交易引擎（2026-07-11 已完成未訓練基線）
 
-1. `FeaturePipeline` 輸出 16×64 patch。
-2. `SignalInterpreterV2` 解碼 65 維輸出。
-3. v2 訓練權重檔。
+1. ✅ `FeaturePipeline.to_v2_patch()` 是 1024→64 的唯一映射。
+2. ✅ `SignalInterpreter` 解碼 v2 65 維輸出。
+3. ✅ TradingEngine、ChatEngine、AutonomousOperator 共用同一模型實例。
+4. ✅ AutonomousOperator 的 paper 執行委派給 TradingEngine，不再維護第二套正式執行器。
+5. ✅ 真實未來 K 線資料收集器輸出 65 維目標與中英說明；舊 512 維自我標註被拒絕。
+6. ❌ 尚缺以完整真實資料完成訓練後的 `model/unified_v2_100m.pth`。
 
 ### P4：目標層級自動回饋（`planning/goal_manager.py`）
 
@@ -248,6 +254,8 @@ v1 → v2 遷移需重訓輸入投影層與輸出頭。
 4. **GoalTracker 只監測不行動**（見 P4）。
 5. **LoRA 成效未長時間驗證**：hub 每筆生效；LoRA 每 100 筆，漂移合理性未驗證。
 6. **reflection_loop**：已接入 CLI `reflect` 與 `autonomous --reflect-every`；樣本仍來自 EpisodicMemory（主線 A）。
+7. **模型能力**：統一 v2 已能完整運作，但目前未訓練；輸出只可驗證資料流，不代表語言或交易表現。
+8. **資料遷移**：既有 512 維 signal_history 是 v1 模型輸出，不能直接當 v2 ground truth；需重新收集真實未來結果資料。
 
 ### 商用化缺口（非 AI 主線）
 

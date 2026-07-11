@@ -9,14 +9,14 @@ It does not decide whether to trade.
 The strategy callback or upper project logic still decides that.
 """
 
-import logging
-from typing import Dict, List, Optional, Callable, Any, Union
-from datetime import datetime
-from dataclasses import dataclass, field
 import json
+import logging
+from dataclasses import dataclass, field
+from datetime import datetime
+from typing import Any, Callable, Dict, List, Optional, Union
 
-from .mock_connector import MockBinanceConnector
 from .data_stream import DEFAULT_DATA_DIR, KlineBar
+from .mock_connector import MockBinanceConnector
 from .runtime_store import ReplayRunRecorder
 
 logger = logging.getLogger(__name__)
@@ -30,23 +30,23 @@ class BacktestConfig:
     interval: str = "1m"
     start_date: Optional[str] = None
     end_date: Optional[str] = None
-    
+
     # 帳戶設置
     initial_balance: float = 10000.0
     leverage: int = 1
     maker_fee: float = 0.00022   # Binance Futures VIP0 實際 0.02%，保守設定略高
     taker_fee: float = 0.00055   # Binance Futures VIP0 實際 0.05%，保守設定略高
     slippage_rate: float = 0.0001
-    
+
     # 回測設置
     speed_multiplier: float = 0.0  # 無延遲模式
     warmup_bars: int = 100  # 預熱期 K線數量
     close_open_positions_on_end: bool = False
-    
+
     # 風險設置
     max_position_size: float = 1.0
     max_daily_loss: float = 0.05  # 5%
-    
+
     def to_dict(self) -> Dict:
         return {
             'data_dir': str(self.data_dir),
@@ -73,7 +73,7 @@ class BacktestResult:
     trades: List[Dict] = field(default_factory=list)
     drawdown_curve: List[float] = field(default_factory=list)
     timestamps: List[datetime] = field(default_factory=list)
-    
+
     def to_dict(self) -> Dict:
         return {
             'config': self.config.to_dict(),
@@ -83,7 +83,7 @@ class BacktestResult:
             'drawdown_curve': self.drawdown_curve,
             'timestamps': [t.isoformat() for t in self.timestamps],
         }
-    
+
     def save(self, path: str):
         """保存結果到 JSON"""
         with open(path, 'w', encoding='utf-8') as f:
@@ -94,44 +94,44 @@ class BacktestResult:
 class BacktestEngine:
     """
     回測引擎
-    
+
     提供完整的回測框架，讓 TradingEngine 在歷史數據上運行
     無需修改任何交易邏輯代碼
-    
+
     使用方式：
-    
+
     === 方法 1: 快速回測 ===
-    
+
         engine = BacktestEngine(
         data_dir="backtest/data/binance_historical",
         symbol="BTCUSDT",
         start_date="2025-01-01",
         end_date="2025-06-30"
     )
-    
+
     # 定義策略邏輯
     def my_strategy(bar, connector):
         if bar.close > bar.open:
             connector.place_order("BTCUSDT", "BUY", "MARKET", 0.01)
-    
+
     result = engine.run(my_strategy)
-    
+
     === 方法 2: 與 TradingEngine 整合 ===
-    
+
     from bioneuronai.core import TradingEngine
     from backtest import MockBinanceConnector
-    
+
     # 創建 Mock 連接器
     mock = MockBinanceConnector(...)
-    
+
     # 創建 TradingEngine，但替換連接器
     trading_engine = TradingEngine()
     trading_engine.connector = mock
-    
+
     # 現在 TradingEngine 會在歷史數據上運行
     # 它會透過 replay connector 讀取歷史資料與模擬執行結果
     """
-    
+
     def __init__(
         self,
         config: Optional[BacktestConfig] = None,
@@ -147,7 +147,7 @@ class BacktestEngine:
     ):
         """
         初始化回測引擎
-        
+
         Args:
             config: 完整配置對象
             data_dir: 數據目錄
@@ -170,7 +170,7 @@ class BacktestEngine:
                 initial_balance=initial_balance,
                 leverage=leverage,
             )
-        
+
         # 創建 Mock 連接器
         self.run_recorder = run_recorder
         self.connector = MockBinanceConnector(
@@ -186,16 +186,16 @@ class BacktestEngine:
             slippage_rate=self.config.slippage_rate,
             run_recorder=self.run_recorder,
         )
-        
+
         # 回測記錄
         self._equity_curve: List[float] = []
         self._drawdown_curve: List[float] = []
         self._timestamps: List[datetime] = []
         self._bar_count = 0
         self._warmup_complete = False
-        
+
         logger.info("回測引擎初始化完成")
-    
+
     def run(
         self,
         strategy: Callable[[KlineBar, MockBinanceConnector], None],
@@ -337,29 +337,29 @@ class BacktestEngine:
         })
         self.run_recorder.save_result(result.to_dict())
         self.run_recorder.save_runtime_state(self.connector.get_runtime_snapshot())
-    
+
     def _calculate_advanced_stats(self) -> Dict[str, Any]:
         """計算進階統計指標"""
         if not self._equity_curve:
             return {}
-        
+
         import numpy as np
-        
+
         equity = np.array(self._equity_curve)
         returns = np.diff(equity) / equity[:-1] if len(equity) > 1 else np.array([0])
-        
+
         # 夏普比率 (假設無風險利率為 0)
         sharpe = np.mean(returns) / np.std(returns) * np.sqrt(252 * 24 * 60) if np.std(returns) > 0 else 0
-        
+
         # 索提諾比率
         downside_returns = returns[returns < 0]
         sortino = np.mean(returns) / np.std(downside_returns) * np.sqrt(252 * 24 * 60) if len(downside_returns) > 0 and np.std(downside_returns) > 0 else 0
-        
+
         # 卡爾瑪比率
         max_dd = max(self._drawdown_curve) if self._drawdown_curve else 0
         total_return = (equity[-1] - equity[0]) / equity[0] if equity[0] > 0 else 0
         calmar = total_return / max_dd if max_dd > 0 else 0
-        
+
         # 最大連續虧損
         max_consecutive_losses = 0
         current_losses = 0
@@ -370,10 +370,10 @@ class BacktestEngine:
                 max_consecutive_losses = max(max_consecutive_losses, current_losses)
             else:
                 current_losses = 0
-        
+
         # 平均持倉時間 (簡化計算)
         avg_trade_duration = len(self._equity_curve) / max(len(trades), 1) if trades else 0
-        
+
         return {
             'sharpe_ratio': round(sharpe, 2),
             'sortino_ratio': round(sortino, 2),
@@ -382,29 +382,29 @@ class BacktestEngine:
             'avg_bars_per_trade': round(avg_trade_duration, 1),
             'profit_factor': self._calculate_profit_factor(),
         }
-    
+
     def _calculate_profit_factor(self) -> float:
         """計算獲利因子"""
         gross_profit: float = 0.0
         gross_loss: float = 0.0
-        
+
         for trade in self.connector.get_trade_history_snapshot():
             realized_pnl = float(trade.get('realizedPnl', 0.0))
             if realized_pnl > 0:
                 gross_profit += realized_pnl
             else:
                 gross_loss += abs(realized_pnl)
-        
+
         return round(gross_profit / gross_loss, 2) if gross_loss > 0 else float('inf')
-    
+
     def _print_summary(self, result: BacktestResult):
         """打印回測摘要"""
         stats = result.stats
-        
+
         print("\n" + "=" * 70)
         print("📊 回測結果摘要")
         print("=" * 70)
-        
+
         print("\n📈 績效指標")
         print("-" * 70)
         print(f"{'初始餘額:':<20} {stats['initial_balance']:>15,.2f} USDT")
@@ -412,14 +412,14 @@ class BacktestEngine:
         print(f"{'總權益:':<20} {stats['total_equity']:>15,.2f} USDT")
         print(f"{'總收益率:':<20} {stats['total_return']:>15.2f}%")
         print(f"{'實現盈虧:':<20} {stats['total_realized_pnl']:>+15,.2f} USDT")
-        
+
         print("\n📉 風險指標")
         print("-" * 70)
         print(f"{'最大回撤:':<20} {stats['max_drawdown']:>15.2f}%")
         print(f"{'夏普比率:':<20} {stats.get('sharpe_ratio', 0):>15.2f}")
         print(f"{'索提諾比率:':<20} {stats.get('sortino_ratio', 0):>15.2f}")
         print(f"{'卡爾瑪比率:':<20} {stats.get('calmar_ratio', 0):>15.2f}")
-        
+
         print("\n🎯 交易統計")
         print("-" * 70)
         print(f"{'總交易次數:':<20} {stats['total_trades']:>15}")
@@ -428,19 +428,19 @@ class BacktestEngine:
         print(f"{'虧損交易:':<20} {stats['losing_trades']:>15}")
         print(f"{'獲利因子:':<20} {stats.get('profit_factor', 0):>15.2f}")
         print(f"{'最大連續虧損:':<20} {stats.get('max_consecutive_losses', 0):>15}")
-        
+
         print("\n💰 成本")
         print("-" * 70)
         print(f"{'總手續費:':<20} {stats['total_commission']:>15,.2f} USDT")
-        
+
         print("\n📅 數據統計")
         print("-" * 70)
         print(f"{'總 K線數:':<20} {stats['total_bars']:>15,}")
         print(f"{'有效 K線數:':<20} {stats['effective_bars']:>15,}")
         print(f"{'平均每筆交易 K線:':<20} {stats.get('avg_bars_per_trade', 0):>15.1f}")
-        
+
         print("=" * 70 + "\n")
-    
+
     def run_with_trading_engine(
         self,
         trading_engine: Any,
@@ -493,7 +493,7 @@ class BacktestEngine:
     def get_connector(self) -> MockBinanceConnector:
         """獲取 Mock 連接器 - 用於替換 TradingEngine 的連接器"""
         return self.connector
-    
+
     def reset(self):
         """重置回測引擎"""
         self.connector.reset_account()
@@ -521,12 +521,12 @@ def quick_backtest(
 ) -> BacktestResult:
     """
     快速回測函數
-    
+
     Example:
         def my_strategy(bar, connector):
             if bar.close > bar.open * 1.001:
                 connector.place_order(bar.symbol, "BUY", "MARKET", 0.01)
-        
+
         result = quick_backtest(
             my_strategy,
             symbol="ETHUSDT",
@@ -542,7 +542,7 @@ def quick_backtest(
         end_date=end_date,
         initial_balance=initial_balance,
     )
-    
+
     return engine.run(strategy)
 
 
@@ -555,22 +555,22 @@ def create_mock_connector(
 ) -> MockBinanceConnector:
     """
     快速創建 Mock 連接器
-    
+
     用於替換 TradingEngine 的連接器
-    
+
     Example:
         from backtest import create_mock_connector
         from bioneuronai.core import TradingEngine
-        
+
         # 創建 mock 連接器
         mock = create_mock_connector(
             symbol="BTCUSDT",
             start_date="2025-01-01"
         )
-        
+
         # 創建 TradingEngine
         engine = TradingEngine()
-        
+
         # 替換連接器，讓 TradingEngine 經由 replay connector 運作
         engine.connector = mock
     """

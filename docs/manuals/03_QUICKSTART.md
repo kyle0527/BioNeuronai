@@ -159,7 +159,7 @@ python main.py chat --symbol BTCUSDT
 python main.py chat --allow-rule-based-fallback   # 僅開發測試
 ```
 
-正式對話需要 PyTorch 與 `model/tiny_llm_100m.pth`。模型未載入時預設報錯，不會默默降級。
+正式對話與交易共用 `config/active_model.json` 指定的 `unified_v2_100m`。未訓練階段可以執行，但回應會標記為 `UNTRAINED`，不代表模型品質。
 
 ---
 

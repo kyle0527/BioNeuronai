@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 from __future__ import annotations
+
 """
 BioNeuronai RAG 模塊 (Retrieval-Augmented Generation)
 ====================================================
@@ -47,15 +48,25 @@ imported_retrieval_query: Any = None
 imported_retrieval_source: Any = None
 try:
     from .core.embeddings import (
-        EmbeddingService as imported_embedding_service,
         EmbeddingModel as imported_embedding_model,
+    )
+    from .core.embeddings import (
         EmbeddingResult as imported_embedding_result,
+    )
+    from .core.embeddings import (
+        EmbeddingService as imported_embedding_service,
+    )
+    from .core.retriever import (
+        RetrievalQuery as imported_retrieval_query,
+    )
+    from .core.retriever import (
+        RetrievalResult as imported_retrieval_result,
+    )
+    from .core.retriever import (
+        RetrievalSource as imported_retrieval_source,
     )
     from .core.retriever import (
         UnifiedRetriever as imported_unified_retriever,
-        RetrievalResult as imported_retrieval_result,
-        RetrievalQuery as imported_retrieval_query,
-        RetrievalSource as imported_retrieval_source,
     )
     CORE_AVAILABLE = True
 except ImportError as e:
@@ -76,9 +87,13 @@ imported_knowledge_document: Any = None
 imported_document_type: Any = None
 try:
     from .internal.knowledge_base import (
-        InternalKnowledgeBase as imported_internal_knowledge_base,
-        KnowledgeDocument as imported_knowledge_document,
         DocumentType as imported_document_type,
+    )
+    from .internal.knowledge_base import (
+        InternalKnowledgeBase as imported_internal_knowledge_base,
+    )
+    from .internal.knowledge_base import (
+        KnowledgeDocument as imported_knowledge_document,
     )
     INTERNAL_KB_AVAILABLE = True
 except ImportError as e:
@@ -99,12 +114,20 @@ imported_get_news_analyzer: Optional[Callable[[], Any]] = None
 try:
     from bioneuronai.analysis.keywords import (
         KeywordManager as imported_keyword_manager,
+    )
+    from bioneuronai.analysis.keywords import (
         KeywordMatch as imported_keyword_match,
+    )
+    from bioneuronai.analysis.keywords import (
         get_keyword_manager as imported_get_keyword_manager,
     )
     from bioneuronai.analysis.news import (
         CryptoNewsAnalyzer as imported_crypto_news_analyzer,
+    )
+    from bioneuronai.analysis.news import (
         NewsArticle as imported_news_article,
+    )
+    from bioneuronai.analysis.news import (
         get_news_analyzer as imported_get_news_analyzer,
     )
     ANALYSIS_AVAILABLE = True
@@ -128,9 +151,17 @@ imported_ingest_news_analysis_with_status: Optional[Callable[..., Any]] = None
 try:
     from .services.news_adapter import (
         NewsAdapter as imported_news_adapter,
+    )
+    from .services.news_adapter import (
         NewsSearchResult as imported_news_search_result,
+    )
+    from .services.news_adapter import (
         get_news_adapter as imported_get_news_adapter,
+    )
+    from .services.news_adapter import (
         ingest_news_analysis as imported_ingest_news_analysis,
+    )
+    from .services.news_adapter import (
         ingest_news_analysis_with_status as imported_ingest_news_analysis_with_status,
     )
     NEWS_ADAPTER_AVAILABLE = True
@@ -170,17 +201,17 @@ def create_unified_retriever(
 ) -> Any:
     """
     創建預設配置的 UnifiedRetriever
-    
+
     自動連接 NewsAdapter（如果可用）以提供新聞搜索功能。
-    
+
     Args:
         embedding_service: 可選的 EmbeddingService 實例
         knowledge_base: 可選的 InternalKnowledgeBase 實例
         include_news: 是否包含新聞來源（預設 True）
-    
+
     Returns:
         UnifiedRetriever: 配置好的檢索器實例
-    
+
     使用範例:
         from rag import create_unified_retriever
         retriever = create_unified_retriever()
@@ -188,7 +219,7 @@ def create_unified_retriever(
     """
     if not CORE_AVAILABLE or UnifiedRetriever is None:
         raise ImportError("RAG 核心組件不可用，請確認 sentence-transformers 已安裝")
-    
+
     # 準備組件
     news_api = None
     if include_news and NEWS_ADAPTER_AVAILABLE and get_news_adapter is not None:
@@ -197,7 +228,7 @@ def create_unified_retriever(
             logger.info("✅ NewsAdapter 已連接到 UnifiedRetriever")
         except Exception as e:
             logger.warning(f"NewsAdapter 初始化失敗: {e}")
-    
+
     # 創建檢索器
     return UnifiedRetriever(
         embedding_service=embedding_service,
@@ -215,12 +246,12 @@ __all__ = [
     'RetrievalResult',
     'RetrievalQuery',
     'RetrievalSource',
-    
+
     # 對內
     'InternalKnowledgeBase',
     'KnowledgeDocument',
     'DocumentType',
-    
+
     # 對外 (整合 analysis 模組)
     'KeywordManager',
     'KeywordMatch',
@@ -228,7 +259,7 @@ __all__ = [
     'CryptoNewsAnalyzer',
     'NewsArticle',
     'get_news_analyzer',
-    
+
     # 新聞適配器 + 入庫服務 (2026-01-25 新增 / 2026-04-02 補全入庫函數)
     'NewsAdapter',
     'NewsSearchResult',
@@ -238,7 +269,7 @@ __all__ = [
 
     # 工廠函數 (2026-01-27 新增)
     'create_unified_retriever',
-    
+
     # 狀態檢查
     'get_rag_status',
     'CORE_AVAILABLE',

@@ -8,7 +8,7 @@ import { DataTable } from '@/components/data-table'
 import { StatusBadge } from '@/components/status-badge'
 import { toast } from 'sonner'
 import { api } from '@/lib/api-client'
-import type { BacktestConfig, BacktestInspectResponse, BacktestSimulateResponse, BacktestRunResponse } from '@/lib/types'
+import type { BacktestConfig, BacktestInspectResponse, BacktestRun, BacktestSimulateResponse, BacktestRunResponse } from '@/lib/types'
 import { MagnifyingGlass, Flask, Play } from '@phosphor-icons/react'
 
 export function BacktestPage() {
@@ -25,7 +25,7 @@ export function BacktestPage() {
   const [inspectResult, setInspectResult] = useState<BacktestInspectResponse | null>(null)
   const [simulateResult, setSimulateResult] = useState<BacktestSimulateResponse | null>(null)
   const [runResult, setRunResult] = useState<BacktestRunResponse | null>(null)
-  const [runs, setRuns] = useState<any[]>([])
+  const [runs, setRuns] = useState<BacktestRun[]>([])
 
   const [loading, setLoading] = useState({
     inspect: false,
@@ -40,7 +40,9 @@ export function BacktestPage() {
       setInspectResult(result)
       toast.success('Inspection complete')
     } catch (error) {
-      toast.error('Inspection failed')
+      toast.error('Inspection failed', {
+        description: error instanceof Error ? error.message : 'Unknown error',
+      })
     } finally {
       setLoading(prev => ({ ...prev, inspect: false }))
     }
@@ -53,7 +55,9 @@ export function BacktestPage() {
       setSimulateResult(result)
       toast.success('Simulation complete')
     } catch (error) {
-      toast.error('Simulation failed')
+      toast.error('Simulation failed', {
+        description: error instanceof Error ? error.message : 'Unknown error',
+      })
     } finally {
       setLoading(prev => ({ ...prev, simulate: false }))
     }
@@ -65,9 +69,17 @@ export function BacktestPage() {
       const result = await api.runBacktest(config)
       setRunResult(result)
       toast.success(`Backtest started: ${result.run_id}`)
-      setRuns(prev => [...prev, { id: result.run_id, ...config, status: result.status, created_at: new Date().toISOString() }])
+      setRuns(prev => [...prev, {
+        id: result.run_id,
+        run_id: result.run_id,
+        ...config,
+        status: result.status,
+        created_at: new Date().toISOString(),
+      }])
     } catch (error) {
-      toast.error('Backtest run failed')
+      toast.error('Backtest run failed', {
+        description: error instanceof Error ? error.message : 'Unknown error',
+      })
     } finally {
       setLoading(prev => ({ ...prev, run: false }))
     }

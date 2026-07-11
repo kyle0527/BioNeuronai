@@ -13,10 +13,11 @@ Meta-Learner 神經網路模型定義
   - 使用 LayerNorm 取代 BatchNorm，對序列資料更穩定
 """
 
+from pathlib import Path
+from typing import Optional, cast
+
 import torch
 import torch.nn as nn
-from pathlib import Path
-from typing import Optional
 
 # 與 strategy_fusion.py 中的 self.strategies 完全對應
 STRATEGY_NAMES = [
@@ -77,7 +78,7 @@ class MetaLearnerModel(nn.Module):
         """
         x = torch.cat([market_features, event_features], dim=1)
         logits = self.net(x)
-        return self.softmax(logits)
+        return cast(torch.Tensor, self.softmax(logits))
 
     def predict_weights(
         self,

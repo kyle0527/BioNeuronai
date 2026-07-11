@@ -11,9 +11,9 @@
 """
 
 # 1. 標準庫
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Optional
-from dataclasses import dataclass
 
 
 @dataclass
@@ -25,46 +25,46 @@ class Keyword:
     dynamic_weight: float   # 動態權重
     sentiment_bias: str     # positive, negative, neutral, uncertain
     description: str
-    
+
     # 時間戳記
     added_date: str         # 新增日期 (YYYY-MM-DD)
     last_updated: str       # 最後更新
-    
+
     # 統計數據
     hit_count: int = 0           # 命中次數
     prediction_count: int = 0    # 預測次數
     correct_count: int = 0       # 正確次數
-    
+
     # 動態偏差 (修復 dynamic_bias 欄位缺失問題)
     dynamic_bias: float = 0.0
 
     # 子分類 (v3.0 新增)
     subcategory: str = "general"
-    
+
     @property
     def accuracy(self) -> float:
         """計算預測準確率"""
         if self.prediction_count == 0:
             return 0.5  # 預設 50%
         return self.correct_count / self.prediction_count
-    
+
     @property
     def effective_weight(self) -> float:
         """有效權重 = 基礎權重 × 動態權重"""
         return self.base_weight * self.dynamic_weight
-    
+
     @property
     def days_since_added(self) -> int:
         """計算關鍵字存在天數"""
         added = datetime.strptime(self.added_date, "%Y-%m-%d")
         return (datetime.now() - added).days
-    
+
     @property
     def days_since_updated(self) -> int:
         """計算上次更新天數"""
         updated = datetime.strptime(self.last_updated, "%Y-%m-%d")
         return (datetime.now() - updated).days
-    
+
     @property
     def is_stale(self) -> bool:
         """判斷是否過時 (超過 90 天未更新且準確率低)"""

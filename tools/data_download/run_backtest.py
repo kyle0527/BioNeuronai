@@ -14,7 +14,7 @@ from pathlib import Path
 from datetime import datetime
 
 # 導入 BioNeuronai AI 引擎
-from bioneuronai.core import InferenceEngine
+from bioneuronai.core.inference_engine import get_shared_inference_engine
 from bioneuronai.data_models import MarketData
 
 
@@ -29,18 +29,8 @@ class HistoricalBacktest:
         
         # 初始化 AI 引擎
         print("初始化 AI 引擎...")
-        self.ai = InferenceEngine(min_confidence=0.6, warmup=False)
-        
-        # 載入模型
-        print("載入 AI 模型...")
-        import sys
-        archived_path = str(Path(__file__).parent.parent / "archived")
-        if archived_path not in sys.path:
-            sys.path.insert(0, archived_path)
-        
-        from pytorch_100m_model import HundredMillionModel  # type: ignore
-        self.ai.load_model("my_100m_model", HundredMillionModel)
-        print("[OK] AI 模型已載入")
+        self.ai = get_shared_inference_engine(min_confidence=0.6)
+        print("[OK] 統一 v2 模型已載入")
         
         # 統計
         self.stats = {
@@ -80,18 +70,21 @@ class HistoricalBacktest:
         
         total = limit if limit else len(self.data)  # type: ignore
         
+        self.ai.reset_buffer()
+        history = []
         for i in range(total):
             row = self.data.iloc[i]  # type: ignore
             
             # 準備 K線數據
-            klines = [{
+            history.append({
                 'open': float(row['open']),
                 'high': float(row['high']),
                 'low': float(row['low']),
                 'close': float(row['close']),
                 'volume': float(row['volume']),
                 'timestamp': int(row['open_time'])
-            }]
+            })
+            klines = history[-300:]
             
             # AI 推論
             try:

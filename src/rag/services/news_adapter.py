@@ -14,10 +14,10 @@
 
 使用範例:
     from rag.services.news_adapter import NewsAdapter
-    
+
     adapter = NewsAdapter()
     results = adapter.search("BTCUSDT", hours=24)
-    
+
     # 或與 UnifiedRetriever 整合
     from rag.core import UnifiedRetriever
     retriever = UnifiedRetriever(news_api=adapter)
@@ -28,9 +28,10 @@ Date: 2026-01-25
 
 import logging
 import re
-from typing import Any, Callable, Dict, List, Optional, cast
 from datetime import datetime
 from pathlib import Path
+from typing import Any, Callable, Dict, List, Optional, cast
+
 from typing_extensions import TypeAlias
 
 logger = logging.getLogger(__name__)
@@ -38,12 +39,12 @@ logger = logging.getLogger(__name__)
 # 從 schemas 導入 (Single Source of Truth)
 try:
     from schemas.rag import (  # noqa: F401
-        RAGNewsItem,
-        NewsSentiment,
-        NewsCategory,
-        RetrievalSource,
         EventContext,
         EventRule,
+        NewsCategory,
+        NewsSentiment,
+        RAGNewsItem,
+        RetrievalSource,
     )
     SCHEMAS_AVAILABLE = True
 except ImportError:
@@ -56,8 +57,12 @@ _imported_get_rule_evaluator: Optional[Callable[[], Any]]
 try:
     from bioneuronai.analysis.news import (
         CryptoNewsAnalyzer as _imported_crypto_news_analyzer,
+    )
+    from bioneuronai.analysis.news import (
         NewsAnalysisResult,  # noqa: F401
         NewsArticle,  # noqa: F401
+    )
+    from bioneuronai.analysis.news import (
         get_rule_evaluator as _imported_get_rule_evaluator,
     )
     NEWS_ANALYZER_AVAILABLE = True
@@ -91,15 +96,15 @@ DocumentType = _imported_document_type
 class NewsAdapter:
     """
     新聞適配器 - RAG 統一檢索接口
-    
+
     將 CryptoNewsAnalyzer 的功能封裝為 RAG 兼容的接口，
     供 UnifiedRetriever 使用。
-    
+
     設計原則 (CODE_FIX_GUIDE.md):
     - 不重複定義已存在的類型，使用 schemas
     - 作為現有模組的包裝層，不修改核心邏輯
     """
-    
+
     def __init__(
         self,
         enable_event_detection: bool = True,
@@ -109,7 +114,7 @@ class NewsAdapter:
     ):
         """
         初始化新聞適配器
-        
+
         Args:
             enable_event_detection: 是否啟用事件檢測 (RuleBasedEvaluator)
             default_hours: 預設搜索時間範圍 (小時)
@@ -120,10 +125,10 @@ class NewsAdapter:
         self.default_hours = default_hours
         self._knowledge_base = knowledge_base
         self._kb_storage_path = kb_storage_path
-        
+
         # 延遲初始化
         self._initialized = False
-        
+
         logger.info("NewsAdapter 已建立 (延遲初始化)")
 
     def _ensure_knowledge_base(self) -> Optional[Any]:
@@ -153,31 +158,34 @@ class NewsAdapter:
             self._knowledge_base = None
 
         return self._knowledge_base
-    
+
     def _ensure_initialized(self):
         """確保分析器已初始化"""
         if self._initialized:
             return
-        
-        if not NEWS_ANALYZER_AVAILABLE:
+
+        if not NEWS_ANALYZER_AVAILABLE or CryptoNewsAnalyzer is None:
             logger.error("CryptoNewsAnalyzer 不可用")
             return
-        
+
         try:
             self._analyzer = CryptoNewsAnalyzer()
             logger.info("✅ CryptoNewsAnalyzer 已初始化")
-            
+
             if self.enable_event_detection:
                 try:
-                    self._rule_evaluator = get_rule_evaluator()
-                    logger.info("✅ RuleBasedEvaluator 已連接")
+                    if get_rule_evaluator is None:
+                        logger.warning("RuleBasedEvaluator 不可用")
+                    else:
+                        self._rule_evaluator = get_rule_evaluator()
+                        logger.info("✅ RuleBasedEvaluator 已連接")
                 except Exception as e:
                     logger.warning(f"RuleBasedEvaluator 初始化失敗: {e}")
-            
+
             self._initialized = True
         except Exception as e:
             logger.error(f"NewsAdapter 初始化失敗: {e}")
-    
+
     def search(
         self,
         query: str,
@@ -186,32 +194,32 @@ class NewsAdapter:
     ) -> List[NewsSearchResult]:
         """
         搜索新聞 - RAG 兼容接口
-        
+
         這是供 UnifiedRetriever._retrieve_news() 調用的主要接口。
-        
+
         Args:
             query: 搜索查詢 (通常是幣種符號如 "BTC")
             max_results: 最大返回結果數
             hours: 時間範圍 (小時)
-            
+
         Returns:
             List[NewsSearchResult]: RAG 兼容的搜索結果
         """
         self._ensure_initialized()
-        
+
         if not self._analyzer:
             logger.warning("分析器未初始化，返回空結果")
             return []
-        
+
         hours = hours or self.default_hours
-        
+
         # 從 query 提取幣種符號
         symbol = self._extract_symbol(query)
-        
+
         try:
             # 使用 CryptoNewsAnalyzer 獲取新聞
             analysis = self._analyzer.analyze_news(symbol, hours=hours)
-            
+
             results = []
             for article in analysis.articles[:max_results]:
                 result = NewsSearchResult(
@@ -226,18 +234,18 @@ class NewsAdapter:
                     category=NewsCategory.GENERAL,
                 )
                 results.append(result)
-                
+
                 # 事件檢測
                 if self._rule_evaluator and self.enable_event_detection:
                     self._check_for_events(article)
-            
+
             logger.info(f"NewsAdapter: 找到 {len(results)} 篇新聞 (symbol={symbol})")
             return results
-            
+
         except Exception as e:
             logger.error(f"新聞搜索失敗: {e}")
             return []
-    
+
     def _extract_symbol(self, query: str) -> str:
         """從查詢中提取幣種符號
 
@@ -267,18 +275,18 @@ class NewsAdapter:
         # 其他情況補上 USDT 後綴
         first_word = query.split()[0].upper() if query else "BTC"
         return first_word + "USDT"
-    
+
     def _calculate_relevance(self, article: Any, query: str) -> float:
         """計算文章與查詢的相關性分數"""
         score = 0.5  # 基礎分數
-        
+
         query_lower = query.lower()
         title_lower = article.title.lower() if article.title else ""
-        
+
         # 標題包含關鍵字加分
         if query_lower in title_lower:
             score += 0.3
-        
+
         # 基於來源權威度加分
         authority_sources = [
             "reuters", "bloomberg", "coindesk", "cointelegraph",
@@ -287,25 +295,25 @@ class NewsAdapter:
         source_lower = article.source.lower() if article.source else ""
         if any(auth in source_lower for auth in authority_sources):
             score += 0.2
-        
+
         return min(score, 1.0)
-    
+
     def _check_for_events(self, article: Any):
         """使用 RuleBasedEvaluator 檢測事件"""
         if not self._rule_evaluator:
             return
-        
+
         try:
             headline = article.title or ""
             source = article.source or "unknown"
-            
+
             # 調用 RuleBasedEvaluator 評估
             event_info = self._rule_evaluator.evaluate_headline(
                 headline=headline,
                 source=source,
                 source_confidence=0.7  # 預設可信度
             )
-            
+
             if event_info:
                 logger.info(
                     f"🔔 檢測到事件: {event_info.get('event_type', 'UNKNOWN')} "
@@ -313,14 +321,14 @@ class NewsAdapter:
                 )
         except Exception as e:
             logger.debug(f"事件檢測失敗: {e}")
-    
+
     def get_event_context(self, symbol: str) -> "Optional[EventContext]":
         """
         獲取事件上下文 - 供 strategy_fusion 使用
-        
+
         Args:
             symbol: 交易對符號
-            
+
         Returns:
             EventContext 物件，或 None
         """
@@ -328,7 +336,7 @@ class NewsAdapter:
 
         if not self._rule_evaluator or not SCHEMAS_AVAILABLE:
             return self._event_context_from_kb(symbol)
-        
+
         try:
             # get_current_event_score 回傳 Tuple[float, List[Dict]]
             event_score, active_events = self._rule_evaluator.get_current_event_score(symbol)
@@ -524,7 +532,7 @@ class NewsAdapter:
                 "kb_result_count": len(docs),
             },
         )
-    
+
     def _score_to_intensity(self, score: float) -> str:
         """將分數轉換為強度等級"""
         abs_score = abs(score)

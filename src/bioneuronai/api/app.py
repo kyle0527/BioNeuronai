@@ -152,8 +152,8 @@ class TradeManager:
 
         from bioneuronai.core.trading_engine import TradingEngine
 
-        api_key = req.api_key or os.getenv("BINANCE_API_KEY", "")
-        api_secret = req.api_secret or os.getenv("BINANCE_API_SECRET", "")
+        api_key = str(req.api_key or os.getenv("BINANCE_API_KEY") or "")
+        api_secret = str(req.api_secret or os.getenv("BINANCE_API_SECRET") or "")
         self._validate_start_request(req, api_key, api_secret)
 
         auto_requested = self._auto_trade_requested(req)
@@ -438,6 +438,8 @@ class ModelPromotionManager:
         }
 
     def promote(self, req: ModelPromoteRequest) -> Dict[str, Any]:
+        if req.model_name != "unified_v2_100m":
+            raise ValueError("只允許提升唯一現役模型 unified_v2_100m")
         materialized_path: Optional[str]
         resolved_runtime_path = req.model_path
         materialized = self._resolve_promoted_path(req.model_path, req.model_name)
@@ -446,6 +448,14 @@ class ModelPromotionManager:
         if req.validate_path:
             if not materialized.exists():
                 raise FileNotFoundError(f"model artifact not found: {materialized}")
+            import torch
+
+            checkpoint = torch.load(materialized, map_location="cpu", weights_only=True)
+            state_dict = checkpoint.get("state_dict") if isinstance(checkpoint, dict) else None
+            if not isinstance(state_dict, dict) or not any(
+                key.startswith("numeric_encoder.") for key in state_dict
+            ):
+                raise ValueError("模型產物不是 TinyLLMv2 統一 checkpoint")
 
         if req.model_path.endswith("/") or not Path(req.model_path).suffix:
             os.environ["MODEL_DIR"] = str(materialized.parent)
@@ -454,10 +464,14 @@ class ModelPromotionManager:
             os.environ["MODEL_PATH"] = str(materialized)
             os.environ.pop("MODEL_DIR", None)
 
-        promoted = {
+        existing = self._read_active_model() or {}
+        promoted = existing | {
             "model_name": req.model_name,
+            "architecture": "TinyLLMv2",
             "model_path": resolved_runtime_path,
             "materialized_path": materialized_path,
+            "initialization": "trained_checkpoint",
+            "trained": True,
             "promoted_at": datetime.now().isoformat(),
             "reload_running_engine": req.reload_running_engine,
             "notes": req.notes,
@@ -466,6 +480,9 @@ class ModelPromotionManager:
         self._active_model_path.write_text(json.dumps(promoted, ensure_ascii=False, indent=2), encoding="utf-8")
 
         if req.reload_running_engine and _trade_manager.engine is not None:
+            inference_engine = getattr(_trade_manager.engine, "inference_engine", None)
+            if inference_engine is not None:
+                inference_engine.model_loader.models.pop(req.model_name, None)
             loaded = _trade_manager.engine.load_ai_model(req.model_name, warmup=req.warmup_model)
             promoted["reloaded"] = loaded
             if not loaded:
@@ -487,7 +504,10 @@ class ModelPromotionManager:
         if not self._active_model_path.exists():
             return None
         try:
-            return json.loads(self._active_model_path.read_text(encoding="utf-8"))
+            payload = json.loads(self._active_model_path.read_text(encoding="utf-8"))
+            if not isinstance(payload, dict):
+                return {"error": "active model metadata must be a JSON object"}
+            return dict(payload)
         except Exception as exc:
             return {"error": f"active model metadata read failed: {exc}"}
 
@@ -499,7 +519,9 @@ class ModelPromotionManager:
         if not model_path:
             return
         if model_path.endswith("/") or not Path(model_path).suffix:
-            resolved_dir = self._resolve_promoted_path(model_path, str(active.get("model_name") or "my_100m_model")).parent
+            resolved_dir = self._resolve_promoted_path(
+                model_path, str(active.get("model_name") or "unified_v2_100m")
+            ).parent
             os.environ.setdefault("MODEL_DIR", str(resolved_dir))
         else:
             os.environ.setdefault("MODEL_PATH", str(self._resolve_promoted_path(model_path, "")))
@@ -521,10 +543,10 @@ async def lifespan(app: FastAPI):
 # ── CORS ─────────────────────────────────────────────────────────────────────
 def _get_allowed_origins() -> list[str]:
     """從環境變數讀取允許的來源。
-    
+
     生產環境請設定 ALLOWED_ORIGINS 環境變數，例如：
         ALLOWED_ORIGINS=https://app.example.com,https://admin.example.com
-    
+
     若未設定，預設只允許本地開發伺服器。
     """
     env_val = os.getenv("ALLOWED_ORIGINS", "").strip()

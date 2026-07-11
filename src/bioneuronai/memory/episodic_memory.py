@@ -259,7 +259,7 @@ class EpisodicMemory:
             return 0.0
         arr = np.array(history, dtype=np.float64)
         mean, std = arr.mean(), arr.std()
-        return (value - mean) / (std + 1e-9)
+        return float((value - mean) / (std + 1e-9))
 
     def push(
         self,

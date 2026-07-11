@@ -1,7 +1,12 @@
-"""Convert signal JSONL training data into PyTorch tensor files.
+"""Convert unified v2 real-data JSONL into resumable tensor files.
 
 Input JSONL row format:
-    {"features": [[...1024], ...], "signal": [...512]}
+    {
+        "features": [[...64], ...],
+        "signal": [...65],
+        "context_text": "中文 / English market context",
+        "explanation": "ground-truth explanation derived from future bars"
+    }
 
 Output:
     train.pt
@@ -48,27 +53,49 @@ def load_jsonl(
     *,
     seq_len: int,
     max_samples: Optional[int] = None,
-) -> Tuple[np.ndarray, np.ndarray]:
+) -> Tuple[np.ndarray, np.ndarray, List[str], List[str]]:
     features: List[np.ndarray] = []
     signals: List[np.ndarray] = []
+    contexts: List[str] = []
+    explanations: List[str] = []
     with open(path, encoding="utf-8") as f:
         for line in f:
             line = line.strip()
             if not line:
                 continue
             obj = json.loads(line)
-            features.append(_normalize_feature_seq(obj["features"], seq_len))
-            signals.append(np.asarray(obj["signal"], dtype=np.float32))
+            feature = _normalize_feature_seq(obj["features"], seq_len)
+            signal = np.asarray(obj["signal"], dtype=np.float32)
+            context = str(obj.get("context_text") or "").strip()
+            explanation = str(obj.get("explanation") or "").strip()
+            if feature.shape[-1] != 64:
+                raise ValueError(
+                    f"unified v2 features must have 64 values per patch, got {feature.shape}"
+                )
+            if signal.shape != (65,):
+                raise ValueError(
+                    f"unified v2 signal must have 65 values, got {signal.shape}"
+                )
+            if not context or not explanation:
+                raise ValueError(
+                    "unified v2 rows require non-empty context_text and explanation"
+                )
+            features.append(feature)
+            signals.append(signal)
+            contexts.append(context)
+            explanations.append(explanation)
             if max_samples is not None and len(features) >= max_samples:
                 break
     if not features:
         raise ValueError(f"no valid samples found in {path}")
-    return np.stack(features), np.stack(signals)
+    return np.stack(features), np.stack(signals), contexts, explanations
 
 
 def save_split(
     features: np.ndarray,
     signals: np.ndarray,
+    contexts: List[str],
+    explanations: List[str],
     *,
     output_dir: Path,
     val_ratio: float,
@@ -90,6 +117,8 @@ def save_split(
         {
             "features": torch.from_numpy(features[train_indices]),
             "signals": torch.from_numpy(signals[train_indices]),
+            "contexts": [contexts[index] for index in train_indices],
+            "explanations": [explanations[index] for index in train_indices],
         },
         train_path,
     )
@@ -97,6 +126,8 @@ def save_split(
         {
             "features": torch.from_numpy(features[val_indices]),
             "signals": torch.from_numpy(signals[val_indices]),
+            "contexts": [contexts[index] for index in val_indices],
+            "explanations": [explanations[index] for index in val_indices],
         },
         val_path,
     )
@@ -110,7 +141,9 @@ def save_split(
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Prepare tensor signal data for cloud training")
-    parser.add_argument("--input", required=True, type=Path, help="input signal_history JSONL")
+    parser.add_argument(
+        "--input", required=True, type=Path, help="input unified_v2_training JSONL"
+    )
     parser.add_argument("--output-dir", default=Path("data/processed"), type=Path)
     parser.add_argument("--seq-len", default=16, type=int)
     parser.add_argument("--val-ratio", default=0.1, type=float)
@@ -121,10 +154,14 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
-    features, signals = load_jsonl(args.input, seq_len=args.seq_len, max_samples=args.max_samples)
+    features, signals, contexts, explanations = load_jsonl(
+        args.input, seq_len=args.seq_len, max_samples=args.max_samples
+    )
     split = save_split(
         features,
         signals,
+        contexts,
+        explanations,
         output_dir=args.output_dir,
         val_ratio=args.val_ratio,
         seed=args.seed,
@@ -137,6 +174,7 @@ def main() -> None:
         "seq_len": args.seq_len,
         "feature_dim": int(features.shape[-1]),
         "signal_dim": int(signals.shape[-1]),
+        "schema": "unified_v2_numeric_text_signal_65",
         "total_samples": int(len(features)),
         "val_ratio": args.val_ratio,
         "seed": args.seed,

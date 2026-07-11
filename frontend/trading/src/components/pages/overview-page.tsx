@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -30,53 +30,59 @@ export function OverviewPage() {
     pretrade: false,
   })
 
-  useEffect(() => {
-    loadInitialData()
-  }, [])
-
-  const loadInitialData = async () => {
-    await Promise.all([
-      loadSystemStatus(),
-      loadCatalog(),
-      loadRecentRuns(),
-    ])
-  }
-
-  const loadSystemStatus = async () => {
+  const loadSystemStatus = useCallback(async () => {
     try {
       setLoading(prev => ({ ...prev, status: true }))
       const data = await api.getStatus()
       setSystemStatus(data)
     } catch (error) {
-      toast.error('Failed to load system status')
+      toast.error('Failed to load system status', {
+        description: error instanceof Error ? error.message : 'Unknown error',
+      })
     } finally {
       setLoading(prev => ({ ...prev, status: false }))
     }
-  }
+  }, [])
 
-  const loadCatalog = async () => {
+  const loadCatalog = useCallback(async () => {
     try {
       setLoading(prev => ({ ...prev, catalog: true }))
       const data = await api.getBacktestCatalog()
       setCatalog(data)
     } catch (error) {
-      toast.error('Failed to load backtest catalog')
+      toast.error('Failed to load backtest catalog', {
+        description: error instanceof Error ? error.message : 'Unknown error',
+      })
     } finally {
       setLoading(prev => ({ ...prev, catalog: false }))
     }
-  }
+  }, [])
 
-  const loadRecentRuns = async () => {
+  const loadRecentRuns = useCallback(async () => {
     try {
       setLoading(prev => ({ ...prev, runs: true }))
       const data = await api.getBacktestRuns(10)
       setRecentRuns(data.runs)
     } catch (error) {
-      toast.error('Failed to load recent runs')
+      toast.error('Failed to load recent runs', {
+        description: error instanceof Error ? error.message : 'Unknown error',
+      })
     } finally {
       setLoading(prev => ({ ...prev, runs: false }))
     }
-  }
+  }, [])
+
+  const loadInitialData = useCallback(async () => {
+    await Promise.all([
+      loadSystemStatus(),
+      loadCatalog(),
+      loadRecentRuns(),
+    ])
+  }, [loadCatalog, loadRecentRuns, loadSystemStatus])
+
+  useEffect(() => {
+    void loadInitialData()
+  }, [loadInitialData])
 
   const runNewsSentiment = async () => {
     try {
@@ -85,7 +91,9 @@ export function OverviewPage() {
       setSentiment(data)
       toast.success('News sentiment analysis complete')
     } catch (error) {
-      toast.error('Failed to analyze news sentiment')
+      toast.error('Failed to analyze news sentiment', {
+        description: error instanceof Error ? error.message : 'Unknown error',
+      })
     } finally {
       setLoading(prev => ({ ...prev, sentiment: false }))
     }
@@ -98,7 +106,9 @@ export function OverviewPage() {
       setPretrade(data)
       toast.success('Pretrade checklist complete')
     } catch (error) {
-      toast.error('Failed to run pretrade checklist')
+      toast.error('Failed to run pretrade checklist', {
+        description: error instanceof Error ? error.message : 'Unknown error',
+      })
     } finally {
       setLoading(prev => ({ ...prev, pretrade: false }))
     }

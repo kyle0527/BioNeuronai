@@ -29,16 +29,16 @@
         NewsEventContractManager,
         get_contract_manager,
     )
-    
+
     # 使用單例
     analyzer = get_news_analyzer()
     result = analyzer.analyze_news("BTCUSDT", hours=24)
     print(result.recommendation)
-    
+
     # 規則評估（自動建立 NewsEventContract）
     evaluator = get_rule_evaluator()
     event = evaluator.evaluate_headline("Breaking: Exchange hacked!")
-    
+
     # 取得衰減後的事件強度（供 Meta-Learner 使用）
     intensity = evaluator.get_aggregated_event_intensity("BTCUSDT")
 
@@ -46,8 +46,6 @@
 """
 
 # 數據模型
-from .models import NewsArticle, NewsAnalysisResult
-
 # 新聞分析器
 from .analyzer import (
     CryptoNewsAnalyzer,
@@ -56,23 +54,24 @@ from .analyzer import (
 
 # 規則評估器
 from .evaluator import (
+    EventRule,
     RuleBasedEvaluator,
     get_rule_evaluator,
-    EventRule,
 )
 
 # 事件合約（v2.2 Phase 1.2）
 from .event_contract import (
-    NewsEventContract,
-    NewsEventContractManager,
-    get_contract_manager,
     DECAY_EXPONENTIAL,
     DECAY_LINEAR,
     URGENCY_CRITICAL,
     URGENCY_HIGH,
-    URGENCY_MEDIUM,
     URGENCY_LOW,
+    URGENCY_MEDIUM,
+    NewsEventContract,
+    NewsEventContractManager,
+    get_contract_manager,
 )
+from .models import NewsAnalysisResult, NewsArticle
 
 # 預測循環系統
 from .prediction_loop import NewsPredictionLoop  # ✅ 從新位置導入

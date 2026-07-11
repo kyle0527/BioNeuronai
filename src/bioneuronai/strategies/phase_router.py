@@ -23,19 +23,20 @@
 創建日期：2026-02-14
 """
 
-import logging
-from datetime import datetime
-from typing import Dict, List, Optional, Any, Tuple
-from dataclasses import dataclass, field
-from enum import Enum
 import json
+import logging
+from dataclasses import dataclass, field
+from datetime import datetime
+from enum import Enum
+from typing import Any, Dict, List, Optional, Tuple
+
 import numpy as np
 
-from .base_strategy import BaseStrategy, TradeSetup, MarketCondition
-from .trend_following import TrendFollowingStrategy
-from .swing_trading import SwingTradingStrategy
-from .mean_reversion import MeanReversionStrategy
+from .base_strategy import BaseStrategy, MarketCondition, TradeSetup
 from .breakout_trading import BreakoutTradingStrategy
+from .mean_reversion import MeanReversionStrategy
+from .swing_trading import SwingTradingStrategy
+from .trend_following import TrendFollowingStrategy
 
 logger = logging.getLogger(__name__)
 
@@ -75,33 +76,33 @@ class PhaseAction(Enum):
 class PhaseConfig:
     """階段配置"""
     phase: TradingPhase
-    
+
     # 時間範圍（UTC時間，24小時制）
     start_hour: Optional[int] = None
     end_hour: Optional[int] = None
-    
+
     # 推薦策略（按優先級排序）
     primary_strategy: str = "trend_following"
     secondary_strategy: Optional[str] = None
-    
+
     # 交易動作階段專屬策略配置 (AI 可動態調整)
     # 若設置，則覆蓋 primary_strategy
     entry_strategy: Optional[str] = None   # 入場專用策略
     hold_strategy: Optional[str] = None    # 持倉專用策略
     exit_strategy: Optional[str] = None    # 出場專用策略
-    
+
     # 推薦動作
     preferred_actions: List[PhaseAction] = field(default_factory=lambda: [PhaseAction.HOLD])
     forbidden_actions: List[PhaseAction] = field(default_factory=list)
-    
+
     # 風險參數調整
     position_size_multiplier: float = 1.0  # 倉位大小倍數
     risk_multiplier: float = 1.0           # 風險倍數
-    
+
     # 市場條件要求
     required_conditions: List[MarketCondition] = field(default_factory=list)
     unfavorable_conditions: List[MarketCondition] = field(default_factory=list)
-    
+
     # 過渡設置
     allow_carry_position: bool = True  # 是否允許持倉跨階段
     force_exit_on_end: bool = False    # 階段結束時強制平倉
@@ -113,7 +114,7 @@ class StrategyPerformanceRecord:
     strategy_name: str
     phase: TradingPhase
     action_phase: TradeActionPhase
-    
+
     # 績效指標
     total_trades: int = 0
     winning_trades: int = 0
@@ -122,12 +123,12 @@ class StrategyPerformanceRecord:
     avg_pnl: float = 0.0
     sharpe_ratio: float = 0.0
     profit_factor: float = 1.0
-    
+
     # 最近表現 (用於快速適應)
     recent_trades: int = 0
     recent_wins: int = 0
     recent_pnl: float = 0.0
-    
+
     # 時間戳
     last_updated: datetime = field(default_factory=datetime.now)
 
@@ -139,12 +140,12 @@ class PhaseState:
     phase_config: PhaseConfig
     phase_start_time: datetime
     time_in_phase_minutes: int = 0
-    
+
     # 階段統計
     trades_in_phase: int = 0
     pnl_in_phase: float = 0.0
     phase_volatility: float = 0.0
-    
+
     # 階段過渡
     next_phase: Optional[TradingPhase] = None
     transition_in_minutes: Optional[int] = None
@@ -153,22 +154,22 @@ class PhaseState:
 class TradingPhaseRouter:
     """
     交易階段路由器
-    
+
     根據時間、市場狀態、新聞事件等動態路由到不同策略
     實現「開盤用A、中盤用B、收盤用C」的智能策略組合
-    
+
     核心功能:
     - 動態策略註冊/移除（可隨時增減策略）
     - AI 績效學習（根據歷史表現自動選擇策略）
     - 交易動作階段分離（入場/持倉/出場分別用不同策略）
     """
-    
+
     def __init__(self, timeframe: str = "1h", enable_ai_selection: bool = True):
         self.timeframe = timeframe
         self.enable_ai_selection = enable_ai_selection
         self.current_state: Optional[PhaseState] = None
         self.phase_history: List[PhaseState] = []
-        
+
         # 初始化所有策略實例（可動態增減）
         self.strategies: Dict[str, BaseStrategy] = {
             'trend_following': TrendFollowingStrategy(timeframe),
@@ -176,76 +177,76 @@ class TradingPhaseRouter:
             'mean_reversion': MeanReversionStrategy(timeframe),
             'breakout_trading': BreakoutTradingStrategy(timeframe),
         }
-        
+
         # 階段配置（可自定義）
         self.phase_configs = self._create_default_phase_configs()
-        
+
         # 性能追蹤（用於 AI 選擇）
         self.phase_performance: Dict[TradingPhase, Dict[str, float]] = {}
-        
+
         # 策略績效記錄（key: "phase_actionphase_strategy"）
         self.strategy_performance: Dict[str, StrategyPerformanceRecord] = {}
-        
+
         logger.info("🎯 交易階段路由器已初始化")
         logger.info(f"   - 時間框架: {timeframe}")
         logger.info(f"   - 可用策略: {list(self.strategies.keys())}")
         logger.info(f"   - 階段數量: {len(self.phase_configs)}")
         logger.info(f"   - AI 選擇: {'啟用' if enable_ai_selection else '停用'}")
-    
+
     # ==========================================
     # 策略動態註冊/移除
     # ==========================================
-    
+
     def register_strategy(self, name: str, strategy: BaseStrategy) -> bool:
         """
         動態註冊策略（支持任意增減）
-        
+
         Args:
             name: 策略名稱
             strategy: 策略實例
-            
+
         Returns:
             是否成功
         """
         if name in self.strategies:
             logger.warning(f"⚠️ 策略 {name} 已存在，將被覆蓋")
-        
+
         self.strategies[name] = strategy
         logger.info(f"✅ 已註冊策略: {name} ({strategy.__class__.__name__})")
         return True
-    
+
     def unregister_strategy(self, name: str) -> bool:
         """
         移除策略
-        
+
         Args:
             name: 策略名稱
-            
+
         Returns:
             是否成功
         """
         if name not in self.strategies:
             logger.warning(f"⚠️ 策略 {name} 不存在")
             return False
-        
+
         # 檢查是否有階段正在使用此策略
         for phase, config in self.phase_configs.items():
             if config.primary_strategy == name:
                 logger.warning(f"⚠️ 策略 {name} 正被 {phase.value} 使用，已切換為 swing_trading")
                 config.primary_strategy = "swing_trading"
-        
+
         del self.strategies[name]
         logger.info(f"🗑️ 已移除策略: {name}")
         return True
-    
+
     def list_strategies(self) -> List[str]:
         """列出所有可用策略"""
         return list(self.strategies.keys())
-    
+
     # ==========================================
     # AI 策略選擇器
     # ==========================================
-    
+
     def get_best_strategy_for_action(
         self,
         phase: TradingPhase,
@@ -253,24 +254,24 @@ class TradingPhaseRouter:
     ) -> str:
         """
         AI 根據績效選擇最佳策略
-        
+
         Args:
             phase: 交易階段
             action_phase: 交易動作階段（入場/持倉/出場）
-            
+
         Returns:
             最佳策略名稱
         """
         if not self.enable_ai_selection:
             # 不使用 AI，直接返回配置的策略
             return self._get_configured_strategy(phase, action_phase)
-        
+
         # 查找該階段+動作的所有績效記錄
         candidates: List[Tuple[str, float]] = []
-        
+
         for strategy_name in self.strategies.keys():
             key = f"{phase.value}_{action_phase.value}_{strategy_name}"
-            
+
             if key in self.strategy_performance:
                 record = self.strategy_performance[key]
                 # 計算綜合得分（可調整權重）
@@ -279,18 +280,18 @@ class TradingPhaseRouter:
             else:
                 # 沒有記錄，給予中等初始分數（鼓勵探索）
                 candidates.append((strategy_name, 0.5))
-        
+
         if not candidates:
             return self._get_configured_strategy(phase, action_phase)
-        
+
         # 選擇得分最高的策略
         candidates.sort(key=lambda x: x[1], reverse=True)
         best_strategy = candidates[0][0]
-        
+
         logger.debug(f"🤖 AI 選擇: {phase.value}/{action_phase.value} → {best_strategy}")
-        
+
         return best_strategy
-    
+
     def _calculate_strategy_score(self, record: StrategyPerformanceRecord) -> float:
         """計算策略綜合得分"""
         # 權重配置
@@ -298,27 +299,27 @@ class TradingPhaseRouter:
         profit_factor_weight = 0.25
         recent_weight = 0.25
         sharpe_weight = 0.2
-        
+
         # 正規化各指標
         win_rate_score = record.win_rate
         pf_score = min(record.profit_factor / 3.0, 1.0)  # profit_factor 3.0 算滿分
         sharpe_score = min(max(record.sharpe_ratio / 2.0, 0), 1.0)  # sharpe 2.0 算滿分
-        
+
         # 最近績效
         if record.recent_trades > 0:
             recent_win_rate = record.recent_wins / record.recent_trades
         else:
             recent_win_rate = 0.5
-        
+
         score = (
             win_rate_weight * win_rate_score +
             profit_factor_weight * pf_score +
             recent_weight * recent_win_rate +
             sharpe_weight * sharpe_score
         )
-        
+
         return score
-    
+
     def _get_configured_strategy(
         self,
         phase: TradingPhase,
@@ -326,7 +327,7 @@ class TradingPhaseRouter:
     ) -> str:
         """獲取配置的策略（非 AI 模式）"""
         config = self.phase_configs[phase]
-        
+
         # 優先使用動作階段專屬策略
         if action_phase == TradeActionPhase.ENTRY and config.entry_strategy:
             return config.entry_strategy
@@ -334,10 +335,10 @@ class TradingPhaseRouter:
             return config.hold_strategy
         if action_phase == TradeActionPhase.EXIT and config.exit_strategy:
             return config.exit_strategy
-        
+
         # 降級到主策略
         return config.primary_strategy
-    
+
     def update_strategy_performance(
         self,
         phase: TradingPhase,
@@ -348,7 +349,7 @@ class TradingPhaseRouter:
     ):
         """
         更新策略績效（用於 AI 學習）
-        
+
         Args:
             phase: 交易階段
             action_phase: 交易動作階段
@@ -357,36 +358,36 @@ class TradingPhaseRouter:
             trade_won: 是否獲利
         """
         key = f"{phase.value}_{action_phase.value}_{strategy_name}"
-        
+
         if key not in self.strategy_performance:
             self.strategy_performance[key] = StrategyPerformanceRecord(
                 strategy_name=strategy_name,
                 phase=phase,
                 action_phase=action_phase,
             )
-        
+
         record = self.strategy_performance[key]
-        
+
         # 更新總體統計
         record.total_trades += 1
         record.total_pnl += trade_pnl
         if trade_won:
             record.winning_trades += 1
-        
+
         # 計算衍生指標
         record.win_rate = record.winning_trades / record.total_trades
         record.avg_pnl = record.total_pnl / record.total_trades
-        
+
         # 更新最近績效（只保留最近 20 筆）
         record.recent_trades = min(record.recent_trades + 1, 20)
         if record.recent_trades < 20:
             record.recent_wins += 1 if trade_won else 0
             record.recent_pnl += trade_pnl
-        
+
         record.last_updated = datetime.now()
-        
+
         logger.debug(f"📊 更新績效: {key} | 勝率: {record.win_rate:.1%}")
-    
+
     def configure_phase_strategies(
         self,
         phase: TradingPhase,
@@ -396,9 +397,9 @@ class TradingPhaseRouter:
     ):
         """
         為特定階段配置入場/持倉/出場策略
-        
+
         示例：開盤用突破入場、趨勢持倉、均值回歸出場
-        
+
         Args:
             phase: 交易階段
             entry_strategy: 入場策略
@@ -406,23 +407,23 @@ class TradingPhaseRouter:
             exit_strategy: 出場策略
         """
         config = self.phase_configs[phase]
-        
+
         if entry_strategy and entry_strategy in self.strategies:
             config.entry_strategy = entry_strategy
         if hold_strategy and hold_strategy in self.strategies:
             config.hold_strategy = hold_strategy
         if exit_strategy and exit_strategy in self.strategies:
             config.exit_strategy = exit_strategy
-        
+
         logger.info(f"✨ 階段 {phase.value} 策略配置:")
         logger.info(f"   - 入場: {config.entry_strategy or config.primary_strategy}")
         logger.info(f"   - 持倉: {config.hold_strategy or config.primary_strategy}")
         logger.info(f"   - 出場: {config.exit_strategy or config.primary_strategy}")
-    
+
     def _create_default_phase_configs(self) -> Dict[TradingPhase, PhaseConfig]:
         """創建預設階段配置"""
         configs = {}
-        
+
         # 🌅 開盤階段 (00:00-02:00 UTC) - 高波動突破
         configs[TradingPhase.MARKET_OPEN] = PhaseConfig(
             phase=TradingPhase.MARKET_OPEN,
@@ -435,7 +436,7 @@ class TradingPhaseRouter:
             risk_multiplier=1.2,
             unfavorable_conditions=[MarketCondition.LOW_VOLATILITY],
         )
-        
+
         # 🌄 早盤階段 (02:00-08:00 UTC) - 趨勢建立
         configs[TradingPhase.EARLY_SESSION] = PhaseConfig(
             phase=TradingPhase.EARLY_SESSION,
@@ -447,7 +448,7 @@ class TradingPhaseRouter:
             position_size_multiplier=1.0,
             required_conditions=[MarketCondition.UPTREND, MarketCondition.DOWNTREND],
         )
-        
+
         # ☀️ 盤中階段 (08:00-16:00 UTC) - 主趨勢跟隨
         configs[TradingPhase.MID_SESSION] = PhaseConfig(
             phase=TradingPhase.MID_SESSION,
@@ -459,7 +460,7 @@ class TradingPhaseRouter:
             position_size_multiplier=1.2,  # 增加倉位（穩定期）
             allow_carry_position=True,
         )
-        
+
         # 🌆 尾盤階段 (16:00-22:00 UTC) - 減倉整理
         configs[TradingPhase.LATE_SESSION] = PhaseConfig(
             phase=TradingPhase.LATE_SESSION,
@@ -471,7 +472,7 @@ class TradingPhaseRouter:
             forbidden_actions=[PhaseAction.ENTER_LONG, PhaseAction.ENTER_SHORT],
             position_size_multiplier=0.8,
         )
-        
+
         # 🌃 收盤階段 (22:00-24:00 UTC) - 平倉離場
         configs[TradingPhase.MARKET_CLOSE] = PhaseConfig(
             phase=TradingPhase.MARKET_CLOSE,
@@ -483,7 +484,7 @@ class TradingPhaseRouter:
             position_size_multiplier=0.5,
             force_exit_on_end=True,
         )
-        
+
         # 📰 新聞事件前 - 保守觀望
         configs[TradingPhase.PRE_NEWS] = PhaseConfig(
             phase=TradingPhase.PRE_NEWS,
@@ -493,7 +494,7 @@ class TradingPhaseRouter:
             position_size_multiplier=0.3,
             risk_multiplier=0.5,
         )
-        
+
         # 📢 新聞事件後 - 快速反應
         configs[TradingPhase.POST_NEWS] = PhaseConfig(
             phase=TradingPhase.POST_NEWS,
@@ -503,7 +504,7 @@ class TradingPhaseRouter:
             position_size_multiplier=0.8,
             risk_multiplier=1.5,
         )
-        
+
         # 🔥 高波動期 - 突破為主
         configs[TradingPhase.HIGH_VOLATILITY] = PhaseConfig(
             phase=TradingPhase.HIGH_VOLATILITY,
@@ -513,7 +514,7 @@ class TradingPhaseRouter:
             position_size_multiplier=0.6,
             risk_multiplier=1.3,
         )
-        
+
         # 😴 低波動期 - 均值回歸
         configs[TradingPhase.LOW_VOLATILITY] = PhaseConfig(
             phase=TradingPhase.LOW_VOLATILITY,
@@ -523,9 +524,9 @@ class TradingPhaseRouter:
             position_size_multiplier=1.1,
             required_conditions=[MarketCondition.SIDEWAYS, MarketCondition.LOW_VOLATILITY],
         )
-        
+
         return configs
-    
+
     def _check_news_phase(
         self,
         current_time: datetime,
@@ -535,51 +536,51 @@ class TradingPhaseRouter:
         """檢查是否處於新聞相關階段"""
         if not (has_news_event and news_event_time):
             return None
-        
+
         time_to_news = (news_event_time - current_time).total_seconds() / 60
-        
+
         if -5 <= time_to_news <= 30:
             return TradingPhase.PRE_NEWS if time_to_news > 0 else TradingPhase.POST_NEWS
-        
+
         return None
-    
+
     def _check_volatility_phase(self, volatility: Optional[float]) -> Optional[TradingPhase]:
         """檢查是否處於波動率異常階段"""
         if volatility is None:
             return None
-        
+
         if volatility > 0.7:
             return TradingPhase.HIGH_VOLATILITY
         if volatility < 0.2:
             return TradingPhase.LOW_VOLATILITY
-        
+
         return None
-    
+
     def _check_time_based_phase(
         self,
         current_time: datetime,
     ) -> TradingPhase:
         """根據時間識別交易階段"""
         hour = current_time.hour
-        
+
         for phase, config in self.phase_configs.items():
             if self._is_phase_time_match(hour, config):
                 return phase
-        
+
         return TradingPhase.MID_SESSION
-    
+
     def _is_phase_time_match(self, hour: int, config: PhaseConfig) -> bool:
         """檢查時間是否匹配階段配置"""
         if config.start_hour is None or config.end_hour is None:
             return False
         return config.start_hour <= hour < config.end_hour
-    
+
     def _is_market_unfavorable(self, market_condition: Optional[MarketCondition], config: PhaseConfig) -> bool:
         """檢查市場條件是否不利"""
         if market_condition and config.unfavorable_conditions:
             return market_condition in config.unfavorable_conditions
         return False
-    
+
     def identify_phase(
         self,
         current_time: datetime,
@@ -589,13 +590,13 @@ class TradingPhaseRouter:
     ) -> TradingPhase:
         """
         識別當前交易階段
-        
+
         Args:
             current_time: 當前時間
             has_news_event: 是否有新聞事件
             news_event_time: 新聞事件時間
             volatility: 當前波動率 (0-1)
-        
+
         Returns:
             當前交易階段
         """
@@ -603,15 +604,15 @@ class TradingPhaseRouter:
         news_phase = self._check_news_phase(current_time, has_news_event, news_event_time)
         if news_phase:
             return news_phase
-        
+
         # 優先級2: 波動率異常
         volatility_phase = self._check_volatility_phase(volatility)
         if volatility_phase:
             return volatility_phase
-        
+
         # 優先級3: 基於時間
         return self._check_time_based_phase(current_time)
-    
+
     def get_strategy_for_phase(
         self,
         phase: TradingPhase,
@@ -619,17 +620,17 @@ class TradingPhaseRouter:
     ) -> BaseStrategy:
         """
         獲取當前階段的最優策略
-        
+
         Args:
             phase: 交易階段
             action_phase: 交易動作階段（入場/持倉/出場）
-        
+
         Returns:
             策略實例
         """
         # 使用 AI 選擇最佳策略
         strategy_name = self.get_best_strategy_for_action(phase, action_phase)
-        
+
         strategy = self.strategies.get(strategy_name)
         if strategy is None:
             raise RuntimeError(
@@ -766,16 +767,16 @@ class TradingPhaseRouter:
     ) -> Dict[str, Any]:
         """
         路由交易決策 - 主入口函數
-        
+
         支援 AI 策略編排：根據交易動作階段（入場/持倉/出場）選擇最優策略
-        
+
         Args:
             current_time: 當前時間
             market_data: 市場數據
             has_position: 是否有持倉
             position_direction: 持倉方向 ('long'/'short')
             action_phase: 交易動作階段（入場/持倉/出場），若為 None 則自動推斷
-        
+
         Returns:
             交易決策結果
         """
@@ -831,17 +832,17 @@ class TradingPhaseRouter:
             f"策略: {strategy.__class__.__name__} | "
             f"AI選擇: {'✓' if self.enable_ai_selection else '✗'}"
         )
-        
+
         return decision
-    
+
     def _transition_to_phase(self, new_phase: TradingPhase, current_time: datetime):
         """過渡到新階段"""
-        
+
         # 保存舊階段到歷史
         if self.current_state:
             self.phase_history.append(self.current_state)
             logger.info(f"🔄 階段切換: {self.current_state.current_phase.value} → {new_phase.value}")
-        
+
         # 創建新階段狀態
         config = self.phase_configs[new_phase]
         self.current_state = PhaseState(
@@ -849,7 +850,7 @@ class TradingPhaseRouter:
             phase_config=config,
             phase_start_time=current_time,
         )
-    
+
     def _check_action_allowed(
         self,
         config: PhaseConfig,
@@ -858,7 +859,7 @@ class TradingPhaseRouter:
     ) -> bool:
         """
         檢查當前階段是否允許交易動作
-        
+
         Args:
             config: 階段配置
             has_position: 是否有持倉
@@ -868,16 +869,16 @@ class TradingPhaseRouter:
         if has_position:
             if config.force_exit_on_end:
                 return True  # 允許平倉動作
-            
+
             if not config.allow_carry_position:
                 return False  # 不允許任何動作
-        
+
         # 檢查禁止動作
         if not has_position and PhaseAction.ENTER_LONG in config.forbidden_actions:
             return False
-        
+
         return True
-    
+
     def _adjust_signal_for_phase(
         self,
         signal: Optional[TradeSetup],
@@ -886,10 +887,10 @@ class TradingPhaseRouter:
         """根據階段配置調整信號"""
         if not signal:
             return None
-        
+
         # 調整倉位大小
         signal.total_position_size *= config.position_size_multiplier
-        
+
         # 調整止損與止盈距離 (基於風險倍數)
         if abs(config.risk_multiplier - 1.0) > 1e-9:
             entry_price = float(signal.entry_price)
@@ -905,16 +906,16 @@ class TradingPhaseRouter:
                 signal.take_profit_1 = entry_price - adjusted_distance * 2
                 signal.take_profit_2 = entry_price - adjusted_distance * 4
                 signal.take_profit_3 = entry_price - adjusted_distance * 6
-        
+
         return signal
-    
+
     def get_phase_statistics(self) -> Dict[str, Any]:
         """獲取階段統計信息"""
         stats = {}
-        
+
         for phase in TradingPhase:
             phase_states = [s for s in self.phase_history if s.current_phase == phase]
-            
+
             if phase_states:
                 stats[phase.value] = {
                     'count': len(phase_states),
@@ -922,9 +923,9 @@ class TradingPhaseRouter:
                     'total_pnl': sum(s.pnl_in_phase for s in phase_states),
                     'avg_pnl': np.mean([s.pnl_in_phase for s in phase_states]),
                 }
-        
+
         return stats
-    
+
     def save_phase_configs(self, filepath: str):
         """保存階段配置"""
         configs_dict = {}
@@ -939,12 +940,12 @@ class TradingPhaseRouter:
                 'preferred_actions': [a.value for a in config.preferred_actions],
                 'forbidden_actions': [a.value for a in config.forbidden_actions],
             }
-        
+
         with open(filepath, 'w', encoding='utf-8') as f:
             json.dump(configs_dict, f, indent=2, ensure_ascii=False)
-        
+
         logger.info(f"💾 階段配置已保存: {filepath}")
-    
+
     def _update_phase_config(
         self,
         phase: TradingPhase,
@@ -952,7 +953,7 @@ class TradingPhaseRouter:
     ):
         """更新單個階段配置"""
         existing = self.phase_configs[phase]
-        
+
         # 更新可配置的屬性
         if 'position_size_multiplier' in config_data:
             existing.position_size_multiplier = config_data['position_size_multiplier']
@@ -962,12 +963,12 @@ class TradingPhaseRouter:
             existing.primary_strategy = config_data['primary_strategy']
         if 'secondary_strategy' in config_data:
             existing.secondary_strategy = config_data['secondary_strategy']
-    
+
     def load_phase_configs(self, filepath: str):
         """載入階段配置"""
         with open(filepath, 'r', encoding='utf-8') as f:
             configs_dict = json.load(f)
-        
+
         # 解析並更新配置
         for phase_name, config_data in configs_dict.items():
             try:
@@ -977,7 +978,7 @@ class TradingPhaseRouter:
                     logger.info(f"  ✅ 更新階段配置: {phase_name}")
             except ValueError:
                 logger.warning(f"  ⚠️ 未知階段: {phase_name}")
-        
+
         logger.info(f"📂 階段配置已載入: {filepath}")
 
 
@@ -987,10 +988,10 @@ class TradingPhaseRouter:
 
 def demo():
     """演示如何使用階段路由器"""
-    
+
     # 創建路由器
     router = TradingPhaseRouter(timeframe="1h")
-    
+
     # 模擬市場數據
     market_data = {
         'price': 50000.0,
@@ -998,7 +999,7 @@ def demo():
         'market_condition': MarketCondition.UPTREND,
         'has_news_event': False,
     }
-    
+
     # 不同時間點的決策
     test_times = [
         datetime(2024, 1, 1, 1, 0),   # 開盤
@@ -1007,19 +1008,19 @@ def demo():
         datetime(2024, 1, 1, 18, 0),  # 尾盤
         datetime(2024, 1, 1, 23, 0),  # 收盤
     ]
-    
+
     for test_time in test_times:
         decision = router.route_trading_decision(
             current_time=test_time,
             market_data=market_data,
             has_position=False,
         )
-        
+
         print(f"\n時間: {test_time.strftime('%H:%M')}")
         print(f"階段: {decision['phase']}")
         print(f"策略: {decision['strategy_used']}")
         print(f"倉位倍數: {decision['config']['position_size_multiplier']}")
-    
+
     # 統計信息
     stats = router.get_phase_statistics()
     print(f"\n階段統計: {json.dumps(stats, indent=2, ensure_ascii=False)}")

@@ -4,30 +4,28 @@
 """
 
 import json
-import time
 import logging
 import sys
-from datetime import datetime
-from typing import Dict, List, Optional, Any
-from pathlib import Path
+import time
 from dataclasses import dataclass
+from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
 
-from bioneuronai.analysis.news import CryptoNewsAnalyzer
 from bioneuronai.analysis.feature_engineering import MarketMicrostructure
 from bioneuronai.analysis.market_regime import RegimeAnalysis
-
+from bioneuronai.analysis.news import CryptoNewsAnalyzer, NewsAnalysisResult
 from bioneuronai.data.binance_futures import OrderResult
-from bioneuronai.analysis.news import NewsAnalysisResult
+from config.trading_costs import TradingCostCalculator
 from schemas.enums import SignalType as TradeSignalType  # 交易信號的 BUY/SELL/HOLD 枚舉
 from schemas.market import MarketData
 from schemas.trading import TradingSignal
 
 from ..data import BinanceFuturesConnector, PaperBinanceFuturesConnector
-from ..data.database_manager import get_database_manager, DatabaseManager
+from ..data.database_manager import DatabaseManager, get_database_manager
 from ..risk_management import RiskManager
-from config.trading_costs import TradingCostCalculator
 
 try:
     from ..strategies.selector import StrategySelector
@@ -45,10 +43,16 @@ except ImportError:
 
 try:
     from ..strategies.rl_fusion_agent import (
-        RLMetaAgent,
-        StrategySignal as RLStrategySignal,
-        MarketState as RLMarketState,
         SB3_AVAILABLE as RL_SB3_AVAILABLE,
+    )
+    from ..strategies.rl_fusion_agent import (
+        MarketState as RLMarketState,
+    )
+    from ..strategies.rl_fusion_agent import (
+        RLMetaAgent,
+    )
+    from ..strategies.rl_fusion_agent import (
+        StrategySignal as RLStrategySignal,
     )
     RL_META_AGENT_AVAILABLE = True
 except ImportError:
@@ -155,12 +159,18 @@ except ImportError:
 #  AI
 try:
     from .inference_engine import (
+        UNIFIED_MODEL_NAME,
         InferenceEngine,
+        get_shared_inference_engine,
+    )
+    from .inference_engine import (
         TradingSignal as AITradingSignal,
     )
     INFERENCE_ENGINE_AVAILABLE = True
 except ImportError:
     InferenceEngine = None  # type: ignore[assignment,misc]
+    UNIFIED_MODEL_NAME = "unified_v2_100m"
+    get_shared_inference_engine = None  # type: ignore[assignment]
     AITradingSignal = None  # type: ignore[assignment,misc]
     INFERENCE_ENGINE_AVAILABLE = False
     logger.warning("[AI] AI Inference Engine not loaded")
@@ -168,10 +178,10 @@ except ImportError:
 # 特徵模組（延遲實例化）
 try:
     from ..analysis import (
+        LiquidationHeatmapCalculator,
         MarketDataProcessor,
         MarketRegimeDetector,
         VolumeProfileCalculator,
-        LiquidationHeatmapCalculator,
     )
     FEATURE_MODULES_AVAILABLE = True
 except ImportError:
@@ -211,6 +221,7 @@ class TradingEngine:
     ) -> None:
         #
         self.paper_trading = paper_trading
+        self.connector: Union[BinanceFuturesConnector, PaperBinanceFuturesConnector]
         if paper_trading:
             self.connector = PaperBinanceFuturesConnector(
                 api_key=api_key,
@@ -292,16 +303,19 @@ class TradingEngine:
         self.ai_min_confidence: float = ai_min_confidence
         self.ai_model_loaded = False
 
-        if enable_ai_model and (not INFERENCE_ENGINE_AVAILABLE or InferenceEngine is None):
+        if enable_ai_model and (
+            not INFERENCE_ENGINE_AVAILABLE or get_shared_inference_engine is None
+        ):
             raise ImportError("AI Inference Engine 不可用，無法啟用 AI 模型交易")
 
         if enable_ai_model:
             try:
-                self.inference_engine = InferenceEngine(
+                self.inference_engine = get_shared_inference_engine(
+                    model_name=UNIFIED_MODEL_NAME,
                     min_confidence=ai_min_confidence,
-                    warmup=False  #
                 )
-                logger.info("[AI] AI Inference Engine initialized (model pending load)")
+                self.ai_model_loaded = self.inference_engine.is_ready
+                logger.info("[AI] Shared unified v2 inference engine initialized")
             except Exception as e:
                 raise RuntimeError(f"AI Inference Engine initialization failed: {e}") from e
 
@@ -360,8 +374,8 @@ class TradingEngine:
 
         # ── 記憶層 + LoRA 在線學習器 ────────────────────────────────────────────
         try:
-            from bioneuronai.memory.episodic_memory import EpisodicMemory
             from bioneuronai.core.online_learner import OnlineLearner
+            from bioneuronai.memory.episodic_memory import EpisodicMemory
             _memory_dir = _project_root / "data" / "bioneuronai" / "memory"
             self.episodic_memory: Optional[Any] = EpisodicMemory(data_dir=_memory_dir)
             self.online_learner: Optional[Any] = None
@@ -426,7 +440,9 @@ class TradingEngine:
 
     # ========== AI  ==========
 
-    def load_ai_model(self, model_name: str = "my_100m_model", warmup: bool = True) -> bool:
+    def load_ai_model(
+        self, model_name: str = UNIFIED_MODEL_NAME, warmup: bool = False
+    ) -> bool:
         """ AI
 
         Args:
@@ -435,6 +451,9 @@ class TradingEngine:
         """
         if not self.inference_engine:
             logger.error(" AI ")
+            return False
+        if model_name != UNIFIED_MODEL_NAME:
+            logger.error("Only unified_v2_100m is allowed in the active trading runtime")
             return False
 
         try:
@@ -857,6 +876,7 @@ class TradingEngine:
                     symbol=symbol,
                     current_price=current_price,
                     klines=klines,
+                    context_text=self._build_ai_context(event_context, event_score),
                 )
                 if ai_signal and display_ai:
                     self._display_ai_signal(ai_signal, current_price)
@@ -875,6 +895,23 @@ class TradingEngine:
         )
 
         return final_signal
+
+    @staticmethod
+    def _build_ai_context(event_context: Optional[Any], event_score: float) -> str:
+        """把既有新聞 EventContext 轉成統一模型的中英文字脈絡。"""
+        if event_context is None:
+            return "目前沒有已確認的重大新聞事件。 No confirmed major news event."
+        headline = str(getattr(event_context, "headline", "") or "")
+        category = str(getattr(event_context, "category", "") or "")
+        source_confidence = float(
+            getattr(event_context, "source_confidence", 0.0) or 0.0
+        )
+        return (
+            f"新聞事件分數 {event_score:.3f}，分類 {category}，標題 {headline}，"
+            f"來源可信度 {source_confidence:.3f}。 "
+            f"News event score {event_score:.3f}; category {category}; headline {headline}; "
+            f"source confidence {source_confidence:.3f}."
+        )
 
     def _record_decision(
         self,
@@ -1810,6 +1847,33 @@ class TradingEngine:
         except Exception as e:
             logger.error(f" : {e}", exc_info=True)
 
+    def execute_prepared_order(
+        self,
+        *,
+        symbol: str,
+        side: str,
+        quantity: float,
+        stop_loss: Optional[float] = None,
+        take_profit: Optional[float] = None,
+    ) -> Optional[OrderResult]:
+        """執行已通過 planning/pretrade/adaptation 的訂單，作為統一執行入口。"""
+        normalized_side = side.strip().upper()
+        if normalized_side not in {"BUY", "SELL"}:
+            raise ValueError(f"unsupported order side: {side}")
+        if quantity <= 0:
+            raise ValueError(f"quantity must be positive: {quantity}")
+        result = self.connector.place_order(
+            symbol=symbol,
+            side=normalized_side,
+            order_type="MARKET",
+            quantity=quantity,
+            stop_loss=stop_loss,
+            take_profit=take_profit,
+        )
+        if result is not None and result.status == "ERROR":
+            raise RuntimeError(f"prepared order failed: {result.error}")
+        return result
+
     def notify_trade_closed(
         self,
         strategy_name: str,
@@ -1983,7 +2047,7 @@ class TradingEngine:
                 funding_rate=funding_rate,
                 spread_bps=spread_bps,
             )
-            return expected_move_pct >= min_profit_pct
+            return bool(expected_move_pct >= float(min_profit_pct))
         except Exception:
             return True
 
@@ -2381,9 +2445,11 @@ class TradingEngine:
     def get_strategy_report(self) -> Dict:
         """"""
         if hasattr(self.strategy, 'get_performance_summary'):
-            return self.strategy.get_performance_summary()
+            summary = self.strategy.get_performance_summary()
+            return dict(summary) if isinstance(summary, dict) else {"summary": summary}
         if hasattr(self.strategy, 'get_strategy_report'):
-            return self.strategy.get_strategy_report()
+            report = self.strategy.get_strategy_report()
+            return dict(report) if isinstance(report, dict) else {"report": report}
         return {"message": ""}
 
     def save_all_data(self) -> None:

@@ -29,32 +29,33 @@
 - torch (neural network)
 """
 
+import logging
+from dataclasses import dataclass
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, cast
+
 import gymnasium as gym
 import numpy as np
 from gymnasium import spaces
-from typing import Dict, List, Optional, Any, TYPE_CHECKING, cast
-from dataclasses import dataclass
-from pathlib import Path
-import logging
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from stable_baselines3 import PPO
-    from stable_baselines3.common.vec_env import DummyVecEnv
     from stable_baselines3.common.callbacks import BaseCallback
+    from stable_baselines3.common.vec_env import DummyVecEnv
 
 try:
     from stable_baselines3 import PPO
-    from stable_baselines3.common.vec_env import DummyVecEnv
     from stable_baselines3.common.callbacks import BaseCallback
+    from stable_baselines3.common.vec_env import DummyVecEnv
     SB3_AVAILABLE = True
 except ImportError:
     SB3_AVAILABLE = False
     PPO = None  # type: ignore
     DummyVecEnv = None  # type: ignore
     BaseCallback = object  # type: ignore
-    print("⚠️  警告: stable-baselines3 未安裝，請執行: pip install stable-baselines3")
-
-logger = logging.getLogger(__name__)
+    logger.warning("stable-baselines3 is not installed; RL fusion training is disabled")
 
 
 # ============================================================================
@@ -84,7 +85,7 @@ class MarketState:
     time_of_day: float  # 0-1 (normalized hour)
     news_duration_hours: float = 0.0  # 新聞持續時間（小時）
     related_news_count: int = 0  # 相關新聞數量
-    
+
 
 @dataclass
 class RLAction:
@@ -92,7 +93,7 @@ class RLAction:
     action_type: str  # 'long', 'short', 'hold'
     position_size: float  # 0-1 (percentage of capital)
     confidence: float  # 0-1
-    
+
 
 @dataclass
 class TradeResult:
@@ -111,24 +112,24 @@ class TradeResult:
 class StrategyFusionEnv(gym.Env):
     """
     策略融合 RL 環境
-    
+
     State Space:
     - 策略信號 (N strategies × 3 features = direction, strength, confidence)
     - 市場狀態 (8 features: price, volatility, trend, volume, news_sentiment, time_of_day, news_duration_hours, related_news_count)
     - 當前倉位 (2 features: position_type, position_size)
-    
+
     Action Space:
     - Discrete: [0=Hold, 1=Long, 2=Short]
     - + Continuous: position_size [0, 1]
-    
+
     Reward:
     - 基於交易盈虧
     - 風險調整（夏普比率）
     - 回撤懲罰
     """
-    
+
     metadata = {'render_modes': ['human']}
-    
+
     def __init__(
         self,
         num_strategies: int = 5,
@@ -137,29 +138,29 @@ class StrategyFusionEnv(gym.Env):
         max_position_size: float = 0.5,  # 最大50%倉位
     ):
         super().__init__()
-        
+
         self.num_strategies = num_strategies
         self.initial_capital = initial_capital
         self.transaction_cost = transaction_cost
         self.max_position_size = max_position_size
-        
+
         # State space: strategy signals + market state + position
         # Strategy signals: num_strategies × 3 (direction_encoded, strength, confidence)
         # Market state: 8 features (price, volatility, trend, volume, news_sentiment, time_of_day, news_duration, related_news_count)
         # Position: 2 features
         obs_dim = (num_strategies * 3) + 8 + 2
-        
+
         self.observation_space = spaces.Box(
             low=-1.0,
             high=1.0,
             shape=(obs_dim,),
             dtype=np.float32
         )
-        
+
         # Action space: MultiDiscrete
         # [action_type (0=hold, 1=long, 2=short), position_size_bucket (0-10)]
         self.action_space = spaces.MultiDiscrete([3, 11])
-        
+
         # Internal state
         self.current_step = 0
         self.capital = initial_capital
@@ -167,21 +168,21 @@ class StrategyFusionEnv(gym.Env):
         self.position_size = 0.0
         self.entry_price = 0.0
         self.current_price = 100.0
-        
+
         # History
         self.trade_history: List[Dict] = []
         self.equity_curve: List[float] = []
-        
+
         # Market data (will be set externally)
         self.market_data: Optional[List[Dict]] = None
         self.strategy_signals_history: Optional[List[List['StrategySignal']]] = None
-        
+
         logger.info(f"🎮 RL 環境初始化: 策略數={num_strategies}, 資金={initial_capital}")
-    
+
     def reset(self, seed=None, options=None):  # type: ignore
         """重置環境"""
         super().reset(seed=seed)
-        
+
         self.current_step = 0
         self.capital = self.initial_capital
         self.position_type = 0
@@ -189,44 +190,44 @@ class StrategyFusionEnv(gym.Env):
         self.entry_price = 0.0
         self.trade_history = []
         self.equity_curve = [self.capital]
-        
+
         # 返回初始觀察
         obs = self._get_observation()
-        info = {}
-        
+        info: Dict[str, Any] = {}
+
         return obs, info
-    
+
     def step(self, action):
         """執行一步"""
         # 解析動作
         action_type = action[0]
         position_size_bucket = action[1]  # 0-10
-        
+
         # 轉換為實際倉位大小
         position_size = (position_size_bucket / 10.0) * self.max_position_size
-        
+
         # 計算獎勵
         reward = self._calculate_reward(action_type, position_size)
-        
+
         # 更新倉位
         self._update_position(action_type, position_size)
-        
+
         # 更新資金
         self._update_capital()
-        
+
         # 記錄equity
         self.equity_curve.append(self.capital)
-        
+
         # 檢查是否結束
         self.current_step += 1
         terminated = self.current_step >= len(self.market_data) - 1 if self.market_data is not None else False
         truncated = False
-        
+
         # 破產檢查
         if self.capital < self.initial_capital * 0.5:
             terminated = True
             reward -= 100  # 破產懲罰
-        
+
         # 獲取新觀察
         obs = self._get_observation()
         info = {
@@ -234,13 +235,13 @@ class StrategyFusionEnv(gym.Env):
             'position': self.position_type,
             'return': (self.capital - self.initial_capital) / self.initial_capital
         }
-        
+
         return obs, reward, terminated, truncated, info
-    
+
     def _get_observation(self) -> np.ndarray:
         """構建觀察向量"""
         obs: List[float] = []
-        
+
         # 1. 策略信號 (假設已設置)
         if self.strategy_signals_history and self.current_step < len(self.strategy_signals_history):
             signals: List[StrategySignal] = self.strategy_signals_history[self.current_step]
@@ -256,7 +257,7 @@ class StrategyFusionEnv(gym.Env):
         else:
             # 默認值
             obs.extend([0.0] * (self.num_strategies * 3))
-        
+
         # 2. 市場狀態 (假設已設置)
         if self.market_data and self.current_step < len(self.market_data):
             market = self.market_data[self.current_step]
@@ -272,51 +273,51 @@ class StrategyFusionEnv(gym.Env):
             ])
         else:
             obs.extend([0.0] * 8)
-        
+
         # 3. 當前倉位
         obs.extend([float(self.position_type), self.position_size])
-        
+
         return cast(np.ndarray, np.array(obs, dtype=np.float32))
-    
+
     def _calculate_reward(self, action_type: int, position_size: float) -> float:
         """計算獎勵"""
         reward = 0.0
-        
+
         # 如果持有倉位，計算浮動盈虧
         if self.position_type != 0 and self.market_data:
             if self.current_step < len(self.market_data):
                 current_price = self.market_data[self.current_step].get('price', self.current_price)
                 price_change = (current_price - self.entry_price) / self.entry_price
-                
+
                 # 多頭/空頭盈虧
                 pnl = price_change * self.position_size * self.capital * self.position_type
-                
+
                 # 交易成本
                 if action_type != 0:  # 如果改變倉位
                     pnl -= abs(self.capital * position_size * self.transaction_cost)
-                
+
                 reward = pnl / self.initial_capital * 100  # 正規化為百分比
-        
+
         # 持倉時間過長懲罰（鼓勵快進快出）
         if self.position_type != 0:
             holding_time = self.current_step - getattr(self, 'entry_step', self.current_step)
             if holding_time > 50:  # 持倉超過50個bar
                 reward -= 0.1
-        
+
         return reward
-    
+
     def _update_position(self, action_type: int, position_size: float):
         """更新倉位"""
         if self.market_data and self.current_step < len(self.market_data):
             current_price = self.market_data[self.current_step].get('price', 100.0)
-            
+
             # 平倉
             if self.position_type != 0 and action_type == 0:
                 # 計算平倉盈虧
                 price_change = (current_price - self.entry_price) / self.entry_price
                 pnl = price_change * self.position_size * self.capital * self.position_type
                 self.capital += pnl
-                
+
                 # 記錄交易
                 self.trade_history.append({
                     'entry_price': self.entry_price,
@@ -324,23 +325,23 @@ class StrategyFusionEnv(gym.Env):
                     'pnl': pnl,
                     'return_pct': pnl / self.capital * 100
                 })
-                
+
                 # 重置倉位
                 self.position_type = 0
                 self.position_size = 0.0
-            
+
             # 開倉
             elif action_type != 0:
                 # 先平掉舊倉位
                 if self.position_type != 0:
                     self._update_position(0, 0)  # 遞歸平倉
-                
+
                 # 開新倉
                 self.position_type = 1 if action_type == 1 else -1
                 self.position_size = position_size
                 self.entry_price = current_price
                 self.entry_step = self.current_step
-    
+
     def _update_capital(self):
         """更新資金（浮動盈虧）"""
         if self.position_type != 0 and self.market_data:
@@ -349,7 +350,7 @@ class StrategyFusionEnv(gym.Env):
 
                 # 不實際修改 capital，只記錄
                 self.current_price = current_price
-    
+
     def render(self):
         """渲染環境（可選）"""
         if self.current_step % 10 == 0:
@@ -363,10 +364,10 @@ class StrategyFusionEnv(gym.Env):
 class RLMetaAgent:
     """
     RL Meta-Agent - 強化學習策略融合代理
-    
+
     使用 PPO 算法學習如何融合多個策略信號
     """
-    
+
     def __init__(
         self,
         num_strategies: int = 5,
@@ -375,28 +376,28 @@ class RLMetaAgent:
     ):
         if not SB3_AVAILABLE:
             raise ImportError("需要安裝 stable-baselines3: pip install stable-baselines3")
-        
+
         self.num_strategies = num_strategies
         self.model_path = Path(model_path) if model_path else Path("./rl_models")
         self.model_path.mkdir(exist_ok=True, parents=True)
         self.training_mode = training_mode
-        
+
         # 創建環境
         self.env = StrategyFusionEnv(num_strategies=num_strategies)
-        
+
         # 創建或載入模型
         self.model = None
         self._initialize_model()
-        
+
         # 訓練記錄
         self.training_history: List[Dict[str, float]] = []
-        
+
         logger.info(f"🤖 RL Meta-Agent 初始化: 策略數={num_strategies}, 訓練模式={training_mode}")
-    
+
     def _initialize_model(self):
         """初始化 PPO 模型"""
         model_file = self.model_path / "ppo_strategy_fusion.zip"
-        
+
         if model_file.exists() and not self.training_mode:
             # 載入已訓練模型
             self.model = PPO.load(model_file, env=self.env)  # type: ignore
@@ -417,7 +418,7 @@ class RLMetaAgent:
                 tensorboard_log="./rl_logs/"
             )
             logger.info("✨ 創建新模型")
-    
+
     def train(
         self,
         total_timesteps: int = 100000,
@@ -426,30 +427,30 @@ class RLMetaAgent:
     ):
         """
         訓練 RL Agent
-        
+
         Args:
             total_timesteps: 總訓練步數
             market_data: 市場數據歷史
             strategy_signals_history: 策略信號歷史
         """
         logger.info(f"🎓 開始訓練: {total_timesteps} 步")
-        
+
         # 設置環境數據
         self.env.market_data = market_data
         self.env.strategy_signals_history = strategy_signals_history
-        
+
         # 訓練
         self.model.learn(  # type: ignore
             total_timesteps=total_timesteps,
             callback=self._training_callback,
             progress_bar=True,
         )
-        
+
         # 保存模型
         self.save_model()
-        
+
         logger.info("✅ 訓練完成")
-    
+
     def _training_callback(self, locals_dict, globals_dict):
         """訓練回調"""
         # 每1000步記錄一次
@@ -459,7 +460,7 @@ class RLMetaAgent:
                 'mean_reward': locals_dict.get('mean_reward', 0),
             })
         return True
-    
+
     def predict(
         self,
         strategy_signals: List['StrategySignal'],
@@ -468,34 +469,34 @@ class RLMetaAgent:
     ) -> 'RLAction':
         """
         預測最佳動作
-        
+
         Args:
             strategy_signals: 當前所有策略信號
             market_state: 當前市場狀態
             current_position: 當前倉位信息
-            
+
         Returns:
             RL Agent 的動作決策
         """
         # 構建觀察
         obs = self._build_observation(strategy_signals, market_state, current_position)
-        
+
         # 預測
         action, _states = self.model.predict(obs, deterministic=not self.training_mode)  # type: ignore
-        
+
         # 解析動作
         action_type_idx = action[0]
         position_size_bucket = action[1]
-        
+
         action_type = ['hold', 'long', 'short'][action_type_idx]
         position_size = (position_size_bucket / 10.0) * 0.5  # max 50%
-        
+
         return RLAction(
             action_type=action_type,
             position_size=position_size,
             confidence=0.8,  # 可以從模型輸出計算
         )
-    
+
     def _build_observation(
         self,
         strategy_signals: List['StrategySignal'],
@@ -504,7 +505,7 @@ class RLMetaAgent:
     ) -> np.ndarray:
         """構建觀察向量"""
         obs = []
-        
+
         # 策略信號
         for signal in strategy_signals[:self.num_strategies]:
             if signal.direction == 'long':
@@ -514,11 +515,11 @@ class RLMetaAgent:
             else:
                 direction = 0.0
             obs.extend([direction, signal.strength, signal.confidence])
-        
+
         # 填充不足
         if len(strategy_signals) < self.num_strategies:
             obs.extend([0.0] * ((self.num_strategies - len(strategy_signals)) * 3))
-        
+
         # 市場狀態
         obs.extend([
             (market_state.price - 100) / 100,  # 正規化
@@ -530,24 +531,24 @@ class RLMetaAgent:
             market_state.news_duration_hours,
             float(market_state.related_news_count),
         ])
-        
+
         # 當前倉位
         if current_position:
             pos_type = current_position.get('type', 0)
             pos_size = current_position.get('size', 0.0)
         else:
             pos_type, pos_size = 0, 0.0
-        
+
         obs.extend([float(pos_type), pos_size])
-        
+
         return cast(np.ndarray, np.array(obs, dtype=np.float32))
-    
+
     def save_model(self, filename: str = "ppo_strategy_fusion"):
         """保存模型"""
         filepath = self.model_path / f"{filename}.zip"
         self.model.save(filepath)  # type: ignore
         logger.info(f"💾 模型已保存: {filepath}")
-    
+
     def load_model(self, filename: str = "ppo_strategy_fusion"):
         """載入模型"""
         filepath = self.model_path / f"{filename}.zip"
@@ -556,43 +557,43 @@ class RLMetaAgent:
             logger.info(f"📂 模型已載入: {filepath}")
         else:
             logger.warning(f"⚠️  模型文件不存在: {filepath}")
-    
+
     def evaluate(self, test_data: Any, test_signals: Any) -> Dict:
         """評估模型性能"""
         self.env.market_data = test_data
         self.env.strategy_signals_history = test_signals
-        
+
         obs, _ = self.env.reset()
         done = False
-        
+
         while not done:
             action, _ = self.model.predict(obs, deterministic=True)  # type: ignore
             obs, _, terminated, truncated, _ = self.env.step(action)
             done = terminated or truncated
-        
+
         final_capital = self.env.capital
         total_return = (final_capital - self.env.initial_capital) / self.env.initial_capital
-        
+
         results = {
             'total_return': total_return,
             'final_capital': final_capital,
             'num_trades': len(self.env.trade_history),
             'sharpe_ratio': self._calculate_sharpe(self.env.equity_curve),
         }
-        
+
         logger.info(f"📊 評估結果: 收益={total_return:.2%}, 交易次數={results['num_trades']}")
-        
+
         return results
-    
+
     def _calculate_sharpe(self, equity_curve: List[float]) -> float:
         """計算夏普比率"""
         if len(equity_curve) < 2:
             return 0.0
-        
+
         returns = np.diff(equity_curve) / equity_curve[:-1]
         if len(returns) == 0 or np.std(returns) == 0:
             return 0.0
-        
+
         sharpe = np.mean(returns) / np.std(returns) * np.sqrt(252)  # 年化
         return float(sharpe)
 
@@ -605,15 +606,15 @@ if __name__ == "__main__":
     print("=" * 80)
     print("🤖 RL Meta-Agent - 強化學習策略融合代理")
     print("=" * 80)
-    
+
     if not SB3_AVAILABLE:
         print("❌ 需要安裝 stable-baselines3")
         print("   請執行: pip install stable-baselines3")
         exit(1)
-    
+
     # 創建 Agent
     agent = RLMetaAgent(num_strategies=4)
-    
+
     # 模擬數據
     print("\n📊 準備訓練數據...")
     mock_market_data = [
@@ -621,7 +622,7 @@ if __name__ == "__main__":
          'volume_ratio': 0.6, 'news_sentiment': 0.1, 'time_of_day': (i % 24) / 24}
         for i in range(100)
     ]
-    
+
     mock_signals = [
         [
             StrategySignal('trend', 'long', 0.7, 0.8),
@@ -631,7 +632,7 @@ if __name__ == "__main__":
         ]
         for _ in range(100)
     ]
-    
+
     # 訓練
     print("\n🎓 開始訓練...")
     try:
@@ -643,7 +644,7 @@ if __name__ == "__main__":
         print("✅ 訓練完成!")
     except Exception as e:
         print(f"❌ 訓練失敗: {e}")
-    
+
     # 測試預測
     print("\n🔮 測試預測...")
     test_signals = [
@@ -658,10 +659,10 @@ if __name__ == "__main__":
         news_sentiment=0.2,
         time_of_day=0.5,
     )
-    
+
     action = agent.predict(test_signals, test_market)
     print(f"   決策: {action.action_type}, 倉位: {action.position_size:.2%}")
-    
+
     print("\n" + "=" * 80)
     print("🎉 RL Meta-Agent 測試完成!")
     print("=" * 80)

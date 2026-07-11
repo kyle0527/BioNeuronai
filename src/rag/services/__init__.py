@@ -19,9 +19,17 @@ imported_ingest_news_analysis_with_status: Optional[Callable[..., Any]] = None
 try:
     from .news_adapter import (
         NewsAdapter as imported_news_adapter,
+    )
+    from .news_adapter import (
         NewsSearchResult as imported_news_search_result,
+    )
+    from .news_adapter import (
         get_news_adapter as imported_get_news_adapter,
+    )
+    from .news_adapter import (
         ingest_news_analysis as imported_ingest_news_analysis,
+    )
+    from .news_adapter import (
         ingest_news_analysis_with_status as imported_ingest_news_analysis_with_status,
     )
     NEWS_ADAPTER_AVAILABLE = True

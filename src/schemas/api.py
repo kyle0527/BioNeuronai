@@ -18,16 +18,16 @@ from .enums import Environment
 
 class ApiCredentials(BaseModel):
     """API 憑證模型"""
-    
+
     api_key: str = Field(..., description="API Key")
     secret_key: str = Field(..., description="Secret Key", repr=False)  # 不顯示在日誌中
     testnet: bool = Field(default=True, description="是否使用測試網")
     environment: Environment = Field(default=Environment.TESTNET, description="環境類型")
-    
+
     # API 限制
     requests_per_minute: int = Field(default=1200, description="每分鐘請求限制")
     orders_per_second: int = Field(default=10, description="每秒訂單限制")
-    
+
     model_config = {
         "json_schema_extra": {
             "examples": [
@@ -46,20 +46,20 @@ class ApiCredentials(BaseModel):
 
 class ApiResponse(BaseModel):
     """API 響應基礎模型"""
-    
+
     success: bool = Field(..., description="請求是否成功")
     status_code: int = Field(..., description="HTTP 狀態碼")
     message: Optional[str] = Field(None, description="響應消息")
     data: Optional[Dict[str, Any]] = Field(None, description="響應數據")
-    
+
     # 請求信息
     request_id: Optional[str] = Field(None, description="請求ID")
     timestamp: datetime = Field(default_factory=datetime.now, description="響應時間")
-    
+
     # 限制信息
     rate_limit_used: Optional[int] = Field(None, description="已使用的請求次數")
     rate_limit_remaining: Optional[int] = Field(None, description="剩餘請求次數")
-    
+
     model_config = {
         "json_schema_extra": {
             "examples": [
@@ -79,16 +79,16 @@ class ApiResponse(BaseModel):
 
 class BinanceApiError(BaseModel):
     """幣安API錯誤模型"""
-    
+
     code: int = Field(..., description="錯誤代碼")
     msg: str = Field(..., description="錯誤消息")
     timestamp: datetime = Field(default_factory=datetime.now, description="錯誤時間")
-    
+
     # 請求上下文
     endpoint: Optional[str] = Field(None, description="請求端點")
     method: Optional[str] = Field(None, description="請求方法")
     params: Optional[Dict[str, Any]] = Field(None, description="請求參數")
-    
+
     model_config = {
         "json_schema_extra": {
             "examples": [
@@ -106,15 +106,15 @@ class BinanceApiError(BaseModel):
 
 class WebSocketMessage(BaseModel):
     """WebSocket 消息模型"""
-    
+
     stream: str = Field(..., description="數據流名稱")
     data: Dict[str, Any] = Field(..., description="消息數據")
     timestamp: datetime = Field(default_factory=datetime.now, description="接收時間")
-    
+
     # 消息類型
     event_type: Optional[str] = Field(None, description="事件類型")
     symbol: Optional[str] = Field(None, description="交易對符號")
-    
+
     model_config = {
         "json_schema_extra": {
             "examples": [
@@ -136,20 +136,20 @@ class WebSocketMessage(BaseModel):
 
 class ApiStatusInfo(BaseModel):
     """API 狀態信息模型"""
-    
+
     server_time: datetime = Field(..., description="服務器時間")
-    
+
     # 連接信息
     ping: Optional[float] = Field(None, description="延遲 (毫秒)")
     last_request_time: Optional[datetime] = Field(None, description="最後請求時間")
-    
+
     # 限制信息
     rate_limits: Dict[str, int] = Field(default_factory=dict, description="速率限制信息")
-    
+
     # 錯誤統計
     error_count: int = Field(default=0, description="錯誤計數")
     last_error: Optional[BinanceApiError] = Field(None, description="最後一次錯誤")
-    
+
     model_config = {
         "json_schema_extra": {
             "examples": [
@@ -170,17 +170,17 @@ class ApiStatusInfo(BaseModel):
 
 class ExchangeInfo(BaseModel):
     """交易所信息模型"""
-    
+
     timezone: str = Field(..., description="時區")
     server_time: datetime = Field(..., description="服務器時間")
-    
+
     # 限制信息
     rate_limits: list[Dict[str, Any]] = Field(..., description="速率限制")
     exchange_filters: list[Dict[str, Any]] = Field(..., description="交易所過濾器")
-    
+
     # 交易對信息
     symbols: list[Dict[str, Any]] = Field(..., description="支持的交易對")
-    
+
     model_config = {
         "json_schema_extra": {
             "examples": [
@@ -312,7 +312,7 @@ class TradeStartRequest(BaseModel):
         description="啟動時是否載入 AI 模型權重",
     )
     model_name: str = Field(
-        default="my_100m_model",
+        default="unified_v2_100m",
         min_length=1,
         description="要載入的模型名稱（對應 model/{model_name}.pth）",
     )
@@ -377,7 +377,9 @@ class ModelPromoteRequest(BaseModel):
     """
     model_config = ConfigDict(protected_namespaces=())
 
-    model_name: str = Field(default="my_100m_model", min_length=1, description="模型名稱")
+    model_name: str = Field(
+        default="unified_v2_100m", min_length=1, description="統一模型名稱"
+    )
     model_path: str = Field(..., min_length=1, description="模型檔或模型目錄，可為本機路徑或 gs://")
     validate_path: bool = Field(default=True, description="promote 前是否檢查模型檔可被定位")
     reload_running_engine: bool = Field(default=False, description="若交易引擎已啟動，是否立即重新載入模型")

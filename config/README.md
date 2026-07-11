@@ -115,7 +115,7 @@ config/
 
 | 檔案 | 說明 |
 |------|------|
-| `active_model.json` | `ModelLoader` / API model status 使用的現役模型指標。`model_path` 建議使用 repo-relative path，例如 `model/my_100m_model_trained_20260510.pth`，避免寫死本機磁碟位置。 |
+| `active_model.json` | 模型架構、參數、tokenizer、訓練狀態與 checkpoint 路徑的唯一來源；現役名稱固定為 `unified_v2_100m`。未訓練階段 `model_path` 為 `null`，訓練後寫入 `model/unified_v2_100m.pth`。 |
 | `trading_readiness_gate.json` | `python main.py readiness-gate` 使用的 BTCUSDT / ETHUSDT 多時間框架矩陣、Walk-Forward 與績效通過門檻 |
 | `risk_config_optimized.json` | 優化後的風險管理參數 |
 | `strategy_weights_optimized.json` | 優化後的策略權重配置 |

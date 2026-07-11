@@ -34,8 +34,8 @@ export function ChatPage() {
     if (storedMessages) {
       try {
         setMessages(JSON.parse(storedMessages))
-      } catch (e) {
-        console.error('Failed to parse stored messages')
+      } catch (error) {
+        console.error('Failed to parse stored messages:', error)
       }
     }
   }, [])
@@ -83,7 +83,9 @@ export function ChatPage() {
 
       setMessages(prev => [...prev, assistantMessage])
     } catch (error) {
-      toast.error('Failed to send message')
+      toast.error('Failed to send message', {
+        description: error instanceof Error ? error.message : 'Unknown error',
+      })
     } finally {
       setLoading(false)
     }
@@ -180,7 +182,14 @@ export function ChatPage() {
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <Label>Language</Label>
-                <Select value={language} onValueChange={(v) => setLanguage(v as any)}>
+                <Select
+                  value={language}
+                  onValueChange={(value) => {
+                    if (value === 'auto' || value === 'zh' || value === 'en') {
+                      setLanguage(value)
+                    }
+                  }}
+                >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>

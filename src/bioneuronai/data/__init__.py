@@ -40,13 +40,13 @@ _LAZY_IMPORTS = {
 
 if TYPE_CHECKING:  # pragma: no cover - 僅供型別檢查
     from .binance_futures import BinanceFuturesConnector as BinanceFuturesConnector
-    from .paper_binance import PaperBinanceFuturesConnector as PaperBinanceFuturesConnector
-    from .exchange_rate_service import ExchangeRateService as ExchangeRateService
     from .database_manager import (  # noqa: F401
         DatabaseManager,
         get_database_manager,
     )
+    from .exchange_rate_service import ExchangeRateService as ExchangeRateService
     from .news_data_fetcher import NewsDataFetcher as NewsDataFetcher
+    from .paper_binance import PaperBinanceFuturesConnector as PaperBinanceFuturesConnector
     from .sync_external_fetcher import SyncExternalDataFetcher as SyncExternalDataFetcher
 
 

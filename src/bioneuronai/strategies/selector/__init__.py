@@ -5,11 +5,11 @@
 
 使用方式:
     from bioneuronai.strategies.selector import StrategySelector
-    
+
     # 基本使用
     selector = StrategySelector(timeframe="1h")
     recommendation = selector.recommend_strategy(ohlcv_data)
-    
+
     # 使用 AI Fusion
     selector = StrategySelector(enable_ai_fusion=True)
     recommendation = selector.recommend_strategy(
@@ -17,7 +17,7 @@
         event_score=event_score,
         event_context=event_context
     )
-    
+
     # 詳細選擇 (async)
     selection = await selector.select_optimal_strategy(ohlcv_data)
 
@@ -26,26 +26,12 @@ Replaces: trading/strategy_selector.py, trading/strategy_selector_v2.py
 """
 
 # 類型定義
-from .types import (
-    StrategyType,
-    MarketRegime,
-    Complexity,
-    StrategyConfigTemplate,
-    StrategySelectionResult,
-    StrategyRecommendation,
-    InternalPerformanceMetrics,
-    STRATEGY_MARKET_FIT,
-)
-
 # 策略配置
 from .configs import (
+    STRATEGY_ALIASES,
     get_default_strategy_configs,
     get_strategy_by_type,
-    STRATEGY_ALIASES,
 )
-
-# 市場評估器
-from .evaluator import MarketEvaluator
 
 # 核心選擇器
 from .core import (
@@ -53,12 +39,24 @@ from .core import (
     get_recommended_strategy,
 )
 
+# 市場評估器
+from .evaluator import MarketEvaluator
+from .types import (
+    STRATEGY_MARKET_FIT,
+    Complexity,
+    InternalPerformanceMetrics,
+    MarketRegime,
+    StrategyConfigTemplate,
+    StrategyRecommendation,
+    StrategySelectionResult,
+    StrategyType,
+)
 
 __all__ = [
     # 核心類
     "StrategySelector",
     "MarketEvaluator",
-    
+
     # 類型
     "StrategyType",
     "MarketRegime",
@@ -67,13 +65,13 @@ __all__ = [
     "StrategySelectionResult",
     "StrategyRecommendation",
     "InternalPerformanceMetrics",
-    
+
     # 配置
     "get_default_strategy_configs",
     "get_strategy_by_type",
     "STRATEGY_ALIASES",
     "STRATEGY_MARKET_FIT",
-    
+
     # 便捷函數
     "get_recommended_strategy",
 ]

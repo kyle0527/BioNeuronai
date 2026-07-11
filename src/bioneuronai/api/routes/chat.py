@@ -310,7 +310,8 @@ async def _handle_chat_tool(
         return None
 
     symbol = _resolve_symbol(req)
-    latency = lambda: (time.time() - started_at) * 1000
+    def latency() -> float:
+        return (time.time() - started_at) * 1000
 
     if action in {"refuse_live_auto", "refuse_testnet_auto"}:
         return _tool_response(
@@ -380,7 +381,7 @@ async def _handle_chat_tool(
             paper_initial_balance=_extract_balance(req.message),
             auto_trade=True,
             load_ai_model=True,
-            model_name="my_100m_model",
+            model_name="unified_v2_100m",
             warmup_model=False,
         )
         status = await trade_manager.start(req_start)

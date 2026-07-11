@@ -17,7 +17,6 @@ from .catalog import get_catalog
 from .data_stream import DEFAULT_DATA_DIR, resolve_data_dir
 from .service import run_strategy_suite_backtest
 
-
 DEFAULT_CONFIG_PATH = Path(__file__).resolve().parent.parent / "config" / "trading_readiness_gate.json"
 
 
@@ -87,9 +86,12 @@ def run_trading_readiness_gate(
 
     resolved_root = resolve_data_dir(config.get("data_dir", data_dir or DEFAULT_DATA_DIR))
     catalog = get_catalog(data_dir=resolved_root)
+    datasets_value = catalog.get("datasets", [])
+    datasets = datasets_value if isinstance(datasets_value, list) else []
     dataset_map = {
         (str(item["symbol"]).upper(), str(item["interval"])): item
-        for item in catalog.get("datasets", [])
+        for item in datasets
+        if isinstance(item, dict) and "symbol" in item and "interval" in item
     }
 
     report: Dict[str, Any] = {

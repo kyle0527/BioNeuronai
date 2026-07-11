@@ -45,9 +45,11 @@ env/
 # Runtime-critical .pth files must be either tracked by Git LFS or documented
 # as externally restored artifacts. Avoid hiding active_model targets.
 *.pth
-!model/my_100m_model_trained_20260510.pth
+!model/unified_v2_100m.pth
+!archived/legacy_v1_20260711/*.pth
 *.pt
 *.bin
+!archived/legacy_v1_20260711/tiny_llm_en_zh/pytorch_model.bin
 *.ckpt
 *.safetensors
 *.h5

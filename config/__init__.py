@@ -4,14 +4,14 @@
 
 from .trading_config import *  # noqa: F403
 from .trading_costs import (
-    TradingCostCalculator,
-    STANDARD_FEES,
-    VIP_FEES,
+    BNB_DISCOUNT,
     FUNDING_RATE,
     FUNDING_RATE_REFERENCE,
+    QUICK_REFERENCE,
     SPREAD_COSTS,
-    BNB_DISCOUNT,
-    QUICK_REFERENCE
+    STANDARD_FEES,
+    VIP_FEES,
+    TradingCostCalculator,
 )
 
 __all__ = [

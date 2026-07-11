@@ -14,6 +14,7 @@ observe → plan → check → adapt → execute → settle cycle.
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 from dataclasses import asdict, dataclass, is_dataclass
 from datetime import datetime
@@ -35,7 +36,7 @@ def _project_root() -> Path:
 
 
 def _serialize(value: Any) -> Any:
-    if is_dataclass(value):
+    if is_dataclass(value) and not isinstance(value, type):
         return {key: _serialize(item) for key, item in asdict(value).items()}
     if hasattr(value, "model_dump"):
         return _serialize(value.model_dump())
@@ -77,6 +78,8 @@ class AutonomousOperatorConfig:
     # 每 N 輪執行一次 AIReflectionLoop（0 = 停用；僅在 run_forever 時生效）
     reflect_every_cycles: int = 0
     reflection_sample_size: int = 50
+    ai_context: str = ""
+    ai_language: str = "zh"
 
     def normalized_action(self) -> str:
         action = self.intended_action.strip().upper()
@@ -100,6 +103,8 @@ class AutonomousOperator:
         ledger: Optional[DecisionLedger] = None,
         learning_hub: Optional[Any] = None,
         goal_tracker: Optional[Any] = None,
+        inference_engine: Optional[Any] = None,
+        trading_engine: Optional[Any] = None,
     ) -> None:
         self.config = config or AutonomousOperatorConfig()
         # 預設元件延遲載入：注入 stub 時不需要任何重依賴
@@ -108,7 +113,9 @@ class AutonomousOperator:
             plan_controller = TradingPlanController()
         if pretrade_checker is None:
             from .pretrade_automation import PreTradeCheckSystem
-            pretrade_checker = PreTradeCheckSystem()
+            pretrade_checker = PreTradeCheckSystem(
+                account_balance=self.config.account_balance,
+            )
         self.plan_controller = plan_controller
         self.pretrade_checker = pretrade_checker
         self.adaptation_controller = adaptation_controller or AdaptationController()
@@ -128,6 +135,8 @@ class AutonomousOperator:
 
         # 目標層級追蹤（最小版：監測並記錄，尚未自動回饋風險參數）
         self.goal_tracker = goal_tracker
+        self.inference_engine = inference_engine
+        self.trading_engine = trading_engine
 
         # 學習狀態 provider 擴充點：讓 OnlineLearner / EpisodicMemory 等
         # 模組的統計接入自主迴圈（merge 進 learning_state，記入 ledger）
@@ -167,7 +176,9 @@ class AutonomousOperator:
         plan_serialized = _serialize(plan)
 
         candidates = self._extract_candidates(plan_serialized)
-        pretrade_results = self._run_pretrade(candidates)
+        ai_decision = self._run_unified_ai(klines, plan_serialized)
+        cycle_action = self._resolve_cycle_action(ai_decision)
+        pretrade_results = self._run_pretrade(candidates, cycle_action)
         ledger_summary = self.ledger.summarize(limit=100)
         learning_state = self._build_learning_state()
         stale_positions = self._check_stale_positions()
@@ -182,7 +193,11 @@ class AutonomousOperator:
                 logger.warning("goal tracker failed: %s", exc)
 
         adaptation = self._evaluate_adaptation(
-            plan_serialized, pretrade_results, ledger_summary, learning_state
+            plan_serialized,
+            pretrade_results,
+            ledger_summary,
+            learning_state,
+            cycle_action,
         )
 
         paper_execution: Optional[Dict[str, Any]] = None
@@ -200,7 +215,8 @@ class AutonomousOperator:
             "completed_at": datetime.now().isoformat(),
             "mode": self.config.mode,
             "symbol": self.config.symbol,
-            "intended_action": self.config.normalized_action(),
+            "intended_action": cycle_action,
+            "ai_decision": ai_decision,
             "candidates": candidates,
             "plan_status": plan_serialized.get("status"),
             "plan_execution_ready": plan_serialized.get("execution_ready"),
@@ -344,13 +360,14 @@ class AutonomousOperator:
         pretrade_results: List[Dict[str, Any]],
         ledger_summary: Dict[str, Any],
         learning_state: Optional[Dict[str, Any]],
+        intended_action: str,
     ) -> Any:
         kwargs: Dict[str, Any] = {
             "mode": self.config.mode,
             "plan": plan_serialized,
             "pretrade_results": pretrade_results,
             "ledger_summary": ledger_summary,
-            "intended_action": self.config.normalized_action(),
+            "intended_action": intended_action,
         }
         try:
             return self.adaptation_controller.evaluate(
@@ -519,12 +536,12 @@ class AutonomousOperator:
 
     def _load_klines(self) -> List[Dict[str, Any]]:
         try:
-            from backtest import HistoricalDataStream
+            from backtest import DEFAULT_DATA_DIR, HistoricalDataStream
 
             stream = HistoricalDataStream(
                 symbol=self.config.symbol,
                 interval=self.config.interval,
-                data_dir=self.config.data_dir,
+                data_dir=self.config.data_dir or DEFAULT_DATA_DIR,
                 speed_multiplier=0,
             )
             target_open_time = int(datetime.now().timestamp() * 1000)
@@ -564,13 +581,16 @@ class AutonomousOperator:
                 deduped.append(normalized)
         return deduped[: max(1, self.config.max_pairs)]
 
-    def _run_pretrade(self, candidates: List[str]) -> List[Dict[str, Any]]:
+    def _run_pretrade(
+        self, candidates: List[str], intended_action: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
         results: List[Dict[str, Any]] = []
+        action = intended_action or self.config.normalized_action()
         for symbol in candidates:
             try:
                 result = self.pretrade_checker.execute_pretrade_check(
                     symbol=symbol,
-                    intended_action=self.config.normalized_action(),
+                    intended_action=action,
                     signal_source="AUTONOMOUS_OPERATOR",
                 )
                 results.append(_serialize(result))
@@ -580,6 +600,71 @@ class AutonomousOperator:
                     "overall_assessment": {"status": "ERROR", "error": str(exc)},
                 })
         return results
+
+    def _get_inference_engine(self) -> Any:
+        """延遲取得全程序唯一的統一模型服務。"""
+        if self.inference_engine is None:
+            from bioneuronai.core.inference_engine import get_shared_inference_engine
+
+            self.inference_engine = get_shared_inference_engine()
+        return self.inference_engine
+
+    def _run_unified_ai(
+        self,
+        klines: List[Dict[str, Any]],
+        plan: Optional[Dict[str, Any]] = None,
+    ) -> Optional[Dict[str, Any]]:
+        """以同一模型從本輪行情產生結構化決策與雙語說明。"""
+        if not klines:
+            return None
+        latest = klines[-1]
+        current_price = float(latest.get("close", latest.get("c", 0.0)) or 0.0)
+        if current_price <= 0:
+            return None
+        plan_context = self.config.ai_context
+        if not plan_context and plan:
+            plan_context = json.dumps(
+                {
+                    "status": plan.get("status"),
+                    "execution_ready": plan.get("execution_ready"),
+                    "blocking_steps": plan.get("blocking_steps", []),
+                },
+                ensure_ascii=False,
+            )
+        try:
+            result = self._get_inference_engine().predict_with_explanation(
+                symbol=self.config.symbol,
+                current_price=current_price,
+                klines=klines,
+                context_text=plan_context,
+                language=self.config.ai_language,
+                max_new_tokens=4,
+            )
+            signal = result["signal"]
+            return {
+                "signal": signal.to_dict(),
+                "explanation": result["explanation"],
+                "language": result["language"],
+                "model_name": result.get("model_name"),
+                "trained": bool(result.get("trained", False)),
+            }
+        except Exception as exc:
+            logger.warning("unified AI decision unavailable: %s", exc)
+            return {"error": str(exc), "trained": False}
+
+    def _resolve_cycle_action(self, ai_decision: Optional[Dict[str, Any]]) -> str:
+        """有可執行 AI 方向時採用；HOLD/未完成輸出維持呼叫者 smoke 動作。"""
+        if not ai_decision:
+            return self.config.normalized_action()
+        signal = ai_decision.get("signal")
+        if not isinstance(signal, dict):
+            return self.config.normalized_action()
+        signal_type = str(signal.get("signal_type") or "").lower()
+        if "long" in signal_type:
+            return "BUY"
+        if "short" in signal_type:
+            return "SELL"
+        return self.config.normalized_action()
 
     def _pretrade_summary(self, results: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         summary: List[Dict[str, Any]] = []
@@ -597,16 +682,43 @@ class AutonomousOperator:
         return summary
 
     def _get_paper_connector(self) -> Any:
-        """持久化 paper 連接器：跨循環保留倉位，平倉回調接 outcome 閉環。"""
+        """取得 TradingEngine 所持有的唯一 paper 連接器。"""
         if self._paper_connector is None:
-            from bioneuronai.data.paper_binance import PaperBinanceFuturesConnector
-
-            self._paper_connector = PaperBinanceFuturesConnector(
-                testnet=False,
-                initial_balance=self.config.paper_initial_balance,
+            trading_engine = self._get_trading_engine()
+            self._paper_connector = trading_engine.connector
+            self._paper_connector.virtual_account.set_close_callback(
+                self._on_shared_paper_close
             )
-            self._paper_connector.virtual_account.set_close_callback(self._on_paper_close)
         return self._paper_connector
+
+    def _get_trading_engine(self) -> Any:
+        """延遲建立唯一 TradingEngine；planning 不再持有第二套執行器。"""
+        if self.trading_engine is None:
+            from bioneuronai.core.trading_engine import TradingEngine
+
+            self.trading_engine = TradingEngine(
+                enable_ai_model=True,
+                paper_trading=True,
+                paper_initial_balance=self.config.paper_initial_balance,
+            )
+        return self.trading_engine
+
+    def _on_shared_paper_close(
+        self,
+        symbol: str,
+        realized_pnl: float,
+        entry_price: float,
+        exit_price: float,
+        exit_reason: str,
+    ) -> None:
+        """一次平倉同時回寫 TradingEngine 與 autonomous ledger。"""
+        if self.trading_engine is not None:
+            self.trading_engine._on_paper_close(
+                symbol, realized_pnl, entry_price, exit_price, exit_reason
+            )
+        self._on_paper_close(
+            symbol, realized_pnl, entry_price, exit_price, exit_reason
+        )
 
     def _execute_paper_order(
         self,
@@ -661,15 +773,25 @@ class AutonomousOperator:
             if isinstance(first_target, dict):
                 take_profit = first_target.get("price")
 
-        side = "BUY" if self.config.normalized_action() == "BUY" else "SELL"
-        order = connector.place_order(
-            symbol=str(selected_symbol),
-            side=side,
-            order_type="MARKET",
-            quantity=quantity,
-            stop_loss=float(stop_loss) if stop_loss else None,
-            take_profit=float(take_profit) if take_profit else None,
-        )
+        selected_action = str(adaptation.get("selected_action") or "").upper()
+        side = "BUY" if selected_action == "BUY" else "SELL"
+        if self.trading_engine is not None or self._paper_connector is None:
+            order = self._get_trading_engine().execute_prepared_order(
+                symbol=str(selected_symbol),
+                side=side,
+                quantity=quantity,
+                stop_loss=float(stop_loss) if stop_loss else None,
+                take_profit=float(take_profit) if take_profit else None,
+            )
+        else:
+            order = connector.place_order(
+                symbol=str(selected_symbol),
+                side=side,
+                order_type="MARKET",
+                quantity=quantity,
+                stop_loss=float(stop_loss) if stop_loss else None,
+                take_profit=float(take_profit) if take_profit else None,
+            )
 
         self._open_executions[symbol_key] = {
             "side": side,

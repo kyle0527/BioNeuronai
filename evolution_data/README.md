@@ -1,11 +1,16 @@
-# evolution_data/ — 策略進化訓練資料
+# evolution_data/ — 策略進化與微調資料
 
-> **更新日期**: 2026-05-12
+> **更新日期**: 2026-07-11
 
-此目錄存放供 `auto_evolve.py` 增量訓練使用的自定義進化資料（JSON 格式）。
+此目錄存放自定義進化與微調資料（JSON/JSONL 格式），供統一多任務訓練器使用。
 
-## 格式
+---
 
+## 數據規格與合約
+
+本系統已於 v2.1 廢棄舊版 `auto_evolve.py` 增量微調模式。所有自定義市場情境與對話資料已收斂為單一資料合約，並由 `unified_trainer.py` 進行多任務（Multi-task）聯合訓練。
+
+訓練資料範例：
 ```json
 [
     {
@@ -15,15 +20,26 @@
 ]
 ```
 
-## 使用
+---
+
+## 訓練與使用
+
+所有增量微調請透過統一的訓練入口執行：
 
 ```bash
-cd src/nlp/training
-python auto_evolve.py \
-    --model-path model/my_100m_model.pth \
-    --data evolution_data/new_data.json
+# 1. 收集最新行情訊號資料
+python main.py collect-signal-data --symbol BTCUSDT --interval 1h --output data/unified_v2_training.jsonl
+
+# 2. 啟動多任務聯合訓練（合併訊號與對話/微調資料）
+python -m nlp.training.unified_trainer \
+    --signal-data data/unified_v2_training.jsonl \
+    --dialogue-data evolution_data/new_data.json
 ```
 
-> 目前正式訓練入口為 `unified_trainer.py`，此目錄主要供補充資料的增量訓練使用。
+---
 
-> 📖 上層目錄：[根目錄 README](../README.md)
+## 相關連結
+
+* 📖 上層目錄：[專案根目錄 README](../README.md)
+* 📖 同級模組：[NLP 模組 README](../src/nlp/README.md)
+* 📖 模型管理：[模型資產 README](../model/README.md)

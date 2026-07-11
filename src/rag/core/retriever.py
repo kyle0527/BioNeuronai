@@ -8,10 +8,10 @@
 
 import hashlib
 import logging
-import time
 import re
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union, cast
+import time
 from datetime import datetime, timedelta
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union, cast
 
 logger = logging.getLogger(__name__)
 
@@ -51,9 +51,9 @@ _TRADING_RULE_CORPUS: List[Dict[str, Any]] = [
 
 # ── 單一事實來源：從 schemas 導入，不在此重複定義 ─────────────────────────────
 from schemas.rag import (  # noqa: E402
-    RetrievalSource,
-    RetrievalResult,
     RetrievalQuery,
+    RetrievalResult,
+    RetrievalSource,
 )
 
 # 導入監控（可選）
@@ -71,14 +71,14 @@ _get_monitor = cast(Optional[Callable[[], Any]], _imported_get_monitor)
 class UnifiedRetriever:
     """
     統一檢索器
-    
+
     整合多種數據源的檢索：
     - 內部知識庫 (向量搜索)
     - 外部網路搜索
     - 新聞 API
     - 社交媒體
     """
-    
+
     def __init__(
         self,
         embedding_service=None,
@@ -132,14 +132,14 @@ class UnifiedRetriever:
     def _set_cache(self, cache_key: str, results: List["RetrievalResult"]) -> None:
         """將結果存入快取"""
         self._cache[cache_key] = (results, datetime.now() + self._cache_ttl)
-    
+
     def retrieve(self, query: Union[str, RetrievalQuery]) -> List[RetrievalResult]:
         """
         執行檢索
-        
+
         Args:
             query: 查詢字符串或 RetrievalQuery 對象
-            
+
         Returns:
             List[RetrievalResult] 檢索結果列表
         """
@@ -217,14 +217,14 @@ class UnifiedRetriever:
                     )
                 except Exception as mon_error:
                     logger.debug(f"監控記錄失敗: {mon_error}")
-    
+
     def _retrieve_from_source(
         self,
         query: RetrievalQuery,
         source: RetrievalSource
     ) -> List[RetrievalResult]:
         """從特定來源檢索"""
-        
+
         if source == RetrievalSource.INTERNAL_KNOWLEDGE:
             return self._retrieve_internal(query)
         elif source == RetrievalSource.WEB_SEARCH:
@@ -235,12 +235,12 @@ class UnifiedRetriever:
             return self._retrieve_trading_rules(query)
         else:
             return []
-    
+
     def _retrieve_internal(self, query: RetrievalQuery) -> List[RetrievalResult]:
         """從內部知識庫檢索"""
         if not self.internal_kb:
             return []
-        
+
         try:
             docs = self.internal_kb.search(
                 query=query.query,
@@ -261,12 +261,12 @@ class UnifiedRetriever:
         except Exception as e:
             logger.error(f"內部檢索錯誤: {e}")
             return []
-    
+
     def _retrieve_web(self, query: RetrievalQuery) -> List[RetrievalResult]:
         """從網路搜索檢索"""
         if not self.web_search:
             return []
-        
+
         try:
             results = self.web_search.search(
                 query=query.query,
@@ -288,12 +288,12 @@ class UnifiedRetriever:
         except Exception as e:
             logger.error(f"網路搜索錯誤: {e}")
             return []
-    
+
     def _retrieve_news(self, query: RetrievalQuery) -> List[RetrievalResult]:
         """從新聞 API 檢索"""
         if not self.news_api:
             return []
-        
+
         try:
             articles = self.news_api.search(
                 query=query.query,
@@ -318,7 +318,7 @@ class UnifiedRetriever:
         except Exception as e:
             logger.error(f"新聞檢索錯誤: {e}")
             return []
-    
+
     def _retrieve_trading_rules(self, query: RetrievalQuery) -> List[RetrievalResult]:
         """從交易規則庫檢索"""
         query_tokens = set(re.findall(r"[\w]+", query.query.lower()))
@@ -348,7 +348,7 @@ class UnifiedRetriever:
                 )
             )
         return results
-    
+
     def retrieve_for_trading(
         self,
         symbol: str,
@@ -359,29 +359,29 @@ class UnifiedRetriever:
     ) -> Dict[str, List[RetrievalResult]]:
         """
         針對交易決策的專門檢索
-        
+
         Args:
             symbol: 交易對符號 (如 BTCUSDT)
             context: 額外上下文
             include_news: 是否包含新聞
             include_web: 是否包含網路搜索
             time_hours: 時間範圍
-            
+
         Returns:
             分類的檢索結果
         """
         base_symbol = symbol.replace("USDT", "").replace("BUSD", "")
-        
+
         # 構建查詢
         queries = {
             "market_news": f"{base_symbol} cryptocurrency news price",
             "sentiment": f"{base_symbol} crypto market sentiment analysis",
             "events": f"{base_symbol} upcoming events announcements",
         }
-        
+
         if context:
             queries["context"] = f"{base_symbol} {context}"
-        
+
         results = {}
         sources = []
         if include_news:
@@ -389,7 +389,7 @@ class UnifiedRetriever:
         if include_web:
             sources.append(RetrievalSource.WEB_SEARCH)
         sources.append(RetrievalSource.INTERNAL_KNOWLEDGE)
-        
+
         for category, q in queries.items():
             query = RetrievalQuery(
                 query=q,
@@ -398,9 +398,9 @@ class UnifiedRetriever:
                 time_range_hours=time_hours
             )
             results[category] = self.retrieve(query)
-        
+
         return results
-    
+
     def get_stats(self) -> Dict[str, Any]:
         """獲取統計信息"""
         return {

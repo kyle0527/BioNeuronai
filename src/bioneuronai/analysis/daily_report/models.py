@@ -7,16 +7,16 @@
 遵循 CODE_FIX_GUIDE.md 規範
 """
 
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Dict, List, Optional, cast
-from dataclasses import dataclass
 
 
 @dataclass
 class MarketEnvironmentCheck:
     """
     市場環境檢查結果
-    
+
     包含全球市場動態、加密貨幣情緒、經濟事件等分析結果
     """
     timestamp: datetime
@@ -33,7 +33,7 @@ class MarketEnvironmentCheck:
 class TradingPlanCheck:
     """
     交易計劃檢查結果
-    
+
     包含策略選擇、風險參數、交易對篩選等規劃結果
     """
     timestamp: datetime
@@ -87,7 +87,7 @@ class TradingPairsPriority:
     primary: List[str]  # 主要交易對
     backup: List[str]  # 備用交易對
     excluded: Optional[List[str]] = None  # 排除的交易對
-    
+
     def __post_init__(self):
         if self.excluded is None:
             self.excluded = []
@@ -104,7 +104,7 @@ class DailyReport:
     market_environment: MarketEnvironmentCheck
     trading_plan: TradingPlanCheck
     overall_assessment: Dict
-    
+
     def to_dict(self) -> Dict[str, Any]:
         """轉換為字典格式"""
         return {
@@ -115,7 +115,7 @@ class DailyReport:
             "trading_plan": self._dataclass_to_dict(self.trading_plan),
             "overall_assessment": self.overall_assessment
         }
-    
+
     @staticmethod
     def _dataclass_to_dict(obj: Any) -> Dict[str, Any]:
         """將 dataclass 轉換為字典"""

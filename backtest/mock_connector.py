@@ -6,19 +6,20 @@ whether an order should be sent in the first place.
 """
 
 import logging
-import time
 import threading
-from pathlib import Path
-from typing import Dict, List, Optional, Callable, Any, Union, Generator
+import time
 from datetime import datetime
+from pathlib import Path
+from typing import Any, Callable, Dict, Generator, List, Optional, Union
+
+from bioneuronai.data.binance_futures import OrderResult
+from bioneuronai.trading import VirtualAccount
+from schemas.enums import OrderStatus
+from schemas.market import MarketData
 
 from .contracts import ExecutionReceipt, OrderIntent, ReplayRuntimeState
 from .data_stream import DEFAULT_DATA_DIR, HistoricalDataStream, KlineBar
 from .runtime_store import ReplayRunRecorder
-from bioneuronai.trading import VirtualAccount
-from schemas.market import MarketData
-from schemas.enums import OrderStatus
-from bioneuronai.data.binance_futures import OrderResult
 
 logger = logging.getLogger(__name__)
 
@@ -26,36 +27,36 @@ logger = logging.getLogger(__name__)
 class MockBinanceConnector:
     """
     🎭 Mock Binance Futures Connector
-    
+
     完全偽裝成真實的 BinanceFuturesConnector
     TradingEngine 完全無法區分這是真實還是模擬
-    
+
     使用方式:
-    
+
     # === 方法 1: 直接替換連接器 ===
     from backtest import MockBinanceConnector
-    
+
     mock = MockBinanceConnector(
         data_dir="backtest/data/binance_historical",
         symbol="BTCUSDT",
         start_date="2025-01-01",
         end_date="2025-06-30"
     )
-    
+
     # 在 TradingEngine 中使用
     engine = TradingEngine()
     engine.connector = mock  # 替換連接器
-    
+
     # === 方法 2: 自動回放模式 ===
     mock.start_playback()  # 開始回放歷史數據
-    
+
     # TradingEngine 調用的所有方法都會收到模擬數據
     price = mock.get_ticker_price("BTCUSDT")  # 返回歷史價格
     mock.place_order(...)  # 模擬撮合
-    
+
     mock.stop_playback()  # 停止回放
     """
-    
+
     def __init__(
         self,
         data_dir: Union[str, Path] = DEFAULT_DATA_DIR,
@@ -74,7 +75,7 @@ class MockBinanceConnector:
     ):
         """
         初始化 Mock Connector
-        
+
         Args:
             data_dir: 歷史數據目錄
             symbol: 主要交易對
@@ -93,11 +94,11 @@ class MockBinanceConnector:
         self.api_key = kwargs.get('api_key', '') or "MOCK_API_KEY_FOR_BACKTEST"
         self.api_secret = kwargs.get('api_secret', '') or "MOCK_SECRET_FOR_BACKTEST"
         self.testnet = kwargs.get('testnet', True)
-        
+
         # 偽裝 API 端點
         self.rest_base = "https://mock-fapi.binance.com"
         self.ws_base = "wss://mock-stream.binance.com"
-        
+
         # 核心組件
         self.data_stream = HistoricalDataStream(
             data_dir=data_dir,
@@ -107,7 +108,7 @@ class MockBinanceConnector:
             end_date=end_date,
             speed_multiplier=speed_multiplier,
         )
-        
+
         self.account = VirtualAccount(
             initial_balance=initial_balance,
             leverage=leverage,
@@ -115,7 +116,7 @@ class MockBinanceConnector:
             taker_fee=taker_fee,
             slippage_rate=slippage_rate,
         )
-        
+
         # 狀態
         self.symbol = symbol
         self.interval = interval
@@ -126,27 +127,27 @@ class MockBinanceConnector:
         self._bar_generator: Optional[Generator[KlineBar, None, None]] = None  # 用於 next_tick()
         self.run_recorder = run_recorder
         self.runtime_state = ReplayRuntimeState()
-        
+
         # 公開 account 為 virtual_account（兼容性）
         self.virtual_account = self.account
-        
+
         # 多交易對支持 {symbol: HistoricalDataStream}
         self._streams: Dict[str, HistoricalDataStream] = {symbol: self.data_stream}
-        
+
         # WebSocket 回調存儲
         self._ticker_callbacks: Dict[str, Callable] = {}
         self._ws_connections: Dict[str, Any] = {}
-        
+
         # 限流控制（偽裝用，實際不需要）
         self.request_timestamps: List[float] = []
         self.weight_used = 0
         self.last_weight_reset = time.time()
-        
+
         # WebSocket 相關（僞装用）
         self.ws_connections: Dict[str, Any] = {}
         self.ws_reconnect_delay = 5
         self.ws_max_reconnect_attempts = 10
-        
+
         logger.info("=" * 60)
         logger.info("🎭 Mock Binance Connector 初始化")
         logger.info("=" * 60)
@@ -156,21 +157,21 @@ class MockBinanceConnector:
         logger.info(f"初始餘額: {initial_balance} USDT")
         logger.info(f"槓桿: {leverage}x")
         logger.info("=" * 60)
-    
+
     # ================================================================
     # 🔥 核心方法：完全模擬 BinanceFuturesConnector 接口
     # ================================================================
-    
+
     def get_ticker_price(self, symbol: str = "BTCUSDT") -> Optional[MarketData]:
         """
         獲取最新價格 - 完全模擬 BinanceFuturesConnector.get_ticker_price
-        
+
         返回歷史數據中「當前時間點」的價格
         """
         bar = self._get_current_bar(symbol)
         if bar is None:
             return None
-        
+
         return MarketData(
             symbol=symbol,
             volume=bar.volume,
@@ -182,7 +183,7 @@ class MockBinanceConnector:
             bid=bar.close * 0.9999,  # 模擬買一價
             ask=bar.close * 1.0001,  # 模擬賣一價
         )
-    
+
     def get_ticker_24hr(self, symbol: str = "BTCUSDT") -> Optional[Dict]:
         """
         獲取 24 小時行情統計 - 模擬 API
@@ -190,14 +191,14 @@ class MockBinanceConnector:
         klines = self.data_stream.get_klines_until_now(limit=1440)  # 24h * 60min
         if not klines:
             return None
-        
+
         prices = [k['close'] for k in klines]
         volumes = [k['volume'] for k in klines]
-        
+
         current = klines[-1] if klines else None
         if not current:
             return None
-        
+
         return {
             'symbol': symbol,
             'priceChange': str(current['close'] - klines[0]['open']),
@@ -214,7 +215,7 @@ class MockBinanceConnector:
             'closeTime': current['close_time'],
             'count': len(klines),
         }
-    
+
     def get_klines(
         self,
         symbol: str,
@@ -225,19 +226,19 @@ class MockBinanceConnector:
     ) -> Optional[List[List]]:
         """
         獲取 K線數據 - 完全模擬 BinanceFuturesConnector.get_klines
-        
+
         返回格式與 Binance API 完全相同:
         [openTime, open, high, low, close, volume, closeTime, quoteVolume, trades, takerBuyBase, takerBuyQuote, ignore]
-        
+
         🔒 防偷看：只返回「當前時間點」之前的數據
         """
         # start_time 和 end_time 保留用於未來支援指定時間範圍查詢
         _ = (start_time, end_time)
-        
+
         # 如果是主交易對和主間隔，直接用主數據流
         if symbol == self.symbol and interval == self.interval:
             return self.data_stream.get_klines_list_format(limit=limit)
-        
+
         # 否則獲取對應的數據流
         stream = self._get_stream(symbol, interval)
         if stream is self.data_stream:
@@ -248,55 +249,55 @@ class MockBinanceConnector:
             return stream.get_klines_list_until_time(current_bar.open_time, limit=limit)
 
         return stream.get_klines_list_format(limit=limit)
-    
+
     def get_order_book(self, symbol: str, limit: int = 100) -> Optional[Dict]:
         """
         獲取訂單簿 - 模擬深度數據
-        
+
         基於當前價格生成假的訂單簿
         """
         bar = self._get_current_bar(symbol)
         if bar is None:
             return None
-        
+
         price = bar.close
         spread = price * 0.0001  # 0.01% 價差
-        
+
         # 生成模擬訂單簿
         bids = []
         asks = []
-        
+
         for i in range(limit):
             bid_price = price - spread * (i + 1)
             ask_price = price + spread * (i + 1)
             quantity = bar.volume / limit * (1 + i * 0.1)  # 越遠量越大
-            
+
             bids.append([str(bid_price), str(quantity)])
             asks.append([str(ask_price), str(quantity)])
-        
+
         return {
             'lastUpdateId': int(time.time() * 1000),
             'bids': bids,
             'asks': asks,
         }
-    
+
     def get_funding_rate(self, symbol: str, limit: int = 1) -> Optional[List[Dict]]:
         """
         獲取資金費率 - 模擬數據
-        
+
         返回固定的模擬資金費率
         """
         # limit 參數保留用於未來支援多筆資金費率查詢
         _ = limit
         current_time = self.data_stream.state.current_time
         timestamp = int(current_time.timestamp() * 1000) if current_time else int(time.time() * 1000)
-        
+
         return [{
             'symbol': symbol,
             'fundingRate': '0.00010000',  # 0.01% 固定模擬值
             'fundingTime': timestamp,
         }]
-    
+
     def get_open_interest(self, symbol: str) -> Optional[Dict]:
         """
         獲取持倉量 - 模擬數據
@@ -304,16 +305,16 @@ class MockBinanceConnector:
         bar = self._get_current_bar(symbol)
         if bar is None:
             return None
-        
+
         # 基於成交量估算持倉量
         estimated_oi = bar.volume * bar.close * 10  # 簡單模擬
-        
+
         return {
             'openInterest': str(estimated_oi),
             'symbol': symbol,
             'time': bar.close_time,
         }
-    
+
     def get_account_info(self) -> Optional[Dict]:
         """
         獲取帳戶信息 - 返回虛擬帳戶數據
@@ -345,7 +346,7 @@ class MockBinanceConnector:
     def reset_account(self) -> None:
         """重置交易模組帳戶狀態。"""
         self.account.reset()
-    
+
     def get_exchange_info(self, symbol: str) -> Optional[Dict]:
         """
         獲取交易對信息 - 返回模擬數據
@@ -370,13 +371,13 @@ class MockBinanceConnector:
                 {'filterType': 'LOT_SIZE', 'minQty': '0.001', 'maxQty': '1000', 'stepSize': '0.001'},
             ],
         }
-    
+
     def format_quantity(self, symbol: str, quantity: float) -> str:
         """格式化數量"""
         if "BTC" in symbol:
             return f"{quantity:.3f}"
         return f"{quantity:.2f}"
-    
+
     def place_order(
         self,
         symbol: str,
@@ -390,7 +391,7 @@ class MockBinanceConnector:
     ) -> Optional[OrderResult]:
         """
         下單 - 完全模擬 BinanceFuturesConnector.place_order
-        
+
         會觸發虛擬帳戶的訂單撮合邏輯
         """
         stop_price = kwargs.get("stop_price")
@@ -440,7 +441,7 @@ class MockBinanceConnector:
                     high=bar.high,
                     low=bar.low,
                 )
-            
+
             # 下單
             order = self.account.place_order(
                 symbol=intent.symbol,
@@ -452,7 +453,7 @@ class MockBinanceConnector:
                 reduce_only=intent.reduce_only,
                 time_in_force=time_in_force,
             )
-            
+
             protective_types = {"MARKET", "LIMIT"}
             if (
                 intent.stop_loss
@@ -460,7 +461,7 @@ class MockBinanceConnector:
                 and intent.order_type.upper() in protective_types
             ):
                 self._place_stop_loss_order(intent.symbol, intent.side, intent.quantity, intent.stop_loss)
-            
+
             if (
                 intent.take_profit
                 and order.status == OrderStatus.FILLED
@@ -483,7 +484,7 @@ class MockBinanceConnector:
             if self.run_recorder:
                 self.run_recorder.record_order(intent, receipt)
             return receipt
-            
+
         except Exception as e:
             logger.error(f"❌ 模擬下單失敗: {e}")
             receipt = ExecutionReceipt(
@@ -497,7 +498,7 @@ class MockBinanceConnector:
             if self.run_recorder:
                 self.run_recorder.record_order(intent, receipt)
             return receipt
-    
+
     def _place_stop_loss_order(self, symbol: str, original_side: str, quantity: float, stop_price: float):
         """下止損單"""
         side = "SELL" if original_side.upper() == "BUY" else "BUY"
@@ -510,7 +511,7 @@ class MockBinanceConnector:
             reduce_only=True,
         )
         logger.info(f"🛡️ 止損單已設置: {stop_price:.2f}")
-    
+
     def _place_take_profit_order(self, symbol: str, original_side: str, quantity: float, take_profit_price: float):
         """下止盈單"""
         side = "SELL" if original_side.upper() == "BUY" else "BUY"
@@ -523,7 +524,7 @@ class MockBinanceConnector:
             reduce_only=True,
         )
         logger.info(f"🎯 止盈單已設置: {take_profit_price:.2f}")
-    
+
     def subscribe_ticker_stream(
         self,
         symbol: str,
@@ -532,59 +533,59 @@ class MockBinanceConnector:
     ):
         """
         訂閱實時價格流 - 模擬 WebSocket 訂閱
-        
+
         實際上是使用歷史數據回放來觸發回調
         """
         # auto_reconnect 參數保留用於接口相容
         _ = auto_reconnect
         self._ticker_callbacks[symbol] = callback
-        
+
         logger.info(f"📡 訂閱 Ticker 流: {symbol} (使用歷史數據回放)")
-        
+
         # 返回假的 WebSocket 對象
         class MockWebSocket:
             def close(self):
                 # 模擬 WebSocket 關閉，實際無操作
                 pass
-        
+
         ws = MockWebSocket()
         self._ws_connections[symbol] = ws
         return ws
-    
+
     def close_all_connections(self):
         """關閉所有連接"""
         self._ws_connections.clear()
         self._ticker_callbacks.clear()
         self.stop_playback()
         logger.info("關閉所有模擬連接")
-    
+
     # ================================================================
     # 📺 回放控制方法
     # ================================================================
-    
+
     def start_playback(self, callback: Optional[Callable[[KlineBar], None]] = None):
         """
         開始回放歷史數據
-        
+
         Args:
             callback: 每根 K線的回調函數
         """
         if self._is_playing:
             logger.warning("回放已在進行中")
             return
-        
+
         self._is_playing = True
-        
+
         def playback_loop():
             logger.info("🎬 開始歷史數據回放...")
-            
+
             for bar in self.data_stream.stream_bars():
                 if not self._is_playing:
                     break
-                
+
                 # 更新當前 K線
                 self._current_bar = bar
-                
+
                 # 更新帳戶價格
                 self.account.update_price(
                     bar.symbol,
@@ -592,7 +593,7 @@ class MockBinanceConnector:
                     high=bar.high,
                     low=bar.low,
                 )
-                
+
                 # 觸發 ticker 回調
                 if bar.symbol in self._ticker_callbacks:
                     ticker_data = {
@@ -606,48 +607,48 @@ class MockBinanceConnector:
                         'q': str(bar.quote_volume),
                     }
                     self._ticker_callbacks[bar.symbol](ticker_data)
-                
+
                 # 用戶回調
                 if callback:
                     callback(bar)
-            
+
             logger.info("🎬 歷史數據回放結束")
             self._is_playing = False
-        
+
         self._playback_thread = threading.Thread(target=playback_loop, daemon=True)
         self._playback_thread.start()
-    
+
     def stop_playback(self):
         """停止回放"""
         self._is_playing = False
         self.data_stream.stop()
-        
+
         if self._playback_thread:
             self._playback_thread.join(timeout=2)
-        
+
         logger.info("⏹️ 回放已停止")
-    
+
     def pause_playback(self):
         """暫停回放"""
         self.data_stream.pause()
-    
+
     def resume_playback(self):
         """繼續回放"""
         self.data_stream.resume()
-    
+
     def next_tick(self) -> bool:
         """
         【時間推進器】
         呼叫一次，時間就往後走一格 (一根 K 線)。
         回傳 False 代表歷史數據播完了。
-        
+
         這是訓練模式的核心方法！
         """
         try:
             # 從生成器獲取下一根 K 線
             if not hasattr(self, '_bar_generator') or self._bar_generator is None:
                 self._bar_generator = self.data_stream.stream_bars()
-            
+
             bar = next(self._bar_generator)
             self._current_bar = bar
             self.account.update_price(
@@ -660,7 +661,7 @@ class MockBinanceConnector:
             self.runtime_state.current_open_time = bar.open_time
             self.runtime_state.current_price = bar.close
             self.runtime_state.last_updated_at = datetime.now()
-            
+
             # 觸發 ticker 回調（如果有訂閱）
             if bar.symbol in self._ticker_callbacks:
                 ticker_data = {
@@ -674,9 +675,9 @@ class MockBinanceConnector:
                     'q': str(bar.quote_volume),
                 }
                 self._ticker_callbacks[bar.symbol](ticker_data)
-            
+
             return True
-            
+
         except StopIteration:
             logger.info("📺 歷史數據播放完畢")
             return False
@@ -736,17 +737,17 @@ class MockBinanceConnector:
     def has_pending_entry_order(self, symbol: str, side: Optional[str] = None) -> bool:
         """是否存在未成交的開倉掛單。"""
         return self.account.has_pending_entry_order(symbol, side=side)
-    
+
     def step(self) -> Optional[KlineBar]:
         """
         單步執行 - 手動推進一根 K線（別名方法）
-        
+
         適合需要精確控制的場景
         """
         if self.next_tick():
             return self._current_bar
         return None
-    
+
     def run_backtest(
         self,
         on_bar: Callable[[KlineBar, 'MockBinanceConnector'], None],
@@ -754,18 +755,18 @@ class MockBinanceConnector:
     ) -> Dict[str, Any]:
         """
         運行完整回測
-        
+
         Args:
             on_bar: 每根 K線的處理函數，接收 (bar, connector)
             progress_callback: 進度回調，接收 (current, total)
-            
+
         Returns:
             回測統計結果
         """
         logger.info("🚀 開始運行回測...")
-        
+
         bar_count = 0
-        
+
         for bar in self.data_stream.stream_bars():
             # 更新狀態
             self._current_bar = bar
@@ -775,17 +776,17 @@ class MockBinanceConnector:
                 high=bar.high,
                 low=bar.low,
             )
-            
+
             # 調用策略處理
             on_bar(bar, self)
-            
+
             bar_count += 1
-            
+
             # 進度回調
             if progress_callback:
                 current, total, _ = self.data_stream.get_progress()
                 progress_callback(current, total)
-        
+
         # 返回統計結果
         stats = self.account.get_stats()
         stats['total_bars'] = bar_count
@@ -793,12 +794,12 @@ class MockBinanceConnector:
             'start': self.data_stream.start_date,
             'end': self.data_stream.end_date,
         }
-        
+
         logger.info("✅ 回測完成!")
         self._print_backtest_summary(stats)
-        
+
         return stats
-    
+
     def _print_backtest_summary(self, stats: Dict):
         """打印回測摘要"""
         print("\n" + "=" * 60)
@@ -818,11 +819,11 @@ class MockBinanceConnector:
         print(f"總手續費:     {stats['total_commission']:.2f} USDT")
         print(f"最大回撤:     {stats['max_drawdown']:.2f}%")
         print("=" * 60 + "\n")
-    
+
     # ================================================================
     # 內部輔助方法
     # ================================================================
-    
+
     def _get_current_bar(self, symbol: str) -> Optional[KlineBar]:
         """獲取當前 K線"""
         if self._current_bar and self._current_bar.symbol == symbol:
@@ -834,11 +835,11 @@ class MockBinanceConnector:
                 return stream.get_bar_at_or_before_time(self._current_bar.open_time)
 
         return self.data_stream.get_current_bar()
-    
+
     def _get_stream(self, symbol: str, interval: str) -> HistoricalDataStream:
         """獲取數據流（支持多交易對）"""
         key = f"{symbol}_{interval}"
-        
+
         if key not in self._streams:
             try:
                 self._streams[key] = HistoricalDataStream(
@@ -851,55 +852,55 @@ class MockBinanceConnector:
             except FileNotFoundError:
                 logger.warning(f"未知交易對 {symbol}，返回主流")
                 return self.data_stream
-        
+
         return self._streams.get(key, self.data_stream)
-    
+
     def _check_rate_limit(self):
         """檢查速率限制 - 偽裝用，實際不執行"""
         pass
-    
+
     def _sign_request(self, params: Dict) -> Dict:
         """簽名請求 - 偽裝用"""
         params['timestamp'] = int(time.time() * 1000)
         params['signature'] = 'MOCK_SIGNATURE'
         return params
-    
+
     def _make_request(self, method: str, endpoint: str, params: Optional[Dict] = None, signed: bool = False) -> Optional[Dict]:
         """發送請求 - 偽裝用"""
         # params 和 signed 參數保留用於接口相容
         _ = (params, signed)
         logger.debug(f"模擬 API 請求: {method} {endpoint}")
         return {}
-    
+
     # ================================================================
     # 便利屬性
     # ================================================================
-    
+
     @property
     def current_time(self) -> Optional[datetime]:
         """當前模擬時間"""
         return self.data_stream.get_current_time()
-    
+
     @property
     def current_price(self) -> float:
         """當前價格"""
         return self.data_stream.get_current_price()
-    
+
     @property
     def balance(self) -> float:
         """帳戶餘額"""
         return self.account.get_balance()
-    
+
     @property
     def equity(self) -> float:
         """帳戶權益"""
         return self.account.get_total_equity()
-    
+
     @property
     def positions(self) -> List:
         """所有倉位"""
         return self.account.get_all_positions()
-    
+
     def get_position(self, symbol: str):
         """獲取指定倉位"""
         return self.account.get_position(symbol)

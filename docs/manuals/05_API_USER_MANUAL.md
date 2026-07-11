@@ -460,7 +460,7 @@ http://127.0.0.1:8000/backtest/ui
   "paper_initial_balance": 10000,
   "auto_trade": false,
   "load_ai_model": true,
-  "model_name": "my_100m_model",
+  "model_name": "unified_v2_100m",
   "warmup_model": false,
   "confirm_live": "",
   "api_key": "",
@@ -604,8 +604,8 @@ Invoke-RestMethod -Method DELETE "http://localhost:8000/api/v1/positions/pos_btc
 **請求體：**
 ```json
 {
-  "model_name": "my_100m_model",
-  "model_path": "gs://YOUR_BUCKET/bioneuronai/models/my_100m_model.pth",
+  "model_name": "unified_v2_100m",
+  "model_path": "gs://YOUR_BUCKET/bioneuronai/models/unified_v2_100m.pth",
   "validate_path": true,
   "reload_running_engine": false,
   "warmup_model": false
@@ -666,7 +666,7 @@ Invoke-RestMethod -Method DELETE "http://localhost:8000/api/v1/positions/pos_btc
 | `0.2 ~ 0.5` | 中等信心 |
 | `< 0.2` | 低信心，系統回答「抱歉，我無法確定這個答案。」 |
 
-> **說明**：TinyLLM 屬於 111.6M 參數小型模型，訓練資料有限，低信心時會主動回退而非給出錯誤答案。這是設計行為，非 Bug。若需提升準確度，請參考 [12_NLP_TRAINING.md](12_NLP_TRAINING.md)。
+> **說明**：現役 `unified_v2_100m` 約 98.4M 參數。沒有已驗證 checkpoint 時，API 會標記未訓練並以低信心回退；這只能證明流程可運行，不能證明回答或交易品質。訓練流程見 [12_NLP_TRAINING.md](12_NLP_TRAINING.md)。
 
 ---
 
@@ -921,13 +921,13 @@ Invoke-RestMethod -Uri "http://localhost:8000/api/v1/chat" `
 # 6. 啟動測試網交易
 Invoke-RestMethod -Uri "http://localhost:8000/api/v1/trade/start" `
   -Method POST `
-  -Body '{"symbol":"BTCUSDT","testnet":true,"mode":"monitor_only","auto_trade":false,"load_ai_model":true,"model_name":"my_100m_model","warmup_model":false}' `
+  -Body '{"symbol":"BTCUSDT","testnet":true,"mode":"monitor_only","auto_trade":false,"load_ai_model":true,"model_name":"unified_v2_100m","warmup_model":false}' `
   -ContentType "application/json"
 
 # 6b. 啟動 paper-live：主網行情 + 本地虛擬成交，不送 Binance 訂單
 Invoke-RestMethod -Uri "http://localhost:8000/api/v1/trade/start" `
   -Method POST `
-  -Body '{"symbol":"BTCUSDT","testnet":false,"mode":"paper_live","paper_initial_balance":10000,"auto_trade":true,"load_ai_model":true,"model_name":"my_100m_model","warmup_model":false}' `
+  -Body '{"symbol":"BTCUSDT","testnet":false,"mode":"paper_live","paper_initial_balance":10000,"auto_trade":true,"load_ai_model":true,"model_name":"unified_v2_100m","warmup_model":false}' `
   -ContentType "application/json"
 
 # 7. 查詢交易狀態

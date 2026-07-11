@@ -14,18 +14,18 @@ Created: 2026-01-25
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Dict, List, Optional, Any
+from typing import Any, Dict, List, Optional
 
 # 從 schemas 導入通用型別 (Single Source of Truth)
 from schemas.enums import (
-    StrategyType,
-    MarketRegime,
     Complexity,
+    MarketRegime,
     RiskLevel,
+    StrategyType,
 )
 from schemas.strategy import (
-    StrategyRecommendation,
     STRATEGY_MARKET_FIT,
+    StrategyRecommendation,
 )
 
 
@@ -33,13 +33,13 @@ from schemas.strategy import (
 class StrategyConfigTemplate:
     """
     策略配置模板 - 模組專屬
-    
+
     用於定義策略的**預設配置模板**，包括：
     - 入場/出場條件
     - 風險參數
     - 預期績效指標
     - 適合的市場環境
-    
+
     注意：這與 schemas/strategy.py 的 StrategyConfig 不同：
     - 此類是策略的「配置模板」（靜態定義）
     - schemas 的是策略的「運行實例」（動態狀態）
@@ -65,10 +65,10 @@ class StrategyConfigTemplate:
 class StrategySelectionResult:
     """
     策略選擇結果 - 模組專屬 (內部使用)
-    
+
     用於 async select_optimal_strategy() 的返回值。
     包含詳細的選擇結果，使用 StrategyConfigTemplate。
-    
+
     注意：對外 API 建議使用 schemas/strategy.py 的 StrategyRecommendation
     """
     timestamp: datetime = field(default_factory=datetime.now)
@@ -86,7 +86,7 @@ class StrategySelectionResult:
 class InternalPerformanceMetrics:
     """
     內部績效指標 - 模組專屬
-    
+
     用於 evaluator.py 的內部績效追蹤。
     對外 API 建議使用 schemas/strategy.py 的 StrategyPerformanceMetrics
     """

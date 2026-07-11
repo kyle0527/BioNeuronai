@@ -27,10 +27,31 @@ import { populateMockData } from '@/lib/mock-data-generator'
 import { exportPortfolioAsCSV, exportTradesAsCSV, exportFullAnalyticsReport } from '@/lib/export-utils'
 import { api } from '@/lib/api-client'
 import { useWebSocket } from '@/hooks/use-websocket'
-import type { WebSocketStatus } from '@/hooks/use-websocket'
 
 type TimeRange = '7d' | '30d' | '90d' | '1y' | 'all'
 type DataSource = 'live' | 'mock'
+type MessageRecord = Record<string, unknown>
+
+function asRecord(value: unknown): MessageRecord {
+  return value !== null && typeof value === 'object'
+    ? value as MessageRecord
+    : {}
+}
+
+function numericValue(value: unknown): number {
+  const numeric = Number(value)
+  return Number.isFinite(numeric) ? numeric : 0
+}
+
+function timeRangeToDays(range: TimeRange): number {
+  switch (range) {
+    case '7d': return 7
+    case '30d': return 30
+    case '90d': return 90
+    case '1y': return 365
+    case 'all': return 999999
+  }
+}
 
 export function AnalyticsPage() {
   const [timeRange, setTimeRange] = useState<TimeRange>('30d')
@@ -43,42 +64,47 @@ export function AnalyticsPage() {
   const [lastUpdated, setLastUpdated] = useState<string | null>(null)
   const [wsEnabled, setWsEnabled] = useState(false)
 
-  const safePortfolio = portfolio || []
-  const safeTrades = trades || []
-  const safePerformanceData = performanceData || []
+  const safePortfolio = portfolio
+  const safeTrades = trades
+  const safePerformanceData = performanceData
 
-  const handleWebSocketMessage = useCallback((data: any) => {
-    if (!data || !data.type) return
+  const handleWebSocketMessage = useCallback((data: unknown) => {
+    const message = asRecord(data)
+    if (typeof message.type !== 'string') return
 
-    switch (data.type) {
+    switch (message.type) {
       case 'portfolio_update':
-        if (data.portfolio) {
-          const mappedPortfolio: PortfolioAsset[] = data.portfolio.map((p: any) => ({
-            symbol: p.symbol,
-            quantity: p.quantity,
-            avgPrice: p.avg_price || p.avgPrice,
-            currentPrice: p.current_price || p.currentPrice,
-            value: p.value,
-            pnl: p.pnl,
-            pnlPercent: p.pnl_percent || p.pnlPercent,
-            allocation: p.allocation
-          }))
+        if (Array.isArray(message.portfolio)) {
+          const mappedPortfolio: PortfolioAsset[] = message.portfolio.map((item) => {
+            const position = asRecord(item)
+            return {
+              symbol: String(position.symbol ?? 'UNKNOWN'),
+              quantity: numericValue(position.quantity),
+              avgPrice: numericValue(position.avg_price ?? position.avgPrice),
+              currentPrice: numericValue(position.current_price ?? position.currentPrice),
+              value: numericValue(position.value),
+              pnl: numericValue(position.pnl),
+              pnlPercent: numericValue(position.pnl_percent ?? position.pnlPercent),
+              allocation: numericValue(position.allocation),
+            }
+          })
           setPortfolio(mappedPortfolio)
           setLastUpdated(new Date().toISOString())
         }
         break
       
       case 'trade_executed':
-        if (data.trade) {
+        if (message.trade) {
+          const trade = asRecord(message.trade)
           const newTrade: Trade = {
-            id: data.trade.id,
-            timestamp: data.trade.timestamp,
-            symbol: data.trade.symbol,
-            type: data.trade.type,
-            quantity: data.trade.quantity,
-            price: data.trade.price,
-            pnl: data.trade.pnl,
-            status: data.trade.status
+            id: String(trade.id ?? crypto.randomUUID()),
+            timestamp: String(trade.timestamp ?? new Date().toISOString()),
+            symbol: String(trade.symbol ?? 'UNKNOWN'),
+            type: trade.type === 'sell' ? 'sell' : 'buy',
+            quantity: numericValue(trade.quantity),
+            price: numericValue(trade.price),
+            pnl: numericValue(trade.pnl),
+            status: trade.status === 'failed' ? 'failed' : trade.status === 'pending' ? 'pending' : 'completed',
           }
           setTrades((prev) => [newTrade, ...prev])
           setLastUpdated(new Date().toISOString())
@@ -89,24 +115,27 @@ export function AnalyticsPage() {
         break
       
       case 'performance_update':
-        if (data.performance) {
-          const mappedPerformance: PerformanceDataPoint[] = data.performance.map((p: any) => ({
-            date: p.date,
-            pnl: p.pnl,
-            dailyPnl: p.daily_pnl || p.dailyPnl,
-            value: p.value
-          }))
+        if (Array.isArray(message.performance)) {
+          const mappedPerformance: PerformanceDataPoint[] = message.performance.map((item) => {
+            const point = asRecord(item)
+            return {
+              date: String(point.date ?? ''),
+              pnl: numericValue(point.pnl),
+              dailyPnl: numericValue(point.daily_pnl ?? point.dailyPnl),
+              value: numericValue(point.value),
+            }
+          })
           setPerformanceData(mappedPerformance)
           setLastUpdated(new Date().toISOString())
         }
         break
 
       default:
-        console.log('Unknown WebSocket message type:', data.type)
+        console.log('Unknown WebSocket message type:', message.type)
     }
   }, [])
 
-  const { status: wsStatus, reconnect } = useWebSocket('/ws/analytics', {
+  const { status: wsStatus } = useWebSocket('/ws/analytics', {
     enabled: wsEnabled,
     onMessage: handleWebSocketMessage,
     onOpen: () => {
@@ -126,18 +155,7 @@ export function AnalyticsPage() {
     },
   })
 
-  const timeRangeToDays = (range: TimeRange): number => {
-    switch (range) {
-      case '7d': return 7
-      case '30d': return 30
-      case '90d': return 90
-      case '1y': return 365
-      case 'all': return 999999
-      default: return 30
-    }
-  }
-
-  const fetchLiveData = async () => {
+  const fetchLiveData = useCallback(async () => {
     setIsLoading(true)
     try {
       const days = timeRangeToDays(timeRange)
@@ -185,7 +203,7 @@ export function AnalyticsPage() {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [timeRange])
 
   const handleGenerateMockData = () => {
     setIsGenerating(true)
@@ -214,7 +232,7 @@ export function AnalyticsPage() {
 
   useEffect(() => {
     fetchLiveData()
-  }, [timeRange])
+  }, [fetchLiveData])
 
   const handleExportPortfolio = () => {
     try {

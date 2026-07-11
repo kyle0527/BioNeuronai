@@ -18,7 +18,6 @@ import logging
 import re
 import time
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import Any, Dict, Generator, List, Optional
 
 logger = logging.getLogger(__name__)
@@ -266,7 +265,7 @@ class ChatEngine:
         # 嘗試載入 HonestGenerator（可選）
         self._honest_gen: Optional[Any] = None
         try:
-            from .honest_generation import HonestGenerator, HonestGenerationConfig
+            from .honest_generation import HonestGenerationConfig, HonestGenerator
             cfg = HonestGenerationConfig(
                 confidence_threshold=confidence_threshold,
                 return_confidence=True,
@@ -568,28 +567,26 @@ def create_chat_engine(
     max_new_tokens: int = 256,
 ) -> ChatEngine:
     """
-    建立 ChatEngine 實例（自動載入模型與分詞器）。
-    若模型不存在或 torch/runtime 不可用，直接拋出錯誤。
+    建立使用全專案唯一 TinyLLM v2 實例的 ChatEngine。
+
+    ``model_path`` 僅保留在函式簽名中維持呼叫相容；現役路徑不允許聊天模組
+    私自載入另一個 checkpoint。模型選擇統一由 ``config/active_model.json`` 管理。
     """
-    from .tiny_llm import load_llm
-    from .bilingual_tokenizer import BilingualTokenizer
+    if model_path is not None:
+        raise ValueError(
+            "ChatEngine 不再接受獨立 model_path；請透過 config/active_model.json "
+            "設定統一模型。"
+        )
 
-    tokenizer = BilingualTokenizer()
+    from bioneuronai.core.inference_engine import get_shared_inference_engine
 
-    # 嘗試載入分詞器詞彙
-    default_tok_path = Path(__file__).parent.parent.parent / "model" / "tokenizer" / "vocab.json"
-    if default_tok_path.exists():
-        tokenizer = BilingualTokenizer.load(str(default_tok_path))
-
-    # ChatEngine 僅使用 TinyLLM 文字權重，不再混用交易主線 checkpoint。
-    ckpt_path = Path(model_path) if model_path else (
-        Path(__file__).parent.parent.parent / "model" / "tiny_llm_100m.pth"
+    inference_engine = get_shared_inference_engine()
+    model = inference_engine.model_loader.get_model()
+    tokenizer = inference_engine._get_tokenizer()
+    logger.info("[ChatEngine] 使用共享統一模型: %s", model.model_name)
+    return ChatEngine(
+        model,
+        tokenizer,
+        language=language,
+        max_new_tokens=max_new_tokens,
     )
-    if not ckpt_path.exists():
-        raise FileNotFoundError(f"[ChatEngine] 未找到 TinyLLM 權重 {ckpt_path}")
-
-    model, _ = load_llm(str(ckpt_path), device="cpu")
-    logger.info(f"[ChatEngine] TinyLLM 模型已從 {ckpt_path} 載入")
-
-    model.eval()
-    return ChatEngine(model, tokenizer, language=language, max_new_tokens=max_new_tokens)

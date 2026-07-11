@@ -240,32 +240,24 @@ GoalTracker 每輪寫入 ledger；`recommended_risk_scale` 尚未自動回饋到
 
 ## 目錄結構
 
-```
-src/
-  bioneuronai/
-    core/           # 交易引擎、推論、ActionRecord、OnlineLearner
-    memory/         # EpisodicMemory（熱緩衝 + 冷金庫）
-    strategies/     # 策略選擇器、策略融合、Meta-Learner
-    analysis/       # 新聞分析、市場狀態、特徵工程
-    data/           # Binance 連接器、資料庫、Paper trading
-    risk_management/
-    planning/
-    training/       # 歷史 RL 訓練管線
-    api/            # FastAPI routes
-    cli/
-  nlp/              # TinyLLM v1 + v2、LoRA、RAG
-  rag/              # FAISS 向量索引、知識庫
-  schemas/
-
-docs/
-  ARCHITECTURE_OVERVIEW.md    # 架構說明
-  PROJECT_STATUS.md           # 當前進度（權威來源）
-  manuals/                    # 操作手冊
-  adr/                        # 架構決策紀錄
-
-model/                        # 模型權重（Git LFS）
-config/                       # 交易設定、API 金鑰環境變數
-```
+* **[src/bioneuronai/](src/bioneuronai)** — 核心交易系統套件路徑
+  * **[core/](src/bioneuronai/core/README.md)** — 交易引擎、AI推論管線、ActionRecord與LoRA在線微調核心
+  * **[models/](src/bioneuronai/models/README.md)** — 舊版模型向下相容層（現已隔離退役）
+  * **[planning/](src/bioneuronai/planning/README.md)** — 每日 10 步驟計畫、進場前檢查（Pre-trade）、決策 Ledger 與自適應控制
+  * **strategies/** — 5 子策略、策略選擇與 Meta-Learner 策略融合
+  * **analysis/** — 新聞情緒分析、關鍵字解析、特徵工程與 Regime 狀態檢測
+  * **data/** — Binance 期貨 Connector、資料庫管理器、虛擬帳戶與 Paper Trading 連接器
+  * **risk_management/** — 倉位風控與 Kelly 資金管理
+  * **training/** — 歷史資料強化學習（RL）訓練管線
+* **[src/nlp/](src/nlp/README.md)** — 統一 `unified_v2_100m` 模型架構、對話引擎、BPE Tokenizer 及多任務訓練器
+* **src/rag/** — RAG 知識庫與 FAISS 向量索引服務
+* **src/schemas/** — 全系統共享資料契約（Single Source of Truth）
+* **[config/](config/README.md)** — 交易參數設定、事件過濾規則、優化權重及 `active_model.json` Promoted 模型配置來源
+* **[model/](model/README.md)** — 模型實體權重、詞表檔案（LFS 追蹤）
+* **[evolution_data/](evolution_data/README.md)** — 自定義進化與微調資料（JSON格式）
+* **[rl_models/](rl_models/README.md)** — 強化學習 PPO/SAC 模型權重儲存路徑
+* **[backtest/](backtest/README.md)** — 獨立歷史回測引擎與 Replay 服務
+* **[docs/](docs/README.md)** — 專案文件庫，包含 [ARCHITECTURE_OVERVIEW.md](docs/ARCHITECTURE_OVERVIEW.md)、[PROJECT_STATUS.md](docs/PROJECT_STATUS.md) 與各式操作手冊
 
 ---
 

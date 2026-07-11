@@ -44,35 +44,36 @@ class EventDatabase(Protocol):
 
 # 直接從 schemas 導入 (Single Source of Truth)
 from schemas.rag import EventRule  # noqa: E402
+
 logger.debug("已從 schemas.rag 導入 EventRule")
 
 
 class RuleBasedEvaluator:
     """
     規則式事件評估器 - 新聞大腦
-    
+
     核心功能：
     1. 使用關鍵字規則檢測重大事件
     2. 產生事件並存入 event_memory 資料庫
     3. 檢測事件結束條件 (Hard Stop) 並自動解析事件
     4. 為 strategy_fusion 提供 event_score
-    
+
     使用範例：
         from bioneuronai.analysis.news import RuleBasedEvaluator
-        
+
         evaluator = RuleBasedEvaluator()
-        
+
         # 評估一則新聞
         event_info = evaluator.evaluate_headline(
             headline="Breaking: Major exchange hacked, $100M stolen",
             source="Reuters",
             source_confidence=0.9
         )
-        
+
         if event_info:
             print(f"檢測到事件: {event_info['event_type']}, 分數: {event_info['score']}")
     """
-    
+
     # 預設規則定義
     DEFAULT_RULES: List[EventRule] = [
         # 戰爭/地緣政治
@@ -89,7 +90,7 @@ class RuleBasedEvaluator:
             base_score=-0.8,
             decay_hours=72
         ),
-        
+
         # 駭客/安全事件
         EventRule(
             event_type="HACK",
@@ -105,7 +106,7 @@ class RuleBasedEvaluator:
             base_score=-0.7,
             decay_hours=48
         ),
-        
+
         # 監管風險
         EventRule(
             event_type="REGULATION",
@@ -121,7 +122,7 @@ class RuleBasedEvaluator:
             base_score=-0.6,
             decay_hours=168  # 7天
         ),
-        
+
         # 總體經濟
         EventRule(
             event_type="MACRO",
@@ -137,7 +138,7 @@ class RuleBasedEvaluator:
             base_score=-0.5,
             decay_hours=120  # 5天
         ),
-        
+
         # 交易所問題
         EventRule(
             event_type="EXCHANGE_ISSUE",
@@ -153,7 +154,7 @@ class RuleBasedEvaluator:
             base_score=-0.65,
             decay_hours=48
         ),
-        
+
         # 正面事件：ETF批准
         EventRule(
             event_type="ETF_APPROVAL",
@@ -165,7 +166,7 @@ class RuleBasedEvaluator:
             base_score=0.8,
             decay_hours=72
         ),
-        
+
         # 正面事件：機構採用
         EventRule(
             event_type="INSTITUTIONAL",
@@ -178,7 +179,7 @@ class RuleBasedEvaluator:
             decay_hours=48
         ),
     ]
-    
+
     def __init__(self, custom_rules: Optional[List[EventRule]] = None):
         """
         初始化規則式評估器
@@ -220,7 +221,7 @@ class RuleBasedEvaluator:
             logger.warning(f"載入 event_rules.json 失敗（{exc}），使用 DEFAULT_RULES")
 
         return self.DEFAULT_RULES.copy()
-    
+
     def _connect_db(self) -> None:
         """連接資料庫管理器"""
         db_path = resolve_project_path("data/bioneuronai/trading/runtime/trading.db")
@@ -237,7 +238,7 @@ class RuleBasedEvaluator:
         if self._db is None:
             raise RuntimeError("RuleBasedEvaluator 資料庫未初始化")
         return self._db
-    
+
     def evaluate_headline(
         self,
         headline: str,
@@ -247,21 +248,21 @@ class RuleBasedEvaluator:
     ) -> Optional[Dict[str, Any]]:
         """
         評估單則新聞標題
-        
+
         Args:
             headline: 新聞標題
             source: 來源
             source_confidence: 來源可信度 (0-1)
             affected_symbols: 影響的交易對，逗號分隔
-            
+
         Returns:
             事件資訊 dict 或 None (無匹配)
         """
         headline_lower = headline.lower()
-        
+
         # 1. 先檢查是否有事件結束 (Hard Stop)
         self._check_termination_keywords(headline_lower)
-        
+
         # 2. 檢查是否觸發新事件
         for rule in self.rules:
             for keyword in rule.trigger_keywords:
@@ -275,9 +276,9 @@ class RuleBasedEvaluator:
                         affected_symbols=affected_symbols
                     )
                     return event_info
-        
+
         return None
-    
+
     def _create_event(
         self,
         rule: EventRule,
@@ -292,12 +293,12 @@ class RuleBasedEvaluator:
         event_id = hashlib.md5(
             f"{rule.event_type}_{headline}".encode()
         ).hexdigest()[:16]
-        
+
         # 構建終止條件描述
         termination_desc = None
         if rule.termination_keywords:
             termination_desc = f"Keywords: {', '.join(rule.termination_keywords[:3])}..."
-        
+
         event_info = {
             'event_id': event_id,
             'event_type': rule.event_type,
@@ -311,7 +312,7 @@ class RuleBasedEvaluator:
             'affected_symbols': affected_symbols,
             'metadata': f"matched: {matched_keyword}; decay_hours: {rule.decay_hours}"
         }
-        
+
         # 存入資料庫
         saved_id = self._require_db().save_event(event_info)
         if not saved_id:
@@ -354,7 +355,7 @@ class RuleBasedEvaluator:
             )
         except Exception as exc:
             logger.warning("建立 NewsEventContract 失敗（不中斷主流程）: %s", exc)
-    
+
     def _check_termination_keywords(self, headline_lower: str) -> None:
         """檢查是否有事件結束關鍵字，自動解析相關事件 (Hard Stop)"""
         db = self._require_db()
@@ -370,14 +371,14 @@ class RuleBasedEvaluator:
                             resolution_note=f"Terminated by keyword: {term_keyword}"
                         )
                         logger.info(f"🛑 Hard Stop: {rule.event_type} 事件已解析 (keyword: {term_keyword})")
-    
+
     def get_current_event_score(self, symbol: Optional[str] = None) -> Tuple[float, List[Dict[str, Any]]]:
         """
         獲取當前的事件總分
-        
+
         Args:
             symbol: 過濾特定交易對
-            
+
         Returns:
             (total_score, active_events_list)
         """
@@ -405,19 +406,19 @@ class RuleBasedEvaluator:
         except Exception as exc:
             logger.warning("取得事件強度失敗: %s", exc)
             return 0.0
-    
+
     def evaluate_news_batch(self, articles: List[NewsArticle]) -> List[Dict[str, Any]]:
         """
         批量評估新聞文章
-        
+
         Args:
             articles: NewsArticle 列表
-            
+
         Returns:
             檢測到的事件列表
         """
         detected_events = []
-        
+
         for article in articles:
             event_info = self.evaluate_headline(
                 headline=article.title,
@@ -425,21 +426,21 @@ class RuleBasedEvaluator:
                 source_confidence=article.source_credibility,
                 affected_symbols=','.join(article.coins_mentioned) if article.coins_mentioned else None
             )
-            
+
             if event_info:
                 detected_events.append(event_info)
-        
+
         if detected_events:
             logger.info(
                 f"📰 批量評估完成: 從 {len(articles)} 則新聞中檢測到 {len(detected_events)} 個事件"
             )
-        
+
         return detected_events
-    
+
     def cleanup_expired_events(self) -> int:
         """
         清理過期事件 (根據 decay_hours)
-        
+
         Returns:
             清理的事件數量
         """
@@ -447,19 +448,19 @@ class RuleBasedEvaluator:
 
         cleaned = 0
         active_events = db.get_active_events()
-        
+
         for event in active_events:
             # 從 metadata 解析 decay_hours
             metadata = event.get('metadata', '')
             decay_hours = 24  # 預設
-            
+
             if 'decay_hours:' in metadata:
                 try:
                     decay_str = metadata.split('decay_hours:')[1].strip()
                     decay_hours = int(decay_str.split(';')[0].strip())
                 except (ValueError, IndexError):
                     pass
-            
+
             # 檢查是否過期
             created_at = datetime.fromisoformat(event['created_at'])
             if datetime.now() > created_at + timedelta(hours=decay_hours):
@@ -468,10 +469,10 @@ class RuleBasedEvaluator:
                     resolution_note=f"Auto-expired after {decay_hours} hours"
                 )
                 cleaned += 1
-        
+
         if cleaned > 0:
             logger.info(f"🧹 已清理 {cleaned} 個過期事件")
-        
+
         return cleaned
 
 

@@ -24,24 +24,23 @@ BioNeuronAI 枚舉定義 - 按優先級分類
 
 from enum import Enum
 
-
 # ========== 第1優先級：國際標準/官方規範 (最高優先級) ==========
 # 必須完全遵循官方定義，不可隨意修改
 
 # 幣安期貨 API 官方標準枚舉
 class OrderType(str, Enum):
     """訂單類型 - 嚴格按照幣安期貨 API 官方文檔定義
-    
+
     參考: https://developers.binance.com/docs/derivatives
     最後驗證: 2026-01-22
-    
+
     注意: 條件訂單已於 2025-12-09 遷移至 Algo Service
     """
-    
+
     # 基本訂單類型
     MARKET = "MARKET"
     LIMIT = "LIMIT"
-    
+
     # 條件訂單類型 (已遷移到 Algo Service)
     STOP = "STOP"
     STOP_MARKET = "STOP_MARKET"
@@ -52,17 +51,17 @@ class OrderType(str, Enum):
 
 class OrderSide(str, Enum):
     """訂單方向 - 幣安期貨 API 官方標準"""
-    
+
     BUY = "BUY"
     SELL = "SELL"
 
 
 class OrderStatus(str, Enum):
     """訂單狀態 - 幣安期貨 API 官方標準
-    
+
     包含 Self-Trade Prevention (STP) 相關狀態
     """
-    
+
     NEW = "NEW"
     PARTIALLY_FILLED = "PARTIALLY_FILLED"
     FILLED = "FILLED"
@@ -75,11 +74,11 @@ class OrderStatus(str, Enum):
 
 class TimeInForce(str, Enum):
     """訂單有效期 - 幣安期貨 API 官方標準
-    
-    參考: https://developers.binance.com/docs/derivatives  
+
+    參考: https://developers.binance.com/docs/derivatives
     RPI 新增於 2025-11-18
     """
-    
+
     GTC = "GTC"  # Good Till Canceled
     IOC = "IOC"  # Immediate or Cancel
     FOK = "FOK"  # Fill or Kill
@@ -89,7 +88,7 @@ class TimeInForce(str, Enum):
 
 class TimeFrame(str, Enum):
     """時間框架 - 幣安 Kline 官方支援格式"""
-    
+
     MIN_1 = "1m"
     MIN_3 = "3m"
     MIN_5 = "5m"
@@ -112,7 +111,7 @@ class TimeFrame(str, Enum):
 
 class Environment(str, Enum):
     """運行環境 - 遵循 Python 部署標準慣例"""
-    
+
     PRODUCTION = "production"
     TESTNET = "testnet"  # 幣安測試網
     STAGING = "staging"
@@ -125,7 +124,7 @@ class Environment(str, Enum):
 
 class RiskLevel(str, Enum):
     """風險等級 - BioNeuronAI 統一風險評估標準"""
-    
+
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
@@ -134,14 +133,14 @@ class RiskLevel(str, Enum):
 
 class PositionType(str, Enum):
     """持倉類型 - 系統統一定義"""
-    
+
     LONG = "long"
     SHORT = "short"
 
 
 class SignalType(str, Enum):
     """交易信號類型 - AI 模型統一輸出格式"""
-    
+
     BUY = "buy"
     SELL = "sell"
     HOLD = "hold"
@@ -149,7 +148,7 @@ class SignalType(str, Enum):
 
 class SignalStrength(str, Enum):
     """信號強度 - AI 模型置信度分級"""
-    
+
     WEAK = "weak"
     MODERATE = "moderate"
     STRONG = "strong"
@@ -158,7 +157,7 @@ class SignalStrength(str, Enum):
 
 class StrategyState(str, Enum):
     """策略狀態 - 系統統一狀態管理"""
-    
+
     ACTIVE = "active"
     INACTIVE = "inactive"
     PAUSED = "paused"
@@ -168,7 +167,7 @@ class StrategyState(str, Enum):
 
 class CommandType(str, Enum):
     """命令類型 - 系統統一命令分類"""
-    
+
     TRADING = "trading"
     ANALYSIS = "analysis"
     PORTFOLIO = "portfolio"
@@ -180,7 +179,7 @@ class CommandType(str, Enum):
 
 class CommandStatus(str, Enum):
     """命令狀態 - 系統統一執行狀態"""
-    
+
     PENDING = "pending"
     RUNNING = "running"
     COMPLETED = "completed"
@@ -194,10 +193,10 @@ class CommandStatus(str, Enum):
 
 class StrategyType(str, Enum):
     """策略類型 - BioNeuronAI 專屬分類
-    
+
     ⚠️ 模組專屬枚舉：僅用於策略分析模組
     """
-    
+
     AI_ML = "ai_ml"
     AI_FUSION = "ai_fusion"  # AI 融合策略
     TECHNICAL = "technical"
@@ -218,10 +217,10 @@ class StrategyType(str, Enum):
 
 class DatabaseOperation(str, Enum):
     """資料庫操作類型 - 資料庫模組專屬
-    
+
     ⚠️ 模組專屬枚舉：僅用於資料庫操作模組
     """
-    
+
     CREATE = "create"
     READ = "read"
     UPDATE = "update"
@@ -232,10 +231,10 @@ class DatabaseOperation(str, Enum):
 
 class DatabaseStatus(str, Enum):
     """資料庫狀態 - 資料庫模組專屬
-    
+
     ⚠️ 模組專屬枚舉：僅用於資料庫連接管理
     """
-    
+
     CONNECTED = "connected"
     DISCONNECTED = "disconnected"
     CONNECTING = "connecting"
@@ -245,10 +244,10 @@ class DatabaseStatus(str, Enum):
 
 class MarketState(str, Enum):
     """市場狀態 - 市場分析模組專屬
-    
+
     ⚠️ 模組專屬枚舉：與官方 API 狀態不同，用於內部分析
     """
-    
+
     OPEN = "open"
     CLOSED = "closed"
     PRE_MARKET = "pre_market"
@@ -259,19 +258,19 @@ class MarketState(str, Enum):
 
 class MarketRegime(str, Enum):
     """市場體制 - 技術分析模組專屬
-    
+
     ⚠️ 模組專屬枚舉：僅用於市場狀態分析
-    
+
     更新: 2026-01-25 - 擴展更詳細的分類
     """
-    
+
     # 基礎分類
     BULL = "bull"  # 牛市
     BEAR = "bear"  # 熊市
     SIDEWAYS = "sideways"  # 橫盤
     VOLATILE = "volatile"  # 波動
     QUIET = "quiet"  # 平靜
-    
+
     # 詳細分類 (2026-01-25 新增)
     TRENDING_BULL = "trending_bull"       # 牛市趨勢
     TRENDING_BEAR = "trending_bear"       # 熊市趨勢
@@ -283,10 +282,10 @@ class MarketRegime(str, Enum):
 
 class Complexity(str, Enum):
     """策略複雜度 - 用於策略選擇器
-    
+
     2026-01-25 新增
     """
-    
+
     SIMPLE = "simple"
     MEDIUM = "medium"
     COMPLEX = "complex"
@@ -294,10 +293,10 @@ class Complexity(str, Enum):
 
 class MarketCondition(str, Enum):
     """市場條件 - 技術分析模組專屬
-    
+
     ⚠️ 模組專屬枚舉：僅用於市場條件判斷
     """
-    
+
     TRENDING_UP = "trending_up"
     TRENDING_DOWN = "trending_down"
     RANGING = "ranging"
@@ -309,10 +308,10 @@ class MarketCondition(str, Enum):
 
 class ApiStatus(str, Enum):
     """API 狀態 - API 管理模組專屬
-    
+
     ⚠️ 模組專屬枚舉：用於內部 API 狀態監控
     """
-    
+
     ONLINE = "online"
     OFFLINE = "offline"
     MAINTENANCE = "maintenance"
@@ -324,53 +323,53 @@ class ApiStatus(str, Enum):
 
 class EventType(str, Enum):
     """事件類型 - 事件驅動交易系統統一定義
-    
+
     用於新聞大腦 (RuleBasedEvaluator) 的事件分類。
     參考：國際新聞分類標準 + 加密貨幣市場特性
-    
+
     最後更新: 2026-01-25
     """
-    
+
     # 地緣政治
     WAR = "WAR"                          # 戰爭/軍事衝突
     GEOPOLITICAL = "GEOPOLITICAL"        # 地緣政治風險
-    
+
     # 安全事件
     HACK = "HACK"                        # 黑客攻擊/安全漏洞
     SECURITY_BREACH = "SECURITY_BREACH"  # 安全事件
-    
+
     # 監管相關
     REGULATION = "REGULATION"            # 監管政策變化
     LEGAL = "LEGAL"                      # 法律訴訟
-    
+
     # 宏觀經濟
     MACRO = "MACRO"                      # 宏觀經濟事件 (利率/通膨)
     FED = "FED"                          # 美聯儲相關
-    
+
     # 公司/項目事件
     EARNINGS = "EARNINGS"                # 財報發布
     PARTNERSHIP = "PARTNERSHIP"          # 合作夥伴關係
-    
+
     # 交易所相關
     EXCHANGE_ISSUE = "EXCHANGE_ISSUE"    # 交易所問題
     LISTING = "LISTING"                  # 上市/下架
-    
+
     # 技術事件
     NETWORK_ISSUE = "NETWORK_ISSUE"      # 網路問題/分叉
     UPGRADE = "UPGRADE"                  # 協議升級
-    
+
     # 其他
     OTHER = "OTHER"                      # 其他未分類事件
 
 
 class EventIntensity(str, Enum):
     """事件強度等級 - 事件驅動交易系統統一定義
-    
+
     用於評估事件對市場的影響程度。
-    
+
     最後更新: 2026-01-25
     """
-    
+
     LOW = "LOW"           # 低影響 - 可忽略或輕微調整
     MEDIUM = "MEDIUM"     # 中等影響 - 需要關注
     HIGH = "HIGH"         # 高影響 - 需要調整策略
@@ -381,12 +380,12 @@ class EventIntensity(str, Enum):
 
 class TradeEventType(str, Enum):
     """交易事件類型 - Event Sourcing 統一定義
-    
+
     用於交易系統事件溯源，記錄所有交易相關事件。
-    
+
     最後更新: 2026-02-14
     """
-    
+
     # 訂單生命週期事件
     ORDER_PLACED = "ORDER_PLACED"         # 訂單提交
     ORDER_ACCEPTED = "ORDER_ACCEPTED"     # 訂單被接受
@@ -396,26 +395,26 @@ class TradeEventType(str, Enum):
     ORDER_CANCELED = "ORDER_CANCELED"     # 訂單取消
     ORDER_EXPIRED = "ORDER_EXPIRED"       # 訂單過期
     ORDER_MODIFIED = "ORDER_MODIFIED"     # 訂單修改
-    
+
     # 倉位事件
     POSITION_OPENED = "POSITION_OPENED"   # 開倉
     POSITION_CLOSED = "POSITION_CLOSED"   # 平倉
     POSITION_INCREASED = "POSITION_INCREASED"  # 加倉
     POSITION_REDUCED = "POSITION_REDUCED"      # 減倉
     POSITION_LIQUIDATED = "POSITION_LIQUIDATED"  # 強制平倉
-    
+
     # 風險事件
     STOP_LOSS_TRIGGERED = "STOP_LOSS_TRIGGERED"        # 止損觸發
     TAKE_PROFIT_TRIGGERED = "TAKE_PROFIT_TRIGGERED"    # 止盈觸發
     MARGIN_CALL = "MARGIN_CALL"           # 追繳保證金
     RISK_LIMIT_REACHED = "RISK_LIMIT_REACHED"  # 達到風險限制
-    
+
     # 系統事件
     SIGNAL_GENERATED = "SIGNAL_GENERATED"  # 交易信號生成
     STRATEGY_STARTED = "STRATEGY_STARTED"  # 策略啟動
     STRATEGY_STOPPED = "STRATEGY_STOPPED"  # 策略停止
     STRATEGY_PAUSED = "STRATEGY_PAUSED"    # 策略暫停
-    
+
     # 帳戶事件
     DEPOSIT = "DEPOSIT"                   # 入金
     WITHDRAWAL = "WITHDRAWAL"             # 出金
@@ -425,10 +424,10 @@ class TradeEventType(str, Enum):
 
 class BacktestStatus(str, Enum):
     """回測狀態 - 回測系統統一定義
-    
+
     最後更新: 2026-02-14
     """
-    
+
     PENDING = "PENDING"         # 等待執行
     RUNNING = "RUNNING"         # 執行中
     COMPLETED = "COMPLETED"     # 完成
@@ -438,10 +437,10 @@ class BacktestStatus(str, Enum):
 
 class PredictionType(str, Enum):
     """ML 預測類型 - 機器學習模組統一定義
-    
+
     最後更新: 2026-02-14
     """
-    
+
     PRICE = "PRICE"             # 價格預測
     DIRECTION = "DIRECTION"     # 方向預測 (漲/跌)
     VOLATILITY = "VOLATILITY"   # 波動率預測
@@ -452,10 +451,10 @@ class PredictionType(str, Enum):
 
 class ModelStatus(str, Enum):
     """ML 模型狀態 - 機器學習模組統一定義
-    
+
     最後更新: 2026-02-14
     """
-    
+
     TRAINING = "TRAINING"       # 訓練中
     READY = "READY"             # 準備就緒
     DEPLOYED = "DEPLOYED"       # 已部署
@@ -465,10 +464,10 @@ class ModelStatus(str, Enum):
 
 class AlertSeverity(str, Enum):
     """警報嚴重程度 - 警報系統統一定義
-    
+
     最後更新: 2026-02-14
     """
-    
+
     INFO = "INFO"               # 資訊
     WARNING = "WARNING"         # 警告
     CRITICAL = "CRITICAL"       # 關鍵
@@ -477,26 +476,26 @@ class AlertSeverity(str, Enum):
 
 class AlertType(str, Enum):
     """警報類型 - 警報系統統一定義
-    
+
     最後更新: 2026-02-14
     """
-    
+
     # 價格警報
     PRICE_ABOVE = "PRICE_ABOVE"           # 價格超過
     PRICE_BELOW = "PRICE_BELOW"           # 價格低於
     PRICE_CHANGE_PCT = "PRICE_CHANGE_PCT" # 價格變化百分比
-    
+
     # 技術指標警報
     RSI_OVERBOUGHT = "RSI_OVERBOUGHT"     # RSI 超買
     RSI_OVERSOLD = "RSI_OVERSOLD"         # RSI 超賣
     MACD_CROSSOVER = "MACD_CROSSOVER"     # MACD 交叉
     VOLUME_SPIKE = "VOLUME_SPIKE"         # 成交量異常
-    
+
     # 風險警報
     DRAWDOWN_LIMIT = "DRAWDOWN_LIMIT"     # 回撤限制
     POSITION_LIMIT = "POSITION_LIMIT"     # 倉位限制
     MARGIN_WARNING = "MARGIN_WARNING"     # 保證金警告
-    
+
     # 系統警報
     API_ERROR = "API_ERROR"               # API 錯誤
     CONNECTION_LOST = "CONNECTION_LOST"   # 連接丟失
@@ -505,10 +504,10 @@ class AlertType(str, Enum):
 
 class NotificationChannel(str, Enum):
     """通知渠道 - 警報系統統一定義
-    
+
     最後更新: 2026-02-14
     """
-    
+
     EMAIL = "EMAIL"
     SMS = "SMS"
     TELEGRAM = "TELEGRAM"

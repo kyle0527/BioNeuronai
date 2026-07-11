@@ -130,7 +130,7 @@ $body = @{
   paper_initial_balance = 10000
   auto_trade = $true
   load_ai_model = $true
-  model_name = "my_100m_model"
+  model_name = "unified_v2_100m"
   warmup_model = $false
 } | ConvertTo-Json
 
@@ -220,7 +220,7 @@ $body = @{
   paper_initial_balance = 10000
   auto_trade = $false
   load_ai_model = $true
-  model_name = "my_100m_model"
+  model_name = "unified_v2_100m"
   warmup_model = $false
 } | ConvertTo-Json
 
@@ -290,7 +290,7 @@ $body = @{
   paper_initial_balance = 10000
   auto_trade = $true
   load_ai_model = $true
-  model_name = "my_100m_model"
+  model_name = "unified_v2_100m"
   warmup_model = $false
   confirm_live = "I_UNDERSTAND_LIVE_RISK"
 } | ConvertTo-Json

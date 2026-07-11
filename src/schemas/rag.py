@@ -6,13 +6,13 @@ RAG (Retrieval-Augmented Generation) 相關 Schema
 這些模型可以被其他模組引用，實現類型安全的數據交換。
 """
 
-from typing import List, Dict, Optional, Any
 from datetime import datetime
 from enum import Enum
+from typing import Any, Dict, List, Optional
+
 from pydantic import BaseModel, ConfigDict, Field
 
 from .enums import RiskLevel
-
 
 # ========== RAG 專用枚舉 ==========
 
@@ -34,7 +34,7 @@ class RAGCheckResult(str, Enum):
     WARNING = "warning"             # 警告，建議減少倉位
     DANGER = "danger"               # 危險，建議不交易
     CRITICAL = "critical"           # 嚴重，必須暫停
-    
+
     def to_risk_level(self) -> RiskLevel:
         """轉換為統一的 RiskLevel"""
         mapping = {
@@ -146,18 +146,18 @@ class PreTradeCheckResponse(BaseModel):
     risk_score: float = Field(ge=0.0, le=100.0, description="風險分數 0-100")
     can_trade: bool
     reason: str
-    
+
     # 詳細信息
     risks: List[RAGRiskItem] = Field(default_factory=list)
     news_sentiment: float = Field(default=0.0, ge=-1.0, le=1.0)
     news_count: int = Field(default=0, ge=0)
     positive_count: int = Field(default=0, ge=0)
     negative_count: int = Field(default=0, ge=0)
-    
+
     # 建議
     suggested_action: str = ""
     position_size_modifier: float = Field(default=1.0, ge=0.0, le=2.0)
-    
+
     # 來源統計
     internal_checks: int = Field(default=0, ge=0)
     external_searches: int = Field(default=0, ge=0)
@@ -237,15 +237,15 @@ class KnowledgeDocumentSchema(BaseModel):
 
 class EventContext(BaseModel):
     """事件上下文 - 來自新聞大腦的環境資訊
-    
+
     用於對接「新聞判斷與記憶中樞」(RuleBasedEvaluator)，
     提供事件驅動的交易調整。
-    
+
     遵循 Pydantic v2 最佳實踐：使用 BaseModel 而非 dataclass，
     以獲得完整的驗證、序列化和 JSON Schema 支援。
-    
+
     最後更新: 2026-01-25
-    
+
     Attributes:
         event_score: 環境評分 (-10 到 +10)，負值看空，正值看多
         event_type: 事件類型 (使用 EventType 枚舉或字串)
@@ -256,37 +256,37 @@ class EventContext(BaseModel):
         timestamp: 事件時間戳
     """
     event_score: float = Field(
-        default=0.0, 
-        ge=-10.0, 
-        le=10.0, 
+        default=0.0,
+        ge=-10.0,
+        le=10.0,
         description="環境評分：-10(極度看空) 到 +10(極度看多)"
     )
     event_type: Optional[str] = Field(
-        default=None, 
+        default=None,
         description="事件類型：WAR/HACK/REGULATION/MACRO/EARNINGS 等"
     )
     intensity: str = Field(
-        default="MEDIUM", 
+        default="MEDIUM",
         description="強度等級：LOW/MEDIUM/HIGH/EXTREME"
     )
     decay_factor: float = Field(
-        default=1.0, 
-        ge=0.0, 
-        le=1.0, 
+        default=1.0,
+        ge=0.0,
+        le=1.0,
         description="衰減因子：1.0=完全生效，0.0=已失效"
     )
     source_confidence: float = Field(
-        default=0.5, 
-        ge=0.0, 
-        le=1.0, 
+        default=0.5,
+        ge=0.0,
+        le=1.0,
         description="來源可信度"
     )
     affected_symbols: List[str] = Field(
-        default_factory=list, 
+        default_factory=list,
         description="受影響的交易對列表"
     )
     timestamp: Optional[datetime] = Field(
-        default=None, 
+        default=None,
         description="事件時間戳"
     )
     headline: Optional[str] = Field(
@@ -312,7 +312,7 @@ class EventContext(BaseModel):
         default_factory=dict,
         description="上游 RAG / event memory 補充資料",
     )
-    
+
     def get_effective_score(self) -> float:
         """計算有效評分 (考慮衰減和可信度)"""
         return self.event_score * self.decay_factor * self.source_confidence
@@ -341,13 +341,13 @@ class EventContext(BaseModel):
 
 class EventRule(BaseModel):
     """事件規則定義 - 用於 RuleBasedEvaluator
-    
+
     定義事件檢測規則，包含觸發關鍵字、終止關鍵字 (Hard Stop) 和評分參數。
-    
+
     遵循 Pydantic v2 最佳實踐。
-    
+
     最後更新: 2026-01-25
-    
+
     Attributes:
         event_type: 事件類型識別碼
         trigger_keywords: 觸發關鍵字列表
@@ -357,28 +357,28 @@ class EventRule(BaseModel):
         affected_symbols: 影響的交易對，None=全部
     """
     event_type: str = Field(
-        ..., 
+        ...,
         description="事件類型：WAR, HACK, REGULATION, MACRO 等"
     )
     trigger_keywords: List[str] = Field(
-        ..., 
+        ...,
         min_length=1,
         description="觸發關鍵字列表"
     )
     termination_keywords: List[str] = Field(
-        default_factory=list, 
+        default_factory=list,
         description="結束/Hard Stop 關鍵字列表"
     )
     base_score: float = Field(
-        ..., 
-        ge=-1.0, 
-        le=1.0, 
+        ...,
+        ge=-1.0,
+        le=1.0,
         description="基礎分數：-1.0(極度利空) 到 1.0(極度利多)"
     )
     decay_hours: int = Field(
-        default=24, 
-        ge=1, 
-        le=720, 
+        default=24,
+        ge=1,
+        le=720,
         description="事件衰減時間 (小時)"
     )
     affected_symbols: Optional[List[str]] = Field(
@@ -412,7 +412,7 @@ __all__ = [
     "NewsCategory",
     "SearchEngine",
     "RetrievalSource",
-    
+
     # 模型
     "RAGRiskItem",
     "RAGNewsItem",
@@ -422,7 +422,7 @@ __all__ = [
     "RetrievalQuery",
     "RetrievalResult",
     "KnowledgeDocumentSchema",
-    
+
     # 事件系統 (2026-01-25 新增)
     "EventContext",
     "EventRule",

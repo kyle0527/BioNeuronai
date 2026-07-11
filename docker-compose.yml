@@ -23,7 +23,8 @@ x-common: &common
     dockerfile: Dockerfile
     target: runtime
   env_file:
-    - .env
+    - path: .env
+      required: false
   volumes:
     - bioneuron-data:/app/data
     - bioneuron-logs:/app/logs

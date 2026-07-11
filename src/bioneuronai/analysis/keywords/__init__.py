@@ -15,13 +15,13 @@ Keywords 子模組
 使用方式:
     # 使用靜態包裝類（推薦）
     from bioneuronai.analysis.keywords import MarketKeywords
-    
+
     score, keywords = MarketKeywords.get_importance_score("BTC ETF 通過")
     sentiment, confidence = MarketKeywords.get_sentiment_bias("Fed升息")
-    
+
     # 或使用單例管理器
     from bioneuronai.analysis.keywords import get_keyword_manager
-    
+
     manager = get_keyword_manager()
     matches = manager.find_matches("比特幣創新高")
 
@@ -29,24 +29,23 @@ Keywords 子模組
 """
 
 # 資料模型
-from .models import Keyword, KeywordMatch, PredictionRecord
+# 關鍵字學習器
+from .learner import KeywordLearner  # ✅ 從新位置導入
 
 # 載入器
 from .loader import KeywordLoader
 
 # 核心管理器
 from .manager import KeywordManager, get_keyword_manager
+from .models import Keyword, KeywordMatch, PredictionRecord
 
 # 靜態工具類
 from .static_utils import MarketKeywords
 
-# 關鍵字學習器
-from .learner import KeywordLearner  # ✅ 從新位置導入
-
 __all__ = [
     # 資料模型
     'Keyword',
-    'KeywordMatch', 
+    'KeywordMatch',
     'PredictionRecord',
     # 載入器
     'KeywordLoader',

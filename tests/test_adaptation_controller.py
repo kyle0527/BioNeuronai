@@ -6,7 +6,6 @@ from bioneuronai.planning.adaptation_controller import (
     AutonomousMode,
 )
 
-
 PLAN_OK = {"execution_ready": True}
 PRETRADE_OK = [
     {"symbol": "BTCUSDT", "overall_assessment": {"status": "EXECUTE"}},

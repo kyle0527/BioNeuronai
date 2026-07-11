@@ -17,6 +17,7 @@ import type {
 } from './types'
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? ''
+type JsonRecord = Record<string, unknown>
 
 interface RestEnvelope<T = unknown> {
   success?: boolean
@@ -80,6 +81,12 @@ function arrayValue<T = unknown>(value: unknown): T[] {
   return Array.isArray(value) ? value as T[] : []
 }
 
+function objectValue(value: unknown): JsonRecord {
+  return value !== null && typeof value === 'object'
+    ? value as JsonRecord
+    : {}
+}
+
 function msToIso(value: unknown): string | undefined {
   const numeric = Number(value)
   if (!Number.isFinite(numeric) || numeric <= 0) {
@@ -120,34 +127,36 @@ function checklistItemStatus(value: unknown): 'pass' | 'fail' | 'warning' {
   return 'warning'
 }
 
-function mapBacktestRun(raw: any): BacktestRun {
-  const config = raw?.config ?? {}
-  const stats = raw?.stats ?? {}
-  const balance = numberValue(config.balance, numberValue(stats.initial_balance, numberValue(raw?.final_balance)))
-  const runId = stringValue(raw?.run_id, stringValue(raw?.id, 'unknown'))
+function mapBacktestRun(raw: unknown): BacktestRun {
+  const source = objectValue(raw)
+  const config = objectValue(source.config)
+  const stats = objectValue(source.stats)
+  const balance = numberValue(config.balance, numberValue(stats.initial_balance, numberValue(source.final_balance)))
+  const runId = stringValue(source.run_id, stringValue(source.id, 'unknown'))
 
   return {
     id: runId,
     run_id: runId,
-    symbol: stringValue(raw?.symbol, stringValue(config.symbol, 'UNKNOWN')),
-    interval: stringValue(raw?.interval, stringValue(config.interval, '-')),
-    start_date: stringValue(raw?.start_date, stringValue(config.start_date, '-')),
-    end_date: stringValue(raw?.end_date, stringValue(config.end_date, '-')),
+    symbol: stringValue(source.symbol, stringValue(config.symbol, 'UNKNOWN')),
+    interval: stringValue(source.interval, stringValue(config.interval, '-')),
+    start_date: stringValue(source.start_date, stringValue(config.start_date, '-')),
+    end_date: stringValue(source.end_date, stringValue(config.end_date, '-')),
     balance,
-    status: stringValue(raw?.status, 'unknown'),
-    created_at: stringValue(raw?.started_at, stringValue(raw?.completed_at, new Date().toISOString())),
+    status: stringValue(source.status, 'unknown'),
+    created_at: stringValue(source.started_at, stringValue(source.completed_at, new Date().toISOString())),
   }
 }
 
-function mapPortfolioAsset(raw: any, totalValue = 0): ApiPortfolioAsset {
-  const symbol = stringValue(raw?.symbol, 'UNKNOWN')
-  const quantity = numberValue(raw?.quantity)
-  const avgPrice = numberValue(raw?.avg_price, numberValue(raw?.avgPrice, numberValue(raw?.entryPrice)))
-  const currentPrice = numberValue(raw?.current_price, numberValue(raw?.currentPrice, avgPrice))
-  const value = numberValue(raw?.value, Math.abs(quantity) * currentPrice)
-  const pnl = numberValue(raw?.pnl, numberValue(raw?.unrealizedPnl))
-  const pnlPercent = numberValue(raw?.pnl_percent, numberValue(raw?.pnlPercent, numberValue(raw?.unrealizedPnlPercent)))
-  const allocation = numberValue(raw?.allocation, totalValue > 0 ? (value / totalValue) * 100 : 0)
+function mapPortfolioAsset(raw: unknown, totalValue = 0): ApiPortfolioAsset {
+  const source = objectValue(raw)
+  const symbol = stringValue(source.symbol, 'UNKNOWN')
+  const quantity = numberValue(source.quantity)
+  const avgPrice = numberValue(source.avg_price, numberValue(source.avgPrice, numberValue(source.entryPrice)))
+  const currentPrice = numberValue(source.current_price, numberValue(source.currentPrice, avgPrice))
+  const value = numberValue(source.value, Math.abs(quantity) * currentPrice)
+  const pnl = numberValue(source.pnl, numberValue(source.unrealizedPnl))
+  const pnlPercent = numberValue(source.pnl_percent, numberValue(source.pnlPercent, numberValue(source.unrealizedPnlPercent)))
+  const allocation = numberValue(source.allocation, totalValue > 0 ? (value / totalValue) * 100 : 0)
 
   return {
     symbol,
@@ -161,41 +170,44 @@ function mapPortfolioAsset(raw: any, totalValue = 0): ApiPortfolioAsset {
   }
 }
 
-function mapBacktestRunToTrade(raw: any): Trade {
-  const stats = raw?.stats ?? {}
-  const config = raw?.config ?? {}
-  const pnl = numberValue(raw?.final_balance, numberValue(stats.current_balance)) - numberValue(stats.initial_balance, numberValue(config.balance))
-  const runId = stringValue(raw?.run_id, stringValue(raw?.id, crypto.randomUUID()))
+function mapBacktestRunToTrade(raw: unknown): Trade {
+  const source = objectValue(raw)
+  const stats = objectValue(source.stats)
+  const config = objectValue(source.config)
+  const signalCounts = objectValue(source.signal_counts)
+  const pnl = numberValue(source.final_balance, numberValue(stats.current_balance)) - numberValue(stats.initial_balance, numberValue(config.balance))
+  const runId = stringValue(source.run_id, stringValue(source.id, crypto.randomUUID()))
 
   return {
     id: runId,
-    timestamp: stringValue(raw?.completed_at, stringValue(raw?.started_at, new Date().toISOString())),
-    symbol: stringValue(raw?.symbol, stringValue(config.symbol, 'UNKNOWN')),
-    type: numberValue(raw?.signal_counts?.buy) >= numberValue(raw?.signal_counts?.sell) ? 'buy' : 'sell',
-    quantity: numberValue(raw?.fills_recorded, numberValue(raw?.orders_recorded)),
-    price: numberValue(raw?.final_balance, numberValue(stats.current_balance)),
+    timestamp: stringValue(source.completed_at, stringValue(source.started_at, new Date().toISOString())),
+    symbol: stringValue(source.symbol, stringValue(config.symbol, 'UNKNOWN')),
+    type: numberValue(signalCounts.buy) >= numberValue(signalCounts.sell) ? 'buy' : 'sell',
+    quantity: numberValue(source.fills_recorded, numberValue(source.orders_recorded)),
+    price: numberValue(source.final_balance, numberValue(stats.current_balance)),
     pnl,
-    status: raw?.status === 'failed' ? 'failed' : raw?.status === 'running' ? 'pending' : 'completed',
+    status: source.status === 'failed' ? 'failed' : source.status === 'running' ? 'pending' : 'completed',
   }
 }
 
-function mapRunsToPerformance(runs: any[], days: number): ApiPerformanceDataPoint[] {
+function mapRunsToPerformance(runs: unknown[], days: number): ApiPerformanceDataPoint[] {
   const cutoff = days >= 999999 ? 0 : Date.now() - days * 86_400_000
   const sorted = runs
-    .filter(run => new Date(stringValue(run?.completed_at, stringValue(run?.started_at))).getTime() >= cutoff)
-    .sort((a, b) => new Date(stringValue(a?.completed_at, stringValue(a?.started_at))).getTime() - new Date(stringValue(b?.completed_at, stringValue(b?.started_at))).getTime())
+    .map(objectValue)
+    .filter(run => new Date(stringValue(run.completed_at, stringValue(run.started_at))).getTime() >= cutoff)
+    .sort((a, b) => new Date(stringValue(a.completed_at, stringValue(a.started_at))).getTime() - new Date(stringValue(b.completed_at, stringValue(b.started_at))).getTime())
 
   let cumulativePnl = 0
   return sorted.map(run => {
-    const stats = run?.stats ?? {}
-    const config = run?.config ?? {}
+    const stats = objectValue(run.stats)
+    const config = objectValue(run.config)
     const startingValue = numberValue(stats.initial_balance, numberValue(config.balance))
-    const endingValue = numberValue(run?.final_balance, numberValue(stats.current_balance, startingValue))
+    const endingValue = numberValue(run.final_balance, numberValue(stats.current_balance, startingValue))
     const dailyPnl = endingValue - startingValue
     cumulativePnl += dailyPnl
 
     return {
-      date: stringValue(run?.completed_at, stringValue(run?.started_at, new Date().toISOString())).slice(0, 10),
+      date: stringValue(run.completed_at, stringValue(run.started_at, new Date().toISOString())).slice(0, 10),
       pnl: cumulativePnl,
       daily_pnl: dailyPnl,
       value: endingValue,
@@ -205,20 +217,20 @@ function mapRunsToPerformance(runs: any[], days: number): ApiPerformanceDataPoin
 
 export const api = {
   async getStatus(): Promise<SystemStatus> {
-    const payload = await request<any>('/api/v1/status')
+    const payload = await request<JsonRecord>('/api/v1/status')
     const modules = Object.fromEntries(
-      arrayValue<any>(payload.modules).map(item => [String(item.name), Boolean(item.available)])
+      arrayValue<JsonRecord>(payload.modules).map(item => [String(item.name), Boolean(item.available)])
     )
 
     return {
       status: payload.all_ok ? 'healthy' : 'degraded',
       modules,
-      timestamp: payload.timestamp,
+      timestamp: stringValue(payload.timestamp, new Date().toISOString()),
     }
   },
 
   async getBacktestCatalog(): Promise<BacktestCatalog> {
-    const data = unwrap<any>(await request('/api/v1/backtest/catalog'))
+    const data = unwrap<JsonRecord>(await request('/api/v1/backtest/catalog'))
     const datasets = arrayValue<Record<string, unknown>>(data.datasets)
 
     return {
@@ -229,19 +241,21 @@ export const api = {
   },
 
   async getBacktestRuns(limit = 10): Promise<{ runs: BacktestRun[] }> {
-    const data = unwrap<any>(await request(`/api/v1/backtest/runs${query({ limit })}`))
-    return { runs: arrayValue<any>(data.runs).map(mapBacktestRun) }
+    const data = unwrap<JsonRecord>(await request(`/api/v1/backtest/runs${query({ limit })}`))
+    return { runs: arrayValue<unknown>(data.runs).map(mapBacktestRun) }
   },
 
   async getNewsSentiment(symbol: string): Promise<NewsSentiment> {
-    const data = unwrap<any>(await request('/api/v1/news', {
+    const data = unwrap<JsonRecord>(await request('/api/v1/news', {
       method: 'POST',
       body: JSON.stringify({ symbol, max_items: 10 }),
     }))
     const score = numberValue(data.sentiment_score, numberValue(data.score))
-    const highlights = arrayValue<any>(data.highlights).length > 0
+    const highlights = arrayValue<unknown>(data.highlights).length > 0
       ? arrayValue<string>(data.highlights)
-      : arrayValue<any>(data.articles ?? data.news).slice(0, 5).map(item => stringValue(item?.title, String(item)))
+      : arrayValue<unknown>(data.articles ?? data.news)
+        .slice(0, 5)
+        .map(item => stringValue(objectValue(item).title, String(item)))
 
     return {
       symbol,
@@ -252,11 +266,11 @@ export const api = {
   },
 
   async getPretradeChecklist(symbol: string, action: string): Promise<PretradeChecklist> {
-    const data = unwrap<any>(await request('/api/v1/pretrade', {
+    const data = unwrap<JsonRecord>(await request('/api/v1/pretrade', {
       method: 'POST',
       body: JSON.stringify({ symbol, action: normalizeTradeAction(action) }),
     }))
-    const assessment = data.overall_assessment ?? data.assessment ?? data
+    const assessment = objectValue(data.overall_assessment ?? data.assessment ?? data)
     const checkEntries = [
       ['Technical', assessment.technical_status ?? data.technical_status],
       ['Fundamental', assessment.fundamental_status ?? data.fundamental_status],
@@ -276,7 +290,7 @@ export const api = {
   },
 
   async inspectBacktest(config: BacktestConfig): Promise<BacktestInspectResponse> {
-    const data = unwrap<any>(await request(`/api/v1/backtest/inspect${query({
+    const data = unwrap<JsonRecord>(await request(`/api/v1/backtest/inspect${query({
       symbol: config.symbol,
       interval: config.interval,
       start_date: config.start_date,
@@ -294,7 +308,7 @@ export const api = {
   },
 
   async simulateBacktest(config: BacktestConfig): Promise<BacktestSimulateResponse> {
-    const data = unwrap<any>(await request('/api/v1/backtest/simulate', {
+    const data = unwrap<JsonRecord>(await request('/api/v1/backtest/simulate', {
       method: 'POST',
       body: JSON.stringify({
         symbol: config.symbol,
@@ -305,8 +319,8 @@ export const api = {
         end_date: config.end_date,
       }),
     }))
-    const summary = data.summary ?? data
-    const stats = summary.stats ?? {}
+    const summary = objectValue(data.summary ?? data)
+    const stats = objectValue(summary.stats)
     const finalBalance = numberValue(summary.final_balance, numberValue(stats.current_balance, config.balance))
     const pnl = numberValue(summary.pnl, numberValue(stats.total_realized_pnl, finalBalance - config.balance))
 
@@ -320,7 +334,7 @@ export const api = {
   },
 
   async runBacktest(config: BacktestConfig): Promise<BacktestRunResponse> {
-    const data = unwrap<any>(await request('/api/v1/backtest/run', {
+    const data = unwrap<JsonRecord>(await request('/api/v1/backtest/run', {
       method: 'POST',
       body: JSON.stringify({
         symbol: config.symbol,
@@ -332,10 +346,11 @@ export const api = {
       }),
     }))
 
+    const summary = objectValue(data.summary)
     return {
-      run_id: stringValue(data.run_id, stringValue(data.summary?.run_id, 'unknown')),
-      status: stringValue(data.status, stringValue(data.summary?.status, 'completed')),
-      message: data.message,
+      run_id: stringValue(data.run_id, stringValue(summary.run_id, 'unknown')),
+      status: stringValue(data.status, stringValue(summary.status, 'completed')),
+      message: stringValue(data.message) || undefined,
     }
   },
 
@@ -345,19 +360,19 @@ export const api = {
     language?: string
     symbol?: string
   }): Promise<{ response: string; latency_ms?: number; confidence?: number }> {
-    const data = await request<any>('/api/v1/chat', {
+    const data = await request<JsonRecord>('/api/v1/chat', {
       method: 'POST',
       body: JSON.stringify(payload),
     })
 
     if (data.success === false) {
-      throw new Error(data.text || 'Chat request failed')
+      throw new Error(stringValue(data.text, 'Chat request failed'))
     }
 
     return {
       response: stringValue(data.response, stringValue(data.text)),
-      latency_ms: data.latency_ms,
-      confidence: data.confidence,
+      latency_ms: data.latency_ms === undefined ? undefined : numberValue(data.latency_ms),
+      confidence: data.confidence === undefined ? undefined : numberValue(data.confidence),
     }
   },
 
@@ -384,23 +399,24 @@ export const api = {
   },
 
   async getAnalyticsPortfolio(): Promise<{ portfolio: ApiPortfolioAsset[] }> {
-    const dashboard = await request<any>('/api/v1/dashboard')
-    const rawPositions = arrayValue<any>(dashboard.positions)
-    const totalValue = rawPositions.reduce((sum, item) => {
-      const currentPrice = numberValue(item?.current_price, numberValue(item?.currentPrice, numberValue(item?.entryPrice)))
-      return sum + numberValue(item?.value, Math.abs(numberValue(item?.quantity)) * currentPrice)
+    const dashboard = await request<JsonRecord>('/api/v1/dashboard')
+    const rawPositions = arrayValue<unknown>(dashboard.positions)
+    const totalValue = rawPositions.reduce<number>((sum, item) => {
+      const position = objectValue(item)
+      const currentPrice = numberValue(position.current_price, numberValue(position.currentPrice, numberValue(position.entryPrice)))
+      return sum + numberValue(position.value, Math.abs(numberValue(position.quantity)) * currentPrice)
     }, 0)
 
     return { portfolio: rawPositions.map(item => mapPortfolioAsset(item, totalValue)) }
   },
 
   async getAnalyticsTrades(limit = 100): Promise<{ trades: Trade[] }> {
-    const data = unwrap<any>(await request(`/api/v1/backtest/runs${query({ limit })}`))
-    return { trades: arrayValue<any>(data.runs).map(mapBacktestRunToTrade) }
+    const data = unwrap<JsonRecord>(await request(`/api/v1/backtest/runs${query({ limit })}`))
+    return { trades: arrayValue<unknown>(data.runs).map(mapBacktestRunToTrade) }
   },
 
   async getAnalyticsPerformance(days = 30): Promise<{ performance: ApiPerformanceDataPoint[] }> {
-    const data = unwrap<any>(await request(`/api/v1/backtest/runs${query({ limit: 500 })}`))
-    return { performance: mapRunsToPerformance(arrayValue<any>(data.runs), days) }
+    const data = unwrap<JsonRecord>(await request(`/api/v1/backtest/runs${query({ limit: 500 })}`))
+    return { performance: mapRunsToPerformance(arrayValue<unknown>(data.runs), days) }
   },
 }

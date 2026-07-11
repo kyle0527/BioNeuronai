@@ -7,22 +7,25 @@ They do not replace the project's strategy logic.
 from __future__ import annotations
 
 import json
+import logging
 import math
 import re
-import logging
 from collections import deque
 from copy import deepcopy
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 
 from bioneuronai.strategies.selector.profile import GoldenProfileManager
-from .backtest_engine import BacktestEngine, BacktestConfig
+
+from .backtest_engine import BacktestConfig, BacktestEngine
 from .data_stream import DEFAULT_DATA_DIR, resolve_data_dir
 from .mock_connector import MockBinanceConnector
 from .runtime_store import ReplayRunRecorder, list_runs, load_run
+
+logger = logging.getLogger(__name__)
 
 
 def _build_engine_holder() -> Dict[str, Any]:
@@ -149,7 +152,10 @@ def _load_parameter_overrides(
         path = Path(parameter_overrides)
         if not path.exists():
             raise FileNotFoundError(f"找不到策略參數覆蓋檔: {path}")
-        return json.loads(path.read_text(encoding="utf-8"))
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(payload, dict):
+            raise ValueError(f"策略參數覆蓋檔必須是 JSON object: {path}")
+        return dict(payload)
     return dict(parameter_overrides)
 
 
@@ -187,7 +193,7 @@ def _rsi(closes: np.ndarray, period: int = 14) -> Optional[float]:
 
 
 def _interval_minutes(interval: str) -> int:
-    match = re.fullmatch(r"(\d+)([mhd])", interval.strip().lower())
+    match = re.fullmatch(r"(\d+)([mhdw])", interval.strip().lower())
     if not match:
         return 60
     value = int(match.group(1))
@@ -196,7 +202,9 @@ def _interval_minutes(interval: str) -> int:
         return value
     if unit == "h":
         return value * 60
-    return value * 1440
+    if unit == "d":
+        return value * 1440
+    return value * 10080
 
 
 def _duration_to_bars(value: Any, interval: str) -> Optional[int]:
@@ -298,7 +306,8 @@ def _compute_walk_forward_split(
     """計算 Walk-Forward IS/OOS 切割日期（split_ratio% 為 IS，其餘為 OOS）。"""
     if not start_date or not end_date:
         return None
-    from datetime import datetime as _dt, timedelta as _td
+    from datetime import datetime as _dt
+    from datetime import timedelta as _td
     try:
         start = _dt.strptime(start_date, "%Y-%m-%d")
         end = _dt.strptime(end_date, "%Y-%m-%d")
@@ -332,8 +341,12 @@ def _template_entry_signal(
         slow = _sma(closes, slow_period)
         prev_fast = _sma(closes[:-1], fast_period)
         prev_slow = _sma(closes[:-1], slow_period)
-        if None in (fast, slow, prev_fast, prev_slow):
+        if any(value is None for value in (fast, slow, prev_fast, prev_slow)):
             return None
+        assert fast is not None
+        assert slow is not None
+        assert prev_fast is not None
+        assert prev_slow is not None
         trend_strength = abs(fast - slow) / current
         threshold = min(float(entry.get("trend_strength_min", 0.6)) / 100, 0.01)
         if fast > slow and (prev_fast <= prev_slow or trend_strength >= threshold):
@@ -1193,42 +1206,149 @@ def list_runtime_runs(limit: int = 20) -> Dict[str, Any]:
 
 
 # ============================================================================
-# 訓練資料收集：輸出 signal_history.jsonl 供 unified_trainer 使用
+# 訓練資料收集：輸出 unified v2 真實未來行情標籤供 unified_trainer 使用
 # ============================================================================
 
-def _try_load_inference_engine() -> Optional[Any]:
-    """嘗試載入 InferenceEngine；失敗時返回 None。"""
-    try:
-        from bioneuronai.core.inference_engine import InferenceEngine
-        ie = InferenceEngine()
-        ie.load_model()
-        return ie
-    except Exception:
-        return None
+def _one_hot(size: int, index: int) -> np.ndarray:
+    values = np.zeros(size, dtype=np.float32)
+    values[max(0, min(size - 1, index))] = 1.0
+    return values
 
 
-def _infer_signal(ie: Optional[Any], buf: deque) -> Optional[List[float]]:
-    """用 InferenceEngine 推算 signal 向量；失敗或 ie 為 None 時返回 None。"""
-    if ie is None:
-        return None
-    try:
-        feat_seq = np.stack(list(buf), axis=0)        # (seq_len, 1024)
-        signal_output, _ = ie.predictor.predict(feat_seq)
-        return signal_output.tolist()
-    except Exception:
-        return None
+def _hold_period_index(minutes: int) -> int:
+    buckets = [5, 15, 60, 240, 1440, 2880, 4320, 10080, 20160]
+    return min(range(len(buckets)), key=lambda index: abs(buckets[index] - minutes))
 
 
-def _extract_features(feature_pipeline: Any, bar: Any, connector: Any) -> Optional[List]:
+def _build_v2_signal_target(
+    entry_price: float,
+    future_bars: List[Any],
+    interval: str,
+) -> Tuple[np.ndarray, Dict[str, Any]]:
+    """依真實未來 K 線建立 65 維監督目標，不使用任何模型預測。"""
+    closes = np.asarray([float(bar.close) for bar in future_bars], dtype=np.float64)
+    highs = np.asarray([float(bar.high) for bar in future_bars], dtype=np.float64)
+    lows = np.asarray([float(bar.low) for bar in future_bars], dtype=np.float64)
+    returns = closes / entry_price - 1.0
+    final_return = float(returns[-1])
+    path_volatility = float(np.std(np.diff(np.log(np.maximum(closes, 1e-12)))))
+    direction_threshold = max(0.001, path_volatility * 1.5)
+    direction_index = 0 if final_return > direction_threshold else 2 if final_return < -direction_threshold else 1
+
+    target = np.zeros(65, dtype=np.float32)
+    target[0:3] = _one_hot(3, direction_index)
+    move_strength = abs(final_return) / max(path_volatility, 0.001)
+    confidence_index = 2 if move_strength >= 4 else 1 if move_strength >= 2 else 0
+    target[3:6] = _one_hot(3, confidence_index)
+
+    leverage = max(1, min(10, int(0.02 / max(path_volatility, 0.002))))
+    target[6:16] = _one_hot(10, leverage - 1)
+    target[16] = min(1.0, abs(final_return) / 0.05)
+
+    if direction_index == 0:
+        favorable = max(0.0, float(np.max(highs / entry_price - 1.0)))
+        adverse = max(0.0, float(np.max(1.0 - lows / entry_price)))
+        best_index = int(np.argmax(highs))
+    elif direction_index == 2:
+        favorable = max(0.0, float(np.max(1.0 - lows / entry_price)))
+        adverse = max(0.0, float(np.max(highs / entry_price - 1.0)))
+        best_index = int(np.argmin(lows))
+    else:
+        favorable = abs(final_return)
+        adverse = float(np.max(np.abs(returns)))
+        best_index = len(future_bars) - 1
+    target[17] = min(0.10, adverse)
+    target[18] = min(0.20, favorable)
+
+    hold_minutes = (best_index + 1) * _interval_minutes(interval)
+    target[19:29] = _one_hot(10, _hold_period_index(hold_minutes))
+    checkpoints = np.linspace(0, len(returns) - 1, 5, dtype=int)
+    target[29:34] = np.clip(returns[checkpoints] / max(direction_threshold, 1e-6), -1.0, 1.0)
+
+    last_bar = future_bars[-1]
+    previous_bar = future_bars[-2]
+    candle_range = max(float(last_bar.high) - float(last_bar.low), 1e-12)
+    body_ratio = abs(float(last_bar.close) - float(last_bar.open)) / candle_range
+    if body_ratio < 0.1:
+        target[53] = 1.0  # doji
+    elif (
+        float(previous_bar.close) < float(previous_bar.open)
+        and float(last_bar.close) > float(last_bar.open)
+        and float(last_bar.open) <= float(previous_bar.close)
+        and float(last_bar.close) >= float(previous_bar.open)
+    ):
+        target[51] = 1.0  # engulfing_bull
+    elif (
+        float(previous_bar.close) > float(previous_bar.open)
+        and float(last_bar.close) < float(last_bar.open)
+        and float(last_bar.open) >= float(previous_bar.close)
+        and float(last_bar.close) <= float(previous_bar.open)
+    ):
+        target[52] = 1.0  # engulfing_bear
+
+    path_efficiency = abs(final_return) / max(float(np.sum(np.abs(np.diff(closes) / closes[:-1]))), 1e-6)
+    target[54] = float(np.clip(1.0 - path_efficiency, 0.0, 1.0))
+    if final_return > direction_threshold * 3:
+        regime_index = 0
+    elif final_return > direction_threshold:
+        regime_index = 1
+    elif final_return < -direction_threshold * 3:
+        regime_index = 6
+    elif final_return < -direction_threshold:
+        regime_index = 5
+    elif path_volatility > 0.03:
+        regime_index = 4
+    else:
+        regime_index = 2
+    target[55:65] = _one_hot(10, regime_index)
+    outcome = {
+        "final_return": final_return,
+        "favorable_move": favorable,
+        "adverse_move": adverse,
+        "path_volatility": path_volatility,
+        "direction_index": direction_index,
+        "hold_minutes": hold_minutes,
+        "regime_index": regime_index,
+    }
+    return target, outcome
+
+
+def _build_bilingual_training_text(
+    symbol: str,
+    interval: str,
+    entry_price: float,
+    outcome: Dict[str, Any],
+) -> Tuple[str, str]:
+    direction = {0: ("做多", "LONG"), 1: ("觀望", "HOLD"), 2: ("做空", "SHORT")}[outcome["direction_index"]]
+    context = (
+        f"{symbol} {interval}，進場觀察價 {entry_price:.8f}。"
+        f"Market context for {symbol} on {interval}; observed price {entry_price:.8f}."
+    )
+    explanation = (
+        f"真實未來區間結果支持{direction[0]}：報酬 {outcome['final_return']:.4%}，"
+        f"最大有利移動 {outcome['favorable_move']:.4%}，最大不利移動 {outcome['adverse_move']:.4%}。 "
+        f"Real future outcome supports {direction[1]}: return {outcome['final_return']:.4%}, "
+        f"maximum favorable excursion {outcome['favorable_move']:.4%}, "
+        f"maximum adverse excursion {outcome['adverse_move']:.4%}."
+    )
+    return context, explanation
+
+
+def _extract_features(
+    feature_pipeline: Any,
+    bar: Any,
+    connector: Any,
+) -> Optional[List[Any]]:
     """提取當前 bar 的 1024 維特徵；資料不足或出錯時返回 None。"""
     klines = connector.data_stream.get_klines_until_now(300)
     if len(klines) < 30:
         return None
     try:
-        return feature_pipeline.build_features(
+        features = feature_pipeline.build_features(
             current_price=bar.close,
             klines=klines,
-        ).tolist()
+        )
+        return list(features.tolist())
     except Exception:
         return None
 
@@ -1244,28 +1364,34 @@ def collect_signal_training_data(
     seq_len: int = 16,
     output_path: Optional[Union[str, Path]] = None,
     max_samples: int = 50000,
+    future_horizon: int = 12,
 ) -> Dict[str, Any]:
     """
-    運行回測並收集 (feature_seq, signal_output) 對，輸出為 JSONL 格式。
+    運行回測並從真實未來行情建立 v2 數值、決策與雙語說明配對資料。
 
     每行格式：
     {
-        "features": [[f0...f1023], ...(共 seq_len 行)],   # shape (seq_len, 1024)
-        "signal":   [s0, s1, ..., s511]                   # shape (512,)
+        "features": [[f0...f63], ...(共 seq_len 行)],
+        "signal": [s0, ..., s64],
+        "context_text": "中英市場脈絡",
+        "explanation": "依真實未來結果建立的中英說明"
     }
 
-    輸出檔案預設位置：data/signal_history.jsonl
+    輸出檔案預設位置：data/unified_v2_training.jsonl
     可直接作為 unified_trainer.py --signal-data 的輸入。
 
     Args:
-        seq_len:      每個樣本包含幾個時間步（對應 TinyLLMConfig.numeric_seq_len=16）
-        output_path:  JSONL 輸出路徑（None 則用 data/signal_history.jsonl）
+        seq_len:      每個樣本包含幾個歷史時間步
+        output_path:  JSONL 輸出路徑（None 則用 data/unified_v2_training.jsonl）
         max_samples:  最多收集幾筆（避免過大）
+        future_horizon: 每筆 label 使用幾根真實未來 K 線
 
     Returns:
         {"samples_collected": N, "output_path": "..."}
     """
     import sys
+    if future_horizon < 2:
+        raise ValueError("future_horizon 必須至少為 2")
     _root = Path(__file__).resolve().parents[1]
     for p in [str(_root / "src"), str(_root)]:
         if p not in sys.path:
@@ -1277,57 +1403,88 @@ def collect_signal_training_data(
         return {"error": f"InferenceEngine 不可用: {exc}", "samples_collected": 0}
 
     resolved_root = resolve_data_dir(data_dir)
-    dest = Path(output_path) if output_path else (_root / "data" / "signal_history.jsonl")
+    dest = Path(output_path) if output_path else (_root / "data" / "unified_v2_training.jsonl")
     dest.parent.mkdir(parents=True, exist_ok=True)
 
     feature_pipeline = FeaturePipeline()
-    ie = _try_load_inference_engine()
-    if ie is None:
-        return {
-            "error": "InferenceEngine 無法載入，已停止收集以避免寫入全零 signal 標籤。",
-            "samples_collected": 0,
-        }
-
-    dest.write_text("", encoding="utf-8")   # 清空舊檔案
     buf: deque = deque(maxlen=seq_len)
+    pending: deque = deque()
     samples_collected = 0
     skipped_samples = 0
 
+    def _write_ready_samples(bar: Any, output_file: Any) -> None:
+        nonlocal samples_collected
+        for item in pending:
+            item["future_bars"].append(bar)
+        while pending and len(pending[0]["future_bars"]) >= future_horizon:
+            item = pending.popleft()
+            target, outcome = _build_v2_signal_target(
+                item["entry_price"], item["future_bars"], interval
+            )
+            context, explanation = _build_bilingual_training_text(
+                symbol, interval, item["entry_price"], outcome
+            )
+            record = {
+                "features": item["features"],
+                "signal": target.tolist(),
+                "context_text": context,
+                "explanation": explanation,
+                "future_outcome": outcome,
+            }
+            output_file.write(json.dumps(record, ensure_ascii=False) + "\n")
+            samples_collected += 1
+            if samples_collected >= max_samples:
+                pending.clear()
+                return
+
+    output_file = open(dest, "w", encoding="utf-8")
+
     def _collect_callback(bar: Any, connector: Any) -> None:
-        nonlocal samples_collected, skipped_samples
+        nonlocal skipped_samples
+        _write_ready_samples(bar, output_file)
         if samples_collected >= max_samples:
+            connector.data_stream.stop()
             return
         feats = _extract_features(feature_pipeline, bar, connector)
         if feats is None:
-            return
-        buf.append(feats)
-        if len(buf) < seq_len:
-            return
-        signal = _infer_signal(ie, buf)
-        if signal is None:
             skipped_samples += 1
             return
-        record = {"features": list(buf), "signal": signal}
-        with open(dest, "a", encoding="utf-8") as f:
-            f.write(json.dumps(record, ensure_ascii=False) + "\n")
-        samples_collected += 1
+        buf.append(feats)
+        if len(buf) < seq_len or samples_collected >= max_samples:
+            return
+        compact = feature_pipeline.to_v2_patch(
+            np.asarray(list(buf), dtype=np.float32)
+        )
+        pending.append(
+            {
+                "features": compact.tolist(),
+                "entry_price": float(bar.close),
+                "future_bars": [],
+            }
+        )
 
-    engine = BacktestEngine(
-        data_dir=resolved_root,
-        symbol=symbol,
-        interval=interval,
-        start_date=start_date,
-        end_date=end_date,
-        initial_balance=balance,
-    )
-    engine.config.warmup_bars = warmup_bars
-    engine.run(_collect_callback, print_summary=False)
+    try:
+        engine = BacktestEngine(
+            data_dir=resolved_root,
+            symbol=symbol,
+            interval=interval,
+            start_date=start_date,
+            end_date=end_date,
+            initial_balance=balance,
+        )
+        engine.config.warmup_bars = warmup_bars
+        engine.run(_collect_callback, print_summary=False)
+    finally:
+        output_file.close()
+    skipped_samples += len(pending)
 
     return {
         "samples_collected": samples_collected,
         "skipped_samples": skipped_samples,
         "output_path": str(dest),
         "seq_len": seq_len,
+        "future_horizon": future_horizon,
+        "label_source": "real_future_market_outcome",
     }
 
 

@@ -14,11 +14,11 @@ Trading Virtual Account - 訂單 / 帳戶 / 持倉狀態層
 """
 
 import logging
-from typing import Callable, Dict, List, Optional, Any
+import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-import uuid
+from typing import Any, Callable, Dict, List, Optional
 
 from schemas.enums import OrderSide, OrderStatus, OrderType
 
@@ -51,7 +51,7 @@ class VirtualOrder:
     stop_price: Optional[float] = None  # 止損/止盈觸發價
     reduce_only: bool = False
     time_in_force: Optional[str] = None
-    
+
     def to_dict(self) -> Dict[str, Any]:
         return {
             'orderId': self.order_id,
@@ -82,16 +82,16 @@ class VirtualPosition:
     leverage: int = 1
     margin: float = 0.0
     liquidation_price: float = 0.0
-    
+
     def update_mark_price(self, price: float):
         """更新標記價格和未實現盈虧"""
         self.mark_price = price
-        
+
         if self.side == PositionSide.LONG:
             self.unrealized_pnl = (price - self.entry_price) * self.quantity
         else:  # SHORT
             self.unrealized_pnl = (self.entry_price - price) * self.quantity
-    
+
     def to_dict(self) -> Dict[str, Any]:
         return {
             'symbol': self.symbol,
@@ -118,7 +118,7 @@ class TradeRecord:
     commission: float
     realized_pnl: float
     timestamp: datetime
-    
+
     def to_dict(self) -> Dict[str, Any]:
         return {
             'tradeId': self.trade_id,
@@ -136,7 +136,7 @@ class TradeRecord:
 class VirtualAccount:
     """
     虛擬交易帳戶
-    
+
     完整模擬真實帳戶的所有功能：
     - 帳戶餘額管理
     - 倉位追蹤和更新
@@ -145,13 +145,13 @@ class VirtualAccount:
     - 滑點模擬
     - 資金費率模擬
     - 保證金和清算計算
-    
+
     費率設定 (模擬 Binance Futures):
     - Maker Fee: 0.02%
     - Taker Fee: 0.04%
     - 滑點: 0.01% ~ 0.05% (根據訂單大小)
     """
-    
+
     def __init__(
         self,
         initial_balance: float = 10000.0,
@@ -164,7 +164,7 @@ class VirtualAccount:
     ):
         """
         初始化虛擬帳戶
-        
+
         Args:
             initial_balance: 初始餘額 (USDT)
             maker_fee: Maker 手續費率
@@ -183,17 +183,17 @@ class VirtualAccount:
         self.leverage = leverage
         self.margin_call_level = margin_call_level
         self.liquidation_level = liquidation_level
-        
+
         # 倉位管理 {symbol: VirtualPosition}
         self.positions: Dict[str, VirtualPosition] = {}
-        
+
         # 訂單管理
         self.open_orders: Dict[str, VirtualOrder] = {}  # 未成交訂單
         self.order_history: List[VirtualOrder] = []
-        
+
         # 交易記錄
         self.trade_history: List[TradeRecord] = []
-        
+
         # 統計數據
         self.stats = {
             'total_trades': 0,
@@ -204,7 +204,7 @@ class VirtualAccount:
             'max_drawdown': 0.0,
             'peak_balance': initial_balance,
         }
-        
+
         # 當前市場價格 {symbol: price}
         self._current_prices: Dict[str, float] = {}
 
@@ -214,7 +214,7 @@ class VirtualAccount:
 
         logger.info(f"虛擬帳戶初始化: 餘額 {initial_balance} USDT, 槓桿 {leverage}x")
         logger.info(f"費率: Maker {maker_fee*100:.2f}%, Taker {taker_fee*100:.2f}%")
-    
+
     def set_close_callback(self, callback: Callable) -> None:
         """設置平倉回調函數，當倉位完全關閉時自動呼叫。
 
@@ -231,54 +231,54 @@ class VirtualAccount:
     ):
         """
         更新市場價格 (每根 K線結束時調用)
-        
+
         這會觸發：
         1. 倉位未實現盈虧更新
         2. 止損/止盈訂單檢查
         3. 強平檢查
         """
         self._current_prices[symbol] = price
-        
+
         # 更新倉位盈虧
         if symbol in self.positions:
             self.positions[symbol].update_mark_price(price)
-        
+
         # 檢查掛單撮合 / 觸發訂單
         self._check_trigger_orders(symbol, price, high=high, low=low)
-        
+
         # 檢查是否需要強平
         self._check_liquidation(symbol, price)
-        
+
         # 更新可用餘額
         self._update_available_balance()
-    
+
     def get_price(self, symbol: str) -> float:
         """獲取當前價格"""
         return self._current_prices.get(symbol, 0.0)
-    
+
     def _calculate_slippage(self, quantity: float, price: float, side: OrderSide) -> float:
         """
         計算滑點
-        
+
         滑點模型：
         - 基礎滑點 + 數量影響
         - 大單滑點更大
         """
         # 計算名義價值
         notional = quantity * price
-        
+
         # 數量係數 (大單滑點更大)
         size_factor = 1 + (notional / 100000)  # 每 10 萬美元增加 1
-        
+
         # 實際滑點率
         actual_slippage = self.slippage_rate * size_factor
-        
+
         # 滑點方向：買入時價格變高，賣出時價格變低
         if side == OrderSide.BUY:
             return price * (1 + actual_slippage)
         else:
             return price * (1 - actual_slippage)
-    
+
     def _calculate_commission(self, quantity: float, price: float, is_taker: bool = True) -> float:
         """計算手續費"""
         fee_rate = self.taker_fee if is_taker else self.maker_fee
@@ -305,7 +305,7 @@ class VirtualAccount:
         )
         required_margin = (order.quantity * reference_price) / self.leverage
         return required_margin + commission
-    
+
     def place_order(
         self,
         symbol: str,
@@ -319,7 +319,7 @@ class VirtualAccount:
     ) -> VirtualOrder:
         """
         下單 - 模擬 Binance 下單接口
-        
+
         Args:
             symbol: 交易對
             side: BUY/SELL
@@ -329,14 +329,14 @@ class VirtualAccount:
             stop_price: 止損/止盈觸發價
             reduce_only: 是否僅減倉
             time_in_force: 訂單有效期
-            
+
         Returns:
             VirtualOrder: 訂單對象
         """
         order_id = str(uuid.uuid4())[:8].upper()
         order_side = OrderSide(side.upper())
         order_type_enum = OrderType(order_type.upper())
-        
+
         order = VirtualOrder(
             order_id=order_id,
             symbol=symbol,
@@ -367,25 +367,25 @@ class VirtualAccount:
                 )
                 self.order_history.append(order)
                 return order
-        
+
         # 市價單立即撮合
         if order_type_enum == OrderType.MARKET:
             self._execute_market_order(order)
-        
+
         # 限價單加入掛單列表
         elif order_type_enum == OrderType.LIMIT:
             self.open_orders[order_id] = order
             logger.info(f"📝 限價單掛單: {side} {quantity} {symbol} @ {price}")
-        
+
         # 止損/止盈單加入觸發列表
         elif order_type_enum in [OrderType.STOP_MARKET, OrderType.TAKE_PROFIT_MARKET]:
             self.open_orders[order_id] = order
             logger.info(f"🎯 條件單設置: {side} {quantity} {symbol} 觸發價 {stop_price}")
-        
+
         self.order_history.append(order)
         self._update_available_balance()
         return order
-    
+
     def _execute_market_order(self, order: VirtualOrder):
         """執行市價單"""
         current_price = self._current_prices.get(order.symbol, 0)
@@ -493,20 +493,20 @@ class VirtualAccount:
             f"✅ 訂單成交: {order.side.value} {order.quantity} {order.symbol} "
             f"@ {fill_price:.2f} (手續費: {commission:.4f})"
         )
-    
+
     def _update_position(self, order: VirtualOrder) -> float:
         """
         更新倉位
-        
+
         Returns:
             實現盈虧
         """
         symbol = order.symbol
         realized_pnl = 0.0
-        
+
         # 獲取現有倉位
         existing_pos = self.positions.get(symbol)
-        
+
         if existing_pos is None:
             # 開新倉
             if order.side == OrderSide.BUY:
@@ -529,17 +529,17 @@ class VirtualAccount:
                     leverage=self.leverage,
                     margin=(order.filled_quantity * order.filled_price) / self.leverage
                 )
-            
+
             self.positions[symbol] = new_pos
             logger.info(f"📈 開倉: {new_pos.side.value} {new_pos.quantity} {symbol} @ {new_pos.entry_price:.2f}")
-            
+
         else:
             # 已有倉位
             is_same_direction = (
                 (existing_pos.side == PositionSide.LONG and order.side == OrderSide.BUY) or
                 (existing_pos.side == PositionSide.SHORT and order.side == OrderSide.SELL)
             )
-            
+
             if is_same_direction:
                 # 加倉 - 計算加權平均入場價
                 total_value = existing_pos.quantity * existing_pos.entry_price + order.filled_quantity * order.filled_price
@@ -551,9 +551,9 @@ class VirtualAccount:
                 existing_pos.entry_price = total_value / total_quantity
                 existing_pos.quantity = total_quantity
                 existing_pos.margin = (total_quantity * existing_pos.entry_price) / self.leverage
-                
+
                 logger.info(f"📈 加倉: {existing_pos.side.value} 總數量 {existing_pos.quantity} @ 均價 {existing_pos.entry_price:.2f}")
-                
+
             else:
                 # 平倉或反向開倉
                 if order.filled_quantity >= existing_pos.quantity:
@@ -576,7 +576,7 @@ class VirtualAccount:
                     remaining = order.filled_quantity - existing_pos.quantity
 
                     logger.info(f"📉 平倉: 實現盈虧 {realized_pnl:+.2f} USDT")
-                    
+
                     if remaining > 0:
                         # 反向開倉
                         new_side = PositionSide.SHORT if existing_pos.side == PositionSide.LONG else PositionSide.LONG
@@ -599,16 +599,16 @@ class VirtualAccount:
                         realized_pnl = (order.filled_price - existing_pos.entry_price) * order.filled_quantity
                     else:
                         realized_pnl = (existing_pos.entry_price - order.filled_price) * order.filled_quantity
-                    
+
                     self.balance += realized_pnl
                     existing_pos.quantity -= order.filled_quantity
                     existing_pos.margin = (existing_pos.quantity * existing_pos.entry_price) / self.leverage
-                    
+
                     logger.info(f"📉 部分平倉: {order.filled_quantity} 實現盈虧 {realized_pnl:+.2f} USDT")
-        
+
         self._update_available_balance()
         return realized_pnl
-    
+
     def _check_trigger_orders(
         self,
         symbol: str,
@@ -618,11 +618,11 @@ class VirtualAccount:
     ):
         """檢查觸發訂單 (止損/止盈)"""
         orders_to_execute = []
-        
+
         for order_id, order in list(self.open_orders.items()):
             if order.symbol != symbol:
                 continue
-            
+
             if order.status != OrderStatus.NEW:
                 continue
 
@@ -640,14 +640,14 @@ class VirtualAccount:
                     orders_to_execute.append(order)
                 elif order.side == OrderSide.BUY and price >= order.stop_price:
                     orders_to_execute.append(order)
-            
+
             elif order.order_type == OrderType.TAKE_PROFIT_MARKET and order.stop_price:
                 # 止盈單: 賣出方向價格漲破觸發價，買入方向價格跌破觸發價
                 if order.side == OrderSide.SELL and price >= order.stop_price:
                     orders_to_execute.append(order)
                 elif order.side == OrderSide.BUY and price <= order.stop_price:
                     orders_to_execute.append(order)
-        
+
         # 執行觸發的訂單
         for order in orders_to_execute:
             if order.order_type == OrderType.LIMIT:
@@ -659,14 +659,14 @@ class VirtualAccount:
                 logger.info(f"🎯 觸發條件單: {order.order_type.value} {order.side.value} @ {price:.2f}")
                 self._execute_market_order(order)
             del self.open_orders[order.order_id]
-    
+
     def _check_liquidation(self, symbol: str, price: float):
         """檢查是否需要強平"""
         if symbol not in self.positions:
             return
-        
+
         pos = self.positions[symbol]
-        
+
         # 計算清算價格 (簡化版)
         if pos.side == PositionSide.LONG:
             liq_price = pos.entry_price * (1 - 1 / self.leverage * self.liquidation_level)
@@ -678,29 +678,29 @@ class VirtualAccount:
             if price >= liq_price:
                 logger.warning(f"⚠️ 強制平倉觸發! {symbol} 價格 {price:.2f} >= 清算價 {liq_price:.2f}")
                 self._liquidate_position(symbol)
-    
+
     def _liquidate_position(self, symbol: str):
         """強制平倉"""
         pos = self.positions.get(symbol)
         if not pos:
             return
-        
+
         # 以當前價格強平
         current_price = self._current_prices.get(symbol, pos.mark_price)
-        
+
         # 計算虧損
         if pos.side == PositionSide.LONG:
             loss = (pos.entry_price - current_price) * pos.quantity
         else:
             loss = (current_price - pos.entry_price) * pos.quantity
-        
+
         # 扣除損失 (加上清算手續費)
         liquidation_fee = pos.margin * 0.05  # 5% 清算手續費
         total_loss = loss + liquidation_fee
-        
+
         self.balance -= total_loss
         self.stats['total_commission'] += liquidation_fee
-        
+
         logger.error(f"💀 強制平倉完成: {symbol} 損失 {total_loss:.2f} USDT")
 
         # 刪除倉位（pos 局部變數仍持有引用，可繼續讀取）
@@ -721,9 +721,9 @@ class VirtualAccount:
 
         # 取消相關訂單
         self._cancel_symbol_orders(symbol)
-        
+
         self._update_available_balance()
-    
+
     def _cancel_symbol_orders(self, symbol: str):
         """取消某個交易對的所有掛單"""
         orders_to_cancel = [
@@ -733,7 +733,7 @@ class VirtualAccount:
         for order_id in orders_to_cancel:
             self.open_orders[order_id].status = OrderStatus.CANCELED
             del self.open_orders[order_id]
-    
+
     def _update_available_balance(self):
         """更新可用餘額"""
         # 計算已用保證金
@@ -742,27 +742,27 @@ class VirtualAccount:
             self._estimate_order_reservation(order)
             for order in self.open_orders.values()
         )
-        
+
         # 計算未實現盈虧
         unrealized_pnl = sum(pos.unrealized_pnl for pos in self.positions.values())
-        
+
         # 可用餘額 = 餘額 + 未實現盈虧 - 已用保證金 - 未成交開倉單保留額度
         self.available_balance = self.balance + unrealized_pnl - used_margin - reserved_margin
-    
+
     def get_balance(self) -> float:
         """獲取餘額"""
         return self.balance
-    
+
     def get_available_balance(self) -> float:
         """獲取可用餘額"""
         self._update_available_balance()
         return self.available_balance
-    
+
     def get_total_equity(self) -> float:
         """獲取總權益 (餘額 + 未實現盈虧)"""
         unrealized_pnl = sum(pos.unrealized_pnl for pos in self.positions.values())
         return self.balance + unrealized_pnl
-    
+
     def get_position(self, symbol: str) -> Optional[VirtualPosition]:
         """獲取指定交易對的倉位"""
         return self.positions.get(symbol)
@@ -776,7 +776,7 @@ class VirtualAccount:
         """回傳指定交易對的倉位快照。"""
         position = self.get_position(symbol)
         return position.to_dict() if position else None
-    
+
     def get_all_positions(self) -> List[VirtualPosition]:
         """獲取所有倉位"""
         return list(self.positions.values())
@@ -834,7 +834,7 @@ class VirtualAccount:
             "open_orders_count": len(self.open_orders),
             "positions_count": len(self.positions),
         }
-    
+
     def get_account_info(self) -> Dict[str, Any]:
         """
         獲取帳戶信息 - 模擬 Binance API 返回格式
@@ -842,7 +842,7 @@ class VirtualAccount:
         positions_data = []
         for pos in self.positions.values():
             positions_data.append(pos.to_dict())
-        
+
         assets = [{
             'asset': 'USDT',
             'walletBalance': str(self.balance),
@@ -850,7 +850,7 @@ class VirtualAccount:
             'unrealizedProfit': str(sum(p.unrealized_pnl for p in self.positions.values())),
             'marginBalance': str(self.get_total_equity()),
         }]
-        
+
         return {
             'totalWalletBalance': str(self.balance),
             'availableBalance': str(self.available_balance),
@@ -859,14 +859,14 @@ class VirtualAccount:
             'assets': assets,
             'positions': positions_data,
         }
-    
+
     def get_stats(self) -> Dict[str, Any]:
         """獲取統計數據"""
         win_rate = (
             self.stats['winning_trades'] / self.stats['total_trades'] * 100
             if self.stats['total_trades'] > 0 else 0
         )
-        
+
         return {
             'initial_balance': self.initial_balance,
             'current_balance': self.balance,
@@ -881,7 +881,7 @@ class VirtualAccount:
             'max_drawdown': self.stats['max_drawdown'] * 100,
             'peak_balance': self.stats['peak_balance'],
         }
-    
+
     def cancel_order(self, order_id: str) -> bool:
         """取消訂單"""
         if order_id in self.open_orders:
@@ -891,22 +891,22 @@ class VirtualAccount:
             logger.info(f"❌ 訂單已取消: {order_id}")
             return True
         return False
-    
+
     def cancel_all_orders(self, symbol: Optional[str] = None) -> int:
         """取消所有訂單"""
         count = 0
         orders_to_cancel = []
-        
+
         for order_id, order in self.open_orders.items():
             if symbol is None or order.symbol == symbol:
                 orders_to_cancel.append(order_id)
-        
+
         for order_id in orders_to_cancel:
             self.cancel_order(order_id)
             count += 1
-        
+
         return count
-    
+
     def reset(self):
         """重置帳戶"""
         self.balance = self.initial_balance
@@ -916,7 +916,7 @@ class VirtualAccount:
         self.order_history.clear()
         self.trade_history.clear()
         self._current_prices.clear()
-        
+
         self.stats = {
             'total_trades': 0,
             'winning_trades': 0,
@@ -926,5 +926,5 @@ class VirtualAccount:
             'max_drawdown': 0.0,
             'peak_balance': self.initial_balance,
         }
-        
+
         logger.info(f"🔄 帳戶已重置: 餘額 {self.initial_balance} USDT")

@@ -39,9 +39,9 @@
   [50~59] 過去 10 根 K 線的標準化成交量序列
 """
 
-import numpy as np
-from typing import Optional
+from typing import Optional, Union
 
+import numpy as np
 
 MARKET_FEATURE_DIM = 60
 EVENT_FEATURE_DIM = 8
@@ -66,7 +66,7 @@ class FeatureExtractor:
 
         o = ohlcv[:, 0].astype(float)
         h = ohlcv[:, 1].astype(float)
-        l = ohlcv[:, 2].astype(float)
+        low = ohlcv[:, 2].astype(float)
         c = ohlcv[:, 3].astype(float)
         v = ohlcv[:, 4].astype(float)
 
@@ -101,11 +101,11 @@ class FeatureExtractor:
         feats.append(np.clip(bb_pos, 0, 1))                                 # [8]
 
         # ── ATR(14) ───────────────────────────────────────────────
-        atr = self._atr(h, l, c, 14)
+        atr = self._atr(h, low, c, 14)
         feats.append(np.clip(atr / price * 100, 0, 10))                     # [9]
 
         # ── ADX(14) ───────────────────────────────────────────────
-        adx = self._adx(h, l, c, 14)
+        adx = self._adx(h, low, c, 14)
         feats.append(np.clip(adx / 100.0, 0, 1))                            # [10]
 
         # ── 多週期動能 ────────────────────────────────────────────
@@ -127,18 +127,18 @@ class FeatureExtractor:
 
         # ── 價格分位 ──────────────────────────────────────────────
         high20 = h[-20:]
-        low20 = l[-20:]
+        low20 = low[-20:]
         h_max, h_min = np.max(high20), np.min(high20)
         l_max, l_min = np.max(low20), np.min(low20)
         feats.append((h[-1] - h_min) / (h_max - h_min) if h_max > h_min else 0.5)  # [18]
-        feats.append((l[-1] - l_min) / (l_max - l_min) if l_max > l_min else 0.5)  # [19]
+        feats.append((low[-1] - l_min) / (l_max - l_min) if l_max > l_min else 0.5)  # [19]
 
         # ── K 線形態 ──────────────────────────────────────────────
-        bar_range = h[-1] - l[-1]
+        bar_range = h[-1] - low[-1]
         body = c[-1] - o[-1]
         body_ratio = body / bar_range if bar_range > 0 else 0
         upper_shadow = (h[-1] - max(o[-1], c[-1])) / (atr if atr > 0 else 1)
-        lower_shadow = (min(o[-1], c[-1]) - l[-1]) / (atr if atr > 0 else 1)
+        lower_shadow = (min(o[-1], c[-1]) - low[-1]) / (atr if atr > 0 else 1)
         feats.append(np.clip(body_ratio, -1, 1))                             # [20]
         feats.append(np.clip(upper_shadow, 0, 3))                            # [21]
         feats.append(np.clip(lower_shadow, 0, 3))                            # [22]
@@ -149,16 +149,16 @@ class FeatureExtractor:
         feats.append(np.clip(np.std(returns[-5:]) * 100, 0, 5))              # [24]
 
         # ── Stochastic(14,3) ──────────────────────────────────────
-        stoch_k, stoch_d = self._stochastic(h, l, c, 14, 3)
+        stoch_k, stoch_d = self._stochastic(h, low, c, 14, 3)
         feats.append(np.clip(stoch_k, 0, 1))                                 # [25]
         feats.append(np.clip(stoch_d, 0, 1))                                 # [26]
 
         # ── Williams %R(14) ───────────────────────────────────────
-        wr = self._williams_r(h, l, c, 14)
+        wr = self._williams_r(h, low, c, 14)
         feats.append(np.clip((wr + 100) / 100.0, 0, 1))                      # [27]
 
         # ── CCI(14) ───────────────────────────────────────────────
-        cci = self._cci(h, l, c, 14)
+        cci = self._cci(h, low, c, 14)
         feats.append(np.tanh(cci / 200.0))                                   # [28]
 
         # ── ROC(10) ───────────────────────────────────────────────
@@ -223,7 +223,7 @@ class FeatureExtractor:
         avg_gain = np.mean(gains) if len(gains) > 0 else 0
         avg_loss = np.mean(losses) if len(losses) > 0 else 1e-8
         rs = avg_gain / avg_loss
-        return 100 - (100 / (1 + rs))
+        return float(100 - (100 / (1 + rs)))
 
     def _macd(self, close: np.ndarray):
         ema12 = self._ema(close, 12)
@@ -234,15 +234,15 @@ class FeatureExtractor:
 
     def _ema(self, close: np.ndarray, period: int) -> float:
         if len(close) < period:
-            return close[-1]
+            return float(close[-1])
         k = 2 / (period + 1)
         ema = close[-period]
         for price in close[-(period - 1):]:
             ema = price * k + ema * (1 - k)
-        return ema
+        return float(ema)
 
-    def _ema_scalar(self, series: np.ndarray, period: int) -> float:
-        if not hasattr(series, '__len__') or np.isscalar(series):
+    def _ema_scalar(self, series: Union[np.ndarray, float], period: int) -> float:
+        if not isinstance(series, np.ndarray):
             return float(series)
         arr = np.atleast_1d(series)
         if len(arr) < period:
@@ -251,7 +251,7 @@ class FeatureExtractor:
         ema = arr[-period]
         for v in arr[-(period - 1):]:
             ema = float(v) * k + ema * (1 - k)
-        return ema
+        return float(ema)
 
     def _atr(self, high: np.ndarray, low: np.ndarray, close: np.ndarray, period: int = 14) -> float:
         if len(close) < period + 1:

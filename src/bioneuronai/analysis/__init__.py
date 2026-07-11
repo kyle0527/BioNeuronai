@@ -32,15 +32,15 @@ BioNeuronai 加密貨幣市場分析工具集，提供完整的數據分析與�
 
 使用範例：
     from bioneuronai.analysis import CryptoNewsAnalyzer, MarketKeywords, DailyReport
-    
+
     # 新聞分析
     news_analyzer = CryptoNewsAnalyzer()
     result = news_analyzer.analyze_news("BTCUSDT")
-    
+
     # 關鍵字匹配
     keyword_manager = MarketKeywords()
     matches = keyword_manager.find_matches("Bitcoin ETF approved")
-    
+
     # 生成每日報告
     report = DailyReport()
     daily_analysis = report.generate_report("BTCUSDT")
@@ -52,59 +52,59 @@ Version: 1.0
 
 # 每日報告 (從 daily_report/ 子模組導入)
 from .daily_report import (
-    SOPAutomationSystem,
-    MarketEnvironmentCheck,
-    TradingPlanCheck,
     DailyMarketCondition,
-    StrategyPerformance,
-    DailyRiskLimits,
-    TradingPairsPriority,
     DailyReport,
+    DailyRiskLimits,
+    MarketEnvironmentCheck,
+    SOPAutomationSystem,
+    StrategyPerformance,
+    TradingPairsPriority,
+    TradingPlanCheck,
+)
+
+#
+from .feature_engineering import (
+    LiquidationCluster,
+    LiquidationHeatmap,
+    LiquidationHeatmapCalculator,
+    MarketDataProcessor,
+    MarketMicrostructure,
+    VolumeProfile,
+    VolumeProfileCalculator,
+    VolumeProfileLevel,
 )
 
 # 關鍵字系統 (從 keywords/ 子模組導入)
 from .keywords import (
     Keyword,
-    KeywordMatch,
-    PredictionRecord,
+    KeywordLearner,  # ✅ 從 learner.py 導入
     KeywordLoader,
     KeywordManager,
-    get_keyword_manager,
+    KeywordMatch,
     MarketKeywords,
-    KeywordLearner,  # ✅ 從 learner.py 導入
-)
-
-# 新聞分析 (從 news/ 子模組導入)
-from .news import (
-    CryptoNewsAnalyzer,
-    NewsArticle,
-    NewsAnalysisResult,
-    get_news_analyzer,
-    RuleBasedEvaluator,
-    get_rule_evaluator,
-    NewsPredictionLoop,  # ✅ 從 prediction_loop.py 導入
-)
-
-# 
-from .feature_engineering import (
-    VolumeProfile,
-    VolumeProfileLevel,
-    VolumeProfileCalculator,
-    LiquidationCluster,
-    LiquidationHeatmap,
-    LiquidationHeatmapCalculator,
-    MarketMicrostructure,
-    MarketDataProcessor,
+    PredictionRecord,
+    get_keyword_manager,
 )
 
 # 市場狀態
 from .market_regime import (
     MarketRegime,
-    VolatilityRegime,
-    TrendStrength,
-    RegimeAnalysis,
     MarketRegimeDetector,
+    RegimeAnalysis,
     RegimeBasedStrategySelector,
+    TrendStrength,
+    VolatilityRegime,
+)
+
+# 新聞分析 (從 news/ 子模組導入)
+from .news import (
+    CryptoNewsAnalyzer,
+    NewsAnalysisResult,
+    NewsArticle,
+    NewsPredictionLoop,  # ✅ 從 prediction_loop.py 導入
+    RuleBasedEvaluator,
+    get_news_analyzer,
+    get_rule_evaluator,
 )
 
 __all__ = [
@@ -117,7 +117,7 @@ __all__ = [
     'DailyRiskLimits',
     'TradingPairsPriority',
     'DailyReport',
-    
+
     # 關鍵字系統
     'Keyword',
     'KeywordMatch',
@@ -127,7 +127,7 @@ __all__ = [
     'get_keyword_manager',
     'MarketKeywords',
     'KeywordLearner',  # ✅ 新增導出
-    
+
     # 新聞分析
     'CryptoNewsAnalyzer',
     'NewsArticle',
@@ -136,7 +136,7 @@ __all__ = [
     'RuleBasedEvaluator',
     'NewsPredictionLoop',  # ✅ 新增導出
     'get_rule_evaluator',
-    
+
     # 特徵工程
     'VolumeProfile',
     'VolumeProfileLevel',
@@ -146,7 +146,7 @@ __all__ = [
     'LiquidationHeatmapCalculator',
     'MarketMicrostructure',
     'MarketDataProcessor',
-    
+
     # 市場狀態
     'MarketRegime',
     'VolatilityRegime',

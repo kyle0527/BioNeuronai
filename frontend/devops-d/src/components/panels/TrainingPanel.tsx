@@ -53,7 +53,7 @@ export function TrainingPanel() {
   const [sigOnly, setSigOnly] = useState(true)
   const [lmOnly, setLmOnly] = useState(false)
   const [noSave, setNoSave] = useState(false)
-  const [modelName, setModelName] = useState('my_100m_model')
+  const [modelName, setModelName] = useState('unified_v2_100m')
   const [modelPath, setModelPath] = useState('')
   const [validatePath, setValidatePath] = useState(true)
   const [reloadEngine, setReloadEngine] = useState(false)

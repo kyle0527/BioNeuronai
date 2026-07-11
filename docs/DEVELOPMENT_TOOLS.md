@@ -144,69 +144,69 @@
 
 ## 🐍 Python 套件與工具
 
+> **目前權威來源**：實際安裝依賴以根目錄 `pyproject.toml` 為準；本節只做摘要。若本節與 `pyproject.toml` 不一致，請優先相信 `pyproject.toml`。本機手冊目前以 Python 3.13 + PyTorch CPU 作為主要 runtime。
+
 ### 💹 加密貨幣交易核心
 
 | 套件 | 版本 | 說明 |
 |------|------|------|
-| `python-binance` | >=1.0.0 | Binance API 客戶端 |
-| `ccxt` | >=4.0.0 | 統一加密貨幣交易所 API |
-| `ta` | >=0.11.0 | 技術分析指標庫 |
-| `ta-lib` | >=0.4.0 | TA-Lib 技術分析 |
+| `websocket-client` | 1.9.0 | Binance WebSocket 行情連線 |
+| `requests` | 2.34.2 | 同步 HTTP 請求 |
+| `aiohttp` | 3.13.5 | 非同步 HTTP 請求 |
+| `TA-Lib` | 0.6.8 | 技術分析指標 |
 
 ### 🤖 AI & 機器學習
 
 | 套件 | 版本 | 說明 |
 |------|------|------|
-| `torch` | >=2.1.0 | PyTorch 深度學習框架 |
-| `scikit-learn` | >=1.3.0 | 機器學習工具集 |
-| `numpy` | >=1.24.0 | 數值計算 |
-| `transformers` | >=4.30.0 | Hugging Face 轉換器 |
-| `openai` | >=1.0.0 | OpenAI API 客戶端 |
+| `torch` | 2.8.0+cpu | PyTorch CPU runtime |
+| `torchvision` | 0.23.0+cpu | PyTorch vision 套件 |
+| `torchaudio` | 2.8.0+cpu | PyTorch audio 套件 |
+| `sentence-transformers` | 5.5.0 | 語意向量與 RAG 支援 |
+| `faiss-cpu` | 1.13.2 | 本機向量檢索 |
+| `scikit-learn` | 1.8.0 | 機器學習工具集 |
 
 ### 📊 資料處理與分析
 
 | 套件 | 版本 | 說明 |
 |------|------|------|
-| `pandas` | >=2.0.0 | 資料分析 |
-| `numpy` | >=1.24.0 | 數值計算 |
-| `matplotlib` | >=3.7.0 | 資料視覺化 |
-| `seaborn` | >=0.12.0 | 統計圖表 |
+| `pandas` | 3.0.3 | 資料分析 |
+| `numpy` | 2.4.4 | 數值計算 |
+| `regex` | 2026.5.9 | 進階文字處理 |
 
 ### 🌐 HTTP 客戶端與網頁抓取
 
 | 套件 | 版本 | 說明 |
 |------|------|------|
-| `httpx` | >=0.27.0 | 非同步 HTTP 客戶端 |
-| `requests` | >=2.31.0 | 同步 HTTP 客戶端 |
-| `aiohttp` | >=3.8.0 | 非同步 HTTP 框架 |
-| `beautifulsoup4` | >=4.12.2 | HTML 解析工具 |
+| `fastapi` | 0.136.1 | API server |
+| `uvicorn[standard]` | 0.47.0 | ASGI runtime |
+| `google-cloud-storage` | 3.10.1 | GCS artifacts |
+| `google-cloud-secret-manager` | 2.28.0 | GCP secret integration |
 
 ### 📝 日誌與監控
 
 | 套件 | 版本 | 說明 |
 |------|------|------|
-| `loguru` | >=0.7.0 | 簡化的日誌記錄 |
-| `rich` | >=13.0.0 | 豐富的終端輸出 |
-| `click` | >=8.1.0 | 命令列介面 |
+| `schedule` | 1.2.2 | 排程任務 |
+| Python `logging` | 標準庫 | 專案主要 logging 入口 |
 
 ### 🎯 實用工具
 
 | 套件 | 版本 | 說明 |
 |------|------|------|
-| `tenacity` | >=8.3.0 | 重試與韌性模式 |
-| `python-dotenv` | >=1.0.1 | 環境變數管理 |
-| `pydantic` | >=2.7.0 | 資料驗證 |
-| `orjson` | >=3.10.0 | 高效 JSON 處理 |
+| `python-dotenv` | 1.2.2 | `.env` 載入 |
+| `pydantic` | 2.13.4 | 資料驗證 |
 
 ### 🛠️ 開發工具
 
 | 套件 | 版本 | 說明 |
 |------|------|------|
-| `black` | >=24.0.0 | 程式碼格式化 |
-| `ruff` | >=0.3.0 | 快速檢查工具 |
-| `mypy` | >=1.8.0 | 類型檢查 |
+| `black` | dev extra | 程式碼格式化 |
+| `isort` | dev extra | import 排序 |
+| `ruff` | dev extra | 快速檢查工具 |
+| `mypy` | dev extra | 類型檢查 |
 
-**總計**: 30+ 個核心 Python 套件
+**注意**：`pyproject.toml` 目前沒有 `[rl]` optional extra；RL 訓練使用主依賴中的 PyTorch。
 
 ---
 
@@ -221,26 +221,19 @@
 **Black** (程式碼格式化):
 ```toml
 [tool.black]
-line-length = 88
-target-version = ['py311']
-include = '\.pyi?$'
-extend-exclude = '''
-/(
-  \.git
-  | \.venv
-  | build
-  | dist
-  | __pycache__
-)/
-'''
+line-length = 100
+target-version = ['py313']
 ```
 
 **Ruff** (快速檢查):
 ```toml
 [tool.ruff]
-line-length = 88
-select = ["E", "F", "I", "N", "W"]
-ignore = ["E501"]
+line-length = 100
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+ignore = ["E501", "E402", "F401"]
 ```
 
 ### ⚙️ VS Code 工作區設定
@@ -294,9 +287,10 @@ ignore = ["E501"]
 
 2. ✅ **配置 Python 環境**
    ```bash
-   pip install -r requirements-crypto.txt
-   pip install -e ".[dev]"        # 開發工具 (black, ruff, mypy)
-   pip install -e .               # RL 訓練 (training/rl_trainer.py) 使用主依賴 PyTorch；pyproject.toml 無 [rl] extra
+   python -m pip install --upgrade pip
+   python -m pip install --index-url https://download.pytorch.org/whl/cpu torch==2.8.0+cpu torchvision==0.23.0+cpu torchaudio==2.8.0+cpu
+   python -m pip install -e .
+   python -m pip install -e ".[dev]"   # 開發工具 (black, isort, ruff, mypy)
    ```
 
 3. ✅ **安裝 Git 工具組**

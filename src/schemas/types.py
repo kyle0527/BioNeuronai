@@ -8,19 +8,18 @@ BioNeuronai 可重用類型定義
 最後更新: 2026-02-14
 """
 
+from datetime import datetime
 from decimal import Decimal
 from typing import Annotated, Any
 from uuid import UUID
-from datetime import datetime
 
 from pydantic import (
-    Field,
     AfterValidator,
     BeforeValidator,
+    Field,
     PlainSerializer,
     StringConstraints,
 )
-
 
 # =============================================================================
 # 版本控制
@@ -126,24 +125,24 @@ Confidence = Annotated[
 def _validate_binance_symbol(v: str) -> str:
     """
     驗證幣安交易對符號
-    
+
     規則:
     - 必須為大寫
     - 必須以 USDT, BUSD, BTC, ETH 結尾 (期貨常用)
     - 長度 6-12 字元
     """
     v = v.upper().strip()
-    
+
     valid_suffixes = ("USDT", "BUSD", "BTC", "ETH")
     if not any(v.endswith(suffix) for suffix in valid_suffixes):
         raise ValueError(f"交易對必須以 {valid_suffixes} 結尾")
-    
+
     if not 6 <= len(v) <= 12:
         raise ValueError("交易對符號長度必須在 6-12 字元之間")
-    
+
     if not v.isalnum():
         raise ValueError("交易對符號只能包含字母和數字")
-    
+
     return v
 
 

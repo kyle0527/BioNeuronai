@@ -17,18 +17,18 @@ Meta-Learner 訓練器
     python tools/train_meta_learner.py
 """
 
-import sys
-import logging
 import json
-from pathlib import Path
-from typing import List, Tuple, Optional
+import logging
+import sys
 from datetime import datetime
+from pathlib import Path
+from typing import List, Optional, Tuple
 
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import DataLoader, Dataset
 
 # 確保可以找到專案根模組
 # trainer.py 位於: src/bioneuronai/strategies/meta_learner/trainer.py
@@ -38,8 +38,8 @@ if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
 
 try:
-    from .model import MetaLearnerModel, STRATEGY_NAMES, MARKET_FEATURE_DIM, EVENT_FEATURE_DIM
     from .feature_extractor import FeatureExtractor
+    from .model import EVENT_FEATURE_DIM, MARKET_FEATURE_DIM, STRATEGY_NAMES, MetaLearnerModel
 except ImportError:
     # 當以独立模組方式執行時
     import sys as _sys
@@ -47,8 +47,14 @@ except ImportError:
     _pkg_dir = _Path(__file__).resolve().parent
     if str(_pkg_dir) not in _sys.path:
         _sys.path.insert(0, str(_pkg_dir))
-    from model import MetaLearnerModel, STRATEGY_NAMES, MARKET_FEATURE_DIM, EVENT_FEATURE_DIM  # type: ignore
     from feature_extractor import FeatureExtractor  # type: ignore
+
+    from model import (  # type: ignore
+        EVENT_FEATURE_DIM,
+        MARKET_FEATURE_DIM,
+        STRATEGY_NAMES,
+        MetaLearnerModel,
+    )
 
 logger = logging.getLogger(__name__)
 
@@ -78,7 +84,7 @@ def _simulate_strategy_direction(
     """
     c = ohlcv[:, 3].astype(float)
     h = ohlcv[:, 2].astype(float)
-    l = ohlcv[:, 1].astype(float)
+    low = ohlcv[:, 1].astype(float)
 
     if len(c) < 26:
         return 0.0
@@ -102,7 +108,7 @@ def _simulate_strategy_direction(
 
     elif strategy_name == "breakout":
         high20 = np.max(h[-21:-1])
-        low20 = np.min(l[-21:-1])
+        low20 = np.min(low[-21:-1])
         if c[-1] > high20:
             return 1.0
         elif c[-1] < low20:
@@ -166,13 +172,13 @@ def generate_labels(
         score = direction * forward_return
         scores.append(score)
 
-    scores = np.array(scores, dtype=np.float32)
+    score_array = np.asarray(scores, dtype=np.float32)
 
     # 轉為軟標籤：用 Softmax 讓分數高的策略取得更高權重
     # 先做簡單的 Min-Max + Softmax
-    scores_shifted = scores - scores.min() + 1e-8
+    scores_shifted = score_array - score_array.min() + 1e-8
     soft_labels = scores_shifted / scores_shifted.sum()
-    return soft_labels.astype(np.float32)
+    return np.asarray(soft_labels, dtype=np.float32)
 
 
 # ── Dataset ──────────────────────────────────────────────────────────
@@ -251,6 +257,7 @@ class MetaLearnerTrainer:
     def _load_ohlcv(self) -> np.ndarray:
         """從本地 ZIP 載入 OHLCV，返回 shape (N, 5) 的 float32 陣列"""
         import zipfile
+
         import pandas as pd
 
         data_path_candidates = [

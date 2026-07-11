@@ -17,7 +17,7 @@ interface DataTableProps<T> {
   className?: string
 }
 
-export function DataTable<T extends Record<string, any>>({
+export function DataTable<T extends object>({
   data,
   columns,
   onRowClick,
@@ -78,7 +78,9 @@ export function DataTable<T extends Record<string, any>>({
                 >
                   {column.render
                     ? column.render(item)
-                    : item[column.key as keyof T]?.toString() || '-'}
+                    : String(
+                      (item as unknown as Record<string, unknown>)[String(column.key)] ?? '-'
+                    )}
                 </td>
               ))}
             </tr>

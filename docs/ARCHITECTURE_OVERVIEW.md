@@ -52,7 +52,7 @@ flowchart TD
     subgraph 信號生成層
         SS[StrategySelector\n主信號來源]
         SF[StrategyFusion\n含 direction_bias 框架]
-        IE[InferenceEngine\nTinyLLM v1]
+        IE[InferenceEngine\nunified_v2_100m]
         ML[Meta-Learner\n17K 參數]
     end
 
@@ -102,13 +102,13 @@ flowchart TD
 |------|----------------------|---------------------------|
 | CLI | `python main.py trade [--paper-live]` | `python main.py autonomous [--execute-paper]` |
 | 驅動方式 | WebSocket 即時 tick | 定時規劃迴圈（`run_forever`） |
-| 決策來源 | StrategySelector + InferenceEngine | Plan → Pretrade → AdaptationController |
+| 決策來源 | StrategySelector + shared InferenceEngine | Plan → shared InferenceEngine → Pretrade → AdaptationController |
 | 下單觸發 | `auto_trade=True` / `--paper-live` | `execute_paper=True` 且 adaptation 允許 |
 | ActionRecord T0/T1/T2 | ✅ | ❌ |
-| EpisodicMemory / LoRA | ✅（平倉回調） | ❌ |
+| EpisodicMemory / LoRA | ✅（平倉回調） | ✅（共用 TradingEngine 平倉回調） |
 | Decision Ledger | ❌ | ✅ |
 | AdaptiveLearningHub | ✅ | ✅ |
-| 完整學習閉環 | ✅ | 部分（僅 hub + ledger） |
+| 完整學習閉環 | ✅ | ✅（ledger + 共用執行與平倉回調） |
 
 **主線 B 執行層（2026-06-15）**：
 - `_execute_paper_order()` 優先採 pretrade `order_parameters.quantity`（× `risk_multiplier`）；無效時 fallback `paper_notional_fraction`
@@ -132,7 +132,8 @@ flowchart TD
          → AIStrategyFusion.generate_fusion_signal()
             → get_direction_bias() 方向框架（minimal，攔截逆勢共識）
          → event_score 極端值非對稱攔截（|score| > 5）
-   c. InferenceEngine.predict()             → TinyLLM v1（若已載入）
+   c. InferenceEngine.predict_with_explanation()
+      → unified_v2_100m（16×64 數值 + 中英文脈絡 → 65 維決策 + 說明）
    d. _fuse_signals()                       → 策略 70% + AI 25% + event_score 5%
 4. _handle_trading_signal(signal)
    → auto_trade=False (預設) → 記錄 log，不下單
@@ -168,7 +169,7 @@ flowchart TD
 - `start_monitoring(symbol)`：啟動 WebSocket 監控
 - `notify_trade_closed(...)`：平倉後觸發 T2 + LoRA + hub 更新
 
-`planning/autonomous_operator.py` 是主線 B 的編排器，不經過 TradingEngine。
+`planning/autonomous_operator.py` 是主線 B 的編排器；規劃方式獨立，但 AI 推論與 paper 訂單執行都共用 TradingEngine 的現役實例與入口。
 
 ### 4.3 信號生成層
 
@@ -176,9 +177,10 @@ flowchart TD
 - 5 種子策略 + Meta-Learner（17K 參數）動態權重
 - 透過 `AIStrategyFusion.generate_fusion_signal()` 產出融合信號
 
-**InferenceEngine**（`core/inference_engine.py`）是 AI 輔助信號：
-- TinyLLM v1：1024 維輸入 → 512 維輸出
-- 模型未載入時返回 None，系統繼續用純策略信號
+**InferenceEngine**（`core/inference_engine.py`）是全專案唯一 AI 模型持有者：
+- `unified_v2_100m`：16×64 市場 patch 與中英文文字進入同一 Transformer
+- 65 維結構化交易決策與文字說明由同一模型產生
+- 無訓練 checkpoint 時建立固定 seed 的未訓練基線，明確標記 `trained=false`
 
 ### 4.4 新聞層
 
@@ -202,7 +204,7 @@ event_score > +5 → 攔截普通做空，放行做多
 
 | 模組 | 狀態 | 說明 |
 |---|---|---|
-| TinyLLM v2 | 🧩 未接通推論引擎 | `src/nlp/tiny_llm_v2.py`；`enable_v2_mode()` 為誠實 stub |
+| TinyLLM v2 | ✅ 唯一現役模型 | 交易、聊天、自主規劃共用同一模型實例 |
 | ActionRecord | ✅ 主線 A | T0/T1/T2 全接通 |
 | EpisodicMemory | ✅ 主線 A | 熱緩衝 50k + 極端事件冷庫 |
 | OnlineLearner | ✅ 主線 A | LoRA 微更新，每 100 筆觸發 |
@@ -225,7 +227,7 @@ event_score > +5 → 攔截普通做空，放行做多
 
 ## 5. TinyLLM 模型架構
 
-### v1（現役）
+### v1（已封存）
 
 ```
 輸入: 1024 維扁平向量（10 類市場特徵）
@@ -237,13 +239,14 @@ event_score > +5 → 攔截普通做空，放行做多
   [23:512] 潛在嵌入空間（479 維，無監督目標）
 ```
 
-### v2（建設中）
+### v2（唯一現役架構）
 
 ```
 輸入: 16×64 patch + 文字 token（可選）+ 圖像 token（可選）
-架構: MoE（6 專家，top-2）+ Cross-attention
+架構: 8 層、768 維、12 heads、MoE（2 專家，top-1，每 4 層）+ LoRA
 輸出: 65 維全監督
-LoRA: 骨幹凍結後 0.25%（~203K）參數可訓練
+總參數: 98,403,413（16k vocabulary）
+目前狀態: 端到端可運行，但尚無完成驗證的訓練 checkpoint
 ```
 
 ---
@@ -253,9 +256,9 @@ LoRA: 骨幹凍結後 0.25%（~203K）參數可訓練
 | 缺口 | 狀態 | 修正方向 |
 |---|---|---|
 | 新聞時序聚合 | 🧩 P1 | 擴充 `get_direction_bias()`，`implemented_level` → `"full"` |
-| TinyLLM v2 接上引擎 | 🧩 P3 | FeaturePipeline 16×64 + SignalInterpreterV2 |
+| TinyLLM v2 真實資料訓練 | 🧩 | 蒐集未來行情標籤 → 訓練 → walk-forward → 明確 promotion |
 | GoalTracker 自動回饋 | 🧩 P4 | `recommended_risk_scale` → AdaptationController |
-| 主線 B 執行脫節 | ⚠️ | 採用 pretrade quantity + 持倉檢查 |
+| 主線 B 長時間穩定性 | 🧩 | 以真實行情持續驗證共用執行與平倉回寫 |
 | `_fuse_signals` 改用 direction_bias | 🧩 | 與 StrategyFusion 層對齊（可選） |
 
 ---

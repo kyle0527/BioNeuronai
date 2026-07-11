@@ -20,7 +20,7 @@ import numpy as np
 import torch
 import torch.optim as optim
 
-from backtest.data_stream import HistoricalDataStream
+from backtest.data_stream import DEFAULT_DATA_DIR, HistoricalDataStream
 from bioneuronai.core.reward import compute_reward
 from bioneuronai.strategies.meta_learner.feature_extractor import FeatureExtractor
 from bioneuronai.strategies.meta_learner.model import STRATEGY_NAMES, MetaLearnerModel
@@ -33,7 +33,7 @@ except ImportError:
     def _simulate_strategy_direction(ohlcv: np.ndarray, strategy_name: str) -> float:
         c = ohlcv[:, 3].astype(float)
         h = ohlcv[:, 2].astype(float)
-        l = ohlcv[:, 1].astype(float)
+        low = ohlcv[:, 1].astype(float)
         if len(c) < 26:
             return 0.0
         if strategy_name == "trend_following":
@@ -53,7 +53,7 @@ except ImportError:
             return 0.0
         elif strategy_name == "breakout":
             high20 = np.max(h[-21:-1])
-            low20 = np.min(l[-21:-1])
+            low20 = np.min(low[-21:-1])
             if c[-1] > high20:
                 return 1.0
             elif c[-1] < low20:
@@ -116,7 +116,7 @@ class HistoricalReplayEnv:
         self.stream = HistoricalDataStream(
             symbol=self.config.symbol,
             interval=self.config.interval,
-            data_dir=self.config.data_dir,
+            data_dir=self.config.data_dir or DEFAULT_DATA_DIR,
             speed_multiplier=0,
         )
         self.feature_extractor = FeatureExtractor()
@@ -285,16 +285,21 @@ class RLTrainer:
             total_ep_reward = sum(rewards)
             episode_rewards.append(total_ep_reward)
 
-            discounted_returns = []
+            discounted_return_values: List[float] = []
             G = 0.0
             gamma = 0.99
             for r in reversed(rewards):
                 G = r + gamma * G
-                discounted_returns.insert(0, G)
+                discounted_return_values.insert(0, G)
 
-            discounted_returns = torch.tensor(discounted_returns, dtype=torch.float32)
+            discounted_returns = torch.tensor(
+                discounted_return_values,
+                dtype=torch.float32,
+            )
             if len(discounted_returns) > 1:
-                discounted_returns = (discounted_returns - discounted_returns.mean()) / (discounted_returns.std() + 1e-8)
+                discounted_returns = (
+                    discounted_returns - discounted_returns.mean()
+                ) / (discounted_returns.std() + 1e-8)
 
             policy_loss = torch.tensor(0.0)
             for lp, G_t in zip(log_probs, discounted_returns):
@@ -346,7 +351,7 @@ class RLTrainer:
                         for k in klines
                     ], dtype=np.float32)
 
-                    selected_strategy = STRATEGY_NAMES[action_idx.item()]
+                    selected_strategy = STRATEGY_NAMES[int(action_idx.item())]
                     direction = _simulate_strategy_direction(ohlcv, selected_strategy)
 
                     if direction > 0.5:

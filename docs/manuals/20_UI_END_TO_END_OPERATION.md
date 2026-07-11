@@ -259,7 +259,7 @@ python main.py backtest-data --json
 7. 執行 `Stop Trading`。
 8. 再次執行 `Refresh Status`，確認 `running=false`。
 
-若要測試 AI 自動交易流程但不使用真實資金，優先使用 `Paper live`。它使用主網行情但不送出 Binance 訂單；所有成交/持倉只寫入本地 paper ledger。`Load AI Model` 預設開啟，Model 使用 `my_100m_model`；目前權重品質不作為本輪 UI 驗收標準，重點是啟動流程可被 UI 操作且可停止。
+若要測試 AI 自動交易流程但不使用真實資金，優先使用 `Paper live`。它使用主網行情但不送出 Binance 訂單；所有成交/持倉只寫入本地 paper ledger。`Load AI Model` 預設開啟，Model 使用 `unified_v2_100m`；目前尚未訓練的權重只能驗證流程完整性，不能作為交易品質驗收標準。
 
 成功標準：
 

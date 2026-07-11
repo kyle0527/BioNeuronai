@@ -14,7 +14,7 @@
 # 1. 標準庫
 import logging
 from datetime import datetime, timezone
-from typing import Dict, List, Optional, Any
+from typing import Any, Dict, List, Optional
 
 # FOMC 2026 利率決議日期（美聯儲官方公告排程，非 mock 資料）
 # 來源：Federal Reserve FOMC meeting calendar 2026
@@ -41,7 +41,7 @@ logger = logging.getLogger(__name__)
 class MarketDataCollector:
     """
     市場數據收集器
-    
+
     功能：
     - 獲取全球股市指數
     - 分析市場趨勢
@@ -50,7 +50,7 @@ class MarketDataCollector:
     外部 HTTP 請求統一委託注入的 fetcher / connector 處理，
     不在此類別內直接呼叫 requests.get()。
     """
-    
+
     def __init__(
         self,
         connector: Any = None,
@@ -63,15 +63,15 @@ class MarketDataCollector:
         """
         self.connector = connector
         self.external_fetcher = external_fetcher
-    
+
     # ========================================
     # 主要接口
     # ========================================
-    
+
     def get_global_market_data(self) -> Optional[Dict]:
         """
         獲取全球市場數據
-        
+
         Returns:
             包含全球股市、加密貨幣情緒的綜合數據
         """
@@ -80,21 +80,21 @@ class MarketDataCollector:
             global_indices = self._get_global_stock_indices()
             fng_data = self._get_fear_greed_index()
             market_sentiment = self._get_binance_market_sentiment()
-            
+
             # 分析全球股市趨勢
             stock_analysis = self._analyze_global_stock_trends(global_indices)
-            
+
             # 分析加密貨幣綜合情緒
             crypto_analysis = self._analyze_crypto_sentiment(fng_data, market_sentiment)
-            
+
             # 構建完整市場數據
             return self._build_market_data_response(
                 global_indices, stock_analysis, crypto_analysis, fng_data, market_sentiment
             )
-            
+
         except Exception as e:
             raise RuntimeError(f"獲取全球市場數據失敗: {e}") from e
-    
+
     def check_economic_calendar(self) -> List[str]:
         """
         檢查經濟日曆
@@ -256,11 +256,11 @@ class MarketDataCollector:
             )
 
         return events
-    
+
     # ========================================
     # 股市數據
     # ========================================
-    
+
     def _get_global_stock_indices(self) -> Optional[Dict]:
         """
         透過注入的 SyncExternalDataFetcher 取得全球主要股市指數 (美股、歐股、日股)
@@ -270,11 +270,12 @@ class MarketDataCollector:
             return None
 
         try:
-            return self.external_fetcher.fetch_global_stock_indices()
+            result = self.external_fetcher.fetch_global_stock_indices()
+            return dict(result) if isinstance(result, dict) else None
         except Exception as e:
             logger.error(f"獲取全球股市指數失敗: {e}")
             return None
-    
+
     def _analyze_global_stock_trends(self, global_indices: Optional[Dict]) -> Dict[str, Any]:
         """分析全球股市趨勢"""
         if not global_indices:
@@ -285,14 +286,14 @@ class MarketDataCollector:
                 'european_markets': "NEUTRAL",
                 'asian_markets': "NEUTRAL"
             }
-        
+
         # 計算全球平均變化
         changes = [data['change_percent'] for data in global_indices.values()]
         global_stock_avg_change = sum(changes) / len(changes) if changes else 0
-        
+
         # 判斷全球趨勢
         global_trend = self._classify_market_trend(global_stock_avg_change)
-        
+
         # 分析各區域市場
         us_markets = self._analyze_regional_market(
             global_indices, ['S&P 500', 'Dow Jones', 'NASDAQ']
@@ -303,7 +304,7 @@ class MarketDataCollector:
         asian_markets = self._analyze_regional_market(
             global_indices, ['Nikkei 225', 'TOPIX']
         )
-        
+
         return {
             'global_stock_trend': global_trend,
             'global_stock_avg_change': round(global_stock_avg_change, 2),
@@ -311,7 +312,7 @@ class MarketDataCollector:
             'european_markets': european_markets,
             'asian_markets': asian_markets
         }
-    
+
     def _classify_market_trend(self, avg_change: float) -> str:
         """分類市場趨勢"""
         if avg_change >= 1.0:
@@ -324,10 +325,10 @@ class MarketDataCollector:
             return "BEARISH"
         else:
             return "STRONG_BEARISH"
-    
+
     def _analyze_regional_market(
-        self, 
-        global_indices: Dict, 
+        self,
+        global_indices: Dict,
         market_names: List[str]
     ) -> str:
         """分析區域市場趨勢"""
@@ -336,21 +337,21 @@ class MarketDataCollector:
             for name in market_names
             if name in global_indices
         ]
-        
+
         if not changes:
             return "NEUTRAL"
-        
+
         avg = sum(changes) / len(changes)
         if avg > 0.3:
             return "BULLISH"
         elif avg < -0.3:
             return "BEARISH"
         return "NEUTRAL"
-    
+
     # ========================================
     # 加密貨幣情緒
     # ========================================
-    
+
     def _get_fear_greed_index(self) -> Optional[Dict]:
         """透過注入的 SyncExternalDataFetcher 取得加密貨幣恐慌貪婪指數"""
         if self.external_fetcher is None:
@@ -358,11 +359,12 @@ class MarketDataCollector:
             return None
 
         try:
-            return self.external_fetcher.fetch_fear_greed_index()
+            result = self.external_fetcher.fetch_fear_greed_index()
+            return dict(result) if isinstance(result, dict) else None
         except Exception as e:
             logger.error(f"獲取 Fear & Greed Index 失敗: {e}")
             return None
-    
+
     def _get_binance_market_sentiment(self) -> Optional[Dict]:
         """透過注入的 SyncExternalDataFetcher 從 Binance 現貨取得市場情緒"""
         if self.external_fetcher is None:
@@ -370,11 +372,12 @@ class MarketDataCollector:
             return None
 
         try:
-            return self.external_fetcher.fetch_binance_spot_sentiment()
+            result = self.external_fetcher.fetch_binance_spot_sentiment()
+            return dict(result) if isinstance(result, dict) else None
         except Exception as e:
             logger.error(f"獲取 Binance 市場情緒失敗: {e}")
             return None
-    
+
     def _analyze_crypto_sentiment(
         self,
         fng_data: Optional[Dict],
@@ -386,10 +389,10 @@ class MarketDataCollector:
                 'crypto_sentiment': "NEUTRAL",
                 'crypto_sentiment_score': 50
             }
-        
+
         # Fear & Greed Index (0-100)
         fng_score = fng_data['value']
-        
+
         # Binance sentiment mapping
         sentiment_map = {
             'STRONG_BULLISH': 85,
@@ -399,18 +402,18 @@ class MarketDataCollector:
             'STRONG_BEARISH': 15
         }
         binance_score = sentiment_map.get(market_sentiment['market_state'], 50)
-        
+
         # 計算加權平均 (Fear & Greed 60%, Binance 40%)
         crypto_sentiment_score = int(fng_score * 0.6 + binance_score * 0.4)
-        
+
         # 決定綜合情緒
         crypto_sentiment = self._classify_crypto_sentiment(crypto_sentiment_score)
-        
+
         return {
             'crypto_sentiment': crypto_sentiment,
             'crypto_sentiment_score': crypto_sentiment_score
         }
-    
+
     def _classify_crypto_sentiment(self, score: int) -> str:
         """分類加密貨幣情緒"""
         if score >= 70:
@@ -423,11 +426,11 @@ class MarketDataCollector:
             return "BEARISH"
         else:
             return "STRONG_BEARISH"
-    
+
     # ========================================
     # 數據整合
     # ========================================
-    
+
     def _build_market_data_response(
         self,
         global_indices: Optional[Dict],
@@ -445,22 +448,22 @@ class MarketDataCollector:
             'us_futures': stock_analysis['us_markets'],
             'european_markets': stock_analysis['european_markets'],
             'asian_markets': stock_analysis['asian_markets'],
-            
+
             # 加密貨幣市場
             'crypto_sentiment': crypto_analysis['crypto_sentiment'],
             'crypto_sentiment_score': crypto_analysis['crypto_sentiment_score'],
             'crypto_fear_greed': fng_data,
             'binance_sentiment': market_sentiment,
-            
+
             # 綜合評估
             'overall_sentiment': (
-                stock_analysis['global_stock_trend'] 
-                if global_indices 
+                stock_analysis['global_stock_trend']
+                if global_indices
                 else crypto_analysis['crypto_sentiment']
             ),
             'sentiment_score': (
-                stock_analysis['global_stock_avg_change'] 
-                if global_indices 
+                stock_analysis['global_stock_avg_change']
+                if global_indices
                 else (crypto_analysis['crypto_sentiment_score'] - 50) / 50
             ),
             'data_source': 'Yahoo Finance + Fear & Greed Index + Binance 24hr Ticker',

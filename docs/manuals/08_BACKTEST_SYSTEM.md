@@ -158,14 +158,15 @@ python main.py readiness-gate --output output\readiness_report.json
 
 ### 4.5 `collect-signal-data` — 訊號訓練資料
 
-收集 `unified_trainer` 用的 signal JSONL（預設 `data/signal_history.jsonl`）。
+從真實未來 K 線結果收集 `unified_trainer` 的 16×64 特徵、65 維標籤與中英說明（預設 `data/unified_v2_training.jsonl`）。不再呼叫模型產生訓練標籤。
 
 ```powershell
 python main.py collect-signal-data `
   --symbol BTCUSDT `
   --interval 1h `
   --max-samples 1000 `
-  --output data\signal_history.jsonl
+  --future-horizon 12 `
+  --output data\unified_v2_training.jsonl
 ```
 
 ### 4.6 `backtest-runs` — 查詢歷史 run

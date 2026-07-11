@@ -1,0 +1,103 @@
+---
+pid: 42988
+cwd: "C:\D\E\BioNeuronai\src\bioneuronai"
+command: "cd C:\\D\\E\\BioNeuronai; python -m pytest tests/test_autonomous_loop.py -q --tb=short 2>&1"
+started_at: 2026-06-15T11:36:56.278Z
+running_for_ms: 3235009  
+---
+FFF....F.                                                                [100%]
+================================== FAILURES ===================================
+___________ test_cycle_executes_paper_trade_and_logs_learning_state ___________
+tests\test_autonomous_loop.py:101: in test_cycle_executes_paper_trade_and_logs_learning_state
+    record = asyncio.run(operator.run_once())
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\User\AppData\Local\Programs\Python\Python313\Lib\asyncio\runners.py:195: in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+C:\Users\User\AppData\Local\Programs\Python\Python313\Lib\asyncio\runners.py:118: in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\User\AppData\Local\Programs\Python\Python313\Lib\asyncio\base_events.py:725: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+src\bioneuronai\planning\autonomous_operator.py:194: in run_once
+    paper_execution = self._execute_paper_order(adaptation.to_dict(), pretrade_results)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\bioneuronai\planning\autonomous_operator.py:619: in _execute_paper_order
+    if self._has_open_position(connector, symbol_key):
+       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\bioneuronai\planning\autonomous_operator.py:478: in _has_open_position
+    position = connector.virtual_account.positions.get(symbol)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: 'FakeVirtualAccount' object has no attribute 'positions'
+___________________ test_trade_outcome_feeds_ledger_and_hub ___________________
+tests\test_autonomous_loop.py:112: in test_trade_outcome_feeds_ledger_and_hub
+    asyncio.run(operator.run_once())
+C:\Users\User\AppData\Local\Programs\Python\Python313\Lib\asyncio\runners.py:195: in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+C:\Users\User\AppData\Local\Programs\Python\Python313\Lib\asyncio\runners.py:118: in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\User\AppData\Local\Programs\Python\Python313\Lib\asyncio\base_events.py:725: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+src\bioneuronai\planning\autonomous_operator.py:194: in run_once
+    paper_execution = self._execute_paper_order(adaptation.to_dict(), pretrade_results)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\bioneuronai\planning\autonomous_operator.py:619: in _execute_paper_order
+    if self._has_open_position(connector, symbol_key):
+       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\bioneuronai\planning\autonomous_operator.py:478: in _has_open_position
+    position = connector.virtual_account.positions.get(symbol)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: 'FakeVirtualAccount' object has no attribute 'positions'
+_________________ test_losing_streak_triggers_self_correction _________________
+tests\test_autonomous_loop.py:131: in test_losing_streak_triggers_self_correction
+    record = asyncio.run(operator.run_once())
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\User\AppData\Local\Programs\Python\Python313\Lib\asyncio\runners.py:195: in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+C:\Users\User\AppData\Local\Programs\Python\Python313\Lib\asyncio\runners.py:118: in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\User\AppData\Local\Programs\Python\Python313\Lib\asyncio\base_events.py:725: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+src\bioneuronai\planning\autonomous_operator.py:194: in run_once
+    paper_execution = self._execute_paper_order(adaptation.to_dict(), pretrade_results)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\bioneuronai\planning\autonomous_operator.py:619: in _execute_paper_order
+    if self._has_open_position(connector, symbol_key):
+       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\bioneuronai\planning\autonomous_operator.py:478: in _has_open_position
+    position = connector.virtual_account.positions.get(symbol)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: 'FakeVirtualAccount' object has no attribute 'positions'
+______________ test_stale_position_detected_but_not_auto_closed _______________
+tests\test_autonomous_loop.py:202: in test_stale_position_detected_but_not_auto_closed
+    record = asyncio.run(operator.run_once())   # cycle 2：held=2 >= 2
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\User\AppData\Local\Programs\Python\Python313\Lib\asyncio\runners.py:195: in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+C:\Users\User\AppData\Local\Programs\Python\Python313\Lib\asyncio\runners.py:118: in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\User\AppData\Local\Programs\Python\Python313\Lib\asyncio\base_events.py:725: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+src\bioneuronai\planning\autonomous_operator.py:173: in run_once
+    stale_positions = self._check_stale_positions()
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src\bioneuronai\planning\autonomous_operator.py:292: in _check_stale_positions
+    position = connector.virtual_account.positions.get(symbol)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: 'FakeVirtualAccount' object has no attribute 'positions'
+=========================== short test summary info ===========================
+FAILED tests/test_autonomous_loop.py::test_cycle_executes_paper_trade_and_logs_learning_state
+FAILED tests/test_autonomous_loop.py::test_trade_outcome_feeds_ledger_and_hub
+FAILED tests/test_autonomous_loop.py::test_losing_streak_triggers_self_correction
+FAILED tests/test_autonomous_loop.py::test_stale_position_detected_but_not_auto_closed
+4 failed, 5 passed in 144.44s (0:02:24)

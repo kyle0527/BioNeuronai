@@ -11,7 +11,7 @@ RAG 系統基本監控
 
 使用範例:
     from rag.monitoring import get_monitor
-    
+
     monitor = get_monitor()
     monitor.log_retrieval(latency_ms=12.5, cache_hit=True)
     stats = monitor.get_stats()
@@ -20,11 +20,11 @@ RAG 系統基本監控
 """
 
 import logging
-from typing import DefaultDict, Dict, List, Optional
+import threading
+from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from collections import defaultdict
-import threading
+from typing import DefaultDict, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -43,10 +43,10 @@ class RetrievalMetrics:
 class RAGMonitor:
     """
     RAG 系統監控器
-    
+
     線程安全的輕量級監控，追蹤系統性能指標。
     """
-    
+
     def __init__(self, max_history: int = 10000):
         """
         Args:
@@ -54,28 +54,28 @@ class RAGMonitor:
         """
         self.max_history = max_history
         self._lock = threading.Lock()
-        
+
         # 基本計數器
         self.total_requests = 0
         self.total_errors = 0
         self.cache_hits = 0
         self.cache_misses = 0
-        
+
         # 延遲統計
         self.latencies: List[float] = []
-        
+
         # 按來源統計
         self.requests_by_source: DefaultDict[str, int] = defaultdict(int)
         self.errors_by_type: DefaultDict[str, int] = defaultdict(int)
-        
+
         # 詳細歷史（可選存儲）
         self.history: List[RetrievalMetrics] = []
-        
+
         # 啟動時間
         self.start_time = datetime.now()
-        
+
         logger.info("✅ RAG 監控器已初始化")
-    
+
     def log_retrieval(
         self,
         latency_ms: float,
@@ -86,7 +86,7 @@ class RAGMonitor:
     ):
         """
         記錄一次檢索操作
-        
+
         Args:
             latency_ms: 延遲時間（毫秒）
             cache_hit: 是否命中快取
@@ -96,28 +96,28 @@ class RAGMonitor:
         """
         with self._lock:
             self.total_requests += 1
-            
+
             # 快取統計
             if cache_hit:
                 self.cache_hits += 1
             else:
                 self.cache_misses += 1
-            
+
             # 延遲統計
             if not error:
                 self.latencies.append(latency_ms)
                 # 限制歷史長度
                 if len(self.latencies) > self.max_history:
                     self.latencies = self.latencies[-self.max_history:]
-            
+
             # 來源統計
             self.requests_by_source[source] += 1
-            
+
             # 錯誤統計
             if error:
                 self.total_errors += 1
                 self.errors_by_type[error] += 1
-            
+
             # 保存詳細記錄（僅保留最近的）
             metric = RetrievalMetrics(
                 timestamp=datetime.now(),
@@ -130,12 +130,12 @@ class RAGMonitor:
             self.history.append(metric)
             if len(self.history) > self.max_history:
                 self.history = self.history[-self.max_history:]
-    
+
     def get_stats(self) -> Dict:
         """獲取統計摘要"""
         with self._lock:
             uptime = (datetime.now() - self.start_time).total_seconds()
-            
+
             # 延遲統計
             if self.latencies:
                 avg_latency = sum(self.latencies) / len(self.latencies)
@@ -149,22 +149,22 @@ class RAGMonitor:
                 p99 = sorted_latencies[int(n * 0.99)] if n > 0 else 0
             else:
                 avg_latency = min_latency = max_latency = p50 = p95 = p99 = 0
-            
+
             # 快取命中率
             total_cache_ops = self.cache_hits + self.cache_misses
             cache_hit_rate = (
                 self.cache_hits / total_cache_ops if total_cache_ops > 0 else 0
             )
-            
+
             # 錯誤率
             error_rate = (
-                self.total_errors / self.total_requests 
+                self.total_errors / self.total_requests
                 if self.total_requests > 0 else 0
             )
-            
+
             # QPS (Queries Per Second)
             qps = self.total_requests / uptime if uptime > 0 else 0
-            
+
             return {
                 "uptime_seconds": uptime,
                 "total_requests": self.total_requests,
@@ -187,13 +187,13 @@ class RAGMonitor:
                 "by_source": dict(self.requests_by_source),
                 "errors_by_type": dict(self.errors_by_type),
             }
-    
+
     def get_recent_history(self, minutes: int = 5) -> List[RetrievalMetrics]:
         """獲取最近的歷史記錄"""
         with self._lock:
             cutoff = datetime.now() - timedelta(minutes=minutes)
             return [m for m in self.history if m.timestamp >= cutoff]
-    
+
     def reset(self):
         """重置所有統計"""
         with self._lock:
@@ -207,11 +207,11 @@ class RAGMonitor:
             self.history.clear()
             self.start_time = datetime.now()
             logger.info("監控器統計已重置")
-    
+
     def print_stats(self):
         """打印格式化的統計信息"""
         stats = self.get_stats()
-        
+
         print("\n" + "="*60)
         print("📊 RAG 系統性能監控")
         print("="*60)
@@ -219,7 +219,7 @@ class RAGMonitor:
         print(f"總請求數: {stats['total_requests']}")
         print(f"總錯誤數: {stats['total_errors']} ({stats['error_rate']*100:.2f}%)")
         print(f"QPS: {stats['qps']:.2f}")
-        
+
         print("\n延遲統計 (ms):")
         print(f"  平均: {stats['latency']['avg_ms']:.2f}")
         print(f"  最小: {stats['latency']['min_ms']:.2f}")
@@ -227,22 +227,22 @@ class RAGMonitor:
         print(f"  P50: {stats['latency']['p50_ms']:.2f}")
         print(f"  P95: {stats['latency']['p95_ms']:.2f}")
         print(f"  P99: {stats['latency']['p99_ms']:.2f}")
-        
+
         print("\n快取統計:")
         print(f"  命中: {stats['cache']['hits']}")
         print(f"  未命中: {stats['cache']['misses']}")
         print(f"  命中率: {stats['cache']['hit_rate']*100:.2f}%")
-        
+
         if stats['by_source']:
             print("\n按來源統計:")
             for source, count in stats['by_source'].items():
                 print(f"  {source}: {count}")
-        
+
         if stats['errors_by_type']:
             print("\n錯誤類型:")
             for error_type, count in stats['errors_by_type'].items():
                 print(f"  {error_type}: {count}")
-        
+
         print("="*60 + "\n")
 
 

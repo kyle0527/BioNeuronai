@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import asdict, is_dataclass
 from datetime import datetime
-import json
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 from uuid import uuid4
@@ -18,7 +18,7 @@ def _json_default(value: Any) -> Any:
         return value.isoformat()
     if isinstance(value, Path):
         return str(value)
-    if is_dataclass(value):
+    if is_dataclass(value) and not isinstance(value, type):
         return asdict(value)
     return str(value)
 

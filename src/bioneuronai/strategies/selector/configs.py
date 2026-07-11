@@ -16,22 +16,22 @@ Created: 2026-01-25
 from typing import Dict
 
 from .types import (
+    Complexity,
+    MarketRegime,
     StrategyConfigTemplate,
     StrategyType,
-    MarketRegime,
-    Complexity,
 )
 
 
 def get_default_strategy_configs() -> Dict[str, StrategyConfigTemplate]:
     """
     獲取所有預設策略配置
-    
+
     Returns:
         策略名稱 -> StrategyConfigTemplate 的字典
     """
     configs = {}
-    
+
     # 1. MA 交叉趨勢策略
     configs["MA_Crossover_Trend"] = StrategyConfigTemplate(
         strategy_type=StrategyType.TREND_FOLLOWING,
@@ -65,7 +65,7 @@ def get_default_strategy_configs() -> Dict[str, StrategyConfigTemplate]:
         suitable_markets=[MarketRegime.TRENDING_BULL, MarketRegime.TRENDING_BEAR],
         complexity=Complexity.SIMPLE
     )
-    
+
     # 2. RSI 均值回歸策略
     configs["RSI_Mean_Reversion"] = StrategyConfigTemplate(
         strategy_type=StrategyType.MEAN_REVERSION,
@@ -99,7 +99,7 @@ def get_default_strategy_configs() -> Dict[str, StrategyConfigTemplate]:
         suitable_markets=[MarketRegime.SIDEWAYS_LOW_VOL, MarketRegime.SIDEWAYS_HIGH_VOL],
         complexity=Complexity.MEDIUM
     )
-    
+
     # 3. 動量突破策略
     configs["Momentum_Breakout"] = StrategyConfigTemplate(
         strategy_type=StrategyType.MOMENTUM,
@@ -133,7 +133,7 @@ def get_default_strategy_configs() -> Dict[str, StrategyConfigTemplate]:
         suitable_markets=[MarketRegime.TRENDING_BULL, MarketRegime.VOLATILE_UNCERTAIN],
         complexity=Complexity.MEDIUM
     )
-    
+
     # 4. 高頻剝頭皮策略
     configs["High_Frequency_Scalp"] = StrategyConfigTemplate(
         strategy_type=StrategyType.SCALPING,
@@ -166,7 +166,7 @@ def get_default_strategy_configs() -> Dict[str, StrategyConfigTemplate]:
         suitable_markets=[MarketRegime.SIDEWAYS_LOW_VOL],
         complexity=Complexity.COMPLEX
     )
-    
+
     # 5. 網格交易策略
     configs["Grid_Trading"] = StrategyConfigTemplate(
         strategy_type=StrategyType.GRID_TRADING,
@@ -198,7 +198,7 @@ def get_default_strategy_configs() -> Dict[str, StrategyConfigTemplate]:
         suitable_markets=[MarketRegime.SIDEWAYS_LOW_VOL, MarketRegime.SIDEWAYS_HIGH_VOL],
         complexity=Complexity.COMPLEX
     )
-    
+
     # 6. 波動率交易策略
     configs["Volatility_Trading"] = StrategyConfigTemplate(
         strategy_type=StrategyType.VOLATILITY_TRADING,
@@ -231,7 +231,7 @@ def get_default_strategy_configs() -> Dict[str, StrategyConfigTemplate]:
         suitable_markets=[MarketRegime.VOLATILE_UNCERTAIN, MarketRegime.SIDEWAYS_HIGH_VOL],
         complexity=Complexity.COMPLEX
     )
-    
+
     # 7. 新聞驅動策略
     configs["News_Trading"] = StrategyConfigTemplate(
         strategy_type=StrategyType.NEWS_TRADING,
@@ -264,7 +264,7 @@ def get_default_strategy_configs() -> Dict[str, StrategyConfigTemplate]:
         suitable_markets=[MarketRegime.VOLATILE_UNCERTAIN, MarketRegime.TRENDING_BULL],
         complexity=Complexity.MEDIUM
     )
-    
+
     # 8. 突破交易策略
     configs["Breakout_Trading"] = StrategyConfigTemplate(
         strategy_type=StrategyType.BREAKOUT,
@@ -297,7 +297,7 @@ def get_default_strategy_configs() -> Dict[str, StrategyConfigTemplate]:
         suitable_markets=[MarketRegime.BREAKOUT_POTENTIAL, MarketRegime.SIDEWAYS_LOW_VOL],
         complexity=Complexity.MEDIUM
     )
-    
+
     # 9. 波段交易策略
     configs["Swing_Trading"] = StrategyConfigTemplate(
         strategy_type=StrategyType.SWING_TRADING,
@@ -330,7 +330,7 @@ def get_default_strategy_configs() -> Dict[str, StrategyConfigTemplate]:
         suitable_markets=[MarketRegime.TRENDING_BULL, MarketRegime.TRENDING_BEAR],
         complexity=Complexity.MEDIUM
     )
-    
+
     # 10. 套利策略
     configs["Arbitrage_Trading"] = StrategyConfigTemplate(
         strategy_type=StrategyType.ARBITRAGE,
@@ -362,7 +362,7 @@ def get_default_strategy_configs() -> Dict[str, StrategyConfigTemplate]:
         suitable_markets=[MarketRegime.SIDEWAYS_LOW_VOL, MarketRegime.SIDEWAYS_HIGH_VOL],
         complexity=Complexity.COMPLEX
     )
-    
+
     return configs
 
 

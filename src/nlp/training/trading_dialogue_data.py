@@ -18,13 +18,12 @@ from __future__ import annotations
 import random
 import sys
 from pathlib import Path
-from typing import List, Dict
+from typing import Dict, List
 
 # 確保 data_manager 可以被 import
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from nlp.training.data_manager import DataSample, DataGenerator
-
+from nlp.training.data_manager import DataGenerator, DataSample
 
 # ===========================================================================
 # 一、合約基礎概念
@@ -667,4 +666,4 @@ if __name__ == "__main__":
     print(f"  ID: {s.id}")
     print(f"  語言: {s.language}")
     print(f"  輸入: {s.input_text[:60]}...")
-    print(f"  輸出: {s.output_text[:80]}...")
+    print(f"  輸出: {(s.output_text or '')[:80]}...")

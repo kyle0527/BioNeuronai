@@ -63,7 +63,7 @@ class AIReflectionLoop:
             report_dir: 學習報告的保存目錄。
         """
         project_root = Path(__file__).resolve().parents[3]
-        
+
         # 延遲初始化 EpisodicMemory，避免冷啟動問題
         self.memory = memory_instance
         if self.memory is None:
@@ -76,7 +76,7 @@ class AIReflectionLoop:
         # 報告保存路徑
         self.report_dir = Path(report_dir) if report_dir else project_root / "data" / "bioneuronai" / "planning" / "reflection"
         self.report_dir.mkdir(parents=True, exist_ok=True)
-        
+
         logger.info(f"✅ AIReflectionLoop 初始化成功 | 報告目錄: {self.report_dir}")
 
     def run_reflection_cycle(self, k: int = 50) -> ReflectionResult:
@@ -123,7 +123,7 @@ class AIReflectionLoop:
         losing_trades = [r for r in records if r.pnl_pct < 0]
         total_count = len(records)
         loss_count = len(losing_trades)
-        
+
         avg_loss = 0.0
         if loss_count > 0:
             avg_loss = float(np.mean([r.pnl_pct for r in losing_trades]))
@@ -176,8 +176,8 @@ class AIReflectionLoop:
         )
 
     def _analyze_loss_factors(
-        self, 
-        all_records: List[ExperienceRecord], 
+        self,
+        all_records: List[ExperienceRecord],
         losing_records: List[ExperienceRecord]
     ) -> Dict[str, Any]:
         """

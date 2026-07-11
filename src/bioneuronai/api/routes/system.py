@@ -148,6 +148,14 @@ def _check_active_model() -> dict[str, Any]:
     data = json.loads(config_path.read_text(encoding="utf-8"))
     model_path = data.get("materialized_path") or data.get("model_path")
     if not model_path:
+        if data.get("initialization") == "deterministic_untrained":
+            return {
+                "model_name": data.get("model_name"),
+                "architecture": data.get("architecture"),
+                "trained": False,
+                "initialization": data.get("initialization"),
+                "config_path": str(config_path),
+            }
         raise RuntimeError("active_model.json missing materialized_path/model_path")
     resolved = Path(model_path)
     if not resolved.is_absolute():
@@ -162,10 +170,13 @@ def _check_active_model() -> dict[str, Any]:
 
 
 def _check_chat_model() -> dict[str, Any]:
-    model_path = PROJECT_ROOT / "model" / "tiny_llm_100m.pth"
-    if not model_path.exists():
-        raise FileNotFoundError(str(model_path))
-    return {"path": str(model_path), "size_bytes": model_path.stat().st_size}
+    active = _check_active_model()
+    return {
+        "model_name": active.get("model_name"),
+        "architecture": active.get("architecture", "TinyLLMv2"),
+        "shared_with_trading": True,
+        "trained": active.get("trained", True),
+    }
 
 
 def _check_file(relative_path: str) -> dict[str, Any]:

@@ -1,0 +1,7 @@
+---
+pid: 27436
+cwd: "C:\D\E\BioNeuronai\src\bioneuronai"
+command: "cd C:\\D\\E\\BioNeuronai; python -m pytest tests/test_extension_points.py -q --tb=short 2>&1"
+started_at: 2026-06-15T11:35:22.147Z
+running_for_ms: 3400012  
+---

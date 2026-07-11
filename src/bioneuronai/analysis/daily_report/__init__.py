@@ -16,31 +16,32 @@
 
 # 1. 標準庫
 import io
-import os
 import logging
+import os
 import sys
 from dataclasses import is_dataclass
 from datetime import datetime
 from typing import Any, Dict, List, Optional, cast
 
-# 2. 本地模組 - 資料模型
-from .models import (
-    MarketEnvironmentCheck,
-    TradingPlanCheck,
-    DailyMarketCondition,
-    StrategyPerformance,
-    DailyRiskLimits,
-    TradingPairsPriority,
-    DailyReport
-)
+from config.trading_config import resolve_binance_testnet
 
 # 3. 本地模組 - 功能模組
 from .market_data import MarketDataCollector
+
+# 2. 本地模組 - 資料模型
+from .models import (
+    DailyMarketCondition,
+    DailyReport,
+    DailyRiskLimits,
+    MarketEnvironmentCheck,
+    StrategyPerformance,
+    TradingPairsPriority,
+    TradingPlanCheck,
+)
 from .news_sentiment import NewsSentimentAnalyzer
-from .strategy_planner import StrategyPlanner
-from .risk_manager import RiskManager
 from .report_generator import ReportGenerator
-from config.trading_config import resolve_binance_testnet
+from .risk_manager import RiskManager
+from .strategy_planner import StrategyPlanner
 
 logger = logging.getLogger(__name__)
 
@@ -48,10 +49,10 @@ logger = logging.getLogger(__name__)
 class SOPAutomationSystem:
     """
     SOP 自動化系統 - 主控制器
-    
+
     整合所有子模組，提供完整的每日市場分析報告功能
     """
-    
+
     def __init__(self) -> None:
         """初始化系統及所有子模組"""
         # 1. 建立 Binance connector（成功取得帳戶資料的必要條件）
@@ -125,41 +126,41 @@ class SOPAutomationSystem:
             logger.error(f"[ERROR] 新聞分析模組初始化失敗: {e}")
             self.news_sentiment_analyzer = None
             self.modules_available = False
-    
+
     # ========================================
     # 主要執行流程
     # ========================================
-    
+
     def execute_daily_premarket_check(self) -> Dict[str, Any]:
         """
         執行每日開盤前分析報告
-        
+
         Returns:
             完整的分析報告字典
         """
         logger.info("📊 [START] 開始生成每日市場分析報告...")
-        
+
         start_time = datetime.now()
         results = {
             "report_time": start_time,
             "report_version": "2.0",
             "report_type": "每日開盤前分析報告"
         }
-        
+
         # Step 1: 市場環境分析
         logger.info("🌍 Step 1/2: 市場環境與情緒分析")
         market_check = self._check_market_environment()
         results["market_environment"] = self._dataclass_to_dict(market_check)
-        
+
         # Step 2: 交易計劃建議
         logger.info("📝 Step 2/2: 交易計劃與策略建議")
         plan_check = self._prepare_trading_plan()
         results["trading_plan"] = self._dataclass_to_dict(plan_check)
-        
+
         # 綜合評估
         overall_assessment = self._assess_overall_readiness(market_check, plan_check)
         results["overall_assessment"] = overall_assessment
-        
+
         # 保存結果
         storage_status = self.report_generator.save_check_results(results)
         results["report_storage"] = {"json_path": storage_status.get("file_path")}
@@ -167,26 +168,26 @@ class SOPAutomationSystem:
 
         completion_time = datetime.now()
         duration = (completion_time - start_time).total_seconds()
-        
+
         logger.info(f"✅ [OK] 報告生成完成 | 耗時: {duration:.1f}秒")
         logger.info(f"🎯 市場評估: {overall_assessment['market_condition']}")
         logger.info(f"💡 交易建議: {overall_assessment['recommendation']}")
-        
+
         return results
-    
+
     # ========================================
     # Step 1: 市場環境檢查
     # ========================================
-    
+
     def _check_market_environment(self) -> MarketEnvironmentCheck:
         """檢查市場環境"""
         check = MarketEnvironmentCheck(timestamp=datetime.now())
-        
+
         try:
             # 1. 全球市場動態檢查
             logger.info("   📈 檢查全球市場動態...")
             market_data = self.market_data_collector.get_global_market_data()
-            
+
             if market_data:
                 check.us_futures = market_data.get('us_futures', 'UNKNOWN')
                 check.asian_markets = market_data.get('asian_markets', 'UNKNOWN')
@@ -196,13 +197,13 @@ class SOPAutomationSystem:
                 logger.info(f"     ✓ 歐洲市場: {check.european_markets}")
             else:
                 logger.warning("   [WARN] 無法獲取全球市場數據")
-            
+
             # 2. 經濟數據檢查
             logger.info("   📅 檢查重要經濟數據...")
             economic_events = self.market_data_collector.check_economic_calendar()
             check.economic_events = economic_events or []
             logger.info(f"     ✓ 今日重要事件: {len(check.economic_events)} 項")
-            
+
             # 3. AI 新聞分析
             logger.info("   📰 執行 AI 新聞分析...")
             if self.news_sentiment_analyzer is None:
@@ -227,31 +228,31 @@ class SOPAutomationSystem:
             check.overall_status = self.news_sentiment_analyzer.assess_market_status_from_news(
                 news_analysis
             )
-            
+
         except Exception as e:
             raise RuntimeError(f"市場環境檢查失敗: {e}") from e
 
         return check
-    
+
     # ========================================
     # Step 2: 交易計劃準備
     # ========================================
-    
+
     def _prepare_trading_plan(self) -> TradingPlanCheck:
         """制定交易計劃（20步驟詳細版）"""
         check = TradingPlanCheck(timestamp=datetime.now())
-        
+
         try:
             logger.info("   📝 開始制定詳細交易計劃...")
-            
+
             # ========== 第一階段：策略分析與選擇 (步驟1-6) ==========
-            
+
             # 步驟1-2: 市場分析與策略評估
             logger.info("   [INFO] 步驟1-2/20: 市場分析與策略評估...")
             market_condition = self.strategy_planner.analyze_current_market_condition()
             strategy_performance = self.strategy_planner.evaluate_strategy_performance()
             logger.info(f"     ✓ 市場: {market_condition.condition} | 最佳策略: {strategy_performance.best_strategy}")
-            
+
             # 步驟3-4: 策略匹配與參數配置
             logger.info("   📊 步驟3-4/20: 策略匹配與參數配置...")
             strategy_match = self.strategy_planner.match_strategy_to_market(market_condition)
@@ -259,7 +260,7 @@ class SOPAutomationSystem:
                 strategy_match["recommended"]
             )
             logger.info(f"     ✓ 推薦策略: {strategy_match['recommended']} (匹配度: {strategy_match['match_score']}/10)")
-            
+
             # 步驟5-6: 驗證與最終選擇
             logger.info("   ✅ 步驟5-6/20: 策略驗證與最終選擇...")
             suitability = self.strategy_planner.verify_strategy_suitability(
@@ -270,15 +271,15 @@ class SOPAutomationSystem:
             )
             check.selected_strategy = final_strategy["name"]
             logger.info(f"     ✓ 最終策略: {final_strategy['name']} (信心: {final_strategy['confidence']:.0%})")
-            
+
             # ========== 第二階段：風險管理與資金配置 (步驟7-12) ==========
-            
+
             # 步驟7-8: 帳戶分析與風險參數
             logger.info("   💰 步驟7-8/20: 帳戶分析與風險參數...")
             account_analysis = self.risk_manager.analyze_account_funds()
             base_risk = self.risk_manager.calculate_base_risk_parameters(account_analysis)
             logger.info(f"     ✓ 可用資金: ${account_analysis['available']:.2f}")
-            
+
             # 步驟9-10: 波動率調整與持倉管理
             logger.info("   📉 步驟9-10/20: 波動率調整與持倉管理...")
             volatility_adjusted_risk = self.risk_manager.adjust_risk_for_volatility(
@@ -288,7 +289,7 @@ class SOPAutomationSystem:
                 volatility_adjusted_risk.get("max_positions", 3)
             )
             logger.info(f"     ✓ 單筆風險: {volatility_adjusted_risk['single_trade']:.1f}%")
-            
+
             # 步驟11-12: 交易頻率與風險整合
             logger.info("   🔄 步驟11-12/20: 交易頻率與風險整合...")
             frequency_limits = self.risk_manager.calculate_trading_frequency(
@@ -299,9 +300,9 @@ class SOPAutomationSystem:
             )
             check.risk_parameters = self._dataclass_to_dict(integrated_risk)
             logger.info(f"     ✓ 每日交易上限: {integrated_risk.max_daily_trades} 次")
-            
+
             # ========== 第三階段：交易對篩選與優化 (步驟13-17) ==========
-            
+
             # 步驟13-15: 交易對掃描與分析
             logger.info("   🎯 步驟13-15/20: 交易對掃描與分析...")
             available_pairs = self.risk_manager.scan_available_trading_pairs()
@@ -310,20 +311,20 @@ class SOPAutomationSystem:
                 liquidity_analysis
             )
             logger.info(f"     ✓ 可用交易對: {available_pairs.get('total_count', 0)} 個")
-            
+
             # 步驟16-17: 風險過濾與優先級排序
             logger.info("   🔍 步驟16-17/20: 風險過濾與優先級排序...")
             risk_filtered = self.risk_manager.apply_risk_filters(volatility_match, integrated_risk)
             prioritized_pairs = self.risk_manager.prioritize_trading_pairs(risk_filtered)
             check.trading_pairs = prioritized_pairs.primary + prioritized_pairs.backup
             logger.info(f"     ✓ 主要交易對: {', '.join(prioritized_pairs.primary)}")
-            
+
             # ========== 第四階段：回測驗證與最終確認 (步驟18-20) ==========
-            
+
             # 步驟18: 執行回測驗證
             logger.info("   📊 步驟18/20: 執行回測驗證...")
             backtest_results = self.strategy_planner.perform_plan_backtest()
-            
+
             # 步驟19: 計算每日限制
             logger.info("   💵 步驟19/20: 計算每日限制...")
             daily_limits = self.risk_manager.calculate_comprehensive_daily_limits(
@@ -331,37 +332,37 @@ class SOPAutomationSystem:
             )
             check.daily_limits = daily_limits
             logger.info(f"     ✓ 每日最大虧損: ${daily_limits['max_loss_usd']:.2f}")
-            
+
             # 步驟20: 最終驗證
             logger.info("   [OK] 步驟20/20: 最終計劃驗證與確認...")
             final_validation = self._perform_final_plan_validation(
                 backtest_results, final_strategy, suitability
             )
             check.overall_status = final_validation['status']
-            
+
             logger.info(f"     ✓ 計劃評分: {final_validation['score']:.1f}/10")
             logger.info(f"     ✓ 驗證狀態: {final_validation['status']}")
-            
+
         except Exception as e:
             raise RuntimeError(f"交易計劃制定失敗: {e}") from e
 
         return check
-    
+
     # ========================================
     # 綜合評估
     # ========================================
-    
+
     def _assess_overall_readiness(
-        self, 
-        market: MarketEnvironmentCheck, 
+        self,
+        market: MarketEnvironmentCheck,
         plan: TradingPlanCheck
     ) -> Dict[str, Any]:
         """評估整體市場與計劃狀況"""
-        
+
         # 檢查關鍵指標
         market_ok = market.overall_status in ["BULLISH", "NEUTRAL", "BEARISH"]
         plan_ok = plan.overall_status in ["READY", "APPROVED"]
-        
+
         # 判斷市場狀況
         if market.overall_status == "BULLISH":
             market_condition = "看漲 (BULLISH)"
@@ -369,7 +370,7 @@ class SOPAutomationSystem:
             market_condition = "看跌 (BEARISH)"
         else:
             market_condition = "中性 (NEUTRAL)"
-        
+
         # 生成建議
         if market_ok and plan_ok:
             recommendation = "✅ 市場狀況良好，交易計劃完整，可考慮執行交易"
@@ -377,7 +378,7 @@ class SOPAutomationSystem:
             recommendation = "⚠️ 交易計劃就緒，但需密切關注市場變化"
         else:
             recommendation = "⛔ 建議暫緩交易，等待更好時機"
-        
+
         return {
             "market_condition": market_condition,
             "recommendation": recommendation,
@@ -387,9 +388,9 @@ class SOPAutomationSystem:
             "selected_strategy": plan.selected_strategy,
             "timestamp": datetime.now().isoformat()
         }
-    
+
     def _perform_final_plan_validation(
-        self, 
+        self,
         backtest_results: Dict,
         final_strategy: Dict,
         suitability: Dict
@@ -401,10 +402,10 @@ class SOPAutomationSystem:
             suitability_score = suitability.get("score", 5.0)
             backtest_status = str(backtest_results.get("status", "UNKNOWN")).upper()
             backtest_adjustment = 0.0
-            
+
             # 綜合評分
             score = (strategy_score + suitability_score) / 2
-             
+
             # 判斷狀態
             recommendations = []
             if backtest_status == "COMPLETED":
@@ -450,7 +451,7 @@ class SOPAutomationSystem:
 
             if suitability.get("status") == "ACCEPTABLE":
                 recommendations.append("市場適配度一般，建議謹慎執行")
-            
+
             return {
                 "score": round(score, 1),
                 "status": status,
@@ -459,7 +460,7 @@ class SOPAutomationSystem:
             }
         except Exception as e:
             raise RuntimeError(f"最終驗證失敗: {e}") from e
-    
+
     # ========================================
     # 技術分析（需要 K 棒資料）
     # ========================================
@@ -519,7 +520,7 @@ class SOPAutomationSystem:
 
         # ── 成交量分布 & 微觀結構 ──
         try:
-            from ..feature_engineering import VolumeProfileCalculator, MarketDataProcessor
+            from ..feature_engineering import MarketDataProcessor, VolumeProfileCalculator
 
             vp_calc = VolumeProfileCalculator()
             vp = vp_calc.calculate_from_klines(klines)
@@ -688,11 +689,11 @@ class SOPAutomationSystem:
     def generate_daily_report(self) -> str:
         """生成每日報告文本"""
         return str(self.report_generator.generate_daily_report())
-    
+
     # ========================================
     # 工具方法
     # ========================================
-    
+
     def _dataclass_to_dict(self, obj: Any) -> Dict[str, Any]:
         """將 dataclass 轉換為字典"""
         if is_dataclass(obj):

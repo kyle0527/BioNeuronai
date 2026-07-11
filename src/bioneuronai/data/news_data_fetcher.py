@@ -13,10 +13,11 @@
 
 import logging
 import os
-import requests
 import xml.etree.ElementTree as ET
 from datetime import datetime
 from typing import Dict, List, Optional
+
+import requests
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +61,8 @@ class NewsDataFetcher:
         """
         self.cryptopanic_token: str = (
             cryptopanic_token
-            or os.getenv("CRYPTOPANIC_API_TOKEN", "free")
+            or os.getenv("CRYPTOPANIC_API_TOKEN")
+            or "free"
         )
         self.request_timeout = request_timeout
         self.rss_feeds: List[str] = rss_feeds if rss_feeds is not None else DEFAULT_RSS_FEEDS

@@ -75,57 +75,57 @@ USE_TESTNET = resolve_binance_testnet(default=True)
 #  APIhttps://fapi.binance.com
 
 # =======================================
-# 
+#
 # =======================================
 
-# 
+#
 TRADING_PAIRS = [
     "BTCUSDT",   # /USDT
     "ETHUSDT",   # /USDT
     "BNBUSDT",   # /USDT
 ]
 
-#  
+#
 AUTO_TRADE_ENABLED = False
 
-# 
+#
 USE_STRATEGY_FUSION = True
 
 # USDT
 MAX_TRADE_AMOUNT = 100.0
 
-# 
+#
 MAX_POSITIONS = 3
 
 # 1-125
 LEVERAGE = 1
 
 # =======================================
-# 
+#
 # =======================================
 
-# 
+#
 # : "RSI_Divergence", "Bollinger_Bands", "MACD_Trend", "AI_Fusion"
 ACTIVE_STRATEGY = "AI_Fusion"
 
-# RSI 
+# RSI
 RSI_PERIOD = 14
 RSI_OVERBOUGHT = 70
 RSI_OVERSOLD = 30
 
-# 
+#
 BOLLINGER_PERIOD = 20
 BOLLINGER_STD_DEV = 2.0
 
-# MACD 
+# MACD
 MACD_FAST_PERIOD = 12
 MACD_SLOW_PERIOD = 26
 MACD_SIGNAL_PERIOD = 9
 
-# AI 
-# 
+# AI
+#
 AI_ENABLE_DYNAMIC_WEIGHTS = True
-# 
+#
 AI_MIN_TRADES_FOR_ADJUSTMENT = 10
 
 # =======================================
@@ -156,33 +156,33 @@ TRADING_HOURS_START = 0
 TRADING_HOURS_END = 23
 
 # =======================================
-# AI 
+# AI
 # =======================================
 
 # 0-1
 MIN_SIGNAL_CONFIDENCE = 0.7
 
-# 
+#
 PRICE_HISTORY_SIZE = 100
 
-# 
+#
 SHORT_MA_PERIOD = 5
 
-# 
+#
 LONG_MA_PERIOD = 20
 
 # =======================================
-# 
+#
 # =======================================
 
-# 
+#
 ENABLE_NOTIFICATIONS = True
 
 # Telegram Bot Token
 TELEGRAM_BOT_TOKEN = ""
 TELEGRAM_CHAT_ID = ""
 
-# Email 
+# Email
 EMAIL_ENABLED = False
 EMAIL_FROM = ""
 EMAIL_TO = ""
@@ -190,19 +190,19 @@ EMAIL_SMTP_SERVER = "smtp.gmail.com"
 EMAIL_SMTP_PORT = 587
 
 # =======================================
-# 
+#
 # =======================================
 
 #  (DEBUG, INFO, WARNING, ERROR)
 LOG_LEVEL = "INFO"
 
-# 
+#
 LOG_FILE = "logs/trading.log"
 
-# 
+#
 SAVE_TRADE_HISTORY = True
 TRADE_HISTORY_FILE = "data/trade_history.json"
 
-# 
+#
 SAVE_SIGNAL_HISTORY = True
 SIGNAL_HISTORY_FILE = "data/signal_history.json"

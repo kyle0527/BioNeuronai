@@ -1,7 +1,7 @@
 """
 統一訓練入口腳本 (Unified Trainer)
 ====================================
-同一個 TinyLLM 訓練流程，同時支援兩個任務：
+同一個 TinyLLL v2 訓練流程，同時支援數值決策與中英文說明：
 
   任務 A（語言）  ：用 trading_dialogue_data.py 的 QA 對進行 next-token 預測
   任務 B（訊號）  ：用回測歷史中的 (feature_seq, signal_label) 進行序列回歸
@@ -12,7 +12,7 @@
     python -m nlp.training.unified_trainer --sig-only   # 純訊號訓練
 
 輸出：
-    model/my_100m_model.pth   ← 正式交易 checkpoint 輸出位置
+    model/unified_v2_100m.pth   ← 正式統一 checkpoint 輸出位置
 """
 
 from __future__ import annotations
@@ -41,12 +41,12 @@ for p in [str(_SRC), str(_ROOT)]:
     if p not in sys.path:
         sys.path.insert(0, p)
 
-from nlp.tiny_llm import TinyLLM, TinyLLMConfig
+from bioneuronai.core.inference_engine import FeaturePipeline
+from bioneuronai.data.cloud_storage import materialize_uri, upload_path
 from nlp.bilingual_tokenizer import BilingualTokenizer
+from nlp.tiny_llm_v2 import TinyLLMv2, TinyLLMv2Config
 from nlp.training.advanced_trainer import Trainer, TrainingConfig
 from nlp.training.trading_dialogue_data import ALL_TRADING_DATA
-from bioneuronai.data.cloud_storage import materialize_uri, upload_path
-
 
 # ============================================================================
 # 資料集：語言任務
@@ -101,29 +101,25 @@ class SignalDataset(Dataset):
     """
     從回測資料庫讀取 (feature_seq, signal_label) 對。
 
-    預設必須提供真實 JSONL；只有顯式 allow_synthetic=True 時才允許產生合成資料供 smoke test。
-
     JSONL 格式（每行一筆）：
     {
         "features": [[f1, f2, ..., f1024], ...],   # shape (T, 1024)
-        "signal":   [s1, s2, ..., s512]             # shape (512,)
+        "signal":   [s1, s2, ..., s65],             # v2 結構化目標
+        "context_text": "中英文市場脈絡",
+        "explanation": "與 signal 一致的交易說明"
     }
     """
 
-    _SYNTH_FEATURES = 1024
-    _SYNTH_OUTPUT   = 512
-    _SYNTH_SEQ_LEN  = 16
-
     def __init__(
         self,
+        tokenizer: BilingualTokenizer,
         data_path: Optional[Path] = None,
         seq_len: int = 16,
-        n_synthetic: int = 1000,
-        allow_synthetic: bool = False,
         max_samples: Optional[int] = None,
     ) -> None:
+        self.tokenizer = tokenizer
         self.seq_len = seq_len
-        self.samples: List[Tuple[np.ndarray, np.ndarray]] = []
+        self.samples: List[Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]] = []
 
         if data_path and data_path.exists():
             if data_path.suffix.lower() == ".pt":
@@ -132,16 +128,63 @@ class SignalDataset(Dataset):
                 self._load_jsonl(data_path, max_samples=max_samples)
             if not self.samples:
                 raise ValueError(f"訊號資料檔為空或沒有有效樣本: {data_path}")
-        elif allow_synthetic:
-            print("[unified_trainer] 警告：使用合成 signal 資料，僅適用於 smoke test，不應作為正式訓練資料。")
-            self._generate_synthetic(n_synthetic)
         else:
             target = str(data_path) if data_path else "未指定 --signal-data"
             raise FileNotFoundError(
                 f"找不到真實訊號資料: {target}。"
-                " 請先執行 backtest.service.collect_signal_training_data 收集 JSONL，"
-                "或顯式使用 --allow-synthetic-signal-data 進行 smoke test。"
+                " 統一訓練器禁止合成資料，請提供帶未來結果與雙語說明的 v2 資料。"
             )
+
+    def _prepare_sample(
+        self,
+        features: np.ndarray,
+        signal: np.ndarray,
+        context_text: str,
+        explanation: str,
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        if features.ndim != 2:
+            raise ValueError(f"features 必須為二維，收到 {features.shape}")
+        if features.shape[-1] == FeaturePipeline.TOTAL_FEATURES:
+            features = FeaturePipeline.to_v2_patch(features)
+        if features.shape[-1] != 64:
+            raise ValueError(f"features 最後一維必須是 64 或 1024，收到 {features.shape}")
+        if signal.shape != (65,):
+            raise ValueError(
+                f"signal 必須是 v2 的 65 維真實目標，收到 {signal.shape}；"
+                "舊 512 維模型輸出禁止作為 ground truth"
+            )
+        if not context_text.strip() or not explanation.strip():
+            raise ValueError("每筆 v2 訓練資料都必須包含 context_text 與 explanation")
+
+        if features.shape[0] < self.seq_len:
+            first = features[:1]
+            padding = np.repeat(first, self.seq_len - features.shape[0], axis=0)
+            features = np.concatenate([padding, features], axis=0)
+        else:
+            features = features[-self.seq_len:]
+
+        context_ids = self.tokenizer.encode(
+            context_text, max_length=128, truncation=True, add_special_tokens=True
+        )
+        eos = self.tokenizer.eos_token_id
+        sep = self.tokenizer.special_token_ids.get("sep_token", 4)
+        explanation_tokens = self.tokenizer.encode(
+            explanation, add_special_tokens=False
+        )
+        sequence = (context_ids[:-1] + [sep] + explanation_tokens + [eos])[:128]
+        prompt_length = min(len(context_ids), len(sequence))
+        labels = [-100] * prompt_length + sequence[prompt_length:]
+        pad_count = 128 - len(sequence)
+        sequence = sequence + [self.tokenizer.pad_token_id] * pad_count
+        labels = labels + [-100] * pad_count
+        context_ids = context_ids[:128] + [self.tokenizer.pad_token_id] * (128 - len(context_ids[:128]))
+        return (
+            features.astype(np.float32),
+            signal.astype(np.float32),
+            np.asarray(context_ids, dtype=np.int64),
+            np.asarray(sequence, dtype=np.int64),
+            np.asarray(labels, dtype=np.int64),
+        )
 
     def _load_jsonl(self, path: Path, max_samples: Optional[int] = None) -> None:
         with open(path, encoding="utf-8") as f:
@@ -150,15 +193,16 @@ class SignalDataset(Dataset):
                 if not line:
                     continue
                 obj = json.loads(line)
-                feat = np.array(obj["features"], dtype=np.float32)  # (T, 1024)
-                sig  = np.array(obj["signal"],   dtype=np.float32)  # (512,)
-                # 若 T != seq_len，截斷或補零
-                if feat.shape[0] < self.seq_len:
-                    pad = np.zeros((self.seq_len - feat.shape[0], feat.shape[1]), dtype=np.float32)
-                    feat = np.concatenate([pad, feat], axis=0)
-                else:
-                    feat = feat[-self.seq_len:]
-                self.samples.append((feat, sig))
+                feat = np.array(obj["features"], dtype=np.float32)
+                sig = np.array(obj["signal"], dtype=np.float32)
+                self.samples.append(
+                    self._prepare_sample(
+                        feat,
+                        sig,
+                        str(obj.get("context_text") or ""),
+                        str(obj.get("explanation") or ""),
+                    )
+                )
                 if max_samples is not None and len(self.samples) >= max_samples:
                     break
 
@@ -166,6 +210,10 @@ class SignalDataset(Dataset):
         payload = torch.load(path, map_location="cpu", weights_only=False)
         features = payload["features"]
         signals = payload["signals"]
+        contexts = payload.get("contexts")
+        explanations = payload.get("explanations")
+        if contexts is None or explanations is None:
+            raise ValueError("v2 .pt 資料必須包含 contexts 與 explanations")
         if isinstance(features, torch.Tensor):
             features = features.numpy()
         if isinstance(signals, torch.Tensor):
@@ -174,29 +222,21 @@ class SignalDataset(Dataset):
         for idx in range(limit):
             feat = np.asarray(features[idx], dtype=np.float32)
             sig = np.asarray(signals[idx], dtype=np.float32)
-            if feat.shape[0] < self.seq_len:
-                pad = np.zeros((self.seq_len - feat.shape[0], feat.shape[1]), dtype=np.float32)
-                feat = np.concatenate([pad, feat], axis=0)
-            else:
-                feat = feat[-self.seq_len:]
-            self.samples.append((feat, sig))
-
-    def _generate_synthetic(self, n: int) -> None:
-        """生成隨機合成資料，僅用於系統驗證，不代表真實訓練品質"""
-        rng = np.random.default_rng(42)
-        for _ in range(n):
-            feat = rng.standard_normal((self.seq_len, self._SYNTH_FEATURES)).astype(np.float32)
-            sig  = rng.standard_normal(self._SYNTH_OUTPUT).astype(np.float32)
-            self.samples.append((feat, sig))
+            self.samples.append(
+                self._prepare_sample(feat, sig, str(contexts[idx]), str(explanations[idx]))
+            )
 
     def __len__(self) -> int:
         return len(self.samples)
 
     def __getitem__(self, idx: int):
-        feat, sig = self.samples[idx]
+        feat, sig, context_ids, explanation_ids, explanation_labels = self.samples[idx]
         return {
-            "feature_seq":    torch.from_numpy(feat),   # (T, 1024)
-            "signal_labels":  torch.from_numpy(sig),    # (512,)
+            "feature_seq": torch.from_numpy(feat),
+            "signal_labels": torch.from_numpy(sig),
+            "context_ids": torch.from_numpy(context_ids),
+            "explanation_ids": torch.from_numpy(explanation_ids),
+            "explanation_labels": torch.from_numpy(explanation_labels),
         }
 
 
@@ -236,17 +276,15 @@ def build_lm_dataloader(
 
 def build_signal_dataloader(
     data_path: Optional[Path],
+    tokenizer: BilingualTokenizer,
     seq_len: int = 16,
     batch_size: int = 8,
-    n_synthetic: int = 1000,
-    allow_synthetic: bool = False,
     max_samples: Optional[int] = None,
 ) -> _WrappedLoader:
     ds = SignalDataset(
+        tokenizer,
         data_path,
         seq_len=seq_len,
-        n_synthetic=n_synthetic,
-        allow_synthetic=allow_synthetic,
         max_samples=max_samples,
     )
     return _WrappedLoader(DataLoader(ds, batch_size=batch_size, shuffle=True, num_workers=0))
@@ -360,9 +398,9 @@ def _build_and_save_vocab(tokenizer: BilingualTokenizer, dest: Path) -> None:
 # 主訓練流程
 # ============================================================================
 
-def build_model(model_path: Optional[Path] = None) -> Tuple[TinyLLM, BilingualTokenizer]:
+def build_model(model_path: Optional[Path] = None) -> Tuple[TinyLLMv2, BilingualTokenizer]:
     """建立或載入模型與分詞器"""
-    tokenizer = BilingualTokenizer(vocab_size=30000)
+    tokenizer = BilingualTokenizer(vocab_size=16000)
 
     # 嘗試載入已有詞彙；若不存在則從訓練語料自動建立
     tok_file = _ROOT / "model" / "tokenizer" / "vocab.json"
@@ -377,18 +415,20 @@ def build_model(model_path: Optional[Path] = None) -> Tuple[TinyLLM, BilingualTo
         print("[unified_trainer] 未找到 tokenizer，從訓練語料建立詞彙...")
         _build_and_save_vocab(tokenizer, tok_file)
 
-    cfg = TinyLLMConfig(
-        vocab_size=tokenizer.vocab_size,
-        use_numeric_mode=True,
-        numeric_input_dim=1024,
-        signal_output_dim=512,
-        numeric_seq_len=16,
-    )
-    model = TinyLLM(cfg)
+    max_token_id = max(tokenizer.id_to_token, default=0)
+    active_path = _ROOT / "config" / "active_model.json"
+    active = json.loads(active_path.read_text(encoding="utf-8"))
+    cfg = TinyLLMv2Config.from_dict(active.get("config") or {})
+    if max_token_id >= cfg.vocab_size:
+        raise ValueError(
+            f"tokenizer 最大 token id {max_token_id} 超過統一詞表 {cfg.vocab_size}"
+        )
+    model = TinyLLMv2(cfg)
 
     # 嘗試載入已有權重
-    ckpt = model_path or (_ROOT / "model" / "my_100m_model.pth")
-    if ckpt.exists():
+    configured_path = active.get("model_path")
+    ckpt = model_path or ((_ROOT / configured_path) if configured_path else None)
+    if ckpt is not None and ckpt.exists():
         try:
             checkpoint = torch.load(str(ckpt), map_location="cpu", weights_only=True)
             # 支援新格式 {'state_dict':..., 'config':...} 及舊格式（純 OrderedDict）
@@ -396,20 +436,14 @@ def build_model(model_path: Optional[Path] = None) -> Tuple[TinyLLM, BilingualTo
                 state = checkpoint["state_dict"]
             else:
                 state = checkpoint
-            loaded = model.load_state_dict(state, strict=False)
-            missing = loaded.missing_keys
-            unexpected = loaded.unexpected_keys
-            if missing or unexpected:
-                print(
-                    f"[unified_trainer] 部分層未對齊 — missing={len(missing)}, "
-                    f"unexpected={len(unexpected)}（通常因詞彙表大小不符，embedding 已重新初始化）"
-                )
-            else:
-                print(f"[unified_trainer] 權重載入自 {ckpt}（完整載入）")
+            model.load_state_dict(state, strict=True)
+            setattr(model, "is_trained", True)
+            print(f"[unified_trainer] 統一 v2 權重載入自 {ckpt}（完整載入）")
         except Exception as e:
-            print(f"[unified_trainer] 權重載入失敗，從隨機初始化開始: {e}")
+            raise RuntimeError(f"基礎權重不是相容的統一 v2 checkpoint: {ckpt}") from e
     else:
-        print(f"[unified_trainer] 未找到 {ckpt}，從隨機初始化開始")
+        setattr(model, "is_trained", False)
+        print("[unified_trainer] 尚無 v2 checkpoint，依 active_model 設定初始化")
 
     total = sum(p.numel() for p in model.parameters()) / 1e6
     print(f"[unified_trainer] 模型參數量: {total:.1f}M")
@@ -426,7 +460,6 @@ def train(
     signal_val_data_path: Optional[Union[str, Path]] = None,
     output_dir: str = "./output/unified",
     save_to_model: bool = True,
-    allow_synthetic_signal_data: bool = False,
     base_model_path: Optional[Union[str, Path]] = None,
     resume_from: Optional[Union[str, Path]] = None,
     max_signal_samples: Optional[int] = None,
@@ -446,9 +479,7 @@ def train(
         lr:                學習率
         signal_data_path:  訊號任務 JSONL 資料路徑
         output_dir:        檢查點輸出目錄
-        save_to_model:     訓練完成後是否直接覆寫 model/my_100m_model.pth
-        allow_synthetic_signal_data:
-                          允許用合成 signal 資料做 smoke test；正式訓練請保持 False
+        save_to_model:     訓練完成後是否寫入 model/unified_v2_100m.pth
     """
     set_training_seed(seed)
     original_signal_data_path = str(signal_data_path) if signal_data_path else None
@@ -477,7 +508,6 @@ def train(
         "output_dir": output_dir,
         "cloud_output_uri": cloud_output_uri,
         "save_to_model": save_to_model,
-        "allow_synthetic_signal_data": allow_synthetic_signal_data,
         "base_model_path": original_base_model_path,
         "resolved_base_model_path": str(resolved_base_model_path) if resolved_base_model_path else None,
         "resume_from": original_resume_from,
@@ -491,16 +521,15 @@ def train(
         output_path,
         args=manifest_args,
         signal_data_path=resolved_signal_data_path,
-        base_model_path=resolved_base_model_path or (_ROOT / "model" / "my_100m_model.pth"),
+        base_model_path=resolved_base_model_path,
         status="started",
     )
 
     multitask = (not lm_only) and (not sig_only)
 
-    if not lm_only and resolved_signal_data_path is None and not allow_synthetic_signal_data:
+    if not lm_only and resolved_signal_data_path is None:
         raise ValueError(
-            "signal 任務需要真實資料。請使用 --signal-data 指定 JSONL，"
-            "或顯式傳入 --allow-synthetic-signal-data 僅做 smoke test。"
+            "signal 任務需要真實 v2 配對資料，請使用 --signal-data 指定 JSONL/.pt。"
         )
 
     cfg = TrainingConfig(
@@ -521,42 +550,39 @@ def train(
     )
 
     # ── 語言任務資料 ─────────────────────────────────────────────────────────
+    train_dl: Optional[_WrappedLoader] = None
+    val_dl: Optional[_WrappedLoader] = None
     if not sig_only:
         train_dl, val_dl = build_lm_dataloader(tokenizer, batch_size=batch_size)
         print(f"[unified_trainer] 語言任務: {len(train_dl)} batches")
-    else:
-        # sig_only 模式：用一個空的假 dataloader 佔位
-        # Trainer 仍需要 train_dataloader，這裡傳空 Dataset
-        empty_dl = _WrappedLoader(DataLoader(DialogueDataset([], tokenizer), batch_size=1))
-        train_dl, val_dl = empty_dl, None
 
     # ── 訊號任務資料 ─────────────────────────────────────────────────────────
     signal_dl = None
     if not lm_only:
         signal_dl = build_signal_dataloader(
             resolved_signal_data_path,
+            tokenizer,
             seq_len=cfg.signal_seq_len,
             batch_size=batch_size,
-            allow_synthetic=allow_synthetic_signal_data,
             max_samples=max_signal_samples,
         )
-        print(f"[unified_trainer] 訊號任務: {len(signal_dl)} batches"
-              f"{'（合成資料）' if allow_synthetic_signal_data and signal_data_path is None else ''}")
+        print(f"[unified_trainer] 訊號與說明聯合任務: {len(signal_dl)} batches")
 
     # ── sig_only 時把 signal_dl 當作主 dataloader ──────────────────────────
     if sig_only and signal_dl is not None:
-        # 包裝成語言任務格式讓 Trainer 能跑主 loop
-        # 實際語言 loss 計算中 logits 形狀對不上時為 0，不影響訊號 loss
         train_dl = signal_dl
         cfg.multitask = False   # 關掉多任務，只計算訊號 loss
         if resolved_signal_val_data_path is not None:
             val_dl = build_signal_dataloader(
                 resolved_signal_val_data_path,
+                tokenizer,
                 seq_len=cfg.signal_seq_len,
                 batch_size=batch_size,
-                allow_synthetic=False,
             )
             print(f"[unified_trainer] 訊號驗證集: {len(val_dl)} batches")
+
+    if train_dl is None:
+        raise RuntimeError("沒有可用的真實訓練資料")
 
     trainer = Trainer(
         model=model,
@@ -575,10 +601,34 @@ def train(
 
     # ── 儲存最終權重 ──────────────────────────────────────────────────────────
     if save_to_model:
-        dest = _ROOT / "model" / "my_100m_model.pth"
+        dest = _ROOT / "model" / "unified_v2_100m.pth"
         dest.parent.mkdir(exist_ok=True)
-        # 使用 load_llm() 相容格式，讓 auto_evolve.py 可直接載入
-        torch.save({"state_dict": model.state_dict(), "config": model.config.__dict__}, str(dest))
+        torch.save(
+            {
+                "architecture": "TinyLLMv2",
+                "state_dict": model.state_dict(),
+                "config": model.config.to_dict(),
+                "trained": True,
+            },
+            str(dest),
+        )
+        active_path = _ROOT / "config" / "active_model.json"
+        active = json.loads(active_path.read_text(encoding="utf-8"))
+        active.update(
+            {
+                "model_name": "unified_v2_100m",
+                "architecture": "TinyLLMv2",
+                "model_path": "model/unified_v2_100m.pth",
+                "materialized_path": "model/unified_v2_100m.pth",
+                "initialization": "trained_checkpoint",
+                "trained": True,
+                "promoted_at": datetime.now(timezone.utc).isoformat(),
+            }
+        )
+        active_path.write_text(
+            json.dumps(active, indent=2, ensure_ascii=False) + "\n",
+            encoding="utf-8",
+        )
         print(f"\n[unified_trainer] 權重已儲存至 {dest}")
         print("  InferenceEngine 與 ChatEngine 下次啟動時將自動載入此權重。")
     else:
@@ -588,7 +638,7 @@ def train(
         output_path,
         args=manifest_args,
         signal_data_path=resolved_signal_data_path,
-        base_model_path=resolved_base_model_path or (_ROOT / "model" / "my_100m_model.pth"),
+        base_model_path=resolved_base_model_path,
         status="completed",
     )
     print(f"[unified_trainer] run manifest 已寫入 {output_path / 'run_manifest.json'}")
@@ -616,11 +666,6 @@ def _parse_args() -> argparse.Namespace:
         "--signal-val-data", type=str, default=None,
         help="訊號任務驗證集 .pt / JSONL 路徑（sig-only 模式使用，對應 signal_val.pt）"
     )
-    p.add_argument(
-        "--allow-synthetic-signal-data",
-        action="store_true",
-        help="允許在未提供真實 signal JSONL 時使用合成資料進行 smoke test",
-    )
     p.add_argument("--base-model", type=str, default=None, help="基礎 checkpoint 路徑")
     p.add_argument("--resume", type=str, default=None, help="從 checkpoint 目錄恢復訓練")
     p.add_argument("--max-signal-samples", type=int, default=None, help="最多讀取幾筆 signal 樣本")
@@ -634,7 +679,9 @@ def _parse_args() -> argparse.Namespace:
         default=None,
         help="訓練完成後同步 output 目錄到 gs://bucket/prefix（也可用 TRAINING_OUTPUT_URI）",
     )
-    p.add_argument("--no-save",  action="store_true", help="不覆寫 model/my_100m_model.pth")
+    p.add_argument(
+        "--no-save", action="store_true", help="不寫入 model/unified_v2_100m.pth"
+    )
     return p.parse_args()
 
 
@@ -650,7 +697,6 @@ if __name__ == "__main__":
         signal_val_data_path=args.signal_val_data,
         output_dir=args.output,
         save_to_model=not args.no_save,
-        allow_synthetic_signal_data=args.allow_synthetic_signal_data,
         base_model_path=args.base_model,
         resume_from=args.resume,
         max_signal_samples=args.max_signal_samples,

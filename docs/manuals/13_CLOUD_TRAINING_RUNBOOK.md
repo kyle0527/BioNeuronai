@@ -1,6 +1,6 @@
 # Cloud Training Runbook
 
-This runbook describes the safe path for future BioNeuronAI model retraining on a cloud GPU. The first cloud training artifacts have already been imported into the runtime; this document is no longer a "next step to start initial cloud training" checklist.
+This runbook describes the unified v2 training path on a cloud GPU. The runtime can execute an untrained deterministic baseline, but no trained `unified_v2_100m` checkpoint is currently promoted.
 
 ## 📑 目錄
 
@@ -17,7 +17,7 @@ This runbook describes the safe path for future BioNeuronAI model retraining on 
 
 ## Goals
 
-- Do not overwrite `model/my_100m_model.pth` during cloud experiments; promote through `config/active_model.json`.
+- Do not overwrite `model/unified_v2_100m.pth` during cloud experiments; promote through `config/active_model.json` only after validation.
 - Train from versioned datasets and checkpoints.
 - Save resumable checkpoints and a `run_manifest.json`.
 - Promote a trained model only after operational and backtest validation.
@@ -30,14 +30,15 @@ Collect signal data from replay/backtest:
 python main.py collect-signal-data \
   --symbol BTCUSDT \
   --interval 1h \
-  --output data/signal_history.jsonl
+  --future-horizon 12 \
+  --output data/unified_v2_training.jsonl
 ```
 
 Convert JSONL into tensor files:
 
 ```bash
 python tools/training/prepare_signal_tensors.py \
-  --input data/signal_history.jsonl \
+  --input data/unified_v2_training.jsonl \
   --output-dir data/processed \
   --seq-len 16 \
   --val-ratio 0.1
@@ -49,7 +50,7 @@ Expected outputs:
 - `data/processed/signal_val.pt`
 - `data/processed/manifest.json`
 
-Current project status verified on 2026-05-14: the first trained runtime checkpoint is already connected through `config/active_model.json`. For future retraining, `data/processed/` is still git-ignored; training tensors must be uploaded to a cloud bucket or mounted into the cloud VM/container before a new cloud job starts.
+Current project status verified on 2026-07-11: `config/active_model.json` points to the deterministic untrained unified v2 architecture. `data/processed/` is git-ignored; training tensors must be uploaded to a cloud bucket or mounted into the cloud VM/container before a new cloud job starts.
 
 Example GCS upload:
 
@@ -66,7 +67,7 @@ Use a tiny real-data subset before spending GPU time. This is an operational reh
 ```bash
 python -m nlp.training.unified_trainer \
   --sig-only \
-  --signal-data data/signal_history.jsonl \
+  --signal-data data/unified_v2_training.jsonl \
   --max-signal-samples 4 \
   --epochs 1 \
   --batch 2 \
@@ -82,7 +83,7 @@ Pass criteria:
 - `output/cloud_dryrun/final_model/model.pth` exists,
 - `output/cloud_dryrun/checkpoint_latest/model.pth` exists,
 - `output/cloud_dryrun/run_manifest.json` exists,
-- `model/my_100m_model.pth` is not modified.
+- `model/unified_v2_100m.pth` is not modified.
 - `config/active_model.json` is changed only by an explicit promote step.
 
 ## 3. Build Training Image
@@ -178,11 +179,11 @@ Do not promote a cloud-trained checkpoint through `config/active_model.json` unt
 - API status and pretrade operational validation,
 - latency measurement on target hardware.
 
-Promotion should be a separate explicit step, not part of training. First-round artifacts already promoted to the current runtime still require trading-performance validation before any live-auto use.
+Promotion is a separate explicit step. A checkpoint must identify `TinyLLMv2`, contain the numeric encoder and 65-dimensional signal head, and pass the gates above before becoming active.
 
 For inference after promotion, point the runtime to the promoted model with one of:
 
 ```bash
-MODEL_PATH=gs://YOUR_BUCKET/bioneuronai/models/my_100m_model.pth
+MODEL_PATH=gs://YOUR_BUCKET/bioneuronai/models/unified_v2_100m.pth
 MODEL_DIR=gs://YOUR_BUCKET/bioneuronai/models
 ```

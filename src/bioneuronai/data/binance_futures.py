@@ -3,21 +3,23 @@ Binance Futures API 連接器
 專門處理與 Binance 的 API 交互
 """
 
-import json
-import time
-import hmac
 import hashlib
-import requests
-import websocket
-import threading
+import hmac
+import json
 import logging
-from typing import Any, cast, Dict, List, Optional, Callable
+import threading
+import time
 from collections import deque
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Any, Callable, Dict, List, Optional, cast
+
+import requests
+import websocket
 
 # 遵循 CODE_FIX_GUIDE：直接從 schemas 套件導入，避免循環依賴
 from schemas.market import MarketData
+
 
 @dataclass
 class OrderResult:
@@ -537,17 +539,17 @@ class BinanceFuturesConnector:
             ws_url = f"{self.ws_base}/ws/{stream}"
             reconnect_attempts = 0
 
-            def on_message(ws, message):
+            def on_message(_ws, message):
                 try:
                     data = json.loads(message)
                     callback(data)
                 except Exception as e:
                     logger.error(f"處理 WebSocket 消息失敗: {e}")
 
-            def on_error(ws, error):
+            def on_error(_ws, error):
                 logger.error(f"WebSocket 錯誤: {error}")
 
-            def on_close(ws, close_status_code, close_msg):
+            def on_close(_ws, _close_status_code, _close_msg):
                 nonlocal reconnect_attempts
                 logger.warning("WebSocket 連接關閉")
 
@@ -558,7 +560,7 @@ class BinanceFuturesConnector:
                     time.sleep(delay)
                     self.subscribe_ticker_stream(symbol, callback, auto_reconnect)
 
-            def on_open(ws):
+            def on_open(_ws):
                 nonlocal reconnect_attempts
                 reconnect_attempts = 0
                 logger.info(f"WebSocket 已連接: {stream}")

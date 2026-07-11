@@ -11,15 +11,24 @@ Trading decisions still belong to the project's strategy layer.
 
 __version__ = "2.1"
 
-from .contracts import ExecutionReceipt, OrderIntent, ReplayRuntimeState
-from .mock_connector import MockBinanceConnector
-from .data_stream import DEFAULT_DATA_DIR, HistoricalDataStream, KlineBar, resolve_data_dir
-from .paths import BACKTEST_DATA_DIR, DATA_ROOT, DOCS_ROOT, RUNTIME_ROOT, UI_ROOT, VENDOR_ROOT, ensure_backtest_dirs
 from bioneuronai.trading import VirtualAccount
-from .backtest_engine import BacktestEngine, BacktestConfig, quick_backtest, create_mock_connector
+
+from .backtest_engine import BacktestConfig, BacktestEngine, create_mock_connector, quick_backtest
 from .catalog import get_catalog
-from .runtime_store import ReplayRunRecorder, list_runs, load_run
+from .contracts import ExecutionReceipt, OrderIntent, ReplayRuntimeState
+from .data_stream import DEFAULT_DATA_DIR, HistoricalDataStream, KlineBar, resolve_data_dir
+from .mock_connector import MockBinanceConnector
+from .paths import (
+    BACKTEST_DATA_DIR,
+    DATA_ROOT,
+    DOCS_ROOT,
+    RUNTIME_ROOT,
+    UI_ROOT,
+    VENDOR_ROOT,
+    ensure_backtest_dirs,
+)
 from .readiness_gate import load_readiness_gate_config, run_trading_readiness_gate
+from .runtime_store import ReplayRunRecorder, list_runs, load_run
 from .service import (
     build_selector_performance_weights,
     collect_signal_training_data,

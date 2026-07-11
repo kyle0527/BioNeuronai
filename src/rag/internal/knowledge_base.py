@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 from __future__ import annotations
+
 """
 內部知識庫 (Internal Knowledge Base)
 ====================================
@@ -11,14 +12,15 @@ from __future__ import annotations
 - 市場分析報告
 """
 
-import logging
-import json
 import hashlib
-from typing import List, Dict, Optional, Any, TYPE_CHECKING, Callable
+import json
+import logging
 from dataclasses import dataclass, field
 from datetime import datetime
-from pathlib import Path
 from enum import Enum
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
+
 import numpy as np
 
 # 導入可選的 FAISS 索引
@@ -27,7 +29,8 @@ if TYPE_CHECKING:
 
 create_index: Optional[Callable[[int, bool], VectorIndex]]
 try:
-    from .faiss_index import VectorIndex, create_index as imported_create_index
+    from .faiss_index import VectorIndex
+    from .faiss_index import create_index as imported_create_index
     FAISS_INDEX_AVAILABLE = True
     create_index = imported_create_index
 except ImportError:
@@ -60,7 +63,7 @@ class KnowledgeDocument:
     metadata: Dict[str, Any] = field(default_factory=dict)
     embedding: Optional[np.ndarray] = None
     score: float = 0.0  # 檢索時的相關性分數
-    
+
     def to_dict(self) -> Dict[str, Any]:
         return {
             "id": self.id,
@@ -72,7 +75,7 @@ class KnowledgeDocument:
             "tags": self.tags,
             "metadata": self.metadata
         }
-    
+
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "KnowledgeDocument":
         return cls(
@@ -90,16 +93,16 @@ class KnowledgeDocument:
 class InternalKnowledgeBase:
     """
     內部知識庫管理器
-    
+
     功能：
     - 文檔的增刪改查
     - 向量索引和搜索
     - 持久化存儲
     - 自動更新嵌入
     """
-    
+
     # 預設交易規則
-    DEFAULT_TRADING_RULES = [
+    DEFAULT_TRADING_RULES: List[Dict[str, Any]] = [
         {
             "title": "風險管理規則 - 單筆交易風險",
             "content": """
@@ -161,7 +164,7 @@ class InternalKnowledgeBase:
             "tags": ["market_regime", "adx", "volatility"]
         }
     ]
-    
+
     def __init__(
         self,
         storage_path: Optional[str] = None,
@@ -174,7 +177,7 @@ class InternalKnowledgeBase:
         self.documents: Dict[str, KnowledgeDocument] = {}
         self._embeddings_matrix: Optional[np.ndarray] = None
         self._doc_ids: List[str] = []
-        
+
         # FAISS 向量索引（可選加速）
         self._vector_index: Optional[VectorIndex] = None
         self._use_faiss = use_faiss and FAISS_INDEX_AVAILABLE
@@ -182,14 +185,14 @@ class InternalKnowledgeBase:
             # 預設使用 384 維（all-MiniLM-L6-v2）
             self._vector_index = create_index(384, False)
             logger.info("✅ FAISS 向量索引已啟用")
-        
+
         if auto_load:
             self._load_default_rules()
             if self.storage_path and self.storage_path.exists():
                 self._load_from_storage()
-        
+
         logger.info(f"內部知識庫已初始化，文檔數量: {len(self.documents)}")
-    
+
     def _load_default_rules(self):
         """載入預設交易規則"""
         for i, rule in enumerate(self.DEFAULT_TRADING_RULES):
@@ -203,7 +206,7 @@ class InternalKnowledgeBase:
                 update_index=False
             )
         self._rebuild_index()
-    
+
     def add_document(
         self,
         doc_id: str,
@@ -223,7 +226,7 @@ class InternalKnowledgeBase:
             tags=tags or [],
             metadata=metadata or {}
         )
-        
+
         # 生成嵌入
         if self.embedding_service:
             try:
@@ -231,12 +234,12 @@ class InternalKnowledgeBase:
                 doc.embedding = result.embedding
             except Exception as e:
                 logger.warning(f"生成嵌入失敗: {e}")
-        
+
         self.documents[doc_id] = doc
-        
+
         if update_index:
             self._rebuild_index()
-        
+
         return doc
 
     def add_news_analysis(
@@ -349,7 +352,7 @@ class InternalKnowledgeBase:
         raw = f"{symbol}|{title}|{source}|{published_at.isoformat()}|{url}"
         digest = hashlib.md5(raw.encode("utf-8")).hexdigest()[:16]
         return f"news_{symbol.lower()}_{digest}"
-    
+
     def update_document(
         self,
         doc_id: str,
@@ -361,7 +364,7 @@ class InternalKnowledgeBase:
         """更新文檔"""
         if doc_id not in self.documents:
             return None
-        
+
         doc = self.documents[doc_id]
         if title:
             doc.title = title
@@ -371,9 +374,9 @@ class InternalKnowledgeBase:
             doc.tags = tags
         if metadata is not None:
             doc.metadata.update(metadata)
-        
+
         doc.updated_at = datetime.now()
-        
+
         # 重新生成嵌入
         if self.embedding_service and (title or content):
             try:
@@ -382,9 +385,9 @@ class InternalKnowledgeBase:
                 self._rebuild_index()
             except Exception as e:
                 logger.warning(f"更新嵌入失敗: {e}")
-        
+
         return doc
-    
+
     def delete_document(self, doc_id: str) -> bool:
         """刪除文檔"""
         if doc_id in self.documents:
@@ -392,11 +395,11 @@ class InternalKnowledgeBase:
             self._rebuild_index()
             return True
         return False
-    
+
     def get_document(self, doc_id: str) -> Optional[KnowledgeDocument]:
         """獲取文檔"""
         return self.documents.get(doc_id)
-    
+
     def search(
         self,
         query: str,
@@ -407,7 +410,7 @@ class InternalKnowledgeBase:
     ) -> List[KnowledgeDocument]:
         """
         搜索文檔
-        
+
         Args:
             query: 搜索查詢
             top_k: 返回數量
@@ -418,7 +421,7 @@ class InternalKnowledgeBase:
         # 向量搜索
         if self.embedding_service and self._embeddings_matrix is not None:
             query_result = self.embedding_service.embed(query)
-            
+
             # 優先使用 FAISS 加速搜索
             if self._use_faiss and self._vector_index is not None:
                 distances, indices = self._vector_index.search(
@@ -434,33 +437,33 @@ class InternalKnowledgeBase:
                      if self.documents[doc_id].embedding is not None],
                     top_k=len(self._doc_ids)
                 )
-            
+
             results = []
             for idx, score in similarities:
                 if score < min_score:
                     continue
                 doc_id = self._doc_ids[idx]
                 doc = self.documents[doc_id]
-                
+
                 # 類型過濾
                 if doc_types and doc.doc_type not in doc_types:
                     continue
-                
+
                 # 標籤過濾
                 if tags and not any(t in doc.tags for t in tags):
                     continue
-                
+
                 doc.score = score
                 results.append(doc)
-                
+
                 if len(results) >= top_k:
                     break
-            
+
             return results
-        
+
         # 關鍵詞搜索（備用）
         return self._keyword_search(query, top_k, doc_types, tags)
-    
+
     def _keyword_search(
         self,
         query: str,
@@ -471,34 +474,34 @@ class InternalKnowledgeBase:
         """關鍵詞搜索（備用方案）"""
         query_lower = query.lower()
         query_words = set(query_lower.split())
-        
+
         scored_docs = []
         for doc in self.documents.values():
             # 類型過濾
             if doc_types and doc.doc_type not in doc_types:
                 continue
-            
+
             # 標籤過濾
             if tags and not any(t in doc.tags for t in tags):
                 continue
-            
+
             # 計算簡單的關鍵詞匹配分數
             content_lower = f"{doc.title} {doc.content}".lower()
             matches = sum(1 for word in query_words if word in content_lower)
             score = matches / len(query_words) if query_words else 0
-            
+
             if score > 0:
                 doc.score = score
                 scored_docs.append(doc)
-        
+
         scored_docs.sort(key=lambda x: x.score, reverse=True)
         return scored_docs[:top_k]
-    
+
     def _rebuild_index(self):
         """重建向量索引"""
         self._doc_ids = list(self.documents.keys())
         embeddings = []
-        
+
         for doc_id in self._doc_ids:
             doc = self.documents[doc_id]
             if doc.embedding is not None:
@@ -506,31 +509,31 @@ class InternalKnowledgeBase:
             else:
                 # 生成簡單的占位嵌入
                 embeddings.append(np.zeros(384))
-        
+
         if embeddings:
             self._embeddings_matrix = np.array(embeddings)
-            
+
             # 如果啟用 FAISS，重建索引
             if self._use_faiss and self._vector_index is not None:
                 self._vector_index.reset()
                 self._vector_index.add(self._embeddings_matrix)
                 logger.debug(f"FAISS 索引已更新: {len(embeddings)} 個向量")
-    
+
     def save_to_storage(self):
         """保存到存儲"""
         if not self.storage_path:
             return
-        
+
         self.storage_path.mkdir(parents=True, exist_ok=True)
         data = {
             "documents": [doc.to_dict() for doc in self.documents.values()]
         }
-        
+
         with open(self.storage_path / "knowledge_base.json", "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
-        
+
         logger.info(f"知識庫已保存: {len(self.documents)} 個文檔")
-    
+
     def _load_from_storage(self):
         """從存儲載入"""
         if self.storage_path is None:
@@ -538,36 +541,36 @@ class InternalKnowledgeBase:
         kb_file = self.storage_path / "knowledge_base.json"
         if not kb_file.exists():
             return
-        
+
         try:
             with open(kb_file, "r", encoding="utf-8") as f:
                 data = json.load(f)
-            
+
             for doc_data in data.get("documents", []):
                 doc = KnowledgeDocument.from_dict(doc_data)
                 self.documents[doc.id] = doc
-            
+
             self._rebuild_index()
             logger.info(f"從存儲載入 {len(self.documents)} 個文檔")
         except Exception as e:
             logger.error(f"載入知識庫失敗: {e}")
-    
+
     def get_by_type(self, doc_type: DocumentType) -> List[KnowledgeDocument]:
         """按類型獲取文檔"""
         return [doc for doc in self.documents.values() if doc.doc_type == doc_type]
-    
+
     def get_by_tags(self, tags: List[str]) -> List[KnowledgeDocument]:
         """按標籤獲取文檔"""
         return [doc for doc in self.documents.values()
                 if any(t in doc.tags for t in tags)]
-    
+
     def get_stats(self) -> Dict[str, Any]:
         """獲取統計信息"""
         type_counts: Dict[str, int] = {}
         for doc in self.documents.values():
             type_name = doc.doc_type.value
             type_counts[type_name] = type_counts.get(type_name, 0) + 1
-        
+
         return {
             "total_documents": len(self.documents),
             "by_type": type_counts,

@@ -15,13 +15,14 @@
 8. 性能追蹤 (track_performance)
 """
 
+import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from enum import Enum
-from typing import Optional, List, Dict, Any, Tuple
 from datetime import datetime, timedelta
+from enum import Enum
+from typing import Any, Dict, List, Literal, Optional, Tuple
+
 import numpy as np
-import logging
 
 from config.trading_costs import TradingCostCalculator
 
@@ -586,16 +587,19 @@ class BaseStrategy(ABC):
         if connector and hasattr(connector, "get_leverage_brackets"):
             try:
                 leverage_brackets = connector.get_leverage_brackets(setup.symbol)
-            except Exception as exc:
+            except Exception:
                 pass  # Ignore log or just rely on default
 
+        position_side: Literal["long", "short"] = (
+            "short" if setup.direction == "short" else "long"
+        )
         costs = self.cost_calculator.calculate_entry_exit_costs(
             position_size_usd=setup.total_position_size * setup.entry_price,
             entry_price=setup.entry_price,
             exit_price=setup.entry_price,
             symbol=setup.symbol,
             leverage=leverage or self.cost_calculator.default_leverage,
-            position_side=setup.direction if setup.direction in ("long", "short") else "long",
+            position_side=position_side,
             leverage_brackets=leverage_brackets,
         )
         return float(costs.get("liquidation_price", 0.0))
@@ -614,6 +618,9 @@ class BaseStrategy(ABC):
     ) -> Tuple[bool, str]:
         """進場前統一檢查：成本效益與止損必須先於強平。"""
         leverage = self.cost_calculator.default_leverage
+        position_side: Literal["long", "short"] = (
+            "short" if setup.direction == "short" else "long"
+        )
         liquidation_price = self._estimate_liquidation_price(setup, connector=connector, leverage=leverage)
         if liquidation_price > 0:
             if setup.direction == "long" and setup.stop_loss <= liquidation_price:
@@ -632,7 +639,7 @@ class BaseStrategy(ABC):
                 based_on="notional",
                 funding_rate=funding_rate,
                 spread_bps=spread_bps,
-                position_side=setup.direction if setup.direction in ("long", "short") else "long",
+                position_side=position_side,
             )
             expected_profit_pct = abs(take_profit - setup.entry_price) / setup.entry_price * 100
             if expected_profit_pct < min_profit_pct:

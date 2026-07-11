@@ -2,8 +2,8 @@
 交易對選擇器 - 根據 Binance 24 小時行情真實篩選最優交易對
 """
 
-from typing import Dict, List
 import logging
+from typing import Dict, List
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +38,7 @@ class PairSelector:
 
         if self._connector is not None:
             scored = self._fetch_and_score(self._candidate_pairs(risk_params))
-        
+
         if not scored:
             logger.error("PairSelector：無法取得即時行情，交易對篩選不可用")
             return self._unavailable_result()

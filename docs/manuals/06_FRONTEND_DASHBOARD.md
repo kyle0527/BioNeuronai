@@ -330,7 +330,7 @@ Dashboard 採用上方 tab + 分區面板佈局。
 1. 進入「交易控制」面板
 2. `Mode` 選擇 `Monitor only`、`Paper live` 或 `Testnet auto`
 3. Symbol 輸入交易對（如 `BTCUSDT`）
-4. 預設 `Load AI Model` 為開啟，Model 預設為 `my_100m_model`
+4. 預設 `Load AI Model` 為開啟，Model 固定為 `unified_v2_100m`
 5. 點選「**Start Trading**」
 6. 點選「**Refresh Status**」確認 `running=true`，且 `engine.auto_trade` 符合模式
 7. 點選「**Stop Trading**」結束
@@ -375,7 +375,7 @@ Dashboard 採用上方 tab + 分區面板佈局。
 7. 使用 `Job Status` 讀取目前 API 追蹤狀態
 
 **模型 promote：**
-1. Model 填入 `my_100m_model`
+1. Model 填入 `unified_v2_100m`
 2. Model Path 填入訓練完成的 `.pth` 或模型目錄，可為 `gs://`
 3. `Validate` 開啟時，後端會先確認模型檔可定位
 4. 若交易引擎已運行且需要立即載入，開啟 `Reload Engine`

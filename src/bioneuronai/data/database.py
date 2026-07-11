@@ -10,12 +10,12 @@
 使用 SQLite，無需額外安裝資料庫服務器
 """
 
+import logging
 import sqlite3
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Optional, List, Dict
-from dataclasses import dataclass
-import logging
+from typing import Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -85,39 +85,39 @@ class SignalRecord:
 
 class TradingDatabase:
     """交易資料庫管理器
-    
+
     .. deprecated::
         此類別在 v4.0 後已被 DatabaseManager (database_manager.py) 取代。
         請改用 DatabaseManager / get_database_manager() 來存取交易記錄。
-        
+
         TradingDatabase 保留同所管理的獨特表：
             - trading_pairs  (交易對清單，含傳詳協議參數)
             - strategy_weights  (策略權重歷史)
             - account_snapshots (帳戶快照)
         上述表尚未合併進 DatabaseManager，未來將一併移入。
     """
-    
+
     def __init__(self, db_path: str = "data/bioneuronai/trading/runtime/trading_pairs.db"):
         """初始化資料庫
-        
+
         警告：預設路徑已更改為 trading_pairs.db 以避免與 DatabaseManager
         使用的 trading.db 產生表結構衝突。若要讀寫重要交易記錄請改用 DatabaseManager。
         """
         self.db_path = Path(db_path)
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
-        
+
         self.conn = sqlite3.connect(str(self.db_path), check_same_thread=False)
         self.conn.row_factory = sqlite3.Row
-        
+
         self._create_tables()
         self._init_default_data()
-        
+
         logger.info(f"📦 資料庫初始化完成: {self.db_path}")
-    
+
     def _create_tables(self):
         """創建資料表"""
         cursor = self.conn.cursor()
-        
+
         # 1. 交易對表
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS trading_pairs (
@@ -135,9 +135,9 @@ class TradingDatabase:
                 updated_at TEXT DEFAULT CURRENT_TIMESTAMP
             )
         """)
-        
+
         # 注意：匯率不存資料庫！使用 exchange_rate_service.py 即時獲取
-        
+
         # 2. 交易記錄表
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS trades (
@@ -160,7 +160,7 @@ class TradingDatabase:
                 FOREIGN KEY (symbol) REFERENCES trading_pairs(symbol)
             )
         """)
-        
+
         # 4. 信號記錄表
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS signals (
@@ -180,7 +180,7 @@ class TradingDatabase:
                 FOREIGN KEY (symbol) REFERENCES trading_pairs(symbol)
             )
         """)
-        
+
         # 5. 策略權重歷史表
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS strategy_weights (
@@ -193,7 +193,7 @@ class TradingDatabase:
                 recorded_at TEXT DEFAULT CURRENT_TIMESTAMP
             )
         """)
-        
+
         # 6. 帳戶快照表
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS account_snapshots (
@@ -208,16 +208,16 @@ class TradingDatabase:
                 snapshot_at TEXT DEFAULT CURRENT_TIMESTAMP
             )
         """)
-        
+
         # 創建索引
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_trades_symbol ON trades(symbol)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_trades_status ON trades(status)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_signals_symbol ON signals(symbol)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_signals_created ON signals(created_at)")
-        
+
         self.conn.commit()
         logger.info("✅ 資料表創建完成")
-    
+
     def _init_default_data(self):
         """初始化預設數據"""
         # 檢查是否已有數據
@@ -225,7 +225,7 @@ class TradingDatabase:
         cursor.execute("SELECT COUNT(*) FROM trading_pairs")
         if cursor.fetchone()[0] > 0:
             return
-        
+
         # === 預設交易對 ===
         default_pairs = [
             # 主流幣 (Major)
@@ -234,7 +234,7 @@ class TradingDatabase:
             TradingPair("BNBUSDT", "BNB", "USDT", "major", 0.01, 5.0, 2, 2, True, "幣安幣 - 交易所代幣"),
             TradingPair("SOLUSDT", "SOL", "USDT", "major", 0.01, 5.0, 2, 2, True, "Solana - 高性能公鏈"),
             TradingPair("XRPUSDT", "XRP", "USDT", "major", 1.0, 5.0, 4, 1, True, "瑞波幣 - 跨境支付"),
-            
+
             # 山寨幣 (Altcoin)
             TradingPair("ADAUSDT", "ADA", "USDT", "altcoin", 1.0, 5.0, 4, 1, True, "卡爾達諾 - 學術型公鏈"),
             TradingPair("DOGEUSDT", "DOGE", "USDT", "altcoin", 1.0, 5.0, 5, 0, True, "狗狗幣 - 迷因幣始祖"),
@@ -246,44 +246,44 @@ class TradingDatabase:
             TradingPair("ATOMUSDT", "ATOM", "USDT", "altcoin", 0.1, 5.0, 3, 2, True, "Cosmos - 區塊鏈互聯網"),
             TradingPair("UNIUSDT", "UNI", "USDT", "altcoin", 0.1, 5.0, 3, 2, True, "Uniswap - DEX"),
             TradingPair("NEARUSDT", "NEAR", "USDT", "altcoin", 0.1, 5.0, 3, 2, True, "Near Protocol"),
-            
+
             # 迷因幣 (Meme)
             TradingPair("SHIBUSDT", "SHIB", "USDT", "meme", 1000.0, 5.0, 8, 0, True, "柴犬幣"),
             TradingPair("PEPEUSDT", "PEPE", "USDT", "meme", 100000.0, 5.0, 10, 0, True, "青蛙佩佩"),
             TradingPair("FLOKIUSDT", "FLOKI", "USDT", "meme", 1000.0, 5.0, 8, 0, True, "Floki"),
             TradingPair("BONKUSDT", "BONK", "USDT", "meme", 10000.0, 5.0, 9, 0, True, "Bonk"),
-            
+
             # DeFi 代幣
             TradingPair("AAVEUSDT", "AAVE", "USDT", "defi", 0.01, 5.0, 2, 2, True, "Aave - 借貸協議"),
             TradingPair("MKRUSDT", "MKR", "USDT", "defi", 0.001, 5.0, 1, 3, True, "MakerDAO"),
             TradingPair("CRVUSDT", "CRV", "USDT", "defi", 1.0, 5.0, 4, 1, True, "Curve Finance"),
-            
+
             # Layer 2
             TradingPair("ARBUSDT", "ARB", "USDT", "layer2", 1.0, 5.0, 4, 1, True, "Arbitrum"),
             TradingPair("OPUSDT", "OP", "USDT", "layer2", 1.0, 5.0, 4, 1, True, "Optimism"),
-            
+
             # AI 相關
             TradingPair("FETUSDT", "FET", "USDT", "ai", 1.0, 5.0, 4, 1, True, "Fetch.ai - AI 代幣"),
             TradingPair("AGIXUSDT", "AGIX", "USDT", "ai", 1.0, 5.0, 4, 1, True, "SingularityNET"),
             TradingPair("RENDERUSDT", "RENDER", "USDT", "ai", 0.1, 5.0, 3, 2, True, "Render Network"),
         ]
-        
+
         for pair in default_pairs:
             self.add_trading_pair(pair)
-        
+
         # 注意：匯率不存資料庫！使用 exchange_rate_service.py 即時獲取
-        
+
         logger.info(f"✅ 預設數據初始化完成: {len(default_pairs)} 交易對")
-    
+
     # ==================== 交易對操作 ====================
-    
+
     def add_trading_pair(self, pair: TradingPair) -> bool:
         """新增交易對"""
         try:
             cursor = self.conn.cursor()
             cursor.execute("""
-                INSERT OR REPLACE INTO trading_pairs 
-                (symbol, base_asset, quote_asset, category, min_qty, min_notional, 
+                INSERT OR REPLACE INTO trading_pairs
+                (symbol, base_asset, quote_asset, category, min_qty, min_notional,
                  price_precision, qty_precision, is_active, description, updated_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
@@ -297,7 +297,7 @@ class TradingDatabase:
         except Exception as e:
             logger.error(f"新增交易對失敗: {e}")
             return False
-    
+
     def get_trading_pair(self, symbol: str) -> Optional[TradingPair]:
         """獲取交易對資訊"""
         cursor = self.conn.cursor()
@@ -317,24 +317,24 @@ class TradingDatabase:
                 description=row['description']
             )
         return None
-    
+
     def get_all_trading_pairs(self, category: Optional[str] = None, active_only: bool = True) -> List[TradingPair]:
         """獲取所有交易對"""
         cursor = self.conn.cursor()
-        
+
         query = "SELECT * FROM trading_pairs WHERE 1=1"
         params = []
-        
+
         if active_only:
             query += " AND is_active = 1"
         if category:
             query += " AND category = ?"
             params.append(category)
-        
+
         query += " ORDER BY category, symbol"
-        
+
         cursor.execute(query, params)
-        
+
         pairs = []
         for row in cursor.fetchall():
             pairs.append(TradingPair(
@@ -350,7 +350,7 @@ class TradingDatabase:
                 description=row['description']
             ))
         return pairs
-    
+
     def get_pairs_by_category(self) -> Dict[str, List[TradingPair]]:
         """按分類獲取交易對"""
         all_pairs = self.get_all_trading_pairs()
@@ -360,17 +360,18 @@ class TradingDatabase:
                 categories[pair.category] = []
             categories[pair.category].append(pair)
         return categories
-    
+
     # ==================== 匯率操作（使用即時服務）====================
-    
+
     def get_exchange_rate(self, from_currency: str, to_currency: str) -> Optional[float]:
         """
         獲取匯率（從即時服務）
-        
+
         注意：匯率不存資料庫，使用 exchange_rate_service 即時獲取
         """
         try:
             from config.trading_config import resolve_binance_testnet
+
             from .binance_futures import BinanceFuturesConnector
             from .exchange_rate_service import get_exchange_rate_service
 
@@ -384,21 +385,21 @@ class TradingDatabase:
         except ImportError:
             logger.warning("匯率服務不可用，請確保 exchange_rate_service.py 存在")
             return None
-    
+
     def convert_currency(self, amount: float, from_currency: str, to_currency: str) -> Optional[float]:
         """貨幣轉換（使用即時匯率）"""
         rate = self.get_exchange_rate(from_currency, to_currency)
         if rate:
             return amount * rate
         return None
-    
+
     # ==================== 交易記錄操作 ====================
-    
+
     def record_trade(self, trade: TradeRecord) -> int:
         """記錄交易"""
         cursor = self.conn.cursor()
         cursor.execute("""
-            INSERT INTO trades 
+            INSERT INTO trades
             (symbol, side, quantity, entry_price, exit_price, stop_loss, take_profit,
              profit_loss, profit_loss_pct, strategy_name, confidence, status, opened_at, closed_at, notes)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -409,67 +410,67 @@ class TradingDatabase:
         ))
         self.conn.commit()
         return cursor.lastrowid or 0
-    
+
     def update_trade(self, trade_id: int, **kwargs) -> bool:
         """更新交易記錄"""
         if not kwargs:
             return False
-        
+
         set_clause = ", ".join([f"{k} = ?" for k in kwargs.keys()])
         values = list(kwargs.values()) + [trade_id]
-        
+
         cursor = self.conn.cursor()
         cursor.execute(f"UPDATE trades SET {set_clause} WHERE id = ?", values)
         self.conn.commit()
         return cursor.rowcount > 0
-    
+
     def close_trade(self, trade_id: int, exit_price: float, notes: str = "") -> bool:
         """平倉交易"""
         cursor = self.conn.cursor()
-        
+
         # 獲取原始交易
         cursor.execute("SELECT * FROM trades WHERE id = ?", (trade_id,))
         row = cursor.fetchone()
         if not row:
             return False
-        
+
         # 計算盈虧
         entry_price = row['entry_price']
         quantity = row['quantity']
         side = row['side']
-        
+
         if side == "BUY":
             profit_loss = (exit_price - entry_price) * quantity
             profit_loss_pct = (exit_price - entry_price) / entry_price * 100
         else:  # SELL
             profit_loss = (entry_price - exit_price) * quantity
             profit_loss_pct = (entry_price - exit_price) / entry_price * 100
-        
+
         # 更新交易
         cursor.execute("""
-            UPDATE trades SET 
+            UPDATE trades SET
                 exit_price = ?, profit_loss = ?, profit_loss_pct = ?,
                 status = 'CLOSED', closed_at = ?, notes = ?
             WHERE id = ?
         """, (exit_price, profit_loss, profit_loss_pct, datetime.now().isoformat(), notes, trade_id))
         self.conn.commit()
         return True
-    
+
     def get_open_trades(self, symbol: Optional[str] = None) -> List[TradeRecord]:
         """獲取未平倉交易"""
         cursor = self.conn.cursor()
-        
+
         if symbol:
             cursor.execute("SELECT * FROM trades WHERE status = 'OPEN' AND symbol = ?", (symbol,))
         else:
             cursor.execute("SELECT * FROM trades WHERE status = 'OPEN'")
-        
+
         return [self._row_to_trade(row) for row in cursor.fetchall()]
-    
+
     def get_trade_history(self, symbol: Optional[str] = None, limit: int = 100) -> List[TradeRecord]:
         """獲取交易歷史"""
         cursor = self.conn.cursor()
-        
+
         if symbol:
             cursor.execute("""
                 SELECT * FROM trades WHERE symbol = ?
@@ -479,9 +480,9 @@ class TradingDatabase:
             cursor.execute("""
                 SELECT * FROM trades ORDER BY opened_at DESC LIMIT ?
             """, (limit,))
-        
+
         return [self._row_to_trade(row) for row in cursor.fetchall()]
-    
+
     def _row_to_trade(self, row) -> TradeRecord:
         """將資料庫行轉換為 TradeRecord"""
         return TradeRecord(
@@ -502,15 +503,15 @@ class TradingDatabase:
             closed_at=row['closed_at'],
             notes=row['notes'] or ""
         )
-    
+
     # ==================== 信號記錄操作 ====================
-    
+
     def record_signal(self, signal: SignalRecord) -> int:
         """記錄信號"""
         cursor = self.conn.cursor()
         cursor.execute("""
-            INSERT INTO signals 
-            (symbol, action, confidence, strategy_name, price_at_signal, 
+            INSERT INTO signals
+            (symbol, action, confidence, strategy_name, price_at_signal,
              stop_loss, take_profit, suggested_qty, suggested_value, reasons, created_at, executed)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
@@ -521,11 +522,11 @@ class TradingDatabase:
         ))
         self.conn.commit()
         return cursor.lastrowid or 0
-    
+
     def get_recent_signals(self, symbol: Optional[str] = None, limit: int = 50) -> List[SignalRecord]:
         """獲取最近的信號"""
         cursor = self.conn.cursor()
-        
+
         if symbol:
             cursor.execute("""
                 SELECT * FROM signals WHERE symbol = ?
@@ -535,7 +536,7 @@ class TradingDatabase:
             cursor.execute("""
                 SELECT * FROM signals ORDER BY created_at DESC LIMIT ?
             """, (limit,))
-        
+
         signals = []
         for row in cursor.fetchall():
             signals.append(SignalRecord(
@@ -554,33 +555,33 @@ class TradingDatabase:
                 executed=bool(row['executed'])
             ))
         return signals
-    
+
     # ==================== 策略權重操作 ====================
-    
+
     def record_strategy_weights(self, weights: Dict[str, float], stats: Optional[Dict[str, Dict]] = None):
         """記錄策略權重"""
         cursor = self.conn.cursor()
         now = datetime.now().isoformat()
-        
+
         for strategy_name, weight in weights.items():
             win_rate = None
             avg_return = None
             total_trades = 0
-            
+
             if stats and strategy_name in stats:
                 s = stats[strategy_name]
                 win_rate = s.get('win_rate')
                 avg_return = s.get('avg_return')
                 total_trades = s.get('total_trades', 0)
-            
+
             cursor.execute("""
-                INSERT INTO strategy_weights 
+                INSERT INTO strategy_weights
                 (strategy_name, weight, win_rate, avg_return, total_trades, recorded_at)
                 VALUES (?, ?, ?, ?, ?, ?)
             """, (strategy_name, weight, win_rate, avg_return, total_trades, now))
-        
+
         self.conn.commit()
-    
+
     def get_latest_weights(self) -> Dict[str, float]:
         """獲取最新的策略權重"""
         cursor = self.conn.cursor()
@@ -588,51 +589,51 @@ class TradingDatabase:
             SELECT strategy_name, weight FROM strategy_weights
             WHERE recorded_at = (SELECT MAX(recorded_at) FROM strategy_weights)
         """)
-        
+
         weights = {}
         for row in cursor.fetchall():
             weights[row['strategy_name']] = row['weight']
         return weights
-    
+
     # ==================== 帳戶快照 ====================
-    
-    def record_account_snapshot(self, balance: float, equity: float, 
+
+    def record_account_snapshot(self, balance: float, equity: float,
                                  unrealized_pnl: float = 0, realized_pnl: float = 0,
                                  total_trades: int = 0, win_trades: int = 0,
                                  currency: str = "USDT"):
         """記錄帳戶快照"""
         cursor = self.conn.cursor()
         cursor.execute("""
-            INSERT INTO account_snapshots 
+            INSERT INTO account_snapshots
             (balance, equity, unrealized_pnl, realized_pnl, total_trades, win_trades, currency, snapshot_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        """, (balance, equity, unrealized_pnl, realized_pnl, total_trades, win_trades, 
+        """, (balance, equity, unrealized_pnl, realized_pnl, total_trades, win_trades,
               currency, datetime.now().isoformat()))
         self.conn.commit()
-    
+
     def get_account_history(self, days: int = 30) -> List[Dict]:
         """獲取帳戶歷史"""
         cursor = self.conn.cursor()
         since = (datetime.now() - timedelta(days=days)).isoformat()
-        
+
         cursor.execute("""
-            SELECT * FROM account_snapshots 
+            SELECT * FROM account_snapshots
             WHERE snapshot_at >= ?
             ORDER BY snapshot_at ASC
         """, (since,))
-        
+
         return [dict(row) for row in cursor.fetchall()]
-    
+
     # ==================== 統計查詢 ====================
-    
+
     def get_trading_statistics(self, days: int = 30) -> Dict:
         """獲取交易統計"""
         cursor = self.conn.cursor()
         since = (datetime.now() - timedelta(days=days)).isoformat()
-        
+
         # 總體統計
         cursor.execute("""
-            SELECT 
+            SELECT
                 COUNT(*) as total_trades,
                 SUM(CASE WHEN profit_loss > 0 THEN 1 ELSE 0 END) as winning_trades,
                 SUM(CASE WHEN profit_loss < 0 THEN 1 ELSE 0 END) as losing_trades,
@@ -644,10 +645,10 @@ class TradingDatabase:
             WHERE status = 'CLOSED' AND closed_at >= ?
         """, (since,))
         row = cursor.fetchone()
-        
+
         total_trades = row['total_trades'] or 0
         winning_trades = row['winning_trades'] or 0
-        
+
         stats = {
             'period_days': days,
             'total_trades': total_trades,
@@ -659,10 +660,10 @@ class TradingDatabase:
             'max_win': row['max_win'] or 0,
             'max_loss': row['max_loss'] or 0,
         }
-        
+
         # 按交易對統計
         cursor.execute("""
-            SELECT symbol, 
+            SELECT symbol,
                 COUNT(*) as trades,
                 SUM(profit_loss) as pnl
             FROM trades
@@ -670,46 +671,46 @@ class TradingDatabase:
             GROUP BY symbol
             ORDER BY pnl DESC
         """, (since,))
-        
-        stats['by_symbol'] = {row['symbol']: {'trades': row['trades'], 'pnl': row['pnl']} 
+
+        stats['by_symbol'] = {row['symbol']: {'trades': row['trades'], 'pnl': row['pnl']}
                               for row in cursor.fetchall()}
-        
+
         return stats
-    
+
     # ==================== 工具方法 ====================
-    
+
     def format_price(self, symbol: str, price: float) -> str:
         """格式化價格"""
         pair = self.get_trading_pair(symbol)
         if pair:
             return f"{price:.{pair.price_precision}f}"
         return f"{price:.2f}"
-    
+
     def format_quantity(self, symbol: str, quantity: float) -> float:
         """格式化數量（符合交易所精度要求）"""
         pair = self.get_trading_pair(symbol)
         if pair:
             return round(quantity, pair.qty_precision)
         return round(quantity, 3)
-    
+
     def validate_order(self, symbol: str, quantity: float, price: float) -> Dict:
         """驗證訂單是否符合要求"""
         pair = self.get_trading_pair(symbol)
         if not pair:
             return {'valid': False, 'error': f'交易對 {symbol} 不存在'}
-        
+
         if not pair.is_active:
             return {'valid': False, 'error': f'交易對 {symbol} 已停用'}
-        
+
         if quantity < pair.min_qty:
             return {'valid': False, 'error': f'數量 {quantity} 小於最小值 {pair.min_qty}'}
-        
+
         notional = quantity * price
         if notional < pair.min_notional:
             return {'valid': False, 'error': f'名義價值 {notional:.2f} 小於最小值 {pair.min_notional}'}
-        
+
         return {'valid': True, 'formatted_qty': self.format_quantity(symbol, quantity)}
-    
+
     def close(self):
         """關閉資料庫連接"""
         self.conn.close()
@@ -732,9 +733,9 @@ if __name__ == "__main__":
     # 測試資料庫
     print("🧪 測試交易資料庫...\n")
     print("=" * 60)
-    
+
     db = TradingDatabase("data/bioneuronai/trading/runtime/test_trading.db")
-    
+
     # 測試交易對
     print("\n📊 交易對列表（按分類）：")
     categories = db.get_pairs_by_category()
@@ -744,7 +745,7 @@ if __name__ == "__main__":
             print(f"    • {p.symbol}: {p.description}")
         if len(pairs) > 3:
             print(f"    ... 還有 {len(pairs) - 3} 個")
-    
+
     # 測試即時匯率（從 exchange_rate_service）
     print("\n\n" + "=" * 60)
     print("💱 即時匯率轉換測試（從 API 獲取）：")
@@ -756,7 +757,7 @@ if __name__ == "__main__":
             print(f"  {test_amount} USDT = {converted:,.2f} {curr}")
         else:
             print(f"  {test_amount} USDT → {curr}: 無法獲取匯率")
-    
+
     # 測試訂單驗證
     print("\n\n" + "=" * 60)
     print("✅ 訂單驗證測試：")
@@ -769,7 +770,7 @@ if __name__ == "__main__":
         result = db.validate_order(symbol, qty, price)
         status = "✅" if result['valid'] else "❌"
         print(f"  {status} {symbol} {qty} @ {price}: {result}")
-    
+
     print("\n" + "=" * 60)
     print("✅ 資料庫測試完成！")
     print("\n📦 資料庫存放的內容：")
@@ -781,6 +782,6 @@ if __name__ == "__main__":
     print("\n❌ 不存在資料庫的內容：")
     print("  ❌ 匯率 → 使用 exchange_rate_service.py 即時獲取")
     print("  ❌ 即時價格 → 從交易所 WebSocket 獲取")
-    
+
     db.close()
 

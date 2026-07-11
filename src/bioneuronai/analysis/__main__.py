@@ -29,7 +29,6 @@ if isinstance(sys.stderr, io.TextIOWrapper):
 
 from bioneuronai.analysis.daily_report import SOPAutomationSystem
 
-
 # ──────────────────────────────────────────────────────────────
 # 示範用 K 棒（僅供 __main__ 使用，不屬於生產代碼）
 # ──────────────────────────────────────────────────────────────
@@ -150,9 +149,10 @@ def main():
         print("\n" + "─" * 60)
         print("【補充驗證】新聞事件評估器 & 預測驗證循環")
         print("─" * 60)
+        from datetime import datetime
+
         from bioneuronai.analysis.news.evaluator import RuleBasedEvaluator
         from bioneuronai.analysis.news.models import NewsArticle
-        from datetime import datetime
         evaluator = RuleBasedEvaluator()
         sample_articles = [
             NewsArticle(

@@ -1,17 +1,17 @@
 """
-BioNeuronai - AI 
+BioNeuronai - AI
 ====================================
 
  v2.1:
 - core:  (Battle Royale)
 - analysis:  (RLHF)
-- strategies: RL Meta-Agent 
-- automation: SOP 
-- services: 
-- planning: 
-- data_models: 
-- connectors: API 
-- risk_management: 
+- strategies: RL Meta-Agent
+- automation: SOP
+- services:
+- planning:
+- data_models:
+- connectors: API
+- risk_management:
 """
 
 __version__ = "2.1"
@@ -109,11 +109,11 @@ def _check_export_available(name: str) -> bool:
         return False
 
 __all__ = [
-    # 
+    #
     "TradingEngine",
-    "CryptoFuturesTrader",  # 
+    "CryptoFuturesTrader",  #
     "SelfImprovementSystem",
-    
+
     #  ()
     "InferenceEngine",
     "ModelLoader",
@@ -124,46 +124,46 @@ __all__ = [
     "RiskLevel",
     "AITradingSignal",
     "create_inference_engine",
-    
+
     #  ()
     "StrategyGene",
     "EvolutionEngine",
     "PopulationManager",
     "GENETIC_ALGO_AVAILABLE",
-    
-    # 
+
+    #
     "MarketData",
     "TradingSignal",
-    
-    # 
+
+    #
     "BinanceFuturesConnector",
     "ExchangeRateService",
-    
-    # 
+
+    #
     "RiskManager",
     "RiskParameters",
-    
+
     # 策略融合
     "AIStrategyFusion",
-    
+
     #  RL Meta-Agent ()
     "RLMetaAgent",
     "StrategyFusionEnv",
     "RL_FUSION_AVAILABLE",
-    
-    # 
+
+    #
     "CryptoNewsAnalyzer",
     "NewsArticle",
     "NewsAnalysisResult",
     "get_news_analyzer",
     "MarketKeywords",
     "KeywordMatch",
-    
+
     #  (RLHF)
     "NewsPrediction",
     "NewsPredictionLoop",
     "NEWS_PREDICTION_AVAILABLE",
-    
+
     #
     "TradingPlanController",
     "MarketAnalyzer",

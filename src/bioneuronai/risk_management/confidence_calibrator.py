@@ -48,12 +48,12 @@ Date: 2026-06-09
 """
 
 import json
-import math
 import logging
-from dataclasses import dataclass, field
+import math
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 
 import numpy as np
 
@@ -563,7 +563,7 @@ class AIConfidenceCalibrator:
         brier /= len(completed)
 
         # Expected Calibration Error (ECE) — 10 個 bin
-        bins = [[] for _ in range(10)]
+        bins: List[List[float]] = [[] for _ in range(10)]
         for r in completed:
             idx = min(9, int(r.calibrated_confidence * 10))
             bins[idx].append(1.0 if r.was_profitable else 0.0)

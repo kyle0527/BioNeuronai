@@ -112,16 +112,14 @@ class ActionRecord:
         self.numeric_patches = numeric_patches.tolist()
         self.raw_signal = raw_signal.tolist()
 
-        import torch
         def _item(v: Any) -> float:
             if hasattr(v, "item"):
                 return float(v.item())
             return float(v)
 
         def _tolist(v: Any) -> List[float]:
-            if hasattr(v, "tolist"):
-                return v.tolist()
-            return list(v)
+            values = v.tolist() if hasattr(v, "tolist") else list(v)
+            return [float(item) for item in values]
 
         dir_probs = decoded.get("direction_probs")
         if dir_probs is not None:

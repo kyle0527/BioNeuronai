@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
 """RAG Core 核心模塊"""
 
-from .embeddings import EmbeddingService, EmbeddingModel, EmbeddingResult
-from .retriever import UnifiedRetriever, RetrievalResult, RetrievalQuery, RetrievalSource
+from .embeddings import EmbeddingModel, EmbeddingResult, EmbeddingService
+from .retriever import RetrievalQuery, RetrievalResult, RetrievalSource, UnifiedRetriever
 
 __all__ = [
     'EmbeddingService',
-    'EmbeddingModel', 
+    'EmbeddingModel',
     'EmbeddingResult',
     'UnifiedRetriever',
     'RetrievalResult',

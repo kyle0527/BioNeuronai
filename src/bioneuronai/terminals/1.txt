@@ -1,0 +1,8 @@
+---
+pid: 24164
+cwd: "C:\D\E\BioNeuronai\src\bioneuronai"
+command: "cd C:\\D\\E\\BioNeuronai; python -m pytest tests -q 2>&1"
+started_at: 2026-06-15T11:23:32.162Z
+running_for_ms: 4035001  
+---
+................FFF....F......

@@ -15,13 +15,8 @@
 3. 800:00, 08:00, 16:00 UTC
 """
 
-from typing import Any, Dict, List, Literal, Optional, TYPE_CHECKING
-from dataclasses import dataclass, field
-from datetime import datetime, timezone
-
-if TYPE_CHECKING:
-    from src.bioneuronai.data.binance_futures import BinanceFuturesConnector
-
+from dataclasses import dataclass
+from typing import Any, Dict, List, Literal, Optional
 
 # ========================================
 # Trading Fees
@@ -118,7 +113,7 @@ class FundingRateInfo:
 FUNDING_RATE = FundingRateInfo()
 
 #
-FUNDING_RATE_REFERENCE = {
+FUNDING_RATE_REFERENCE: Dict[str, Dict[str, Any]] = {
     "BTCUSDT": {
         "avg_7d": 0.0001,      # 70.01%
         "avg_30d": 0.00008,    # 300.008%
@@ -141,7 +136,7 @@ FUNDING_RATE_REFERENCE = {
 # Spread Cost
 # ========================================
 
-SPREAD_COSTS = {
+SPREAD_COSTS: Dict[str, Dict[str, Any]] = {
     "BTCUSDT": {
         "typical_spread_bps": 1,  # 1  (0.01%)
         "min_spread_bps": 0.5,

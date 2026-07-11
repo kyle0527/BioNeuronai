@@ -12,7 +12,7 @@ import logging
 from typing import Any, Dict, List, cast
 
 # 2. 本地模組
-from .models import DailyRiskLimits, TradingPairsPriority, DailyMarketCondition
+from .models import DailyMarketCondition, DailyRiskLimits, TradingPairsPriority
 
 logger = logging.getLogger(__name__)
 
@@ -44,11 +44,11 @@ class RiskManager:
             "daily_limit": 3.0,   # 3%
             "max_positions": 1
         }
-    
+
     # ========================================
     # 帳戶分析
     # ========================================
-    
+
     def analyze_account_funds(self) -> Dict[str, Any]:
         """
         分析帳戶資金狀況。
@@ -111,24 +111,24 @@ class RiskManager:
 
         except Exception as e:
             raise RuntimeError(f"帳戶資金分析失敗: {e}") from e
-    
+
     # ========================================
     # 風險參數計算
     # ========================================
-    
+
     def calculate_base_risk_parameters(self, account_analysis: Dict) -> Dict[str, Any]:
         """
         計算基礎風險參數
-        
+
         Args:
             account_analysis: 帳戶分析結果
-        
+
         Returns:
             基礎風險參數
         """
         try:
             risk_tolerance = account_analysis.get("risk_tolerance", "LOW")
-            
+
             # 根據風險承受度調整參數
             risk_profiles = {
                 "LOW": {
@@ -147,30 +147,30 @@ class RiskManager:
                     "max_positions": 5
                 }
             }
-            
+
             return cast(Dict[str, Any], risk_profiles.get(risk_tolerance, self.default_risk))
-            
+
         except Exception as e:
             raise RuntimeError(f"基礎風險參數計算失敗: {e}") from e
-    
+
     def adjust_risk_for_volatility(
-        self, 
-        base_risk: Dict, 
+        self,
+        base_risk: Dict,
         market_condition: DailyMarketCondition
     ) -> Dict[str, Any]:
         """
         根據市場波動調整風險
-        
+
         Args:
             base_risk: 基礎風險參數
             market_condition: 市場狀況
-        
+
         Returns:
             調整後的風險參數
         """
         try:
             volatility = market_condition.volatility
-            
+
             # 波動率調整係數
             adjustment_factors = {
                 "LOW": 1.2,      # 低波動可以增加風險
@@ -178,9 +178,9 @@ class RiskManager:
                 "HIGH": 0.8,     # 高波動降低風險
                 "EXTREME": 0.5   # 極端波動大幅降低
             }
-            
+
             adjustment_factor = adjustment_factors.get(volatility, 1.0)
-            
+
             return {
                 "single_trade": base_risk["single_trade"] * adjustment_factor,
                 "daily_limit": base_risk["daily_limit"] * adjustment_factor,
@@ -190,18 +190,18 @@ class RiskManager:
             }
         except Exception as e:
             raise RuntimeError(f"風險波動調整失敗: {e}") from e
-    
+
     # ========================================
     # 持倉管理
     # ========================================
-    
+
     def configure_position_management(self, max_positions: int = 3) -> Dict[str, Any]:
         """
         配置持倉管理規則
-        
+
         Args:
             max_positions: 最大持倉數
-        
+
         Returns:
             持倉管理配置
         """
@@ -216,17 +216,17 @@ class RiskManager:
             }
         except Exception as e:
             raise RuntimeError(f"持倉管理配置失敗: {e}") from e
-    
+
     def calculate_trading_frequency(
-        self, 
+        self,
         market_condition: DailyMarketCondition
     ) -> Dict[str, Any]:
         """
         計算交易頻率限制
-        
+
         Args:
             market_condition: 市場狀況
-        
+
         Returns:
             交易頻率限制
         """
@@ -241,7 +241,7 @@ class RiskManager:
             else:
                 daily_max = 8
                 interval_minutes = 15
-            
+
             return {
                 "daily_max": daily_max,
                 "interval_minutes": interval_minutes,
@@ -250,21 +250,21 @@ class RiskManager:
             }
         except Exception as e:
             raise RuntimeError(f"交易頻率計算失敗: {e}") from e
-    
+
     def integrate_risk_parameters(
-        self, 
-        volatility_adjusted_risk: Dict, 
-        position_rules: Dict, 
+        self,
+        volatility_adjusted_risk: Dict,
+        position_rules: Dict,
         frequency_limits: Dict
     ) -> DailyRiskLimits:
         """
         整合風險參數
-        
+
         Args:
             volatility_adjusted_risk: 波動率調整後的風險
             position_rules: 持倉規則
             frequency_limits: 頻率限制
-        
+
         Returns:
             DailyRiskLimits 實例
         """
@@ -278,11 +278,11 @@ class RiskManager:
             )
         except Exception as e:
             raise RuntimeError(f"風險參數整合失敗: {e}") from e
-    
+
     # ========================================
     # 交易對篩選
     # ========================================
-    
+
     def scan_available_trading_pairs(self) -> Dict[str, Any]:
         """
         從 Binance 掃描所有可用的 USDT 永續合約。
@@ -330,7 +330,7 @@ class RiskManager:
 
         except Exception as e:
             raise RuntimeError(f"交易對掃描失敗: {e}") from e
-    
+
     def analyze_liquidity_metrics(self, available_pairs: Dict) -> Dict[str, Any]:
         """
         從 Binance 取得 24 小時成交量並分析流動性。
@@ -413,23 +413,23 @@ class RiskManager:
 
         except Exception as e:
             raise RuntimeError(f"流動性分析失敗: {e}") from e
-    
+
     def check_volatility_compatibility(
-        self, 
+        self,
         liquidity_analysis: Dict
     ) -> Dict[str, Any]:
         """
         檢查波動率適配性
-        
+
         Args:
             liquidity_analysis: 流動性分析
-        
+
         Returns:
             波動率適配結果
         """
         try:
             high_liquidity_pairs = liquidity_analysis.get("high_liquidity", [])
-            
+
             return {
                 "compatible": high_liquidity_pairs,
                 "incompatible": [],
@@ -438,33 +438,33 @@ class RiskManager:
             }
         except Exception as e:
             raise RuntimeError(f"波動率適配性檢查失敗: {e}") from e
-    
+
     def apply_risk_filters(
-        self, 
-        volatility_match: Dict, 
+        self,
+        volatility_match: Dict,
         integrated_risk: DailyRiskLimits
     ) -> Dict[str, Any]:
         """
         應用風險過濾器
-        
+
         Args:
             volatility_match: 波動率匹配結果
             integrated_risk: 整合風險參數
-        
+
         Returns:
             過濾後的交易對
         """
         try:
             compatible_pairs = volatility_match.get("compatible", [])
-            
+
             # 根據風險參數過濾
             if integrated_risk.single_trade_risk < 1.5:
                 approved = [p for p in compatible_pairs if p in ["BTCUSDT", "ETHUSDT"]]
             else:
                 approved = compatible_pairs
-            
+
             excluded = [p for p in compatible_pairs if p not in approved]
-            
+
             return {
                 "approved": approved,
                 "excluded": excluded,
@@ -472,36 +472,36 @@ class RiskManager:
             }
         except Exception as e:
             raise RuntimeError(f"風險過濾失敗: {e}") from e
-    
+
     def prioritize_trading_pairs(self, risk_filtered: Dict) -> TradingPairsPriority:
         """
         生成交易對優先級清單
-        
+
         Args:
             risk_filtered: 風險過濾結果
-        
+
         Returns:
             TradingPairsPriority 實例
         """
         try:
             approved = risk_filtered.get("approved", [])
             excluded = risk_filtered.get("excluded", [])
-            
+
             # 優先級排序：BTC > ETH > 其他
             priority_order = ["BTCUSDT", "ETHUSDT"]
-            
+
             primary = []
             backup = []
-            
+
             for pair in approved:
                 if pair in priority_order:
                     primary.append(pair)
                 else:
                     backup.append(pair)
-            
+
             # 確保順序
             primary.sort(key=lambda x: priority_order.index(x) if x in priority_order else 999)
-            
+
             return TradingPairsPriority(
                 primary=primary[:3],  # 最多3個主要交易對
                 backup=backup[:2],    # 最多2個備用交易對
@@ -509,23 +509,23 @@ class RiskManager:
             )
         except Exception as e:
             raise RuntimeError(f"交易對優先級排序失敗: {e}") from e
-    
+
     # ========================================
     # 每日限制計算
     # ========================================
-    
+
     def calculate_comprehensive_daily_limits(
-        self, 
-        account_analysis: Dict, 
+        self,
+        account_analysis: Dict,
         integrated_risk: DailyRiskLimits
     ) -> Dict[str, Any]:
         """
         計算每日交易限制
-        
+
         Args:
             account_analysis: 帳戶分析
             integrated_risk: 整合風險參數
-        
+
         Returns:
             每日限制配置
         """
@@ -533,7 +533,7 @@ class RiskManager:
             account_balance = account_analysis.get("available", 1000.0)
             max_daily_loss_pct = integrated_risk.daily_max_loss / 100
             single_trade_risk_pct = integrated_risk.single_trade_risk / 100
-            
+
             return {
                 "max_loss_usd": round(account_balance * max_daily_loss_pct, 2),
                 "max_single_trade_usd": round(account_balance * single_trade_risk_pct, 2),

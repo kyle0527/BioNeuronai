@@ -5,8 +5,8 @@ BioNeuronai 外部數據源模型
 """
 
 from datetime import datetime
-from typing import Optional, List, Dict
 from enum import Enum
+from typing import Dict, List, Optional
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -25,12 +25,12 @@ class DataSourceType(str, Enum):
 
 class FearGreedIndex(BaseModel):
     """恐慌貪婪指數模型"""
-    
+
     value: int = Field(..., ge=0, le=100, description="指數值 0-100")
     value_classification: str = Field(..., description="分類：Extreme Fear, Fear, Neutral, Greed, Extreme Greed")
     timestamp: datetime = Field(..., description="時間戳")
     time_until_update: Optional[int] = Field(None, description="距離下次更新的秒數")
-    
+
     model_config = {
         "json_schema_extra": {
             "examples": [
@@ -47,7 +47,7 @@ class FearGreedIndex(BaseModel):
 
 class GlobalMarketData(BaseModel):
     """全球市場數據模型"""
-    
+
     total_market_cap: float = Field(..., gt=0, description="全球市值（美元）")
     total_volume_24h: float = Field(..., ge=0, description="24小時交易量（美元）")
     btc_dominance: float = Field(..., ge=0, le=100, description="BTC市場占比（%）")
@@ -56,7 +56,7 @@ class GlobalMarketData(BaseModel):
     markets: int = Field(..., gt=0, description="市場數量")
     market_cap_change_24h: float = Field(..., description="24小時市值變化（%）")
     timestamp: datetime = Field(..., description="時間戳")
-    
+
     model_config = {
         "json_schema_extra": {
             "examples": [
@@ -77,13 +77,13 @@ class GlobalMarketData(BaseModel):
 
 class DeFiMetrics(BaseModel):
     """DeFi 協議指標模型"""
-    
+
     total_tvl: float = Field(..., ge=0, description="總鎖倉價值（美元）")
     chains: Dict[str, float] = Field(default_factory=dict, description="各鏈 TVL 分布")
     protocols: Dict[str, float] = Field(default_factory=dict, description="各協議 TVL 分布")
     tvl_change_24h: float = Field(..., description="24小時 TVL 變化（%）")
     timestamp: datetime = Field(..., description="時間戳")
-    
+
     model_config = {
         "json_schema_extra": {
             "examples": [
@@ -101,13 +101,13 @@ class DeFiMetrics(BaseModel):
 
 class StablecoinMetrics(BaseModel):
     """穩定幣指標模型"""
-    
+
     total_supply: float = Field(..., ge=0, description="總供應量（美元）")
     supply_by_token: Dict[str, float] = Field(default_factory=dict, description="各穩定幣供應量")
     supply_change_24h: float = Field(..., description="24小時供應量變化（%）")
     supply_change_7d: float = Field(..., description="7天供應量變化（%）")
     timestamp: datetime = Field(..., description="時間戳")
-    
+
     model_config = {
         "json_schema_extra": {
             "examples": [
@@ -125,7 +125,7 @@ class StablecoinMetrics(BaseModel):
 
 class EconomicEvent(BaseModel):
     """經濟日曆事件模型"""
-    
+
     event_id: str = Field(..., description="事件ID")
     title: str = Field(..., description="事件標題")
     country: str = Field(..., description="國家代碼")
@@ -135,7 +135,7 @@ class EconomicEvent(BaseModel):
     previous: Optional[str] = Field(None, description="前值")
     actual: Optional[str] = Field(None, description="實際值")
     currency: Optional[str] = Field(None, description="相關貨幣")
-    
+
     @field_validator("impact")
     @classmethod
     def validate_impact(cls, v: str) -> str:
@@ -144,7 +144,7 @@ class EconomicEvent(BaseModel):
         if v not in valid_impacts:
             raise ValueError(f"影響級別必須是 {valid_impacts} 之一")
         return v
-    
+
     model_config = {
         "json_schema_extra": {
             "examples": [
@@ -166,7 +166,7 @@ class EconomicEvent(BaseModel):
 
 class MarketSentiment(BaseModel):
     """市場情緒綜合評分模型"""
-    
+
     overall_sentiment: float = Field(..., ge=-1.0, le=1.0, description="整體情緒評分 -1 (極度看空) 到 +1 (極度看多)")
     fear_greed_score: float = Field(..., ge=-1.0, le=1.0, description="恐慌貪婪標準化評分")
     news_sentiment: float = Field(..., ge=-1.0, le=1.0, description="新聞情緒評分")
@@ -175,7 +175,7 @@ class MarketSentiment(BaseModel):
     confidence_level: float = Field(..., ge=0.0, le=1.0, description="信心水平 0-1")
     timestamp: datetime = Field(..., description="時間戳")
     components: Dict[str, float] = Field(default_factory=dict, description="各組成部分的原始值")
-    
+
     model_config = {
         "json_schema_extra": {
             "examples": [
@@ -200,10 +200,10 @@ class MarketSentiment(BaseModel):
 
 class ExternalDataSnapshot(BaseModel):
     """外部數據快照（統一數據容器）"""
-    
+
     snapshot_id: str = Field(..., description="快照ID")
     timestamp: datetime = Field(..., description="快照時間戳")
-    
+
     # 各類數據（可選）
     fear_greed: Optional[FearGreedIndex] = Field(None, description="恐慌貪婪指數")
     global_market: Optional[GlobalMarketData] = Field(None, description="全球市場數據")
@@ -211,12 +211,12 @@ class ExternalDataSnapshot(BaseModel):
     stablecoin_metrics: Optional[StablecoinMetrics] = Field(None, description="穩定幣指標")
     market_sentiment: Optional[MarketSentiment] = Field(None, description="市場情緒")
     economic_events: List[EconomicEvent] = Field(default_factory=list, description="重要經濟事件")
-    
+
     # 元數據
     data_sources: List[DataSourceType] = Field(default_factory=list, description="數據來源列表")
     fetch_duration_ms: Optional[int] = Field(None, description="數據抓取耗時（毫秒）")
     errors: List[str] = Field(default_factory=list, description="錯誤列表")
-    
+
     model_config = {
         "json_schema_extra": {
             "examples": [

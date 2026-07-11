@@ -37,11 +37,11 @@ async def inspect_backtest_dataset(
 ):
     """檢視指定資料集是否可被 replay 層載入。"""
     try:
-        from backtest import HistoricalDataStream
+        from backtest import DEFAULT_DATA_DIR, HistoricalDataStream
 
         stream = await asyncio.to_thread(
             HistoricalDataStream,
-            None,
+            DEFAULT_DATA_DIR,
             symbol,
             interval,
             start_date,

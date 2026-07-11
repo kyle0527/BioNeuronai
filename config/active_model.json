@@ -1,8 +1,30 @@
 {
-  "model_name": "my_100m_model",
-  "model_path": "model/my_100m_model_trained_20260510.pth",
-  "materialized_path": "model/my_100m_model_trained_20260510.pth",
-  "promoted_at": "2026-05-11T00:10:05.958430",
+  "model_name": "unified_v2_100m",
+  "architecture": "TinyLLMv2",
+  "model_path": null,
+  "materialized_path": null,
+  "initialization": "deterministic_untrained",
+  "trained": false,
+  "tokenizer_path": "model/tokenizer/vocab.json",
+  "config": {
+    "vocab_size": 16000,
+    "embed_dim": 768,
+    "num_heads": 12,
+    "num_layers": 8,
+    "ffn_dim": 3072,
+    "max_seq_length": 512,
+    "max_text_tokens": 128,
+    "num_patch_features": 64,
+    "num_patches": 16,
+    "image_enabled": false,
+    "num_experts": 2,
+    "num_active_experts": 1,
+    "moe_every_n_layers": 4,
+    "lora_rank": 8,
+    "lora_alpha": 16.0,
+    "lora_dropout": 0.05,
+    "signal_output_dim": 65
+  },
   "reload_running_engine": false,
-  "notes": "validation promote on 2026-05-11, same trained checkpoint"
+  "notes": "Single source of truth for the unified numeric and bilingual model. No trained v2 checkpoint exists yet."
 }

@@ -1,0 +1,8 @@
+---
+pid: 32328
+cwd: "C:\D\E\BioNeuronai\src\bioneuronai"
+command: "Stop-Process -Id 24164 -Force -ErrorAction SilentlyContinue; cd C:\\D\\E\\BioNeuronai; python -m pytest tests -q --tb=no 2>&1 | Select-Object -Last 25"
+started_at: 2026-06-15T11:30:54.796Z
+running_for_ms: 3535012  
+---
+................FFF....F......

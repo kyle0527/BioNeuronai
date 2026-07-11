@@ -69,6 +69,32 @@ interface TradeExecution {
   status: 'executed' | 'pending' | 'failed'
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
+}
+
+function isTradeExecution(value: unknown): value is TradeExecution {
+  if (!isRecord(value)) return false
+  return (
+    typeof value.id === 'string' &&
+    typeof value.timestamp === 'string' &&
+    typeof value.symbol === 'string' &&
+    (value.type === 'buy' || value.type === 'sell') &&
+    typeof value.price === 'number' &&
+    typeof value.quantity === 'number' &&
+    (value.status === 'executed' || value.status === 'pending' || value.status === 'failed')
+  )
+}
+
+function isOrderBookEntry(value: unknown): value is OrderBookEntry {
+  return (
+    isRecord(value) &&
+    typeof value.price === 'number' &&
+    typeof value.quantity === 'number' &&
+    typeof value.total === 'number'
+  )
+}
+
 export function TradeControlPage() {
   const [tradingStatus, setTradingStatus] = useState<'stopped' | 'running'>('stopped')
   const [lastResponse, setLastResponse] = useState<TradeControlResponse | null>(null)
@@ -92,21 +118,13 @@ export function TradeControlPage() {
   const [orderBookData, setOrderBookData] = useState<OrderBookData | null>(null)
   const [selectedSymbol, setSelectedSymbol] = useState('BTCUSDT')
 
-  const handleWebSocketMessage = useCallback((data: any) => {
-    if (!data || !data.type) return
+  const handleWebSocketMessage = useCallback((data: unknown) => {
+    if (!isRecord(data) || typeof data.type !== 'string') return
 
     switch (data.type) {
       case 'trade_execution':
-        if (data.trade) {
-          const newExecution: TradeExecution = {
-            id: data.trade.id,
-            timestamp: data.trade.timestamp,
-            symbol: data.trade.symbol,
-            type: data.trade.type,
-            price: data.trade.price,
-            quantity: data.trade.quantity,
-            status: data.trade.status
-          }
+        if (isTradeExecution(data.trade)) {
+          const newExecution = data.trade
           setLiveExecutions((prev) => [newExecution, ...prev.slice(0, 49)])
           toast.success(`Trade executed: ${newExecution.type.toUpperCase()} ${newExecution.symbol}`, {
             description: `${newExecution.quantity} @ $${newExecution.price.toFixed(2)}`
@@ -115,18 +133,25 @@ export function TradeControlPage() {
         break
       
       case 'orderbook_update':
-        if (data.orderbook && data.orderbook.symbol === selectedSymbol) {
+        if (
+          isRecord(data.orderbook) &&
+          data.orderbook.symbol === selectedSymbol &&
+          Array.isArray(data.orderbook.bids) &&
+          data.orderbook.bids.every(isOrderBookEntry) &&
+          Array.isArray(data.orderbook.asks) &&
+          data.orderbook.asks.every(isOrderBookEntry)
+        ) {
           setOrderBookData({
             symbol: data.orderbook.symbol,
-            bids: data.orderbook.bids || [],
-            asks: data.orderbook.asks || [],
+            bids: data.orderbook.bids,
+            asks: data.orderbook.asks,
             lastUpdate: new Date().toISOString()
           })
         }
         break
 
       case 'price_update':
-        if (data.price && data.symbol) {
+        if (typeof data.price === 'number' && typeof data.symbol === 'string') {
           const currentPrice = data.price
           setPriceAlerts((currentAlerts) => {
             if (!currentAlerts) return []
@@ -184,7 +209,9 @@ export function TradeControlPage() {
       setShowStartDialog(false)
       toast.success('Trading started')
     } catch (error) {
-      toast.error('Failed to start trading')
+      toast.error('Failed to start trading', {
+        description: error instanceof Error ? error.message : 'Unknown error',
+      })
     } finally {
       setLoading(false)
     }
@@ -198,7 +225,9 @@ export function TradeControlPage() {
       setTradingStatus('stopped')
       toast.success('Trading stopped')
     } catch (error) {
-      toast.error('Failed to stop trading')
+      toast.error('Failed to stop trading', {
+        description: error instanceof Error ? error.message : 'Unknown error',
+      })
     } finally {
       setLoading(false)
     }

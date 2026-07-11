@@ -23,9 +23,9 @@ BioNeuronai CLI - 統一命令入口
 """
 
 import argparse
+import json
 import logging
 import sys
-import json
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
@@ -78,12 +78,15 @@ def cmd_backtest_data(args: argparse.Namespace) -> None:
     print(f"  資料根目錄: {catalog['root']}")
     print(f"  可用資料組: {catalog['dataset_count']}\n")
 
-    datasets = catalog.get("datasets", [])
+    datasets_value = catalog.get("datasets", [])
+    datasets = datasets_value if isinstance(datasets_value, list) else []
     if not datasets:
         print("  找不到任何可用歷史資料。\n")
         return
 
     for item in datasets:
+        if not isinstance(item, dict):
+            continue
         print(
             f"  - {item['symbol']:<10} {item['interval']:<6}"
             f"  {item.get('start_date') or 'N/A'} ~ {item.get('end_date') or 'N/A'}"
@@ -154,7 +157,7 @@ def cmd_trade(args: argparse.Namespace) -> None:
             engine.disable_auto_trading()
             print("  自動交易: 未啟用（僅監控）")
 
-        model_name = getattr(args, "model_name", "my_100m_model")
+        model_name = getattr(args, "model_name", "unified_v2_100m")
         if getattr(args, "load_ai_model", True):
             if engine.load_ai_model(model_name, warmup=getattr(args, "warmup_model", False)):
                 print(f"  AI 模型已載入: {model_name}")
@@ -166,7 +169,11 @@ def cmd_trade(args: argparse.Namespace) -> None:
             print(f"  即時價格 [{args.symbol}]: ${price_data.price:.2f}")
 
         if use_paper_live:
-            paper_state = getattr(engine.connector, "get_paper_state", lambda: {})()
+            paper_state: dict[str, object] = getattr(
+                engine.connector,
+                "get_paper_state",
+                lambda: {},
+            )()
             print(f"  Paper Log: {paper_state.get('log_dir', 'N/A')}")
 
         print("\n  按 Ctrl+C 停止交易\n")
@@ -244,12 +251,12 @@ def _load_plan_klines(args: argparse.Namespace) -> list[dict]:
     data_dir = getattr(args, "data_dir", None)
 
     try:
-        from backtest import HistoricalDataStream
+        from backtest import DEFAULT_DATA_DIR, HistoricalDataStream
 
         stream = HistoricalDataStream(
             symbol=symbol,
             interval=interval,
-            data_dir=data_dir,
+            data_dir=data_dir or DEFAULT_DATA_DIR,
             speed_multiplier=0,
         )
         target_open_time = int(datetime.now().timestamp() * 1000)
@@ -337,7 +344,7 @@ def cmd_pretrade(args: argparse.Namespace) -> None:
         logger.error("PreTradeCheckSystem 載入失敗: %s", e)
         sys.exit(1)
 
-    checker = PreTradeCheckSystem()
+    checker = PreTradeCheckSystem(account_balance=args.balance)
     print(f"  [START] 執行進場前檢查: {args.symbol} {args.action} ...\n")
 
     try:
@@ -454,6 +461,16 @@ def _print_autonomous_record(record: dict) -> None:
     print(f"    next_interval_minutes: {adaptation.get('next_interval_minutes')}")
     print(f"    reasons: {', '.join(adaptation.get('reasons', []))}")
 
+    ai_decision = record.get("ai_decision") or {}
+    ai_signal = ai_decision.get("signal") or {}
+    if ai_decision:
+        print("\n  Unified AI")
+        print(f"    model: {ai_decision.get('model_name')}")
+        print(f"    trained: {ai_decision.get('trained')}")
+        print(f"    signal: {ai_signal.get('signal_type')}")
+        print(f"    confidence: {ai_signal.get('confidence')}")
+        print(f"    explanation: {ai_decision.get('explanation')}")
+
     pretrade_summary = record.get("pretrade_summary", [])
     if pretrade_summary:
         print("\n  Pretrade")
@@ -551,7 +568,7 @@ def cmd_evolve(args: argparse.Namespace) -> None:
     print(f"{'='*60}\n")
 
     try:
-        from bioneuronai.strategies.strategy_arena import StrategyArena, ArenaConfig
+        from bioneuronai.strategies.strategy_arena import ArenaConfig, StrategyArena
     except ImportError as e:
         logger.error("StrategyArena 載入失敗: %s", e)
         sys.exit(1)
@@ -657,7 +674,7 @@ def cmd_chat(args: argparse.Namespace) -> None:
     import sys
 
     try:
-        from nlp.chat_engine import create_chat_engine, MarketContext
+        from nlp.chat_engine import MarketContext, create_chat_engine
     except ImportError:
         print("[錯誤] 無法載入對話引擎，請確認 PyTorch 已安裝且模型存在於 model/ 目錄。")
         print("[Error] Cannot load chat engine. Ensure PyTorch is installed and model exists in model/.")
@@ -883,7 +900,7 @@ def cmd_strategy_backtest(args: argparse.Namespace) -> None:
     # Walk-forward IS vs OOS 比較表
     wf = result.get("walk_forward")
     if wf and wf.get("enabled"):
-        print(f"\n  Walk-Forward IS/OOS 比較")
+        print("\n  Walk-Forward IS/OOS 比較")
         print(f"  IS 期間: {wf.get('is_period')}  OOS 期間: {wf.get('oos_period')}")
         oos_ranking = {item['template_key']: item for item in wf.get('oos_ranking', [])}
         print(f"  {'':22} {'IS 報酬%':>10} {'OOS 報酬%':>10} {'IS Sharpe':>10} {'OOS Sharpe':>11}")
@@ -1082,6 +1099,7 @@ def cmd_collect_signal_data(args: argparse.Namespace) -> None:
             seq_len=args.seq_len,
             output_path=getattr(args, "output", None),
             max_samples=args.max_samples,
+            future_horizon=args.future_horizon,
         )
     except FileNotFoundError:
         logger.error(
@@ -1260,8 +1278,10 @@ def _build_parser() -> argparse.ArgumentParser:
                       help="每筆樣本的時間步數  (預設: 16)")
     csdp.add_argument("--max-samples", type=int, default=50000, metavar="N",
                       help="最多收集幾筆樣本  (預設: 50000)")
+    csdp.add_argument("--future-horizon", type=int, default=12, metavar="N",
+                      help="每筆標籤使用的真實未來 K 線數  (預設: 12)")
     csdp.add_argument("--output", default=None, metavar="FILE",
-                      help="輸出 JSONL 檔案路徑  (預設: data/signal_history.jsonl)")
+                      help="輸出 JSONL 檔案路徑  (預設: data/unified_v2_training.jsonl)")
     csdp.set_defaults(func=cmd_collect_signal_data)
 
     # ── backtest-data ────────────────────────────────────────────────────────
@@ -1302,8 +1322,8 @@ def _build_parser() -> argparse.ArgumentParser:
                     help="啟動時載入 AI 模型 (預設)")
     tp.add_argument("--no-ai-model", action="store_false", dest="load_ai_model",
                     help="啟動時不載入 AI 模型")
-    tp.add_argument("--model-name", default="my_100m_model", metavar="MODEL",
-                    help="AI 模型名稱 (預設: my_100m_model)")
+    tp.add_argument("--model-name", default="unified_v2_100m", metavar="MODEL",
+                    help="AI 模型名稱 (唯一現役模型: unified_v2_100m)")
     tp.add_argument("--warmup-model", action="store_true",
                     help="載入模型後執行 warmup")
     tp.add_argument("--live", action="store_true",
@@ -1340,6 +1360,8 @@ def _build_parser() -> argparse.ArgumentParser:
                       help="交易對  (預設: BTCUSDT)")
     prtp.add_argument("--action", default="long", choices=["long", "short"],
                       help="交易方向: long / short  (預設: long)")
+    prtp.add_argument("--balance", type=float, default=None, metavar="AMOUNT",
+                      help="advisor/paper 規劃資金；省略時必須有 Binance 帳戶憑證")
     prtp.add_argument("--output", default=None, metavar="FILE",
                       help="輸出 JSON 檔案路徑  (可選)")
     prtp.set_defaults(func=cmd_pretrade)

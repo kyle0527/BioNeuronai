@@ -108,7 +108,7 @@ engine = TradingEngine(
     paper_trading=True,   # True = 虛擬成交，不送真實訂單
     enable_ai_model=True
 )
-engine.load_ai_model('my_100m_model')  # 載入 config/active_model.json 指定的 checkpoint
+engine.load_ai_model('unified_v2_100m')  # 載入 config/active_model.json 指定的唯一 checkpoint
 engine.enable_auto_trading()           # 設定 auto_trade = True
 engine.start_monitoring('BTCUSDT')     # 訂閱 WebSocket；阻塞直到 stop_monitoring() 被呼叫
 ```
@@ -138,7 +138,7 @@ on_ticker_update()
 _process_market_data()  →  抓取 K 線（BinanceFuturesConnector._get_klines）
     ↓
 generate_trading_signal()
-    ├── InferenceEngine.get_ai_prediction()         # TinyLLM 111.6M, ~165ms/次
+    ├── InferenceEngine.predict_with_explanation()  # unified v2 約 98.4M
     ├── StrategySelector.get_actionable_signal()    # 6 策略融合
     └── NewsAdapter.get_event_context()             # RAG FAISS 情緒分數
     ↓

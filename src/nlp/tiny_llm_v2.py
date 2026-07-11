@@ -1,10 +1,11 @@
-"""TinyLLM v2 — 三模態 MoE 架構
+"""TinyLLM v2 — 統一多模態交易模型。
 
 設計原則：
 - 數值 patch 化：16 根 K 線各自成一個 token（保留時間結構）
 - 文字 token：直接用現有 GPT-2 tokenizer 嵌入空間
 - 圖像 token：輕量 CNN，按需啟用
-- MoE：6 個 FFN 專家（2 數值 + 2 文字 + 2 通用），每次激活 top-2
+- 預設配置約 1 億參數，適合本專案目前的 CPU / 記憶體限制
+- 同一組 backbone 同時負責交易信號與中英文文字生成
 - LoRA 從設計層整合（不是事後補丁）
 - 輸出頭：65 維全監督（無廢棄潛在空間）
 - 骨幹可從 v1 遷移：12 層 attention block 權重相容
@@ -14,12 +15,11 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, cast
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 輸出頭佈局（全域常數，與 SignalInterpreterV2 共用）
@@ -60,10 +60,10 @@ REGIME_LABELS = [
 @dataclass
 class TinyLLMv2Config:
     # ── 骨幹（與 v1 相容）
-    vocab_size: int = 50257
+    vocab_size: int = 16000
     embed_dim: int = 768
     num_heads: int = 12
-    num_layers: int = 12
+    num_layers: int = 8
     ffn_dim: int = 3072
     max_seq_length: int = 512
     dropout: float = 0.1
@@ -81,9 +81,9 @@ class TinyLLMv2Config:
     image_patch_tokens: int = 16
 
     # ── MoE
-    num_experts: int = 6            # 2 數值 + 2 文字 + 2 通用
-    num_active_experts: int = 2     # top-2 路由
-    moe_every_n_layers: int = 2     # 每隔 N 層放一個 MoE 層（其餘用標準 FFN）
+    num_experts: int = 2            # 精簡數值/語言共享專家
+    num_active_experts: int = 1     # top-1 路由，降低推論成本
+    moe_every_n_layers: int = 4     # 每隔 N 層放一個 MoE 層（其餘用標準 FFN）
 
     # ── LoRA（整合在模型內，不是外掛）
     lora_rank: int = 8
@@ -100,6 +100,11 @@ class TinyLLMv2Config:
     def from_dict(cls, d: Dict) -> "TinyLLMv2Config":
         valid = {f.name for f in cls.__dataclass_fields__.values()}
         return cls(**{k: v for k, v in d.items() if k in valid})
+
+    @classmethod
+    def compact_100m(cls, vocab_size: int = 16000) -> "TinyLLMv2Config":
+        """回傳專案唯一的約一億參數配置。"""
+        return cls(vocab_size=vocab_size)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -130,7 +135,7 @@ class LoRALinear(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         base = self.linear(x)
         delta = self.lora_B(self.lora_drop(self.lora_A(x))) * self.scale
-        return base + delta
+        return cast(torch.Tensor, base + delta)
 
     def freeze_base(self) -> None:
         self.linear.weight.requires_grad_(False)
@@ -162,7 +167,7 @@ class NumericPatchEncoder(nn.Module):
         # patches: (B, T, 64) where T = num_patches
         B, T, _ = patches.shape
         pos = torch.arange(T, device=patches.device)
-        return self.proj(patches) + self.pos_emb(pos).unsqueeze(0)
+        return cast(torch.Tensor, self.proj(patches) + self.pos_emb(pos).unsqueeze(0))
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -190,7 +195,7 @@ class ChartImageEncoder(nn.Module):
         feat = self.cnn(image)                            # (B, 128, 4, 4)
         B, C, H, W = feat.shape
         feat = feat.view(B, C, H * W).transpose(1, 2)    # (B, 16, 128)
-        return self.norm(self.proj(feat))                 # (B, 16, 768)
+        return cast(torch.Tensor, self.norm(self.proj(feat)))  # (B, 16, 768)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -255,7 +260,7 @@ class ModalityMoE(nn.Module):
             expert_out = self.experts[e_idx](x_flat)       # (B*T, D)
             out = out + expert_out * w
 
-        return self.norm(out.view(B, T, D))
+        return cast(torch.Tensor, self.norm(out.view(B, T, D)))
 
     def load_balance_loss(self) -> torch.Tensor:
         """輔助損失：防止所有 token 都只路由到同一個 expert。"""
@@ -308,7 +313,7 @@ class MultiHeadAttentionV2(nn.Module):
         attn = self.attn_drop(attn)
 
         out = torch.matmul(attn, v).transpose(1, 2).contiguous().view(B, T, D)
-        return self.o_proj(out)
+        return cast(torch.Tensor, self.o_proj(out))
 
     def freeze_base(self) -> None:
         for proj in [self.q_proj, self.k_proj, self.v_proj, self.o_proj]:
@@ -384,7 +389,7 @@ class TradingSignalHead(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         # x: (B, 768) — 最後一個數值 token 的表示
-        return self.proj(self.norm(x))                    # (B, 65)
+        return cast(torch.Tensor, self.proj(self.norm(x)))  # (B, 65)
 
     def decode(self, raw: torch.Tensor) -> Dict[str, torch.Tensor]:
         """把原始 65 維輸出解碼成帶語意的字典。"""
@@ -480,6 +485,48 @@ class TinyLLMv2(nn.Module):
         mask = torch.triu(mask, diagonal=1)
         return mask.unsqueeze(0).unsqueeze(0)
 
+    def _text_tokens(self, input_ids: torch.Tensor) -> torch.Tensor:
+        """建立文字 token，過長輸入保留最新內容。"""
+        input_ids = input_ids[:, -self.config.max_text_tokens:]
+        positions = torch.arange(input_ids.shape[1], device=input_ids.device)
+        return cast(
+            torch.Tensor,
+            self.drop(
+                self.text_embedding(input_ids) + self.text_pos_emb(positions).unsqueeze(0)
+            ),
+        )
+
+    def _numeric_context(
+        self,
+        numeric_patches: torch.Tensor,
+        text_ids: Optional[torch.Tensor] = None,
+        chart_image: Optional[torch.Tensor] = None,
+    ) -> torch.Tensor:
+        """把數值、文字脈絡與可選圖像融合成共享市場表示。"""
+        batch_size = numeric_patches.shape[0]
+        device = numeric_patches.device
+        numeric_tokens = self.numeric_encoder(numeric_patches)
+        numeric_separator = self.modality_tokens(
+            torch.zeros(batch_size, 1, dtype=torch.long, device=device)
+        )
+        numeric_tokens = torch.cat([numeric_separator, numeric_tokens], dim=1)
+
+        text_context = self._text_tokens(text_ids) if text_ids is not None else None
+        if chart_image is not None and self.image_encoder is not None:
+            image_tokens = self.image_encoder(chart_image)
+            image_separator = self.modality_tokens(
+                torch.full((batch_size, 1), 2, dtype=torch.long, device=device)
+            )
+            numeric_tokens = torch.cat(
+                [numeric_tokens, image_separator, image_tokens], dim=1
+            )
+
+        x = self.drop(numeric_tokens)
+        causal_mask = self._causal_mask(x.shape[1], device)
+        for block in self.blocks:
+            x = block(x, causal_mask=causal_mask, text_context=text_context)
+        return cast(torch.Tensor, self.final_norm(x))
+
     def forward_signal(
         self,
         numeric_patches: torch.Tensor,
@@ -497,61 +544,118 @@ class TinyLLMv2(nn.Module):
             raw_signal:  (B, 65)
             decoded:     Dict
         """
-        B = numeric_patches.shape[0]
-        device = numeric_patches.device
+        x = self._numeric_context(numeric_patches, text_ids, chart_image)
 
-        # 1. 數值 tokens: (B, 16, D)
-        num_tok = self.numeric_encoder(numeric_patches)
-        # 在數值序列前加 [NUM_SEP] 標記
-        sep_num = self.modality_tokens(torch.zeros(B, 1, dtype=torch.long, device=device))
-        num_tok = torch.cat([sep_num, num_tok], dim=1)   # (B, 17, D)
-
-        # 2. 文字 tokens（可選）
-        text_context: Optional[torch.Tensor] = None
-        if text_ids is not None:
-            T_txt = min(text_ids.shape[1], self.config.max_text_tokens)
-            txt = text_ids[:, :T_txt]
-            pos = torch.arange(T_txt, device=device)
-            text_context = self.drop(
-                self.text_embedding(txt) + self.text_pos_emb(pos).unsqueeze(0)
-            )                                            # (B, T_txt, D)
-
-        # 3. 圖像 tokens（可選）
-        if chart_image is not None and self.image_encoder is not None:
-            img_tok = self.image_encoder(chart_image)    # (B, 16, D)
-            sep_img = self.modality_tokens(
-                torch.full((B, 1), 2, dtype=torch.long, device=device)
-            )
-            img_tok = torch.cat([sep_img, img_tok], dim=1)
-            num_tok = torch.cat([num_tok, img_tok], dim=1)  # 附加在數值序列後
-
-        # 4. 過 Transformer Blocks
-        x = self.drop(num_tok)
-        causal_mask = self._causal_mask(x.shape[1], device)
-        for block in self.blocks:
-            x = block(x, causal_mask=causal_mask, text_context=text_context)
-        x = self.final_norm(x)
-
-        # 5. 取最後一個「原始」數值 token（index 16，即 K 線序列的最後一根）作為決策表示
+        # 取最後一個原始數值 token（index 16）作為決策表示。
         decision_repr = x[:, 16, :]                     # (B, D)
         raw_signal = self.signal_head(decision_repr)     # (B, 65)
         decoded = self.signal_head.decode(raw_signal)
         return raw_signal, decoded
+
+    def forward_multimodal(
+        self,
+        numeric_patches: torch.Tensor,
+        text_ids: torch.Tensor,
+        chart_image: Optional[torch.Tensor] = None,
+        explanation_ids: Optional[torch.Tensor] = None,
+    ) -> Tuple[torch.Tensor, Dict[str, torch.Tensor], torch.Tensor]:
+        """一次回傳同源交易決策與受市場數值條件影響的文字 logits。"""
+        market_context = self._numeric_context(
+            numeric_patches, text_ids=text_ids, chart_image=chart_image
+        )
+        decision_repr = market_context[:, 16, :]
+        raw_signal = self.signal_head(decision_repr)
+        decoded = self.signal_head.decode(raw_signal)
+
+        text = self._text_tokens(
+            explanation_ids if explanation_ids is not None else text_ids
+        )
+        causal_mask = self._causal_mask(text.shape[1], text.device)
+        for block in self.blocks:
+            text = block(text, causal_mask=causal_mask, text_context=market_context)
+        explanation_logits = self.lm_head(self.final_norm(text))
+        return raw_signal, decoded, explanation_logits
 
     def forward_text(
         self,
         input_ids: torch.Tensor,
     ) -> torch.Tensor:
         """純文字生成模式（相容 v1），回傳 logits。"""
-        B, T = input_ids.shape
-        device = input_ids.device
-        pos = torch.arange(T, device=device)
-        x = self.drop(self.text_embedding(input_ids) + self.text_pos_emb(pos).unsqueeze(0))
-        causal_mask = self._causal_mask(T, device)
+        x = self._text_tokens(input_ids)
+        causal_mask = self._causal_mask(x.shape[1], input_ids.device)
         for block in self.blocks:
             x = block(x, causal_mask=causal_mask)
         x = self.final_norm(x)
-        return self.lm_head(x)
+        return cast(torch.Tensor, self.lm_head(x))
+
+    def forward(self, input_ids: torch.Tensor) -> torch.Tensor:
+        """提供標準 ``nn.Module`` 文字入口，供 ChatEngine 共用本模型。"""
+        return self.forward_text(input_ids)
+
+    @torch.no_grad()
+    def generate(
+        self,
+        input_ids: torch.Tensor,
+        max_new_tokens: int = 50,
+        temperature: float = 1.0,
+        top_k: Optional[int] = 50,
+        top_p: Optional[float] = 0.95,
+        repetition_penalty: float = 1.0,
+        use_cache: bool = False,
+        eos_token_id: Optional[int] = None,
+        pad_token_id: Optional[int] = None,
+        do_sample: bool = True,
+        numeric_patches: Optional[torch.Tensor] = None,
+    ) -> torch.Tensor:
+        """以同一 backbone 生成文字；提供數值 patch 時產生市場條件化說明。"""
+        del use_cache, pad_token_id
+        generated = input_ids
+        for _ in range(max_new_tokens):
+            step_ids = generated[:, -self.config.max_text_tokens:]
+            if numeric_patches is None:
+                logits = self.forward_text(step_ids)
+            else:
+                _, _, logits = self.forward_multimodal(numeric_patches, step_ids)
+            next_logits = logits[:, -1, :]
+
+            if repetition_penalty != 1.0:
+                for batch_index in range(generated.shape[0]):
+                    token_ids = set(generated[batch_index].tolist())
+                    for token_id in token_ids:
+                        value = next_logits[batch_index, token_id]
+                        next_logits[batch_index, token_id] = (
+                            value * repetition_penalty
+                            if value < 0
+                            else value / repetition_penalty
+                        )
+
+            next_logits = next_logits / max(temperature, 1e-8)
+            if top_k is not None and top_k > 0:
+                threshold = torch.topk(
+                    next_logits, min(top_k, next_logits.shape[-1])
+                ).values[:, -1:]
+                next_logits = next_logits.masked_fill(next_logits < threshold, float("-inf"))
+
+            probabilities = F.softmax(next_logits, dim=-1)
+            if top_p is not None and top_p < 1.0:
+                sorted_probs, sorted_indices = torch.sort(
+                    probabilities, descending=True, dim=-1
+                )
+                cumulative = torch.cumsum(sorted_probs, dim=-1)
+                remove = cumulative - sorted_probs > top_p
+                sorted_probs = sorted_probs.masked_fill(remove, 0.0)
+                sorted_probs = sorted_probs / sorted_probs.sum(dim=-1, keepdim=True)
+                sampled = torch.multinomial(sorted_probs, 1)
+                next_token = sorted_indices.gather(1, sampled)
+            elif do_sample:
+                next_token = torch.multinomial(probabilities, 1)
+            else:
+                next_token = torch.argmax(probabilities, dim=-1, keepdim=True)
+
+            generated = torch.cat([generated, next_token], dim=1)
+            if eos_token_id is not None and (next_token == eos_token_id).all():
+                break
+        return generated
 
     def load_balance_loss(self) -> torch.Tensor:
         """收集所有 MoE 層的負載均衡損失（訓練用）。"""
@@ -575,11 +679,11 @@ class TinyLLMv2(nn.Module):
             p.requires_grad_(True)
 
     def lora_parameters(self) -> List[nn.Parameter]:
-        params = []
-        for module in self.modules():
-            if isinstance(module, LoRALinear):
-                params.extend([module.lora_A.weight, module.lora_B.weight])
-        return params
+        return [
+            parameter
+            for name, parameter in self.named_parameters()
+            if name.endswith(("lora_A.weight", "lora_B.weight"))
+        ]
 
     def count_parameters(self) -> Dict[str, int]:
         total = sum(p.numel() for p in self.parameters())

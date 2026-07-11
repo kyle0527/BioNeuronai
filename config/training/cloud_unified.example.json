@@ -1,7 +1,7 @@
 {
   "mode": "sig-only",
   "signal_data": "/workspace/data/processed/signal_train.pt",
-  "base_model": "/workspace/model/my_100m_model.pth",
+  "base_model": "/workspace/model/unified_v2_100m.pth",
   "output": "/outputs/sig_run_001",
   "epochs": 10,
   "batch": 8,

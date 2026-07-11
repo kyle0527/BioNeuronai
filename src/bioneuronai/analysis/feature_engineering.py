@@ -35,13 +35,14 @@ Author: BioNeuronai Team
 Version: 1.0
 """
 
-import numpy as np
 import logging
-from typing import Any, DefaultDict, Dict, List, Optional, Tuple
+from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
-from collections import defaultdict
 from enum import Enum
+from typing import Any, DefaultDict, Dict, List, Optional, Tuple
+
+import numpy as np
 
 logger = logging.getLogger(__name__)
 
@@ -293,7 +294,7 @@ class VolumeProfileCalculator:
     def calculate_from_klines(
         self,
         klines: List[Any],  # List[KlineData]
-        use_tpo: bool = False
+        _use_tpo: bool = False
     ) -> VolumeProfile:
         """K
 
@@ -583,7 +584,7 @@ class LiquidationHeatmapCalculator:
     ) -> float:
         """"""
         #
-        liquidation_value = 0
+        liquidation_value = 0.0
         for leverage in self.leverage_levels:
             liq_price = self.calculate_liquidation_price(current_price, leverage, side)
 

@@ -17,8 +17,9 @@
 """
 
 import logging
-import requests
 from typing import Dict, List, Optional
+
+import requests
 
 logger = logging.getLogger(__name__)
 

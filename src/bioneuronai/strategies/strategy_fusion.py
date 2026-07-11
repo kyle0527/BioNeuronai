@@ -22,41 +22,44 @@ AI 推理引擎 + 趨勢跟隨 + 均值回歸 + 波段交易 + 突破交易
 - 持續自我優化
 """
 
-import numpy as np
-import logging
-from typing import Optional, Dict, Any, List, Tuple, Union
-from datetime import datetime
-from dataclasses import dataclass, field
-from enum import Enum
 import json
+import logging
 import uuid
+from dataclasses import dataclass, field
+from datetime import datetime
+from enum import Enum
+from typing import Any, Dict, List, Optional, Tuple, Union
+
+import numpy as np
 
 try:
     import torch
-    from .meta_learner.model import MetaLearnerModel, STRATEGY_NAMES as _ML_STRATEGY_NAMES
+
     from .meta_learner.feature_extractor import FeatureExtractor as _FeatureExtractor
+    from .meta_learner.model import STRATEGY_NAMES as _ML_STRATEGY_NAMES
+    from .meta_learner.model import MetaLearnerModel
     from .meta_learner.trainer import MetaLearnerTrainer
     _META_LEARNER_AVAILABLE = True
 except ImportError:
     _META_LEARNER_AVAILABLE = False
     MetaLearnerModel = None  # type: ignore
 
+# 從 schemas 導入 EventContext (Single Source of Truth - 2026-01-25)
+from schemas.rag import EventContext
+
 from .base_strategy import (
     BaseStrategy,
-    TradeSetup,
-    TradeExecution,
+    MarketCondition,
     PositionManagement,
     SignalStrength,
-    MarketCondition,
+    TradeExecution,
+    TradeSetup,
 )
 from .breakout_trading import BreakoutTradingStrategy
 from .direction_change_strategy import DirectionChangeStrategy
 from .mean_reversion import MeanReversionStrategy
 from .swing_trading import SwingTradingStrategy
 from .trend_following import TrendFollowingStrategy
-
-# 從 schemas 導入 EventContext (Single Source of Truth - 2026-01-25)
-from schemas.rag import EventContext
 
 logger = logging.getLogger(__name__)
 
@@ -200,6 +203,8 @@ class AIStrategyFusion:
         self.current_regime: Optional[MarketRegime] = None
         self._active_trade: Optional[TradeExecution] = None
         self._active_strategy: Optional[str] = None
+        self._meta_learner_model: Optional[Any] = None
+        self._meta_learner_extractor: Optional[Any] = None
 
         #
         self.learning_rate = 0.1
@@ -346,9 +351,9 @@ class AIStrategyFusion:
             )
 
         #
-        atr = np.mean(tr[-period:]) if len(tr) >= period else 0
-        plus_di = 100 * np.mean(plus_dm[-period:]) / atr if atr > 0 else 0
-        minus_di = 100 * np.mean(minus_dm[-period:]) / atr if atr > 0 else 0
+        atr = float(np.mean(tr[-period:])) if len(tr) >= period else 0.0
+        plus_di = float(100 * np.mean(plus_dm[-period:]) / atr) if atr > 0 else 0.0
+        minus_di = float(100 * np.mean(minus_dm[-period:]) / atr) if atr > 0 else 0.0
 
         dx = 100 * abs(plus_di - minus_di) / (plus_di + minus_di) if (plus_di + minus_di) > 0 else 0
 
@@ -821,7 +826,7 @@ class AIStrategyFusion:
             return
 
         # ── 1. 懶加載模型 (只在第一次呼叫時載入) ──────────────────
-        if not hasattr(self, '_meta_learner_model') or self._meta_learner_model is None:
+        if self._meta_learner_model is None:
             try:
                 self._meta_learner_model = MetaLearnerTrainer.load_trained_model()
                 self._meta_learner_extractor = _FeatureExtractor()
@@ -835,6 +840,11 @@ class AIStrategyFusion:
                 self._meta_learner_model = None
                 self._fuse_by_weighted_vote(signal)
                 return
+
+        if self._meta_learner_extractor is None:
+            logger.warning("[Meta-Learner] 特徵提取器未初始化，降級使用 WEIGHTED_VOTE")
+            self._fuse_by_weighted_vote(signal)
+            return
 
         # ── 2. 提取市場特徵 (60 維真實技術指標) ────────────────────
         market_feat = self._meta_learner_extractor.extract(ohlcv_data)

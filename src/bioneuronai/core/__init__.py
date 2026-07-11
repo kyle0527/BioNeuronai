@@ -48,24 +48,25 @@ _LAZY_IMPORTS = {
 }
 
 if TYPE_CHECKING:  # pragma: no cover - 僅供型別檢查
-    from .trading_engine import TradingEngine as TradingEngine
-    from .trading_engine import TradingEngine as CryptoFuturesTrader
-    from .self_improvement import SelfImprovementSystem as SelfImprovementSystem
+    from .action_record import ActionRecord as ActionRecord
+    from .adaptive_hub import AdaptiveLearningHub as AdaptiveLearningHub
     from .inference_engine import (  # noqa: F401
+        FeaturePipeline,
         InferenceEngine,
         ModelLoader,
-        FeaturePipeline,
         Predictor,
-        SignalInterpreter,
-        TradingSignal,
-        SignalType,
         RiskLevel,
+        SignalInterpreter,
+        SignalType,
+        TradingSignal,
         create_inference_engine,
     )
-    from .adaptive_hub import AdaptiveLearningHub as AdaptiveLearningHub
     from .online_learner import OnlineLearner as OnlineLearner
-    from .action_record import ActionRecord as ActionRecord
-    from .reward import RewardConfig as RewardConfig, compute_reward as compute_reward
+    from .reward import RewardConfig as RewardConfig
+    from .reward import compute_reward as compute_reward
+    from .self_improvement import SelfImprovementSystem as SelfImprovementSystem
+    from .trading_engine import TradingEngine as CryptoFuturesTrader
+    from .trading_engine import TradingEngine as TradingEngine
 
 
 def __getattr__(name: str):

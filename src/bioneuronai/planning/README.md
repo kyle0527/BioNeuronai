@@ -1,10 +1,10 @@
 # 規劃模組 (Planning)
 
 > 路徑：`src/bioneuronai/planning/`
-> 更新日期：2026-06-15
+> 更新日期：2026-07-11
 > 架構層級：Layer 3 — 高階規劃與交易前檢查
 
-`planning` 負責把分析結果整理成可執行的交易計畫、進場前檢查結論，以及自主運行編排。這一層透過 `AutonomousOperator` 可觸發 paper 下單，但**不等同**於 `TradingEngine` 的 WebSocket 即時交易主線。
+`planning` 負責把分析結果整理成可執行的交易計畫、進場前檢查結論，以及自主運行編排；模型與訂單執行統一委派給共享 `InferenceEngine` 與 `TradingEngine`。
 
 ---
 
@@ -39,16 +39,18 @@
 | `strategies/` | 策略選擇與策略訊號 |
 | `trading/` | 虛擬帳戶與成交事實 |
 | `risk_management/` | `confidence_calibrator` 被 pretrade 呼叫 |
-| `memory/` | `reflection_loop` 讀取 EpisodicMemory（需主線 A 才有資料） |
+| `memory/` | `reflection_loop` 讀取由統一 TradingEngine 平倉回調寫入的 EpisodicMemory |
 
 ---
 
 ## 與 TradingEngine 的關係
 
-| 維度 | TradingEngine（主線 A） | AutonomousOperator（主線 B） |
+| 維度 | TradingEngine | AutonomousOperator |
 |------|------------------------|------------------------------|
 | CLI | `main.py trade` | `main.py autonomous` |
-| 學習閉環 | ActionRecord → LoRA | Ledger → AdaptiveHub |
+| 模型 | shared `unified_v2_100m` | 同一 shared instance |
+| 執行 | 唯一 connector / order executor | 委派給 TradingEngine |
+| 學習閉環 | ActionRecord → LoRA | shared callback + Ledger → AdaptiveHub |
 | Pretrade | 可獨立呼叫 | 每輪必經 |
 
 詳見 [`docs/PROJECT_STATUS.md`](../../../docs/PROJECT_STATUS.md) 1.4。
@@ -109,23 +111,24 @@ PreTradeCheckSystem
   -> risk / liquidity / news / order checks
 ```
 
-### 自主運行路徑（主線 B）
+### 自主運行路徑
 
 ```text
 AutonomousOperator.run_forever
   -> _settle_open_positions()          # 更新持倉、觸發 SL/TP
   -> TradingPlanController
+  -> shared InferenceEngine（數值決策 + 中英說明）
   -> PreTradeCheckSystem（多候選 symbol）
   -> AdaptationController（含 learning_state）
   -> DecisionLedger.append()
   -> _execute_paper_order()（若 execute_paper 且允許）
        -> 優先 pretrade quantity × risk_multiplier
        -> 既有持倉則 skipped（existing_position）
-       -> PaperBinanceFuturesConnector（跨循環持久）
-  -> _on_paper_close()
-       -> ledger trade_outcome
-       -> calibrator.record_outcome_by_index()
-       -> AdaptiveLearningHub
+       -> TradingEngine.execute_prepared_order()
+       -> TradingEngine 持有的唯一 PaperBinanceFuturesConnector
+  -> _on_shared_paper_close()
+       -> TradingEngine T2 / EpisodicMemory / LoRA
+       -> ledger / calibrator / AdaptiveLearningHub
   -> _maybe_run_reflection()（若 reflect_every_cycles > 0）
 ```
 
@@ -146,7 +149,7 @@ AIReflectionLoop.run_reflection_cycle()
   -> learning_report_*.json
 ```
 
-⚠️ 樣本仍來自 EpisodicMemory（主線 A 平倉寫入）；主線 B 單獨運行時 reflection 可能因樣本不足而跳過 refit。
+⚠️ 初期仍可能因 EpisodicMemory 真實成交樣本不足而跳過 refit。
 
 ---
 
@@ -226,8 +229,8 @@ from bioneuronai.planning.reflection_loop import AIReflectionLoop
 
 ## 維護邊界
 
-1. 自主運行層編排決策，不取代 `TradingEngine` 的 WebSocket 主線。
-2. Paper 執行經 `PaperBinanceFuturesConnector`，與 engine 使用不同 connector 實例。
+1. 自主運行層只編排計畫，不複製模型與訂單執行責任。
+2. Paper 執行必須經 `TradingEngine.execute_prepared_order()` 與其唯一 connector。
 3. 不在此層重複記錄 `analysis/`、`strategies/`、`core/` 內部細節。
 
 ---

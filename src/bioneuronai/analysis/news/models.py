@@ -10,9 +10,9 @@
 """
 
 # 1. 標準庫
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import List, Optional, Tuple
-from dataclasses import dataclass, field
 
 
 @dataclass
@@ -62,20 +62,20 @@ class NewsAnalysisResult:
     signal_urgency: str = "medium"
     applicable_timeframes: List[str] = field(default_factory=list)
     articles: List[NewsArticle] = field(default_factory=list)
-    
+
     def is_high_risk(self) -> bool:
         """判斷是否高風險"""
         danger_events = ['🔒 安全事件', '⚖️ 監管風險']
         return any(e in self.key_events for e in danger_events)
-    
+
     def is_bullish(self) -> bool:
         """判斷是否看漲"""
         return self.sentiment_score > 0.2 and self.overall_sentiment == "positive"
-    
+
     def is_bearish(self) -> bool:
         """判斷是否看跌"""
         return self.sentiment_score < -0.2 and self.overall_sentiment == "negative"
-    
+
     def to_dict(self) -> dict:
         """轉換為字典"""
         return {

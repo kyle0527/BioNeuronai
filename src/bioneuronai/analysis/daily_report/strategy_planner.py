@@ -34,11 +34,11 @@ class StrategyPlanner:
         # connector: BinanceFuturesConnector instance（可選，用於 K 線查詢）
         self.connector = connector
         self.default_strategy = "StrategyFusion"
-    
+
     # ========================================
     # 市場狀況分析
     # ========================================
-    
+
     def analyze_current_market_condition(self) -> DailyMarketCondition:
         """
         分析當前市場狀況。
@@ -144,11 +144,11 @@ class StrategyPlanner:
         if direction < 0:
             return "DOWN"
         return "SIDEWAYS"
-    
+
     # ========================================
     # 策略評估
     # ========================================
-    
+
     def evaluate_strategy_performance(self) -> StrategyPerformance:
         """
         評估各策略歷史表現。
@@ -206,33 +206,33 @@ class StrategyPlanner:
             max_drawdown=0.0,
             sample_size=0,
         )
-    
+
     # ========================================
     # 策略匹配
     # ========================================
-    
+
     def match_strategy_to_market(self, market_condition: DailyMarketCondition) -> Dict[str, Any]:
         """
         匹配策略與市場環境
-        
+
         Args:
             market_condition: 市場狀況
-        
+
         Returns:
             策略匹配結果
         """
         try:
 
             # 根據市場波動性、趨勢強度選擇最適合的策略
-            
+
             strategy_map = {
                 "HIGH": ["BreakoutStrategy", "TrendFollowing"],
                 "MEDIUM": [self.default_strategy, "RSI_Divergence"],
                 "LOW": ["MeanReversion", "RangeTrading"]
             }
-            
+
             candidates = strategy_map.get(market_condition.volatility, [self.default_strategy])
-            
+
             return {
                 "recommended": candidates[0],
                 "match_score": 8.5,
@@ -241,18 +241,18 @@ class StrategyPlanner:
             }
         except Exception as e:
             raise RuntimeError(f"策略匹配失敗: {e}") from e
-    
+
     # ========================================
     # 策略配置
     # ========================================
-    
+
     def configure_strategy_parameters(self, strategy_name: str) -> Dict[str, Any]:
         """
         配置策略具體參數
-        
+
         Args:
             strategy_name: 策略名稱
-        
+
         Returns:
             策略參數配置
         """
@@ -266,7 +266,7 @@ class StrategyPlanner:
                 "stop_loss_pct": 2.0,
                 "take_profit_pct": 4.0
             }
-            
+
             # 根據策略名稱定制參數
             strategy_configs = {
                 "StrategyFusion": {
@@ -284,45 +284,45 @@ class StrategyPlanner:
                     "volume_multiplier": 2.0
                 }
             }
-            
+
             return strategy_configs.get(strategy_name, default_config)
-            
+
         except Exception as e:
             raise RuntimeError(f"策略參數配置失敗: {e}") from e
-    
+
     # ========================================
     # 策略驗證
     # ========================================
-    
+
     def verify_strategy_suitability(
-        self, 
-        strategy_match: Dict, 
+        self,
+        strategy_match: Dict,
         market_condition: DailyMarketCondition
     ) -> Dict[str, Any]:
         """
         驗證策略適用性
-        
+
         Args:
             strategy_match: 策略匹配結果
             market_condition: 市場狀況
-        
+
         Returns:
             適用性驗證結果
         """
         try:
             match_score = strategy_match.get("match_score", 5.0)
-            
+
             # 計算適用性評分
             score = match_score
-            
+
             # 檢查市場趨勢與策略適配
             if market_condition.condition == "UNKNOWN":
                 score -= 2.0
-            
+
             # 檢查波動率適配
             if market_condition.volatility == "EXTREME":
                 score -= 1.5
-            
+
             # 判斷狀態
             if score >= 8.0:
                 status = "EXCELLENT"
@@ -336,13 +336,13 @@ class StrategyPlanner:
             else:
                 status = "UNSUITABLE"
                 confidence = 0.3
-            
+
             risks = []
             if market_condition.volatility in ["HIGH", "EXTREME"]:
                 risks.append("市場波動風險")
             if market_condition.condition == "UNKNOWN":
                 risks.append("市場狀況不明")
-            
+
             return {
                 "score": round(score, 1),
                 "status": status,
@@ -350,10 +350,10 @@ class StrategyPlanner:
                 "risks": risks,
                 "recommendation": self._get_suitability_recommendation(status)
             }
-            
+
         except Exception as e:
             raise RuntimeError(f"策略適用性驗證失敗: {e}") from e
-    
+
     def _get_suitability_recommendation(self, status: str) -> str:
         """獲取適用性建議"""
         recommendations = {
@@ -363,29 +363,29 @@ class StrategyPlanner:
             "UNSUITABLE": "不建議執行，等待更好時機"
         }
         return recommendations.get(status, "需要進一步評估")
-    
+
     # ========================================
     # 最終選擇
     # ========================================
-    
+
     def finalize_strategy_selection(
-        self, 
-        strategy_match: Dict, 
+        self,
+        strategy_match: Dict,
         suitability: Dict
     ) -> Dict[str, Any]:
         """
         最終確定交易策略
-        
+
         Args:
             strategy_match: 策略匹配結果
             suitability: 適用性驗證結果
-        
+
         Returns:
             最終策略選擇結果
         """
         try:
             strategy_name = strategy_match.get("recommended", self.default_strategy)
-            
+
             return {
                 "name": strategy_name,
                 "confidence": suitability.get("confidence", 0.5),
@@ -396,15 +396,15 @@ class StrategyPlanner:
             }
         except Exception as e:
             raise RuntimeError(f"策略最終選擇失敗: {e}") from e
-    
+
     # ========================================
     # 回測驗證
     # ========================================
-    
+
     def perform_plan_backtest(self) -> Dict[str, Any]:
         """
         執行計劃回測驗證
-        
+
         Returns:
             回測結果
         """
@@ -412,7 +412,12 @@ class StrategyPlanner:
             from backtest import get_catalog, run_backtest_summary
 
             catalog = get_catalog()
-            datasets = catalog.get("datasets", [])
+            datasets_value = catalog.get("datasets", [])
+            datasets = (
+                [item for item in datasets_value if isinstance(item, dict)]
+                if isinstance(datasets_value, list)
+                else []
+            )
             if not datasets:
                 logger.warning("⚠️ 找不到可用 replay 資料集，略過計劃回測驗證")
                 return {
@@ -505,8 +510,11 @@ class StrategyPlanner:
             end_dt = datetime.strptime(str(end_date), "%Y-%m-%d")
             days = max((end_dt - start_dt).days, 1)
             total_return_ratio = float(total_return_pct) / 100.0
-            annualized_ratio = (1.0 + total_return_ratio) ** (365.0 / days) - 1.0
-            return annualized_ratio * 100.0
+            growth_factor = 1.0 + total_return_ratio
+            if growth_factor <= 0:
+                return None
+            annualized_ratio = growth_factor ** (365.0 / days) - 1.0
+            return float(annualized_ratio * 100.0)
         except Exception:
             return None
 
