@@ -1,0 +1,8 @@
+{
+  "_comment": "Walk-Forward IS 參數網格範例（舊 WalkForwardTester.param_grid 接回現役）。搭配: python main.py strategy-backtest --walk-forward --wf-param-grid config/wf_param_grid.example.json",
+  "template_key": "MA_Crossover_Trend",
+  "grid": {
+    "entry_conditions.fast_ma_period": [10, 21],
+    "entry_conditions.slow_ma_period": [50, 100]
+  }
+}

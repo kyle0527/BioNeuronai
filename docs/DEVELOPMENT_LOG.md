@@ -1,5 +1,15 @@
 # BioNeuronAI 開發日誌
 
+## 2026-07-13 — 新聞／策略／AI 責任邊界與自主輸入契約
+
+- 新聞一般程式在啟動與每小時第 5 分鐘抓取 CoinDesk、Google News RSS；任一正式來源失敗即明確報錯，不以部分資料產生新決策。
+- 原始新聞保存供查證、分詞器與歷史訓練；平常交易迴圈只讀 `news_memory` 的事件類型、衰減重要性與剩餘時間。
+- 同一交易對的同類有效事件收到新進展時更新既有合約的重要性與期限，不因報導篇數建立多份戰略記憶；事件記憶不保存固定多空。
+- 策略模組只產生獨立戰術候選；統一 AI 讀市場、事件記憶、策略與部位後輸出 65 維最終決策。人的自然語言說明按需生成。
+- `AutonomousOperator` 使用 `ai_input_v2`，並以正式 CLI 真實資料流驗證；當前模型仍為 `trained: false`，只代表工程閉環可跑，不代表決策品質。
+
+---
+
 ## 2026-05-05 — NewsEventContract 事件合約系統 (Phase 1.2)
 
 ### 📋 開發背景
@@ -35,13 +45,15 @@ v2.2 Phase 1.2 的核心目標：讓新聞影響力具備「時間維度」，�
 #### 衰減計算
 
 ```
-指數衰減（預設）：
-    impact(t) = initial_impact × 0.5^(elapsed_hours / decay_rate)
-    expires_at = created_at + decay_rate × 3（約降至初始值 12.5%）
+指數衰減：
+    importance(t) = minimum_importance + (initial_importance - minimum_importance)
+                    × 0.5^(elapsed_hours / decay_rate)
+    expires_at = created_at + duration_hours
 
 線性衰減：
-    impact(t) = initial_impact × (1 - elapsed_hours / total_hours)
-    expires_at = created_at + decay_hours
+    importance(t) = minimum_importance + (initial_importance - minimum_importance)
+                    × (1 - elapsed_hours / duration_hours)
+    expires_at = created_at + duration_hours
 ```
 
 #### 訓練標籤生成（`validate()` 呼叫後）
@@ -49,9 +61,8 @@ v2.2 Phase 1.2 的核心目標：讓新聞影響力具備「時間維度」，�
 | 條件 | 標籤 |
 |------|------|
 | `|realized_pnl_pct| < 0.5%` | `negligible`（不納入訓練） |
-| 預測方向 ✓ 且正報酬 | `confirmed_bullish` |
-| 預測方向 ✓ 且負報酬 | `confirmed_bearish` |
-| 預測方向 ✗ | `false_signal` |
+| 到期時真實報酬為正 | `realized_up` |
+| 到期時真實報酬為負 | `realized_down` |
 
 #### 持久化路徑
 
@@ -64,17 +75,18 @@ v2.2 Phase 1.2 的核心目標：讓新聞影響力具備「時間維度」，�
 #### 手動建立合約
 
 ```python
-from bioneuronai.analysis.news import get_contract_manager, DECAY_EXPONENTIAL
+from bioneuronai.analysis.news import get_contract_manager, DECAY_LINEAR
 
 manager = get_contract_manager()
 contract = manager.create_contract(
     event_type="HACK",
     symbol="BTCUSDT",
     headline="Major exchange hacked, $100M stolen",
-    initial_impact=-0.7,
-    decay_hours=24.0,           # 半衰期 24 小時
+    initial_importance=0.7,
+    minimum_importance=0.1,
+    duration_hours=24.0,
     price_at_creation=65000.0,  # 建立時的 BTC 價格
-    decay_mode=DECAY_EXPONENTIAL,
+    decay_mode=DECAY_LINEAR,
 )
 ```
 
@@ -104,8 +116,8 @@ training_data = manager.get_training_data()  # 取得所有已驗證合約
 
 | 問題 | 建議處理 |
 |------|------|
-| `price_at_creation` 目前預設為 0（未自動填入） | 在 `TradingEngine` 呼叫 `RuleBasedEvaluator` 時傳入當前市場價格 |
-| `validate_expired_contracts()` 需外部定期呼叫 | 考慮掛載至 `TradingEngine` 的心跳（每小時執行一次）|
+| `price_at_creation` 目前預設為 0（未自動填入） | 2026-07-13 已由新聞批次從文章市場價格傳入；舊的零價格合約到期後結束但不產生訓練標籤 |
+| `validate_expired_contracts()` 需外部定期呼叫 | 2026-07-13 已掛入 AutonomousOperator 的新聞更新週期 |
 | Meta-Learner `event_features[6]` 仍需顯式傳入 | 在 `strategy_fusion.py` 的 `generate_fusion_signal()` 呼叫 `get_aggregated_event_intensity()` |
 
 ---

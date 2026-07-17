@@ -239,7 +239,7 @@ class ChatEngine:
     def __init__(
         self,
         model: Any,                     # TinyLLM instance
-        tokenizer: Any,                 # BilingualTokenizer or BPETokenizer
+        tokenizer: Any,                 # 專案共用 BilingualTokenizer
         max_new_tokens: int = 256,
         temperature: float = 0.8,
         top_p: float = 0.92,

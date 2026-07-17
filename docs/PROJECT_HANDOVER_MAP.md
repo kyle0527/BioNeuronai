@@ -301,7 +301,7 @@ flowchart TD
 ```mermaid
 flowchart TD
     NEWSCMD[cli.main news / API news] --> CNA[CryptoNewsAnalyzer.analyze_news]
-    CNA --> FETCH[CryptoPanic + RSS 抓取]
+    CNA --> FETCH[CoinDesk RSS + Google News RSS 抓取]
     CNA --> SENTIMENT[規則式情緒與事件分析]
     CNA --> RESULT[NewsAnalysisResult]
     RESULT --> ADAPTER[rag.services.news_adapter.ingest_news_analysis_with_status]

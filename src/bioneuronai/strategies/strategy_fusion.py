@@ -550,28 +550,32 @@ class AIStrategyFusion:
         return setup
 
     def get_direction_bias(self, symbol: str = "BTCUSDT", event_score: float = 0.0) -> dict:
-        """新增：新聞作為主要方向偏好提供者（解決 P1 結構性問題）。
-        取代/補強原本只做非對稱過濾的角色。
-        回傳格式：{"direction": "LONG"/"SHORT"/"NEUTRAL", "strength": 0.0-1.0, "reason": str}
+        """回傳新聞**事件重要性**相容資訊；規則不得輸出 LONG/SHORT。
+
+        方向只由 AI 判斷。``event_score`` 參數保留相容，**不再**映射為多空。
+        回傳：{"direction": "NEUTRAL", "strength": 0.0-1.0, "reason": str, ...}
         """
+        del event_score  # 舊 signed score 不再使用
         try:
             from rag.services.news_adapter import get_news_adapter
+
             adapter = get_news_adapter()
             news_bias = adapter.get_direction_bias(symbol)
-            if news_bias and news_bias.get("direction") in ["LONG", "SHORT"]:
-                news_bias["strength"] = float(news_bias.get("strength", 0.0))
+            if news_bias:
+                # 強制中性方向；只保留 strength / importance 類欄位
+                news_bias = dict(news_bias)
+                news_bias["direction"] = "NEUTRAL"
+                news_bias["strength"] = float(news_bias.get("strength", 0.0) or 0.0)
                 return news_bias
         except Exception as e:
             logger.warning("Failed to load news bias from NewsAdapter: %s", e)
 
-        if event_score > 1.5:
-            strength = min(1.0, abs(event_score) / 5.0)
-            return {"direction": "LONG", "strength": strength, "reason": f"新聞強烈看多 (event_score={event_score:.2f})"}
-        elif event_score < -1.5:
-            strength = min(1.0, abs(event_score) / 5.0)
-            return {"direction": "SHORT", "strength": strength, "reason": f"新聞強烈看空 (event_score={event_score:.2f})"}
-        else:
-            return {"direction": "NEUTRAL", "strength": 0.2, "reason": f"新聞中性 (event_score={event_score:.2f})"}
+        return {
+            "direction": "NEUTRAL",
+            "strength": 0.0,
+            "reason": "no_active_event_importance",
+            "source": "strategy_fusion_neutral",
+        }
 
     def _adjust_weights_by_event(self, event_context: EventContext):
         """根據事件類型動態調整策略權重
@@ -743,20 +747,16 @@ class AIStrategyFusion:
         # 5.
         self._detect_and_resolve_conflicts(signal)
 
-        # ── P1 整合：新聞方向偏好作為方向框架 (Directional Guard) ──
+        # 新聞只提供事件重要性（NEUTRAL）；不再用規則攔截多空共識。
+        # 最終 LONG/SHORT/HOLD 由上層 AI／執行閘門決定。
         symbol = additional_data.get("symbol", "BTCUSDT") if additional_data else "BTCUSDT"
-        news_bias = self.get_direction_bias(symbol, effective_event_score)
-
-        if news_bias.get("direction") == "LONG" and signal.consensus_direction == "short":
+        news_bias = self.get_direction_bias(symbol, 0.0)
+        if float(news_bias.get("strength") or 0.0) >= 0.7:
             logger.info(
-                f"[新聞方向框架] 新聞看多，攔截共識做空信號 | 原因: {news_bias.get('reason')}"
+                "[新聞事件強度] strength=%.2f reason=%s（方向仍交 AI）",
+                float(news_bias.get("strength") or 0.0),
+                news_bias.get("reason"),
             )
-            signal.consensus_direction = None
-        elif news_bias.get("direction") == "SHORT" and signal.consensus_direction == "long":
-            logger.info(
-                f"[新聞方向框架] 新聞看空，攔截共識做多信號 | 原因: {news_bias.get('reason')}"
-            )
-            signal.consensus_direction = None
 
         # 6.
         self._make_final_decision(signal)

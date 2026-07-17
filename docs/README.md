@@ -1,9 +1,10 @@
 # docs/ — 文檔索引
 
-> **套件版本**：v2.1｜**更新日期**：2026-07-11  
+> **套件版本**：v2.1｜**更新日期**：2026-07-17  
 >  
 > **方向與優先級權威**：[`CURRENT_DIRECTION.md`](CURRENT_DIRECTION.md)（2026-07-11 已確認）  
 > **模組進度權威**：[`PROJECT_STATUS.md`](PROJECT_STATUS.md)  
+> **舊物盤點／該抓回什麼**：[`archive/COMPARISON_REGISTER.md`](archive/COMPARISON_REGISTER.md)  
 > 根目錄 README 為摘要；**若衝突，以方向文 + PROJECT_STATUS 為準**。
 
 ---
@@ -105,6 +106,16 @@
 | [CODE_FIX_GUIDE.md](CODE_FIX_GUIDE.md) | 代碼維護規範（靜態，非現況） |
 
 ---
+
+## 舊物考古與盤點
+
+| 文檔 | 說明 |
+|------|------|
+| [archive/COMPARISON_REGISTER.md](archive/COMPARISON_REGISTER.md) | ⭐ 新舊比對終表：HOME／MERGE／KEEP-NEW／NEVER／SKIP |
+| [archive/recovered_from_git/](archive/recovered_from_git/) | 自 git 抽出的舊文／舊 walk_forward（**不可 import**） |
+| [archive/recovered_from_git/README.md](archive/recovered_from_git/README.md) | 考古目錄說明 |
+
+**工作順序（2026-07-17 約定）**：先盤點抓回 → 再修文件 → **最後**才做實際操作測試（非 pytest）。
 
 ## 歸檔文件（勿當現況）
 

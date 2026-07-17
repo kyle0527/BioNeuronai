@@ -209,7 +209,7 @@ Dashboard 採用上方 tab + 分區面板佈局。
 | 訊號有效期 | 此分析結果的建議有效時長（小時） |
 | 最新標題 | 本次抓取的頭條列表 |
 
-**注意：** CryptoPanic 免費方案每小時有請求限制，若顯示 `total_articles: 0`，請稍等片刻再試。
+**注意：** 新聞分析會同時取得 CoinDesk RSS 與 Google News RSS。任一來源無法取得或解析時，面板應顯示明確錯誤；不得把來源錯誤顯示為 `total_articles: 0`。
 
 ---
 
@@ -516,8 +516,8 @@ Dashboard 採用上方 tab + 分區面板佈局。
 - 確認沒有防火牆阻擋 port 3000 / 8000
 
 **Q: 新聞分析返回 0 篇文章**
-- CryptoPanic 免費方案有速率限制，等待 5 分鐘後重試
-- 確認 `.env` 中 `CRYPTOPANIC_API_TOKEN` 若有設定則應有效
+- 先確認是否為有效的零篇結果，或是 CoinDesk／Google News RSS 任一來源的抓取錯誤
+- 抓取錯誤請檢查網路與來源回應；系統不使用替代來源或空結果降級
 
 **Q: Backtest 面板執行後報錯或顯示「無歷史資料」**
 - 本地尚未下載歷史 K 線資料，Dashboard 自身無下載功能

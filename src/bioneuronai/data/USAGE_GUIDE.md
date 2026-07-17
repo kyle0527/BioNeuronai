@@ -202,26 +202,16 @@ rate_service.clear_cache()
 
 ## NewsDataFetcher
 
-`NewsDataFetcher` 是同步新聞抓取器，供 `analysis.news.CryptoNewsAnalyzer` 注入使用。它把 CryptoPanic / RSS HTTP 呼叫集中在 data 層。
+`NewsDataFetcher` 是同步新聞抓取器，供 `analysis.news.CryptoNewsAnalyzer` 注入使用。它把 CoinDesk RSS（幣圈）與 Google News RSS（宏觀）HTTP 呼叫集中在 data 層；兩者皆為必要來源。
 
 ```python
 from bioneuronai.data import NewsDataFetcher
 
 fetcher = NewsDataFetcher()
-cryptopanic_articles = fetcher.fetch_cryptopanic("BTC")
-rss_articles = fetcher.fetch_all_rss("BTC")
+articles = fetcher.fetch_strategic_news()
 ```
 
-單一 RSS：
-
-```python
-items = fetcher.fetch_rss_feed(
-    "https://cointelegraph.com/rss",
-    coin="BTC",
-)
-```
-
-失敗時回傳空 list，不向上拋 HTTP exception。
+任一指定來源無法取得、RSS 無法解析或未提供可用文章時，`fetch_strategic_news()` 會拋出 `NewsSourceUnavailableError`。呼叫端必須把這視為本輪新聞資料失敗，不能用空 list、部分來源或舊來源降級。
 
 ---
 

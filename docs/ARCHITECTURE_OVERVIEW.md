@@ -146,17 +146,15 @@ flowchart TD
 2. _process_market_data(data, symbol)
    a. VirtualAccount.update_price(symbol, close, high, low)
       → _check_trigger_orders()             ← 每 tick 即時觸發 SL/TP
-   b. NewsAdapter.get_event_context(symbol)  → event_score, event_context
+   b. NewsEventContractManager.get_memory_snapshot(symbol) → 濃縮事件記憶
 3. generate_trading_signal(...)
    a. [T0] _record_decision()               → ActionRecord
    b. _generate_strategy_signal()
       → StrategySelector.get_actionable_signal(event_score=event_score)
-         → AIStrategyFusion.generate_fusion_signal()
-            → get_direction_bias() 方向框架（minimal，攔截逆勢共識）
-         → event_score 極端值非對稱攔截（|score| > 5）
-   c. InferenceEngine.predict_with_explanation()
-      → unified_v2_100m（16×64 數值 + 中英文脈絡 → 65 維決策 + 說明）
-   d. _fuse_signals()                       → 策略 70% + AI 25% + event_score 5%
+         → AIStrategyFusion.generate_fusion_signal() → 戰術候選
+   c. InferenceEngine.predict()
+      → unified_v2_100m（16×64 市場數值 + 濃縮新聞記憶 + 策略摘要 → 65 維決策）
+   d. _fuse_signals()                       → 只轉換 AI 最終 LONG / SHORT / HOLD
 4. _handle_trading_signal(signal)
    → auto_trade=False (預設) → 記錄 log，不下單
    → auto_trade=True → execute_trade() → [T1] ActionRecord.fill_entry()
@@ -200,27 +198,23 @@ flowchart TD
 - 透過 `AIStrategyFusion.generate_fusion_signal()` 產出融合信號
 
 **InferenceEngine**（`core/inference_engine.py`）是全專案唯一 AI 模型持有者：
-- `unified_v2_100m`：16×64 市場 patch 與中英文文字進入同一 Transformer
-- 65 維結構化交易決策與文字說明由同一模型產生
+- `unified_v2_100m`：16×64 市場 patch、新聞事件記憶與策略摘要進入同一 Transformer
+- 平常自主迴圈只產生 65 維結構化決策；中英文人類報告僅在使用者要求時生成
 - 無訓練 checkpoint 時建立固定 seed 的未訓練基線，明確標記 `trained=false`
 
 ### 4.4 新聞層
 
-新聞在系統中同時扮演**三種角色**：
+新聞目前只負責提供戰略事件事實；它不以關鍵字規則直接決定交易方向：
 
 | 角色 | 位置 | 狀態 |
 |------|------|------|
-| 極端 event_score 過濾器 | StrategySelector / event_score 非對稱攔截 | ✅ |
-| 方向框架（Directional Guard） | `generate_fusion_signal()` + `get_direction_bias()` | ✅ minimal（2026-06-12） |
-| event_score 加權融合 | `TradingEngine._fuse_signals()` | ✅（非 direction_bias） |
-| 多事件時序聚合 | `NewsAdapter.get_direction_bias()` | 🧩 P1 待擴充 |
+| 事件重要性與有效期 | `RuleBasedEvaluator` / `NewsEventContract` | ✅ 規則只保存重要性、下限、有效期與衰減 |
+| 既有方向相容輸出 | `NewsAdapter.get_direction_bias()` | ✅ 固定回傳 `NEUTRAL`，不可由規則決定 LONG／SHORT |
+| 正式來源與抓取失敗契約 | `NewsDataFetcher` | ✅ CoinDesk RSS + Google News RSS；任一失敗即明確錯誤 |
+| 原始新聞更新排程 | `AutonomousOperator` | ✅ 啟動時一次；長跑時對齊本地時間每小時 `HH:05` |
+| 平常 AI 新聞輸入 | `NewsEventContractManager.get_memory_snapshot()` | ✅ 只含事件類型、衰減後重要性、剩餘時間與經濟日曆，不含原文 |
 
-極端過濾規則：
-```
-event_score < -5 → 攔截普通做多，放行做空
-event_score > +5 → 攔截普通做空，放行做多
--5 ≤ event_score ≤ +5 → 策略信號正常通過
-```
+設計分工固定如下：新聞模組以一般程式負責來源、抓取、去重、歸檔、事件記憶、衰減與到期；策略模組獨立形成戰術候選及保存／切換策略；統一 AI 只讀兩者輸出與市場數值，做最終方向、倉位、槓桿、止損止盈及有效期判斷。交易執行器只執行最終決策，不反向修改新聞或策略判斷。
 
 ### 4.5 記憶與學習層
 
@@ -280,11 +274,11 @@ event_score > +5 → 攔截普通做空，放行做多
 | 缺口 | 狀態 | 與本階段關係 | 修正方向 |
 |---|---|---|---|
 | 預設自主長跑與對帳驗收 | 🧩 P0 | **本階段主戰場** | 真實 paper／ledger／重啟；非 pytest |
-| 新聞時序聚合 | 🧩 P1 | 流程通後增強 | `get_direction_bias()` → `"full"` |
+| 新聞時序聚合長跑驗證 | 🧩 P1 | 流程通後增強 | 驗證同類事件更新、重要性衰減／延長與到期結果 |
 | TinyLLM v2 真實資料訓練 | 🧩 | 階段 3；不阻擋工程自主 | 標籤 → 訓練 → promotion → `unified_v2_100m.pth` |
 | GoalTracker 自動回饋 | 🧩 P4 | 非阻塞 | `recommended_risk_scale` → AdaptationController |
 | 主線 B 長時間穩定性 | 🧩 | **本階段** | 真實行情驗證共用執行與平倉回寫 |
-| `_fuse_signals` 與 direction_bias 統一 | 🧩 | 可預期性 | 與 StrategyFusion 語意對齊 |
+| AI 最終決策長跑穩定性 | 🧩 | **本階段** | 策略只供候選，執行只採 AI 有效決策 |
 | 多帳戶／API 認證等 | 延後 | **非本階段** | 預設流程通後再加 |
 
 ---

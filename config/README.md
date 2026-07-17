@@ -96,10 +96,11 @@ config/
   "rules": [
     {
       "event_type": "WAR",
-      "keywords": [...],
-      "base_score": -0.9,
-      "confidence": 0.85,
-      "decay_hours": 72
+      "trigger_keywords": [...],
+      "base_importance": 10.0,
+      "minimum_importance": 2.0,
+      "duration_hours": 720,
+      "decay_mode": "linear"
     }
   ]
 }
@@ -107,7 +108,7 @@ config/
 
 **目前定義的事件類型**（7 條）：`WAR`、`HACK`、`REGULATION`、`MACRO`、`EXCHANGE_ISSUE`、`ETF_APPROVAL`、`INSTITUTIONAL`
 
-各事件的 `decay_hours` 決定時間衰減速率，供 `DatabaseManager.calculate_total_event_score()` 使用。
+各事件的 `base_importance`、`minimum_importance`、`duration_hours` 與 `decay_mode` 定義事件重要性隨時間的狀態；規則不預設固定多空，方向交給 AI 後續判斷。
 
 ---
 

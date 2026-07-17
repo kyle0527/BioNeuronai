@@ -30,6 +30,20 @@
 - ✅ 即時匯率服務（三級數據源回退）
 - ✅ 外部市場情緒 / 宏觀數據非同步抓取
 - ✅ 線程安全連接池與自動重連
+- ✅ 同步新聞雙來源 `NewsDataFetcher`（CoinDesk + Google News，fail-fast）
+
+### Binance API 能力核對（舊 `BINANCE_API_IMPLEMENTATION` 比對）
+
+| 方法 | 現役 | 用途 |
+|------|------|------|
+| `get_klines` | ✅ | 歷史／即時 K 線 |
+| `get_order_book` | ✅ | 深度 |
+| `get_funding_rate` / premium index | ✅ | 資金費率（日曆／風控） |
+| `get_open_interest` | ✅ | 未平倉量 |
+| `place_order` + WebSocket | ✅ | 下單與行情流 |
+| `_check_rate_limit` | ✅ | 請求節流 |
+
+舊實作報告可考古於 `docs/archive/recovered_from_git/root_guides/BINANCE_API_IMPLEMENTATION.md`；**現役以本模組程式為準**。
 
 ### 公開 API (`__init__.py` 匯出)
 ```python
@@ -223,7 +237,7 @@ connector.close_all_connections()        # 關閉所有 WebSocket 連接
 
 ### `news_data_fetcher.py` — 同步新聞資料抓取器
 
-同步封裝 CryptoPanic API 與 RSS feed 讀取，供 `analysis.news.CryptoNewsAnalyzer` 注入使用。這個檔案的重點是把外部 HTTP 呼叫留在 data 層，避免 analysis 模組直接散落 `requests.get()`。
+同步封裝 CoinDesk RSS（幣圈）與 Google News RSS（總經／地緣政治）讀取，供 `analysis.news.CryptoNewsAnalyzer` 注入使用。這個檔案把外部 HTTP 呼叫留在 data 層，避免 analysis 模組直接散落 `requests.get()`；兩個來源都是必要條件，任一失敗會明確報錯而不是回傳空結果。
 
 **主要類**:
 - `NewsDataFetcher`

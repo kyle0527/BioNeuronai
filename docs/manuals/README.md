@@ -1,11 +1,15 @@
 # BioNeuronAI 使用者操作手冊集中索引
 
 > 建立日期：2026-05-12  
-> 更新日期：2026-07-11  
+> 更新日期：2026-07-17  
 > 方向權威：[`../CURRENT_DIRECTION.md`](../CURRENT_DIRECTION.md)  
 > 現況權威：[`../PROJECT_STATUS.md`](../PROJECT_STATUS.md)  
+> 工作順序權威：[`../archive/WORK_ORDER.md`](../archive/WORK_ORDER.md)  
 > 目的：整理「使用者實際操作」手冊（開機、CLI、API、Dashboard、Docker、回測、風控、排查等）。  
-> **本階段重點**：預設自主流程在虛擬帳戶／Paper 跑通；驗收用真實入口，**不用** pytest；多帳戶等商用周邊後續再加。
+> **本階段重點**：預設自主流程在虛擬帳戶／Paper 跑通；驗收用真實入口，**不用** pytest；多帳戶等商用周邊後續再加。  
+>  
+> **目前所在步驟 = 步驟 4（修本目錄手冊）**：步驟 1–3（檢查／移回／調整）核心已完成；  
+> **在 manuals 改到可整本照做之前，不進入步驟 5（照手冊真實操作）。**
 
 ---
 

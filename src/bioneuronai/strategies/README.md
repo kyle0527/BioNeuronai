@@ -1,9 +1,13 @@
 # 策略模組 (Strategies)
 
 **路徑**: `src/bioneuronai/strategies/`  
-**版本**: v2.2
-**更新日期**: 2026-05-11
-**架構層級**: Layer 2 — 策略層
+**版本**: v2.2  
+**更新日期**: 2026-07-17  
+**架構層級**: Layer 2 — 策略層  
+
+**新舊比對（`EVOLUTION_SYSTEM_PLAN`）**：完整「基因混搭進退場」仍是願景；現役已有  
+`StrategyArena` 遺傳競爭、`Meta-Learner`、`strategy-backtest` + **rolling walk-forward**、AdaptiveHub。  
+本階段主戰場仍是 paper 自主與記帳，不阻塞於基因庫。
 
 ---
 

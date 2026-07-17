@@ -4,8 +4,10 @@
     "event_type": "事件類型識別碼（唯一）",
     "trigger_keywords": "觸發關鍵字列表（任一命中即觸發）",
     "termination_keywords": "終止關鍵字列表（Hard Stop，任一命中即解除事件）",
-    "base_score": "基礎分數，-1.0(極度利空) ~ +1.0(極度利多)",
-    "decay_hours": "事件衰減時間（小時）。過了此時間後分數降至一半，見 database_manager.calculate_total_event_score",
+    "base_importance": "初始重要性，0（可忽略）~ 10（最高）；不代表固定多空",
+    "minimum_importance": "有效期結束前保留的重要性下限，0 ~ base_importance",
+    "duration_hours": "事件有效時間（小時）",
+    "decay_mode": "重要性衰減方式：linear 或 exponential；不承載方向",
     "affected_symbols": "影響的交易對列表，null 表示影響全部"
   },
   "rules": [
@@ -19,8 +21,10 @@
         "ceasefire", "peace agreement", "truce", "war ended",
         "conflict resolved", "de-escalation"
       ],
-      "base_score": -0.8,
-      "decay_hours": 72,
+      "base_importance": 10.0,
+      "minimum_importance": 2.0,
+      "duration_hours": 720,
+      "decay_mode": "linear",
       "affected_symbols": null
     },
     {
@@ -34,8 +38,10 @@
         "funds recovered", "hacker identified", "security restored",
         "patch deployed", "vulnerability fixed", "compensation announced"
       ],
-      "base_score": -0.7,
-      "decay_hours": 48,
+      "base_importance": 7.0,
+      "minimum_importance": 1.0,
+      "duration_hours": 48,
+      "decay_mode": "linear",
       "affected_symbols": null
     },
     {
@@ -49,8 +55,10 @@
         "case dismissed", "settlement reached", "charges dropped",
         "regulatory approval", "compliance achieved", "ban lifted"
       ],
-      "base_score": -0.6,
-      "decay_hours": 168,
+      "base_importance": 6.0,
+      "minimum_importance": 1.5,
+      "duration_hours": 504,
+      "decay_mode": "linear",
       "affected_symbols": null
     },
     {
@@ -64,8 +72,10 @@
         "rate cut", "fed pauses", "inflation cools", "recovery",
         "economic rebound", "bailout approved", "liquidity restored"
       ],
-      "base_score": -0.5,
-      "decay_hours": 120,
+      "base_importance": 5.0,
+      "minimum_importance": 1.0,
+      "duration_hours": 360,
+      "decay_mode": "linear",
       "affected_symbols": null
     },
     {
@@ -79,8 +89,10 @@
         "withdrawals resumed", "trading resumed", "exchange recovered",
         "liquidity restored", "operations normal"
       ],
-      "base_score": -0.65,
-      "decay_hours": 48,
+      "base_importance": 6.5,
+      "minimum_importance": 1.0,
+      "duration_hours": 144,
+      "decay_mode": "linear",
       "affected_symbols": null
     },
     {
@@ -90,8 +102,10 @@
         "spot etf approved"
       ],
       "termination_keywords": [],
-      "base_score": 0.8,
-      "decay_hours": 72,
+      "base_importance": 8.0,
+      "minimum_importance": 1.0,
+      "duration_hours": 216,
+      "decay_mode": "linear",
       "affected_symbols": null
     },
     {
@@ -101,8 +115,10 @@
         "hedge fund buys", "corporate treasury", "mass adoption"
       ],
       "termination_keywords": [],
-      "base_score": 0.6,
-      "decay_hours": 48,
+      "base_importance": 6.0,
+      "minimum_importance": 1.0,
+      "duration_hours": 144,
+      "decay_mode": "linear",
       "affected_symbols": null
     }
   ]

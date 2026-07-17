@@ -46,6 +46,7 @@ from bioneuronai.data.cloud_storage import materialize_uri, upload_path
 from nlp.bilingual_tokenizer import BilingualTokenizer
 from nlp.tiny_llm_v2 import TinyLLMv2, TinyLLMv2Config
 from nlp.training.advanced_trainer import Trainer, TrainingConfig
+from nlp.training.build_vocab import collect_real_news_corpus
 from nlp.training.trading_dialogue_data import ALL_TRADING_DATA
 
 # ============================================================================
@@ -381,13 +382,8 @@ def _write_run_manifest(
 # ============================================================================
 
 def _build_and_save_vocab(tokenizer: BilingualTokenizer, dest: Path) -> None:
-    """從 ALL_TRADING_DATA 抽取所有文本，建立詞彙並儲存至 dest。"""
-    texts = []
-    for item in ALL_TRADING_DATA:
-        if item.get("input"):
-            texts.append(item["input"])
-        if item.get("output"):
-            texts.append(item["output"])
+    """從正式中英文新聞快照建立 tokenizer，禁止使用合成示例語料。"""
+    texts = collect_real_news_corpus()
     tokenizer.build_vocab(texts)
     dest.parent.mkdir(parents=True, exist_ok=True)
     tokenizer.save(str(dest))

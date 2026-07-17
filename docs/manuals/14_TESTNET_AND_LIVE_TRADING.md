@@ -349,7 +349,11 @@ CLI live 啟動仍需依 `main.py trade --live` 的互動確認流程；API / UI
 
 ---
 
-## 9. 緊急停止
+## 9. 緊急停止與應急（從舊 SOP 併入）
+
+下列清單取自舊 `CRYPTO_TRADING_SOP` 應急章，已改寫為**實際操作**（CLI／交易所畫面），不依賴測試檔。
+
+### 9.1 停止本系統
 
 CLI 模式：
 
@@ -373,9 +377,35 @@ docker compose stop trade
 
 ```powershell
 Get-CimInstance Win32_Process -Filter "name = 'python.exe'" |
-  Where-Object { $_.CommandLine -like '*main.py trade*' -or $_.CommandLine -like '*uvicorn*bioneuronai.api.app*' } |
+  Where-Object { $_.CommandLine -like '*main.py trade*' -or $_.CommandLine -like '*uvicorn*bioneuronai.api.app*' -or $_.CommandLine -like '*main.py autonomous*' } |
   Select-Object ProcessId, CommandLine
 ```
+
+### 9.2 API／連線中斷（持倉保護）
+
+1. **立即評估**：網路、Binance 狀態頁、是否僅本機程式斷線。  
+2. **保護持倉**：用 Binance Web／App 確認持倉與 SL/TP 是否仍在；必要時手動補保護單。  
+3. **應急**：無法恢復且風險升高 → App 手動減倉／平倉；記錄時間與原因。  
+4. **事後**：對帳 ledger／virtual account／交易所；再重啟 paper 或 testnet，**不要**在未對帳時開滿 LoRA。
+
+### 9.3 市場極端行情（瀑布／閃崩）
+
+| 現象 | 立即動作 |
+|------|----------|
+| 短時間單邊暴漲跌、成交量暴增 | **暫停新開倉**（停 `autonomous --execute-paper`／`trade --paper-live`） |
+| 止損可能被穿透 | 交易所端檢查並手動平倉或收緊保護 |
+| 長影線閃崩後快速恢復 | 勿立刻報復性重進；先等穩定再決定 |
+| 資金費率極端 | 評估是否在收費前減倉；**不以費率本身當交易理由** |
+
+### 9.4 帳戶安全
+
+收到可疑登入通知時（分鐘級）：
+
+1. 改密碼／撤銷 API key、檢查持倉與提現紀錄。  
+2. 必要時先手動平倉，再重發新 key 寫入 `.env`。  
+3. 本系統重啟前執行 `python main.py status` 與 `pretrade`。
+
+考古原文：`docs/archive/recovered_from_git/docs_v3/CRYPTO_TRADING_SOP.md` §應急。
 
 ---
 

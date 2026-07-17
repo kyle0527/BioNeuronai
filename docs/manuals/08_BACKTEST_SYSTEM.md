@@ -150,6 +150,43 @@ python main.py strategy-backtest `
 
 常用參數：`--execution-mode template_rules|hybrid`、`--walk-forward`、`--commission-bps`、`--slippage-bps`、`--params <json>`。
 
+#### Walk-Forward（已從舊版多窗邏輯拿回）
+
+正式驗收靠 **真實 CLI 產物**，不用 pytest。
+
+| 模式 | CLI | 說明 |
+|------|-----|------|
+| **rolling（預設）** | `--walk-forward` | 滾動 train/test 多窗；輸出過擬合率、穩健分、每 fold 指標（舊 `archived/backtesting/walk_forward.py` 設計，已接上現役 suite） |
+| **single** | `--walk-forward --walk-forward-mode single` | 一次 IS/OOS 切分（預設 IS 70%） |
+
+```powershell
+# 多窗滾動（建議用於長期策略穩定度）
+python main.py strategy-backtest `
+  --symbol BTCUSDT `
+  --interval 1h `
+  --start-date 2020-01-01 `
+  --end-date 2020-12-31 `
+  --walk-forward `
+  --wf-train-days 90 `
+  --wf-test-days 30 `
+  --wf-step-days 30 `
+  --output output\wf_rolling.json
+
+# 單次 70/30（區間太短、或只要快速切分時）
+python main.py strategy-backtest `
+  --symbol BTCUSDT `
+  --interval 1h `
+  --start-date 2020-01-01 `
+  --end-date 2020-06-30 `
+  --walk-forward `
+  --walk-forward-mode single `
+  --output output\wf_single.json
+```
+
+成功標準：終端印出 Walk-Forward 表；JSON／runtime 內 `walk_forward.enabled=true`。區間短到無法湊滿 train+test 窗時，rolling 會**自動降級** single 並寫入 log。
+
+實作：`backtest/walk_forward.py`；考古原文：`docs/archive/recovered_from_git/backtesting/walk_forward.py`。
+
 ### 4.4 `readiness-gate` — 上線前門檻
 
 對 BTC/ETH 多時間框架矩陣跑策略回測門檻；`FAIL` 時 **exit code = 1**。

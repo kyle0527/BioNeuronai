@@ -1,8 +1,13 @@
 # 分析模組 — 每日報告系統 (Daily Report)
 
 > **路徑**: `src/bioneuronai/analysis/daily_report/`  
-> **更新日期**: 2026-05-12
-> **文件焦點**: 子模組內部流程與 API（系統分層請看上層 [analysis README](../README.md)）
+> **更新日期**: 2026-07-17  
+> **文件焦點**: 子模組內部流程與 API（系統分層請看上層 [analysis README](../README.md)）  
+> **新舊比對**（舊 `DAILY_REPORT_CHECKLIST`）：  
+> - 恐慌貪婪指數：`MarketDataCollector._get_fear_greed_index` ✅（需注入 external_fetcher）  
+> - 經濟日曆：資金費率 + 季度交割 + 宏觀排程 ✅（不再是空 list stub）  
+> - 全球股指仍可能 NEUTRAL 降級：屬資料可得性，非本階段阻塞  
+> 實際入口：`plan` / SOP / autonomous 讀日曆快照；不用單元測試當完成證明。
 
 ## 目錄
 

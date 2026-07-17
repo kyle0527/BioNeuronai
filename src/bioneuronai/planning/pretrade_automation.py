@@ -1091,16 +1091,21 @@ class PreTradeCheckSystem:
             return "INSUFFICIENT"
 
     def _check_major_news(self, symbol: str) -> Dict:
-        """檢查重大新聞
+        """檢查重大新聞（風控用，不輸出交易方向）。
 
-        僅走 RAG 路徑（NewsAdapter → 結構化情緒分數 + 事件分數）。
-        不做 legacy fallback，避免把系統失敗誤判為「無重大利空」。
+        以 **事件合約重要性 / 高風險事件類型** 為準；
+        舊 signed ``event_score`` 在現役路徑固定為 0，不可再當多空門檻。
+        來源失敗走 ERROR，不做假中性降級。
 
         回傳 dict 必含:
         - status: OK / NO_DATA / ERROR
-        - has_major_negative: bool
+        - has_major_negative: bool（此處語意=高風險事件需謹慎，非規則看空）
         - summary: 狀態說明
         """
+        # 高風險事件類型：觸發 pretrade 謹慎攔截（不決定多空）
+        _HIGH_RISK_TYPES = {
+            "HACK", "WAR", "REGULATION", "SECURITY", "EXPLOIT", "BAN",
+        }
         adapter = self._get_news_adapter()
         rag_context = self._retrieve_trading_context(symbol)
         if adapter is None:
@@ -1111,6 +1116,7 @@ class PreTradeCheckSystem:
                 "error": "news_adapter_unavailable",
                 "sentiment_score": 0.0,
                 "event_score": 0.0,
+                "event_importance": 0.0,
                 "articles_count": 0,
                 "rag_available": False,
                 "rag_context": rag_context,
@@ -1120,14 +1126,42 @@ class PreTradeCheckSystem:
             articles = adapter.search(symbol, max_results=10, hours=24)
             event_context = adapter.get_event_context(symbol)
 
+            # 正式事件記憶：合約彙總重要性（0~1）與類型
+            event_importance = 0.0
+            risk_event_types: list[str] = []
+            try:
+                from bioneuronai.analysis.news.event_contract import get_contract_manager
+
+                memory = get_contract_manager().get_memory_snapshot(symbol=symbol)
+                event_importance = float(memory.get("aggregate_intensity") or 0.0)
+                for ev in memory.get("active_events") or []:
+                    et = str(ev.get("event_type") or "").upper()
+                    if et in _HIGH_RISK_TYPES or float(ev.get("current_importance") or 0) >= 0.6:
+                        if et:
+                            risk_event_types.append(et)
+            except Exception as mem_exc:
+                logger.debug("pretrade 讀取事件合約失敗: %s", mem_exc)
+
+            if event_context and event_importance <= 0:
+                meta = self._event_context_get(event_context, "metadata", {}) or {}
+                if isinstance(meta, dict):
+                    try:
+                        event_importance = float(meta.get("event_importance") or 0.0) / 10.0
+                    except (TypeError, ValueError):
+                        event_importance = 0.0
+                et = self._event_context_get(event_context, "event_type", None)
+                if et:
+                    risk_event_types.append(str(et).upper())
+
             articles_count = len(articles)
-            if articles_count == 0 and not event_context:
+            if articles_count == 0 and not event_context and event_importance <= 0:
                 return {
                     "status": NEWS_CHECK_NO_DATA,
                     "has_major_negative": False,
                     "summary": f"{symbol} 在最近 24 小時沒有可用的相關新聞知識",
                     "sentiment_score": 0.0,
                     "event_score": 0.0,
+                    "event_importance": 0.0,
                     "articles_count": 0,
                     "rag_available": True,
                     "rag_context": rag_context,
@@ -1138,24 +1172,26 @@ class PreTradeCheckSystem:
                 if articles_count > 0 else 0.0
             )
 
-            # event_score 來自 RuleBasedEvaluator.get_current_event_score()
-            event_score = 0.0
-            if event_context:
-                raw = self._event_context_get(event_context, "event_score", 0.0)
-                event_score = raw[0] if isinstance(raw, tuple) else float(raw)
-
-            # 判斷重大利空：情緒過低 或 負面事件分數超過閾值
-            SENTIMENT_THRESHOLD = -0.3
-            EVENT_THRESHOLD = -0.5
-            has_major_negative = (
-                avg_sentiment < SENTIMENT_THRESHOLD
-                or event_score < EVENT_THRESHOLD
+            # 高風險：事件重要性高，或命中 HACK/WAR/REGULATION 等類型
+            IMPORTANCE_THRESHOLD = 0.55
+            has_high_risk = (
+                event_importance >= IMPORTANCE_THRESHOLD
+                or any(t in _HIGH_RISK_TYPES for t in risk_event_types)
             )
+            # 相容舊欄位名 has_major_negative：語意改為「高風險需謹慎」
+            has_major_negative = has_high_risk
 
-            summary_parts = [f"分析了 {articles_count} 則新聞，平均情緒 {avg_sentiment:.2f}"]
+            summary_parts = [
+                f"分析了 {articles_count} 則新聞",
+                f"事件重要性 {event_importance:.3f}",
+            ]
+            if risk_event_types:
+                summary_parts.append(
+                    "風險事件: " + ",".join(sorted(set(risk_event_types))[:5])
+                )
             if event_context:
                 et = self._event_context_get(event_context, "event_type", "N/A")
-                summary_parts.append(f"偵測到事件: {et}")
+                summary_parts.append(f"主事件類型: {et}")
             if rag_context.get("status") == "OK":
                 summary_parts.append(
                     f"RAG 檢索命中 {rag_context.get('total_hits', 0)} 筆 / "
@@ -1166,16 +1202,22 @@ class PreTradeCheckSystem:
                     summary_parts.append(f"RAG 重點: {top_titles[0]}")
 
             logger.info(
-                f"[RAG] {symbol} 新聞摘要 | "
-                f"articles={articles_count} sentiment={avg_sentiment:.2f} "
-                f"event_score={event_score:.2f} negative={has_major_negative}"
+                "[RAG] %s 新聞摘要 | articles=%s importance=%.3f risk=%s types=%s",
+                symbol,
+                articles_count,
+                event_importance,
+                has_high_risk,
+                risk_event_types[:5],
             )
             return {
                 "status": NEWS_CHECK_OK,
                 "has_major_negative": has_major_negative,
                 "summary": "; ".join(summary_parts),
                 "sentiment_score": round(avg_sentiment, 4),
-                "event_score": round(event_score, 4),
+                # event_score 保留鍵名相容，固定 0（不再承載方向）
+                "event_score": 0.0,
+                "event_importance": round(event_importance, 4),
+                "risk_event_types": sorted(set(risk_event_types)),
                 "articles_count": articles_count,
                 "rag_available": True,
                 "rag_context": rag_context,

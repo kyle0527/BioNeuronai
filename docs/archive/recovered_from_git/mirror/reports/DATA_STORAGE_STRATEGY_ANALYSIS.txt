@@ -1,0 +1,237 @@
+## 📊 BioNeuronai 數據類型與存儲方案分析
+
+### 當前系統產出的數據類型
+
+#### 1. 交易執行數據 (Trading Execution Data)
+- 交易記錄: trading_data/trades_history.jsonl (append-only)
+- 訂單信息: 訂單 ID, 方向, 數量, 價格, 時間戳
+- 執行結果: 成交價, 手續費, 倉位變化
+- 頻率: 每次交易觸發
+- 大小估計: ~1KB/筆, 100 筆/天 = 100KB/天
+- 重要性: ⭐⭐⭐⭐⭐ (核心業務數據)
+
+#### 2. 信號歷史數據 (Signal History Data)
+- 策略信號: trading_data/signals_history.json
+- AI 預測: 置信度, 推薦動作, 理由
+- 策略輸出: action, confidence, strategy_name, reason
+- 頻率: 實時市場數據流觸發
+- 大小估計: ~2KB/信號, 可能數千筆/天
+- 重要性: ⭐⭐⭐⭐⭐ (AI 訓練數據)
+
+#### 3. 風險管理數據 (Risk Management Data)
+- 風險統計: trading_data/risk_statistics.json
+- 包含: 勝率, 盈虧比, 夏普比率, 最大回撤等 12 項指標
+- 風險配置: trading_data/risk_config.json
+- 頻率: 每次交易後更新
+- 大小估計: 幾 KB 固定大小
+- 重要性: ⭐⭐⭐⭐⭐ (風控核心)
+
+#### 4. 策略權重數據 (Strategy Weights Data)
+- 策略權重: trading_data/strategy_weights.json
+- 包含: 各策略權重, 性能歷史
+- 頻率: 策略調整時更新
+- 大小估計: ~1KB
+- 重要性: ⭐⭐⭐⭐ (策略優化)
+
+#### 5. 交易前檢查數據 (Pre-trade Check Data)
+- 檢查結果: pretrade_check_data/pretrade_check_{timestamp}.json
+- 包含: 技術信號, 基本面, 風險計算, 訂單參數, 最終確認
+- 頻率: 每次交易前
+- 大小估計: ~5KB/次
+- 重要性: ⭐⭐⭐⭐ (審計追蹤)
+
+#### 6. SOP 檢查數據 (SOP Automation Data)
+- SOP 結果: sop_automation_data/sop_check_{timestamp}.json
+- 包含: 完整的 SOP 執行記錄
+- 頻率: 每日開始前/重要決策時
+- 大小估計: ~10KB/次
+- 重要性: ⭐⭐⭐ (流程記錄)
+
+#### 7. 市場關鍵字數據 (Market Keywords Data)
+- SQLite 數據庫: config/market_keywords.db
+- JSON 配置: config/market_keywords.json
+- 包含: 181 個關鍵字, 權重, 準確率, 預測記錄
+- 頻率: 新聞分析時查詢, 定期更新權重
+- 大小估計: ~50KB (DB), ~20KB (JSON)
+- 重要性: ⭐⭐⭐⭐ (新聞分析核心)
+
+#### 8. 新聞分析數據 (News Analysis Data)
+- 目前: 內存中處理, 無持久化
+- 應包含: 新聞文章, 情感分析結果, 關鍵字匹配
+- 頻率: 實時抓取
+- 大小估計: ~2KB/文章, 可能數百篇/天
+- 重要性: ⭐⭐⭐ (輔助決策)
+
+#### 9. AI 模型數據 (AI Model Data)
+- 模型文件: model/my_100m_model.pth (424MB)
+- 推理結果: 目前在 signals_history.json 中
+- 頻率: 模型更新時
+- 大小估計: 固定 424MB
+- 重要性: ⭐⭐⭐⭐⭐ (核心資產)
+
+#### 10. 歷史市場數據 (Historical Market Data)
+- K 線數據: data_downloads/binance_historical/*.csv
+- 包含: OHLCV, 資金費率, 持倉量
+- 頻率: 回測/訓練時使用
+- 大小估計: 數 GB (視歷史長度)
+- 重要性: ⭐⭐⭐⭐ (回測必需)
+
+---
+
+### 存儲方案建議
+
+#### 方案對比
+
+| 數據類型 | 當前方式 | 建議方式 | 理由 |
+|---------|---------|---------|------|
+| 交易記錄 | JSONL | SQLite + JSONL 備份 | 需要查詢聚合 |
+| 信號歷史 | JSON | Time-Series DB (InfluxDB) 或 SQLite | 時序數據，需要高效查詢 |
+| 風險統計 | JSON | SQLite | 需要歷史對比 |
+| 策略權重 | JSON | JSON (保持) | 頻繁讀寫，簡單結構 |
+| 交易前檢查 | JSON | SQLite | 需要審計查詢 |
+| 市場關鍵字 | SQLite + JSON | SQLite (保持) | ✅ 已最佳化 |
+| 新聞分析 | ❌ 無 | SQLite | 需要建立 |
+| 歷史數據 | CSV | Parquet + DuckDB | 壓縮率高，查詢快 |
+
+---
+
+### 推薦的數據存儲架構
+
+#### 方案 A: 輕量級方案 (推薦用於當前階段) ⭐⭐⭐⭐⭐
+
+'''
+trading_system/
+├── trading.db (SQLite)          # 主數據庫
+│   ├── trades                   # 交易記錄表
+│   ├── signals                  # 信號歷史表
+│   ├── risk_stats               # 風險統計表
+│   ├── pretrade_checks          # 交易前檢查表
+│   ├── news_articles            # 新聞文章表
+│   └── performance_metrics      # 性能指標表
+│
+├── market_keywords.db (SQLite)  # 關鍵字數據庫 (已有)
+│
+├── config/                      # 配置文件 (JSON)
+│   ├── trading_config.json
+│   ├── risk_config.json
+│   └── strategy_weights.json
+│
+├── backups/                     # 備份 (JSONL)
+│   ├── trades_backup.jsonl
+│   └── signals_backup.jsonl
+│
+└── model/
+    └── my_100m_model.pth        # AI 模型
+'''
+
+**優點**:
+- ✅ 單一 SQLite 數據庫易於管理
+- ✅ 無需額外服務或依賴
+- ✅ 支持複雜查詢和聚合
+- ✅ 事務支持確保數據一致性
+- ✅ 體積小 (<100MB 預計一年)
+- ✅ 易於備份和遷移
+
+**缺點**:
+- ❌ 併發寫入性能有限 (對於單個交易引擎足夠)
+- ❌ 不適合分布式部署
+
+---
+
+#### 方案 B: 進階方案 (未來擴展)
+
+'''
+trading_system/
+├── postgresql/                  # 主數據庫
+│   ├── trades
+│   ├── signals
+│   └── risk_stats
+│
+├── influxdb/                    # 時序數據
+│   ├── market_data
+│   └── performance_metrics
+│
+├── redis/                       # 緩存層
+│   ├── real_time_signals
+│   └── market_data_cache
+│
+└── s3/                         # 長期存儲
+    ├── historical_data/
+    └── backups/
+'''
+
+**適用場景**: 多交易引擎、高頻交易、分布式部署
+
+---
+
+### 具體實施建議
+
+#### 階段 1: 立即執行 (1-2 小時) ⭐⭐⭐⭐⭐
+
+1. **統一 SQLite 數據庫**
+   - 創建 	rading.db 主數據庫
+   - 遷移現有 JSON 數據到 SQLite
+   - 保留 JSONL 作為備份機制
+
+2. **實現 DatabaseManager 類**
+'''python
+class DatabaseManager:
+    def __init__(self, db_path='trading_data/trading.db'):
+        self.conn = sqlite3.connect(db_path)
+        self._create_tables()
+    
+    def save_trade(self, trade_info: Dict) -> None
+    def get_trades(self, start_date, end_date) -> List[Dict]
+    def save_signal(self, signal: TradingSignal) -> None
+    def get_signals(self, filters: Dict) -> List[Dict]
+    def save_risk_stats(self, stats: Dict) -> None
+    def get_latest_risk_stats() -> Dict
+'''
+
+3. **更新 TradingEngine**
+   - 使用 DatabaseManager 替代直接 JSON 寫入
+   - 保留 JSONL 備份功能
+
+#### 階段 2: 新聞數據持久化 (1 小時) ⭐⭐⭐⭐
+
+1. 在 	rading.db 添加新聞表
+2. CryptoNewsAnalyzer 保存分析結果
+3. 支持歷史新聞查詢和回測
+
+#### 階段 3: 歷史數據優化 (2 小時) ⭐⭐⭐
+
+1. 將 CSV 轉換為 Parquet 格式
+2. 使用 DuckDB 進行快速查詢
+3. 實現數據壓縮和歸檔策略
+
+---
+
+### 數據量估算 (一年運行)
+
+| 數據類型 | 每日 | 每月 | 每年 | 備註 |
+|---------|-----|------|------|------|
+| 交易記錄 | 100KB | 3MB | 36MB | 假設 100 筆/天 |
+| 信號歷史 | 2MB | 60MB | 720MB | 假設 1000 信號/天 |
+| 風險統計 | 10KB | 300KB | 3.6MB | 每日更新 |
+| 交易前檢查 | 500KB | 15MB | 180MB | 假設 100 次/天 |
+| 新聞分析 | 400KB | 12MB | 144MB | 假設 200 篇/天 |
+| **總計** | **~3MB** | **~90MB** | **~1.08GB** | 主數據庫預估 |
+
+加上模型 (424MB) 和歷史數據 (1-10GB)，總存儲需求約 **2-12GB**。
+
+---
+
+### 結論
+
+**推薦方案**: 方案 A (輕量級 SQLite 方案)
+
+**實施優先級**:
+1. ⭐⭐⭐⭐⭐ 統一 SQLite 數據庫 (立即)
+2. ⭐⭐⭐⭐ 新聞數據持久化 (本週)
+3. ⭐⭐⭐ 歷史數據優化 (下週)
+
+**優勢**:
+- 簡單可靠
+- 零依賴
+- 易於維護
+- 足夠滿足當前和近期需求

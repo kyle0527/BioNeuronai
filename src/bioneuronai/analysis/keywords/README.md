@@ -1,8 +1,10 @@
 # 分析模組 — 關鍵字系統 (Keywords)
 
 > **路徑**: `src/bioneuronai/analysis/keywords/`  
-> **更新日期**: 2026-05-12
-> **文件焦點**: 子模組內部 API、資料流與持久化（分層說明請看上層 [analysis README](../README.md)）
+> **更新日期**: 2026-07-17  
+> **文件焦點**: 子模組內部 API、資料流與持久化（分層說明請看上層 [analysis README](../README.md)）  
+> **新舊比對**: 舊手冊寫 98 字；現役 `config/keywords/` **約 505**（`_index.json` v3.1）。  
+> 關鍵字可標註／學習命中；**不得**再當規則多空決策（方向交 AI）。驗收靠實際 news 分析與事件合約，不用 pytest。
 
 ## 目錄
 

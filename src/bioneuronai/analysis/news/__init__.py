@@ -3,7 +3,7 @@
 ============
 
 此模組提供加密貨幣新聞分析功能，包括：
-- 新聞獲取 (CryptoPanic, RSS)
+- 新聞獲取（CoinDesk RSS、Google News RSS）
 - 情緒分析
 - 事件檢測
 - 規則式評估

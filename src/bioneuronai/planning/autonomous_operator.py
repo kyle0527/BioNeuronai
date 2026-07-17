@@ -17,7 +17,7 @@ import asyncio
 import json
 import logging
 from dataclasses import asdict, dataclass, is_dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -80,6 +80,8 @@ class AutonomousOperatorConfig:
     reflection_sample_size: int = 50
     ai_context: str = ""
     ai_language: str = "zh"
+    news_hours: int = 24
+    news_refresh_minute: int = 5
 
     def normalized_action(self) -> str:
         action = self.intended_action.strip().upper()
@@ -147,6 +149,9 @@ class AutonomousOperator:
         self._open_executions: Dict[str, Dict[str, Any]] = {}
         self._settled_this_cycle: List[Dict[str, Any]] = []
         self._cycle_count = 0
+        self._news_analyzer: Optional[Any] = None
+        self._last_news_refresh_slot: Optional[str] = None
+        self._last_news_refresh_summary: Optional[Dict[str, Any]] = None
 
     def register_state_provider(self, name: str, provider: Any) -> None:
         """註冊額外的學習狀態來源（如 LoRA learner 的 get_stats）。
@@ -176,9 +181,23 @@ class AutonomousOperator:
         plan_serialized = _serialize(plan)
 
         candidates = self._extract_candidates(plan_serialized)
-        ai_decision = self._run_unified_ai(klines, plan_serialized)
+        news_refresh = self._refresh_news_memory_if_due(klines)
+        news_memory = self._collect_news_memory_snapshot()
+        strategy_snapshot = self._collect_strategy_snapshot(klines)
+        ai_input_snapshot = self._build_ai_input_snapshot(
+            klines=klines,
+            plan=plan_serialized,
+            candidates=candidates,
+            news_memory=news_memory,
+            strategy_snapshot=strategy_snapshot,
+        )
+        ai_decision = self._run_unified_ai(klines, ai_input_snapshot)
         cycle_action = self._resolve_cycle_action(ai_decision)
-        pretrade_results = self._run_pretrade(candidates, cycle_action)
+        pretrade_results = (
+            self._run_pretrade(candidates, cycle_action)
+            if cycle_action in {"BUY", "SELL"}
+            else []
+        )
         ledger_summary = self.ledger.summarize(limit=100)
         learning_state = self._build_learning_state()
         stale_positions = self._check_stale_positions()
@@ -216,6 +235,8 @@ class AutonomousOperator:
             "mode": self.config.mode,
             "symbol": self.config.symbol,
             "intended_action": cycle_action,
+            "news_refresh": news_refresh,
+            "ai_input_snapshot": ai_input_snapshot,
             "ai_decision": ai_decision,
             "candidates": candidates,
             "plan_status": plan_serialized.get("status"),
@@ -264,7 +285,9 @@ class AutonomousOperator:
             minutes = float(
                 record.get("adaptation", {}).get("next_interval_minutes", 60) or 60
             )
-            sleep_sec = minutes * 60.0 * max(0.0, interval_scale)
+            base_sleep = minutes * 60.0
+            until_news_refresh = self._seconds_until_next_news_refresh(datetime.now())
+            sleep_sec = min(base_sleep, until_news_refresh) * max(0.0, interval_scale)
             if sleep_sec > 0:
                 await asyncio.sleep(sleep_sec)
         return records
@@ -609,62 +632,274 @@ class AutonomousOperator:
             self.inference_engine = get_shared_inference_engine()
         return self.inference_engine
 
+    def _get_news_analyzer(self) -> Any:
+        """延遲建立新聞模組唯一實例；自主迴圈不另建第二套新聞狀態。"""
+        if self._news_analyzer is None:
+            from bioneuronai.analysis.news.analyzer import CryptoNewsAnalyzer
+
+            self._news_analyzer = CryptoNewsAnalyzer(enable_rag_ingest=False)
+        return self._news_analyzer
+
+    def _refresh_news_memory_if_due(
+        self,
+        klines: List[Dict[str, Any]],
+        at_time: Optional[datetime] = None,
+    ) -> Dict[str, Any]:
+        """啟動時與每小時第 5 分鐘後更新一次完整新聞及事件記憶。"""
+        now = at_time or datetime.now()
+        slot = now.strftime("%Y-%m-%dT%H")
+        due = self._last_news_refresh_slot is None or (
+            now.minute >= self.config.news_refresh_minute
+            and self._last_news_refresh_slot != slot
+        )
+        if not due:
+            return {
+                "refreshed": False,
+                "last_refresh_slot": self._last_news_refresh_slot,
+                "last_refresh_summary": self._last_news_refresh_summary,
+            }
+
+        analyzer = self._get_news_analyzer()
+        result = analyzer.analyze_news(
+            self.config.symbol,
+            hours=self.config.news_hours,
+        )
+
+        from bioneuronai.analysis.news.event_contract import get_contract_manager
+
+        latest = klines[-1] if klines else {}
+        price = float(latest.get("close", latest.get("c", 0.0)) or 0.0)
+        get_contract_manager().validate_expired_contracts(
+            {self.config.symbol: price, "CRYPTO": price}
+        )
+        article_ids = [
+            f"{article.source_id}:{article.url}"
+            for article in result.articles
+            if article.language in {"zh", "en"}
+        ]
+        summary = {
+            "refreshed_at": now.isoformat(),
+            "refresh_slot": slot,
+            "article_count": len(article_ids),
+            "article_ids": article_ids,
+            "languages": sorted(
+                {
+                    article.language
+                    for article in result.articles
+                    if article.language in {"zh", "en"}
+                }
+            ),
+            "event_updates": len(analyzer.last_event_updates),
+        }
+        self._last_news_refresh_slot = slot
+        self._last_news_refresh_summary = summary
+        return {"refreshed": True, **summary}
+
+    def _collect_news_memory_snapshot(self) -> Dict[str, Any]:
+        """平常決策只讀濃縮事件記憶與程式化經濟日曆，不讀新聞全文。"""
+        from bioneuronai.analysis.news.event_contract import get_contract_manager
+
+        memory = get_contract_manager().get_memory_snapshot(symbol=self.config.symbol)
+        memory["economic_calendar"] = self._collect_economic_snapshot()
+        return memory
+
+    def _seconds_until_next_news_refresh(self, now: datetime) -> float:
+        """計算到下一個本地時間 HH:05 的秒數。"""
+        target = now.replace(
+            minute=self.config.news_refresh_minute,
+            second=0,
+            microsecond=0,
+        )
+        if target <= now:
+            target += timedelta(hours=1)
+        return max(1.0, (target - now).total_seconds())
+
+    def _collect_strategy_snapshot(self, klines: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """取得既有策略模組的戰術候選；AI 讀取它們，但不由策略取代 AI 決策。"""
+        if not klines:
+            raise RuntimeError("缺少真實 K 線，無法建立策略模組輸入")
+        engine = self._get_trading_engine()
+        ohlcv = engine._convert_klines_to_ohlcv(klines)
+        if len(ohlcv) < 20:
+            raise RuntimeError("真實 K 線不足 20 根，無法建立策略模組輸入")
+        strategy = engine.strategy
+        signals = strategy.get_strategy_signals(ohlcv, symbol=self.config.symbol)
+        actionable = strategy.get_actionable_signal(ohlcv, symbol=self.config.symbol)
+        return {
+            "candidate_signals": _serialize(signals),
+            "actionable_candidate": _serialize(actionable) if actionable else None,
+        }
+
+    def _collect_economic_snapshot(self) -> Dict[str, Any]:
+        """取得既有經濟日曆模組的已排程事件，不將其偽裝成新聞。"""
+        from bioneuronai.analysis.daily_report.market_data import MarketDataCollector
+
+        collector = MarketDataCollector(connector=self._get_trading_engine().connector)
+        return {"events": collector.check_economic_calendar()}
+
+    def _build_ai_input_snapshot(
+        self,
+        *,
+        klines: List[Dict[str, Any]],
+        plan: Dict[str, Any],
+        candidates: List[str],
+        news_memory: Dict[str, Any],
+        strategy_snapshot: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        """建立每次自主決策唯一、可重播的多模態輸入快照。"""
+        latest = klines[-1] if klines else {}
+        current_price = float(latest.get("close", latest.get("c", 0.0)) or 0.0)
+        context_text = self._build_compact_decision_context(
+            news_memory,
+            strategy_snapshot,
+        )
+        return {
+            "snapshot_version": "ai_input_v2",
+            "created_at": datetime.now().isoformat(),
+            "symbol": self.config.symbol,
+            "market": {
+                "interval": self.config.interval,
+                "klines_count": len(klines),
+                "latest_kline": _serialize(latest),
+                "current_price": current_price,
+            },
+            "news_memory": news_memory,
+            "strategy": strategy_snapshot,
+            "planning": {
+                "status": plan.get("status"),
+                "execution_ready": plan.get("execution_ready"),
+                "blocking_steps": plan.get("blocking_steps", []),
+                "candidate_symbols": candidates,
+            },
+            "natural_language_context": context_text,
+        }
+
+    @staticmethod
+    def _build_compact_decision_context(
+        news_memory: Dict[str, Any],
+        strategy_snapshot: Dict[str, Any],
+    ) -> str:
+        """把各模組獨立輸出壓成決策摘要；不包含任何原始新聞全文。"""
+        from nlp.bilingual_tokenizer import BilingualTokenizer
+
+        tokenizer_path = _project_root() / "model" / "tokenizer" / "vocab.json"
+        tokenizer = BilingualTokenizer.load(str(tokenizer_path))
+        active_events = news_memory.get("active_events") or []
+        if active_events:
+            event_parts = [
+                (
+                    f"{event.get('event_type')} importance="
+                    f"{float(event.get('current_importance', 0.0)):.2f} remaining="
+                    f"{float(event.get('remaining_hours', 0.0)):.1f}h"
+                )
+                for event in active_events[:3]
+            ]
+            lines = ["News memory: " + " | ".join(event_parts)]
+        else:
+            lines = ["News memory: no active strategic event."]
+
+        actionable = strategy_snapshot.get("actionable_candidate") or {}
+        if isinstance(actionable, dict):
+            strategy_name = actionable.get("strategy_name") or "strategy_selector"
+            direction = actionable.get("direction") or "no entry"
+            confidence = actionable.get("confidence")
+            lines.append(
+                f"Strategy: {strategy_name}; {direction}; confidence={confidence}. AI decides."
+            )
+
+        economic_snapshot = news_memory.get("economic_calendar") or {}
+        events = economic_snapshot.get("events") or []
+        if events:
+            lines.append("Calendar: " + str(events[0])[:50])
+
+        accepted: List[str] = []
+        for line in lines:
+            for limit in (None, 80, 60, 40, 20):
+                truncated = line if limit is None else line[:limit]
+                candidate = "\n".join([*accepted, truncated])
+                if len(tokenizer.encode(candidate, add_special_tokens=True)) <= 128:
+                    accepted.append(truncated)
+                    break
+        if not accepted:
+            raise RuntimeError("無法在 128 token 限制內建立 AI 自然語言輸入")
+        return "\n".join(accepted)
+
     def _run_unified_ai(
         self,
         klines: List[Dict[str, Any]],
-        plan: Optional[Dict[str, Any]] = None,
+        ai_input_snapshot: Dict[str, Any],
     ) -> Optional[Dict[str, Any]]:
-        """以同一模型從本輪行情產生結構化決策與雙語說明。"""
+        """以單一模型處理本輪多模態輸入，保存原始 65 維輸出而非自動生成人類報告。"""
         if not klines:
             return None
         latest = klines[-1]
         current_price = float(latest.get("close", latest.get("c", 0.0)) or 0.0)
         if current_price <= 0:
             return None
-        plan_context = self.config.ai_context
-        if not plan_context and plan:
-            plan_context = json.dumps(
-                {
-                    "status": plan.get("status"),
-                    "execution_ready": plan.get("execution_ready"),
-                    "blocking_steps": plan.get("blocking_steps", []),
-                },
-                ensure_ascii=False,
-            )
         try:
-            result = self._get_inference_engine().predict_with_explanation(
+            engine = self._get_inference_engine()
+            signal = engine.predict(
                 symbol=self.config.symbol,
                 current_price=current_price,
                 klines=klines,
-                context_text=plan_context,
-                language=self.config.ai_language,
-                max_new_tokens=4,
+                context_text=str(ai_input_snapshot["natural_language_context"]),
             )
-            signal = result["signal"]
+            inference_snapshot = engine.get_last_inference_snapshot()
+            ai_input_snapshot["model_input"] = {
+                "tokenizer_version": inference_snapshot["tokenizer_version"],
+                "text_token_ids": inference_snapshot["text_token_ids"],
+                "numeric_patches": inference_snapshot["numeric_patches"],
+            }
+            hold_period, valid_until = self._decision_validity(
+                inference_snapshot["raw_signal"]
+            )
             return {
                 "signal": signal.to_dict(),
-                "explanation": result["explanation"],
-                "language": result["language"],
-                "model_name": result.get("model_name"),
-                "trained": bool(result.get("trained", False)),
+                "raw_signal": inference_snapshot["raw_signal"],
+                "model_name": inference_snapshot["model_name"],
+                "tokenizer_version": inference_snapshot["tokenizer_version"],
+                "trained": inference_snapshot["model_trained"],
+                "decision_hold_period": hold_period,
+                "decision_valid_until": valid_until,
             }
         except Exception as exc:
-            logger.warning("unified AI decision unavailable: %s", exc)
-            return {"error": str(exc), "trained": False}
+            raise RuntimeError(f"統一 AI 決策失敗：{exc}") from exc
+
+    @staticmethod
+    def _decision_validity(raw_signal: List[float]) -> tuple[str, str]:
+        """依模型 65 維 hold-period 輸出建立本輪決策有效期限。"""
+        from nlp.tiny_llm_v2 import HOLD_PERIOD_LABELS
+
+        if len(raw_signal) != 65:
+            raise ValueError(f"統一模型輸出必須為 65 維，實際為 {len(raw_signal)}")
+        hold_period = HOLD_PERIOD_LABELS[max(range(10), key=lambda index: raw_signal[19 + index])]
+        duration_by_label = {
+            "5m": timedelta(minutes=5),
+            "15m": timedelta(minutes=15),
+            "1h": timedelta(hours=1),
+            "4h": timedelta(hours=4),
+            "1d": timedelta(days=1),
+            "2d": timedelta(days=2),
+            "3d": timedelta(days=3),
+            "1w": timedelta(days=7),
+            "2w": timedelta(days=14),
+            "exit": timedelta(minutes=0),
+        }
+        return hold_period, (datetime.now() + duration_by_label[hold_period]).isoformat()
 
     def _resolve_cycle_action(self, ai_decision: Optional[Dict[str, Any]]) -> str:
-        """有可執行 AI 方向時採用；HOLD/未完成輸出維持呼叫者 smoke 動作。"""
+        """只採用本輪 AI 的明確方向；中性或失敗不以預設 BUY/SELL 覆蓋。"""
         if not ai_decision:
-            return self.config.normalized_action()
+            return "HOLD"
         signal = ai_decision.get("signal")
         if not isinstance(signal, dict):
-            return self.config.normalized_action()
+            return "HOLD"
         signal_type = str(signal.get("signal_type") or "").lower()
         if "long" in signal_type:
             return "BUY"
         if "short" in signal_type:
             return "SELL"
-        return self.config.normalized_action()
+        return "HOLD"
 
     def _pretrade_summary(self, results: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         summary: List[Dict[str, Any]] = []

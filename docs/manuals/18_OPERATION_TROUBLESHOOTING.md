@@ -91,7 +91,7 @@ python main.py backtest-data --symbol BTCUSDT --interval 1h
 
 | 現象 | 可能原因 | 處理 |
 |------|----------|------|
-| news 0 篇 | 免費 API/無新聞 | 設 `CRYPTOPANIC_API_TOKEN` 或稍後重試 |
+| news 執行失敗 | CoinDesk 或 Google News RSS 無法取得／解析 | 檢查網路與來源回應；不得改用替代來源或空結果降級 |
 | plan 外部失敗 | 第三方 API | 看 CLI 是否標 `DATA_UNAVAILABLE` |
 | pretrade REJECT | 風控/餘額 | 依理由處理，勿繞過 |
 | Futures 餘額 0 | mainnet 無入金 | testnet 或劃轉資金 |
@@ -121,3 +121,18 @@ Get-CimInstance Win32_Process -Filter "name = 'python.exe'" |
 - readiness-gate 或長區間回測未完成
 - 不確定是否有交易程序在跑
 - 混淆 autonomous 結果與 TradingEngine 監控狀態
+
+---
+
+## 9. 極端行情與連線應急（速查）
+
+完整步驟見 [14_TESTNET_AND_LIVE_TRADING.md](14_TESTNET_AND_LIVE_TRADING.md) §9。速查：
+
+| 情況 | 先做 |
+|------|------|
+| 程式無回應但仍可能有倉 | Binance App 看倉；必要時手動平 |
+| 瀑布／閃崩 | 停新開倉 → 查 SL → 再決定是否重啟系統 |
+| 新聞來源失敗 | 該輪不下新單（fail-fast）；不是「中性新聞」 |
+| 帳對不上 | 先只記錄、不開滿 LoRA；對完 ledger 再開學習寫入 |
+
+**驗收原則**：以真實帳戶／ledger／runtime 為準；**不**用 `tests/` 證明已恢復正常。

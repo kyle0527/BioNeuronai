@@ -456,54 +456,80 @@ class TradingPlanController:
             "event_context": None
         }
 
-        # 使用事件評估系統
+        # 使用事件評估系統（重要性／類型；不映射規則多空）
         if self._rule_evaluator:
             try:
-                # 獲取當前事件分數和活躍事件
-                event_score, active_events = self._rule_evaluator.get_current_event_score(symbol)
-
-                result["event_score"] = event_score
+                # 相容 DB 活躍事件列表；score 欄位已固定 0，風險看合約重要性
+                _event_score, active_events = self._rule_evaluator.get_current_event_score(symbol)
+                result["event_score"] = 0.0
                 result["active_events"] = active_events
+
+                event_importance = 0.0
+                try:
+                    from bioneuronai.analysis.news.event_contract import get_contract_manager
+
+                    memory = get_contract_manager().get_memory_snapshot(symbol=symbol)
+                    event_importance = float(memory.get("aggregate_intensity") or 0.0)
+                    result["event_importance"] = event_importance
+                    if not active_events and memory.get("active_events"):
+                        active_events = memory.get("active_events") or []
+                        result["active_events"] = active_events
+                except Exception as mem_exc:
+                    logger.debug("plan 讀取事件合約失敗: %s", mem_exc)
 
                 # 構建 EventContext 物件供 strategy_fusion 使用
                 if EVENT_SYSTEM_AVAILABLE and active_events and _EVENT_CONTEXT_AVAILABLE:
-                    # 找出最主要的事件類型
-                    primary_event = max(active_events, key=lambda e: abs(e.get('score', 0)))
-                    raw_score = abs(primary_event.get('score', 0))
-                    # 將數值分數轉為強度字串 (與 news_adapter._score_to_intensity 一致)
-                    if raw_score >= 7:
+                    def _imp(ev: dict) -> float:
+                        return float(
+                            ev.get("current_importance")
+                            or ev.get("importance")
+                            or abs(ev.get("score", 0) or 0)
+                            or 0.0
+                        )
+
+                    primary_event = max(active_events, key=_imp)
+                    raw_imp = _imp(primary_event)
+                    # importance 可能是 0~1（合約）或 0~10（舊 DB）
+                    scale = raw_imp if raw_imp <= 1.0 else raw_imp / 10.0
+                    if scale >= 0.7:
                         intensity_str = "EXTREME"
-                    elif raw_score >= 4:
+                    elif scale >= 0.4:
                         intensity_str = "HIGH"
-                    elif raw_score >= 2:
+                    elif scale >= 0.2:
                         intensity_str = "MEDIUM"
                     else:
                         intensity_str = "LOW"
                     result["event_context"] = EventContext(
-                        event_score=event_score,
-                        event_type=primary_event.get('event_type', 'UNKNOWN'),
+                        event_score=0.0,
+                        event_type=primary_event.get("event_type", "UNKNOWN"),
                         intensity=intensity_str,
                         decay_factor=1.0,
-                        source_confidence=primary_event.get('source_confidence', 0.5),
+                        source_confidence=primary_event.get("source_confidence", 0.5),
                     )
 
-                    logger.info(f"  ✓ 事件分數: {event_score:+.3f}")
-                    logger.info(f"  ✓ 活躍事件: {len(active_events)} 個")
-                    for evt in active_events[:3]:  # 顯示前3個
-                        logger.info(f"    - [{evt.get('event_type')}] {evt.get('headline', '')[:40]}...")
+                    logger.info("  ✓ 事件重要性: %.3f", event_importance or scale)
+                    logger.info("  ✓ 活躍事件: %d 個", len(active_events))
+                    for evt in active_events[:3]:
+                        logger.info(
+                            "    - [%s] %s",
+                            evt.get("event_type"),
+                            str(evt.get("headline", evt.get("contract_id", "")))[:40],
+                        )
                 else:
                     logger.info("  ✓ 目前無活躍市場事件")
 
-                # 根據事件分數判斷風險等級
-                if event_score < -0.5:
+                # 風險等級：依重要性，不標 POSITIVE/NEGATIVE 交易方向
+                if event_importance >= 0.55 or any(
+                    str(e.get("event_type", "")).upper()
+                    in {"HACK", "WAR", "REGULATION", "SECURITY"}
+                    for e in active_events
+                ):
                     result["breaking_news_risk"] = "HIGH"
-                    result["sentiment"] = "NEGATIVE"
-                elif event_score < -0.2:
+                elif event_importance >= 0.3:
                     result["breaking_news_risk"] = "ELEVATED"
-                    result["sentiment"] = "SLIGHTLY_NEGATIVE"
-                elif event_score > 0.3:
-                    result["sentiment"] = "POSITIVE"
+                else:
                     result["breaking_news_risk"] = "SAFE"
+                result["sentiment"] = "NEUTRAL"
 
                 # 清理過期事件
                 self._rule_evaluator.cleanup_expired_events()

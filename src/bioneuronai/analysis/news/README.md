@@ -18,9 +18,9 @@
 ## 子模組職責
 
 `news` 負責新聞理解與事件判讀：
-1. 抓取新聞（CryptoPanic + RSS）
+1. 抓取正式新聞來源（CoinDesk RSS + Google News RSS）
 2. 情緒分析與事件偵測
-3. 規則式事件評估與事件分數查詢
+3. 規則式事件偵測與重要性／有效期查詢（不預設多空）
 4. 預測驗證循環
 5. 分析結果寫入 RAG 知識庫
 
@@ -99,15 +99,15 @@ news/
 重點：
 1. `EventRule` 以 `schemas.rag` 為單一事實來源（SSOT）
 2. 規則載入順序：`config/event_rules.json` -> `DEFAULT_RULES` -> `custom_rules`
-3. 提供 `get_current_event_score(symbol=None)` 供上層風險檢查
+3. 既有 `get_current_event_score(symbol=None)` 保留相容介面但不再輸出規則式方向分數
 4. 透過 event DB 讀寫 active events 與 resolved events
 
 ### `NewsEventContract` (`event_contract.py`)
 
 重點：
-1. 為 Meta-Learner 提供事件衰減（Decay）追蹤機制。
+1. 提供事件重要性與有效期衰減（Decay）追蹤機制。
 2. 包含指數衰減 (`DECAY_EXPONENTIAL`) 與線性衰減 (`DECAY_LINEAR`) 模型。
-3. `NewsEventContractManager` 負責管理所有活躍合約並計算彙總影響力。
+3. `NewsEventContractManager` 負責管理所有活躍合約並計算彙總重要性；方向交由 AI。
 
 ### `NewsPredictionLoop` (`prediction_loop.py`)
 

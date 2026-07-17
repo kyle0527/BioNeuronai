@@ -27,6 +27,7 @@ Date: 2026-01-25
 """
 
 import logging
+import math
 import re
 from datetime import datetime
 from pathlib import Path
@@ -52,19 +53,21 @@ except ImportError:
     SCHEMAS_AVAILABLE = False
 
 # 導入 CryptoNewsAnalyzer (從 bioneuronai 導入)
-_imported_crypto_news_analyzer: Optional[type[Any]]
-_imported_get_rule_evaluator: Optional[Callable[[], Any]]
+_imported_crypto_news_analyzer: Optional[type[Any]] = None
+_imported_get_rule_evaluator: Optional[Callable[[], Any]] = None
 try:
     from bioneuronai.analysis.news import (
-        CryptoNewsAnalyzer as _imported_crypto_news_analyzer,
+        CryptoNewsAnalyzer as _CryptoNewsAnalyzer,
     )
     from bioneuronai.analysis.news import (
         NewsAnalysisResult,  # noqa: F401
         NewsArticle,  # noqa: F401
     )
     from bioneuronai.analysis.news import (
-        get_rule_evaluator as _imported_get_rule_evaluator,
+        get_rule_evaluator as _get_rule_evaluator,
     )
+    _imported_crypto_news_analyzer = _CryptoNewsAnalyzer
+    _imported_get_rule_evaluator = _get_rule_evaluator
     NEWS_ANALYZER_AVAILABLE = True
 except ImportError as e:
     logger.warning(f"無法導入 CryptoNewsAnalyzer: {e}")
@@ -77,11 +80,13 @@ get_rule_evaluator = cast(Optional[Callable[[], Any]], _imported_get_rule_evalua
 NewsSearchResult: TypeAlias = RAGNewsItem
 
 # 導入 InternalKnowledgeBase（新聞知識寫入）
-_imported_internal_kb: Optional[type[Any]]
-_imported_document_type: Optional[Any]
+_imported_internal_kb: Optional[type[Any]] = None
+_imported_document_type: Optional[Any] = None
 try:
-    from rag.internal import DocumentType as _imported_document_type
-    from rag.internal import InternalKnowledgeBase as _imported_internal_kb
+    from rag.internal import DocumentType as _DocumentType
+    from rag.internal import InternalKnowledgeBase as _InternalKnowledgeBase
+    _imported_document_type = _DocumentType
+    _imported_internal_kb = _InternalKnowledgeBase
     INTERNAL_KB_AVAILABLE = True
 except ImportError as e:
     logger.warning(f"無法導入 InternalKnowledgeBase: {e}")
@@ -316,8 +321,9 @@ class NewsAdapter:
 
             if event_info:
                 logger.info(
-                    f"🔔 檢測到事件: {event_info.get('event_type', 'UNKNOWN')} "
-                    f"(score={event_info.get('score', 0):.2f})"
+                    "🔔 檢測到事件: %s (importance=%.2f)",
+                    event_info.get("event_type", "UNKNOWN"),
+                    float(event_info.get("importance", 0.0) or 0.0),
                 )
         except Exception as e:
             logger.debug(f"事件檢測失敗: {e}")
@@ -338,8 +344,8 @@ class NewsAdapter:
             return self._event_context_from_kb(symbol)
 
         try:
-            # get_current_event_score 回傳 Tuple[float, List[Dict]]
-            event_score, active_events = self._rule_evaluator.get_current_event_score(symbol)
+            # 既有資料庫查詢只用來取得 active events；其舊 score 欄位不可再決定方向。
+            _event_score, active_events = self._rule_evaluator.get_current_event_score(symbol)
 
             if not active_events:
                 return self._event_context_from_kb(symbol)
@@ -348,24 +354,24 @@ class NewsAdapter:
             decay_factor = self._event_decay_factor(primary_event)
             source_confidence = float(primary_event.get("source_confidence", 0.7) or 0.7)
             affected_symbols = self._event_affected_symbols(primary_event, symbol)
-            sentiment_score = max(-1.0, min(1.0, float(event_score or 0.0)))
-            event_score_10 = max(-10.0, min(10.0, sentiment_score * 10.0))
+            importance = self._event_importance(primary_event)
 
             return EventContext(
-                event_score=event_score_10,
+                event_score=0.0,
                 event_type=primary_event.get("event_type"),
-                intensity=self._score_to_intensity(event_score_10),
+                intensity=self._importance_to_intensity(importance),
                 decay_factor=decay_factor,
                 source_confidence=max(0.0, min(1.0, source_confidence)),
                 affected_symbols=affected_symbols,
                 timestamp=self._event_timestamp(primary_event) or datetime.now(),
                 headline=primary_event.get("headline"),
                 source=primary_event.get("source") or "event_memory",
-                sentiment_score=sentiment_score,
+                sentiment_score=0.0,
                 active_event_count=len(active_events),
                 metadata={
                     "event_ids": [event.get("event_id") for event in active_events if event.get("event_id")],
-                    "aggregated_event_score": event_score,
+                    "aggregated_event_score": 0.0,
+                    "event_importance": importance,
                     "primary_event_id": primary_event.get("event_id"),
                     "primary_raw_score": primary_event.get("score"),
                     "primary_status": primary_event.get("status"),
@@ -377,49 +383,85 @@ class NewsAdapter:
             return self._event_context_from_kb(symbol)
 
     def get_direction_bias(self, symbol: str) -> Dict[str, Any]:
-        """P1 擴充點：新聞作為主要方向建議者（目前為最小過渡版）。
-
-        回傳契約（docs/PROJECT_STATUS.md P1 規格，未來完整版不變）：
-            {"direction": "LONG"/"SHORT"/"NEUTRAL", "strength": 0-1, "reason": str}
-
-        ⚠️ 實作層級 = minimal：目前僅由既有 event_score（單一主導事件）推導，
-        且門檻保守（|score| >= 3 才給方向）。完整版需要：
-        1. 近期新聞時序聚合（多事件加權，而非單一主導事件）
-        2. 與 _fuse_signals() 整合，讓 bias 作為方向框架而非加權分數
-        完整版完成前，呼叫端應只把這個 bias 當參考，不可作為唯一信號。
-        """
+        """回傳事件重要性相容資訊；規則式新聞不決定交易方向。"""
         bias: Dict[str, Any] = {
             "direction": "NEUTRAL",
             "strength": 0.0,
             "reason": "no_active_events",
-            "source": "event_score_minimal",
-            "implemented_level": "minimal",
+            "source": "news_event_contracts",
+            "implemented_level": "full",
+            "aggregation_method": "deduplicated_temporal_event_importance",
+            "active_event_count": 0,
+            "directional_agreement": 0.0,
+            "valid_until": None,
+            "next_reassessment_at": None,
+            "remaining_hours": 0.0,
         }
-        try:
-            context = self.get_event_context(symbol)
-        except Exception as e:
-            logger.warning(f"get_direction_bias 失敗，回傳中性: {e}")
-            bias["reason"] = f"error: {e}"
+
+        contract_bias = self._get_contract_direction_bias(symbol)
+        if contract_bias is not None:
+            bias.update(contract_bias)
             return bias
 
-        if context is None:
-            return bias
-
-        score = float(getattr(context, "event_score", 0.0) or 0.0)
-        decay = float(getattr(context, "decay_factor", 1.0) or 1.0)
-        confidence = float(getattr(context, "source_confidence", 0.5) or 0.5)
-
-        if abs(score) < 3.0:  # 保守門檻：弱事件不給方向
-            bias["reason"] = f"event_score_{score:.1f}_below_threshold"
-            return bias
-
-        bias["direction"] = "LONG" if score > 0 else "SHORT"
-        bias["strength"] = round(min(1.0, abs(score) / 10.0 * decay * confidence), 4)
-        bias["reason"] = (
-            f"event_score={score:.1f} decay={decay:.2f} confidence={confidence:.2f}"
-            + (f" headline={context.headline}" if getattr(context, "headline", None) else "")
-        )
         return bias
+
+    def _get_contract_direction_bias(self, symbol: str) -> Optional[Dict[str, Any]]:
+        """取得去重、衰減後的事件重要性；方向保留給 AI 判斷。"""
+        try:
+            from bioneuronai.analysis.news import get_contract_manager
+
+            now = datetime.now()
+            contracts = get_contract_manager().get_active_contracts(
+                symbol=symbol,
+                at_time=now,
+            )
+        except Exception as exc:
+            logger.debug("新聞事件合約不可用，改用 event context: %s", exc)
+            return None
+
+        if not contracts:
+            return None
+
+        importances = [float(contract.get_current_importance(now)) for contract in contracts]
+        gross_importance = sum(importances)
+        if gross_importance <= 1e-9:
+            return None
+
+        normalized_importance = float(math.tanh(gross_importance))
+        strength = min(1.0, normalized_importance)
+        dominant_index = max(range(len(contracts)), key=lambda index: importances[index])
+        dominant = contracts[dominant_index]
+
+        expires_at = max(contract.expires_at for contract in contracts)
+        next_reassessment_at = min(contract.expires_at for contract in contracts)
+        remaining_hours = max(0.0, (expires_at - now).total_seconds() / 3600.0)
+        initial_gross = sum(float(contract.initial_importance) for contract in contracts)
+        decay_factor = min(1.0, gross_importance / initial_gross) if initial_gross > 0 else 0.0
+
+        reason = (
+            f"contracts={len(contracts)} importance={normalized_importance:.3f} "
+            f"remaining_hours={remaining_hours:.1f} "
+            f"dominant={dominant.headline}"
+        )
+        return {
+            "direction": "NEUTRAL",
+            "strength": round(strength, 4),
+            "reason": reason,
+            "source": "news_event_contracts",
+            "implemented_level": "full",
+            "aggregation_method": "deduplicated_temporal_event_importance",
+            "active_event_count": len(contracts),
+            "directional_agreement": 0.0,
+            "event_score": 0.0,
+            "event_importance": round(normalized_importance * 10.0, 4),
+            "decay_factor": round(decay_factor, 4),
+            "valid_until": expires_at.isoformat(),
+            "next_reassessment_at": next_reassessment_at.isoformat(),
+            "remaining_hours": round(remaining_hours, 4),
+            "dominant_event_type": dominant.event_type,
+            "dominant_headline": dominant.headline,
+            "contract_ids": [contract.contract_id for contract in contracts],
+        }
 
     def _select_primary_event(self, active_events: List[Dict[str, Any]]) -> Dict[str, Any]:
         """選出目前影響力最大的有效事件。"""
@@ -446,6 +488,24 @@ class NewsAdapter:
 
         age_hours = max(0.0, (datetime.now() - created_at).total_seconds() / 3600.0)
         return max(0.1, min(1.0, 1.0 - (age_hours / decay_hours) * 0.5))
+
+    @staticmethod
+    def _event_importance(event: Dict[str, Any]) -> float:
+        """從新事件 metadata 讀取重要性；舊 signed score 不再作為替代值。"""
+        metadata = str(event.get("metadata") or "")
+        match = re.search(r"importance:\s*(\d+(?:\.\d+)?)", metadata)
+        return float(match.group(1)) if match else 0.0
+
+    @staticmethod
+    def _importance_to_intensity(importance: float) -> str:
+        """把 0 到 10 的事件重要性轉成相容的強度等級。"""
+        if importance >= 8.0:
+            return "EXTREME"
+        if importance >= 5.0:
+            return "HIGH"
+        if importance > 0.0:
+            return "MEDIUM"
+        return "LOW"
 
     def _event_timestamp(self, event: Dict[str, Any]) -> Optional[datetime]:
         """解析 event_memory 的時間欄位。"""

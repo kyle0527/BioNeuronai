@@ -41,7 +41,7 @@
 | 交易所連線 | 🟢 **買（評估替換）** | `ccxt`（統一多所、內建簽名/限流/重連） | 現有手刻 `binance_futures.py` 維護成本高；ccxt 久經實戰 |
 | 技術指標 | 🟢 **買（已在用）** | TA-Lib | 保留，標準庫 |
 | 向量檢索 / RAG | 🟢 **買（已在用）** | FAISS | 保留 |
-| 新聞 / 情緒資料 | 🟢 **買** | CryptoPanic 等現成 API | 別自建爬蟲農場 |
+| 新聞 / 情緒資料 | 🟢 **買** | CoinDesk RSS + Google News RSS 正式入口 | 不自建爬蟲農場，也不增加第三、第四新聞來源 |
 | 資料儲存 | 🟢 **買（簡化）** | SQLite / DuckDB / Parquet | 現有 56KB 自製 `database_manager.py` 疑似過度設計，砍成標準方案 |
 | K 線 / 行情快取 | 🟢 **買** | ccxt + Parquet 落地 | 標準做法 |
 | 部署 / 排程 | 🟢 **買** | Docker（已有）+ 系統 cron / APScheduler | 保留 |

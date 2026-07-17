@@ -272,7 +272,7 @@
 | Python 語法解析 | 歷史紀錄：Docker Python 3.11 runtime 曾可執行 CLI。本輪已改以本機 Python 3.13 + PyTorch CPU 2.8.0 作為主要 runtime，Docker 最後重建 |
 | Docker command 對 CLI parser | 通過；`status/news/pretrade/plan/backtest/simulate/trade` command 均符合目前 CLI |
 | 前端 API 呼叫對後端 route | 通過；Operations Dashboard 使用的 API path 均有後端 route |
-| 環境變數一致性 | 通過；已修正 CryptoPanic 舊 key 名稱，統一使用 `CRYPTOPANIC_API_TOKEN` |
+| 環境變數一致性 | 通過；新聞正式來源不再需要 CryptoPanic token |
 | Docker compose 結構 | 通過；`docker compose config --quiet` 無錯誤 |
 | 前端 production build | 通過；`frontend/devops-d npm run build` 成功 |
 
@@ -321,5 +321,5 @@ Live trading 仍不納入自動驗證；只保留 testnet 啟停與人工二次�
 觀察到的外部條件：
 
 - 未建立正式 `.env` 時，Binance account / leverage bracket 簽名端點回傳 401；系統降級使用本機虛擬餘額。
-- CryptoPanic 未設定 token 時使用免費限制模式；外部 502 不會中斷主流程。
+- 新聞輪次必須同時取得 CoinDesk RSS 與 Google News RSS；任一來源無法取得或解析時，該輪明確失敗，不使用部分結果降級。
 - 交易結果為拒絕/建議觀望，符合無正式密鑰與風險偏高時的安全行為。

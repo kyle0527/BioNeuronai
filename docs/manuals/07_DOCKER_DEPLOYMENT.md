@@ -427,9 +427,9 @@ docker compose logs --tail=100 api
 
 ```
 Dockerfile
-├── builder stage  — Python 3.11 slim，編譯 ta-lib 並安裝 Python 依賴
-├── training stage — PyTorch CUDA image，供雲端/GPU 訓練時以 `--target training` 明確建置
-└── runtime stage  — Python 3.11 slim，複製 src/config/backtest/model/main.py
+├── builder stage  — Python 3.13 slim，編譯 ta-lib 並安裝與 `pyproject.toml` 同步的 CPU 依賴
+├── training stage — 獨立 PyTorch CUDA image，供雲端/GPU 訓練時以 `--target training` 明確建置
+└── runtime stage  — Python 3.13 slim，複製 src/config/backtest/model/main.py
 ```
 
 ### 建置時間最佳化

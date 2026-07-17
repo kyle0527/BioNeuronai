@@ -181,6 +181,8 @@ def _run_gate_case(
     if dry_run:
         return case
 
+    # readiness 門檻用 single IS/OOS（快、可重複）；完整多窗 rolling 請用
+    # strategy-backtest --walk-forward（預設 rolling），勿在此跑滿 fold。
     result = run_strategy_suite_backtest(
         symbol=symbol,
         interval=interval,
@@ -194,6 +196,7 @@ def _run_gate_case(
         commission_bps=float(config.get("commission_bps", 4.0)),
         slippage_bps=float(config.get("slippage_bps", 1.0)),
         walk_forward=bool(config.get("walk_forward", True)),
+        walk_forward_mode=str(config.get("walk_forward_mode", "single")),
         update_golden_profile=False,
     )
 

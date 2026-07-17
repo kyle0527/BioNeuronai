@@ -6,8 +6,11 @@
 
 > 以 Binance 虛擬 API 為訓練場的自我成長 AI 交易系統。交易即訓練，每筆決策都記錄並用於更新模型。
 >
-> **套件版本**：v2.1（`pyproject.toml`）｜**最後更新**：2026-07-11  
-> **方向權威**：[`docs/CURRENT_DIRECTION.md`](docs/CURRENT_DIRECTION.md)｜**進度權威**：[`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md)
+> **套件版本**：v2.1（`pyproject.toml`）｜**最後更新**：2026-07-17  
+> **方向權威**：[`docs/CURRENT_DIRECTION.md`](docs/CURRENT_DIRECTION.md)｜**進度權威**：[`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md)  
+> **工作順序**：檢查 → 移回 → 調整 → **修使用者手冊** → **才**照手冊實操（見 [`docs/archive/WORK_ORDER.md`](docs/archive/WORK_ORDER.md)）  
+> **舊物盤點**：[`docs/archive/COMPARISON_REGISTER.md`](docs/archive/COMPARISON_REGISTER.md)  
+> **目前**：已**回到步驟 1 重做**；步驟 3 暫停（見 `docs/archive/WORK_ORDER.md`、`STEP1_RECHECK.md`）
 
 ---
 
@@ -197,15 +200,17 @@ python main.py autonomous --mode advisor --symbol BTCUSDT
 
 ## 待完成缺口
 
-> 標記原則：✅ 完成｜🧩 擴充點｜❌ 未開始。完整清單見 [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md) 第四、五節。
+> 標記原則：✅ 完成｜🧩 擴充點｜❌ 未開始。完整清單見 [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md) 第四、五節。  
+> **舊物盤點**：[`docs/archive/COMPARISON_REGISTER.md`](docs/archive/COMPARISON_REGISTER.md)（程式／文件該抓的已登錄；**實際操作驗收尚未開始**）。
 
-### P1 🧩 新聞時序聚合
-
-`get_direction_bias()` minimal 版已接入 `generate_fusion_signal()`。剩餘：多事件時序加權，完成後將 `implemented_level` 改為 `"full"`。
-
-### P0 本階段：預設自主流程跑通
+### P0 本階段：預設自主流程跑通（文件與還原就緒後才做實測）
 
 虛擬帳戶 paper 真下真平、ledger／對帳正確、長跑可重啟。見 [`docs/CURRENT_DIRECTION.md`](docs/CURRENT_DIRECTION.md)。
+
+### 新聞契約（已對齊，勿再寫規則多空）
+
+- 事件合約重要性 + 風險類型供 pretrade／plan；`get_direction_bias` **固定 NEUTRAL**。  
+- 多事件時序聚合已接通（`implemented_level=full` 路徑）；待 paper 長跑確認穩定性。
 
 ### P3 🧩 TinyLLM v2 訓練權重（不阻擋工程自主）
 
@@ -229,6 +234,7 @@ GoalTracker 每輪寫入 ledger；`recommended_risk_scale` 尚未自動回饋到
 
 | 日期 | 完成事項 |
 |---|---|
+| 2026-07-17 | 舊 archive 全量比對登錄；多窗 Walk-Forward 接回；新聞方向殘留修正；文件同步（實測尚未開始） |
 | 2026-05-10 | TinyLLM 100M 模型訓練完成（Run2: 50 epoch, loss=3.85） |
 | 2026-05-19 | Paper-live 虛擬執行層驗證完成 |
 | 2026-06-05 | TinyLLM v2 架構設計（三模態 + MoE + 65 維全監督輸出） |

@@ -38,6 +38,16 @@ from .service import (
     run_simulation_summary,
     run_strategy_suite_backtest,
 )
+from .walk_forward import (
+    WalkForwardWindow,
+    compute_single_split_date,
+    expand_param_grid_candidates,
+    generate_rolling_windows,
+    load_param_grid,
+    optimize_parameters_on_train,
+    run_rolling_walk_forward,
+    run_single_split_walk_forward,
+)
 from .web import load_backtest_ui_html
 
 __all__ = [
@@ -63,6 +73,14 @@ __all__ = [
     "run_backtest_summary",
     "run_simulation_summary",
     "run_strategy_suite_backtest",
+    "WalkForwardWindow",
+    "compute_single_split_date",
+    "expand_param_grid_candidates",
+    "generate_rolling_windows",
+    "load_param_grid",
+    "optimize_parameters_on_train",
+    "run_rolling_walk_forward",
+    "run_single_split_walk_forward",
     "build_selector_performance_weights",
     "collect_signal_training_data",
     "list_runtime_runs",

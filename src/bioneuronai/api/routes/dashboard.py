@@ -113,20 +113,30 @@ def create_router(trade_manager: Any, project_root: Path, logger: Any) -> APIRou
                     message="交易引擎未啟動，請先呼叫 POST /api/v1/trade/start",
                 )
 
-            order_data = order.model_dump(exclude_none=True)
-            place_fn = getattr(trade_manager.engine, "place_order", None)
-            if place_fn is not None:
-                result = await asyncio.to_thread(place_fn, **order_data)
-                return ApiResponse(
-                    success=True,
-                    message=f"訂單已提交 {order.side.upper()} {order.symbol} qty={order.quantity}",
-                    data=result if isinstance(result, dict) else {"status": "submitted", "order": order_data},
-                )
+            connector = getattr(trade_manager.engine, "connector", None)
+            place_fn = getattr(connector, "place_order", None)
+            if place_fn is None:
+                raise RuntimeError("目前交易 connector 不支援直接下單")
 
+            result = await asyncio.to_thread(
+                place_fn,
+                symbol=order.symbol,
+                side=order.side.upper(),
+                order_type=order.orderType.upper(),
+                quantity=order.quantity,
+                price=order.price,
+                stop_loss=order.stopLoss,
+                take_profit=order.takeProfit,
+                stop_price=order.stopPrice,
+                time_in_force=order.timeInForce,
+            )
+            if result is None:
+                raise RuntimeError("交易 connector 未回傳訂單結果")
+            result_data = result.to_dict() if hasattr(result, "to_dict") else result
             return ApiResponse(
                 success=True,
-                message=f"訂單已接受 {order.side.upper()} {order.symbol} qty={order.quantity}（引擎不支援直接下單）",
-                data={"status": "accepted", "order": order_data},
+                message=f"訂單已執行 {order.side.upper()} {order.symbol} qty={order.quantity}",
+                data=result_data,
             )
         except Exception as exc:
             return ApiResponse(success=False, message=f"訂單提交失敗: {exc}")

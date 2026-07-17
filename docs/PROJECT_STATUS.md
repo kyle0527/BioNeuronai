@@ -1,8 +1,23 @@
-# 專案現況與進度（2026-07-11）
+# 專案現況與進度（2026-07-17）
 
 > 這份文件是當前最準確的**模組進度**記錄。README 是其摘要版。  
 > **產品優先級、驗證哲學、預設流程定義**以 [`CURRENT_DIRECTION.md`](CURRENT_DIRECTION.md) 為準（2026-07-11 已確認）。  
+> **舊物／誤刪盤點權威**：[`archive/COMPARISON_REGISTER.md`](archive/COMPARISON_REGISTER.md)。  
 > 每次有重大架構變更時更新此文件。
+
+### 工作順序（使用者約定 · 不可顛倒）
+
+完整說明：[`archive/WORK_ORDER.md`](archive/WORK_ORDER.md)
+
+| 步驟 | 內容 | 狀態 |
+|:----:|------|:----:|
+| **1** | 全部檢查完 | 🔄 **已重置重做** → 見 `archive/STEP1_RECHECK.md` |
+| **2** | 該移的移回來 | 🔄 **證明中** → 見 `archive/MOVE_BACK_CHECKLIST.md`（禁止空口完成） |
+| **3** | 調整完 | ⏸ **禁止**（1–2 未穩前不做） |
+| **4** | 修使用者手冊 | ⏸ |
+| **5** | 才依照手冊真實操作 | ⏸ |
+
+> 順序權威：`archive/WORK_ORDER.md`。先前完成宣告已撤回。
 
 **標記慣例（誠實原則）**：
 - ✅ 完成：有實作 + 實際運行驗證，或可由正式入口直接驗證
@@ -99,16 +114,14 @@ WebSocket (Binance ticker stream)
               │       └─ StrategySelector.get_actionable_signal()
               │               ├─ 5 個子策略平行計算
               │               ├─ Meta-Learner 神經網路調整權重
-              │               ├─ generate_fusion_signal()
-              │               │       └─ get_direction_bias() 方向框架（minimal，攔截逆勢共識）
-              │               └─ event_score 非對稱過濾（極空/極多時攔截逆勢）
-              ├─ InferenceEngine.predict_with_explanation()
-              │       # unified v2：數值 + 中英文脈絡 → 決策 + 說明
-              └─ _fuse_signals()                  # 策略 70% + AI 25% + event_score 5%
+              │               └─ generate_fusion_signal()      # 產生戰術候選，不決定新聞方向
+              ├─ InferenceEngine.predict()
+              │       # unified v2：市場數值 + 濃縮事件記憶 + 策略候選 → 最終決策
+              └─ AI final_action                  # LONG / SHORT / HOLD 與有效期限
 ```
 
-> 注意：新聞 **direction_bias** 在 `generate_fusion_signal()` 層生效；
-> `TradingEngine._fuse_signals()` 仍使用 **event_score** 加權，兩者尚未統一。
+> 新聞模組只保存事件類型、重要性與剩餘時間，不輸出固定多空；策略模組只提供
+> 戰術候選。自主主路徑由同一 AI 綜合兩者後作最終判斷，人的文字報告按需生成。
 
 ### 1.2 信號 → 執行（auto_trade 閘門）
 
@@ -181,18 +194,21 @@ VirtualAccount 平倉回調
 
 | 模組 | 現在的角色 | 說明 |
 |---|---|---|
-| `CryptoNewsAnalyzer` | 新聞抓取 + 情緒評分 | event_score (-10 到 +10) |
-| `NewsAdapter` | event_context + direction_bias | `get_event_context()` / `get_direction_bias()` |
-| `EventContract` | 新聞事件衰減與事後驗證 | confirmed_bullish / false_signal |
-| `PreTradeCheckSystem` | RAG 風控（下單前） | 重大負面新聞攔截 |
-| **方向框架（minimal）** | ✅ 完成（2026-06-12） | `generate_fusion_signal()` 以 direction_bias 攔截逆勢共識 |
-| **時序聚合（full）** | 🧩 P1 | 多事件加權，尚未實作 |
+| `CryptoNewsAnalyzer` | 新聞抓取、篩選、保存與事件更新 | 啟動時及每小時第 5 分鐘讀 CoinDesk + Google News RSS 完整快照 |
+| `NewsAdapter` | event_context + 相容方向輸出 | 事件存在時仍輸出 `NEUTRAL`，不以規則決定方向 |
+| `EventContract` | 事件重要性、有效期與事後市場結果 | importance / minimum_importance / duration / realized_up-down |
+| `PreTradeCheckSystem` | RAG 風控（下單前） | 現有風控流程，尚未接入新的 AI 事件資料契約 |
+| **規則式方向框架** | ❌ 已移除 | 關鍵字規則不可再輸出 LONG／SHORT |
+| **時序聚合** | ✅ 已接通（待真實長跑驗證） | 同類事件新進展更新既有記憶；多事件重要性與有效期衰減；不保存固定方向 |
+| **正式來源實作** | ✅ 已完成 | CoinDesk（幣圈）+ Google News RSS（宏觀）；僅兩入口，任一失敗即該輪錯誤，沒有來源降級 |
+| **規則多空殘留清理** | ✅ 2026-07-17 | pretrade／plan／fusion 改重要性或固定 NEUTRAL；`should_trade` 僅 legacy 報告 |
+| **Walk-Forward 多窗** | ✅ 2026-07-17 接回 | `backtest/walk_forward.py`；CLI 預設 rolling；readiness-gate 用 single |
 
 ### 2.2 AI 模型層
 
 | 模型 | 狀態 | 說明 |
 |---|---|---|
-| Unified TinyLLM v2 | ✅ 未訓練端到端已接通 | 98,403,413 參數；16×64 數值 + 中英文脈絡 → 65 維決策 + 說明 logits |
+| Unified TinyLLM v2 | ✅ 未訓練端到端已接通 | 98,403,413 參數；16×64 數值 + 中英文濃縮脈絡 → 65 維決策；人的文字說明按需生成 |
 | v2 trained checkpoint | ❌ 尚未產生 | `active_model.json` 明確標記 `trained: false`；目前固定 seed 初始化只供運作驗證 |
 | LoRA (v2) | ✅ 已整合於模型內 | 由同一 checkpoint 與 OnlineLearner 更新，不再有獨立文字模型 |
 | TinyLLM v1 / MLP | 📦 已封存 | 位於 `archived/legacy_v1_20260711/`，現役 loader 明確拒絕 |
@@ -211,7 +227,7 @@ VirtualAccount 平倉回調
 | 模組 | 狀態 | 說明 |
 |---|---|---|
 | StrategySelector | ✅ 主線 | 5 子策略 + Meta-Learner 融合 |
-| AIStrategyFusion | ✅ 可用 | 含 direction_bias 方向框架 |
+| AIStrategyFusion | ✅ 可用 | 只產生戰術融合候選；新聞相容方向固定為 NEUTRAL，最終方向交給 AI |
 | Meta-Learner | ✅ 可用 | 68 維輸入，17,797 參數 |
 | PhaseRouter | ⚠️ 可選 | `strategy_type="phase_router"` |
 | RLMetaAgent | ⚠️ 可選 | `strategy_type="rl_fusion"` + 模型檔 |
@@ -249,11 +265,11 @@ v1：1024 維扁平輸入，512 維輸出（23 維有效，479 維空置）。
 v2：16×64 patch + 文字/圖像（可選），65 維全監督，MoE + LoRA。
 v1 → v2 遷移需重訓輸入投影層與輸出頭。
 
-### 新聞方向偏好框架
+### 新聞事件記憶與 AI 最終判斷
 
-**目標**：新聞提出主要方向建議，策略在框架內執行。
-**現狀（2026-06-12）**：`get_direction_bias()` + `generate_fusion_signal()` 方向框架已接通（minimal）。
-**剩餘**：多事件時序聚合；`TradingEngine._fuse_signals()` 與 StrategyFusion 層語意統一。
+**目標**：新聞一般程式維護戰略事件記憶，策略一般程式產生戰術候選，AI 綜合兩者與市場／部位後作最終 LONG／SHORT／HOLD 決策。
+**現狀**：雙來源、HH:05 排程、事件重要性衰減／延長、濃縮 `news_memory`、獨立 `strategy` 輸入與 65 維 AI 輸出已接通。規則不輸出多空，平常迴圈不重讀新聞全文。
+**剩餘**：以長時間真實 paper 運作驗證事件更新、AI 決策、訂單結果與記憶回寫的穩定性；模型仍需真實資料訓練。
 
 ### 在線學習 vs 歷史 RL 訓練
 
@@ -268,9 +284,12 @@ v1 → v2 遷移需重訓輸入投影層與輸出頭。
 ## 四、下一步優先工作
 
 > **排序原則（2026-07-11）**：先服務「預設流程跑通」與「記帳正確」，再服務智能改善。  
-> 新聞 full、Goal 自動回饋等屬增強，**不應插隊擋住工程自主驗收**。詳見 [`CURRENT_DIRECTION.md`](CURRENT_DIRECTION.md)。
+> 歷史新聞回放收集器、Goal 自動回饋等屬增強，**不應插隊擋住工程自主驗收**。詳見 [`CURRENT_DIRECTION.md`](CURRENT_DIRECTION.md)。
 
 ### P0（本階段）：預設自主流程跑通與對帳
+
+> **順序**：舊物盤點與文件同步完成後，再進入下列**真實入口**驗收（非 pytest）。  
+> 盤點表：[`archive/COMPARISON_REGISTER.md`](archive/COMPARISON_REGISTER.md)。
 
 1. 鎖死預設入口操作說明：`autonomous`（paper）為 AI 自主主路徑；`trade --paper-live` 為 tick 觀測。  
 2. 虛擬帳戶真實路徑：進場 → 持倉 → 平倉（含 SL/TP／卡單）可觀察。  
@@ -278,10 +297,11 @@ v1 → v2 遷移需重訓輸入投影層與輸出頭。
 4. 學習寫入分級可預期（只記錄 → Hub → LoRA）；未穩前不強制開滿。  
 5. 長跑與重啟行為文件化並用真實入口驗收（**非 pytest**）。
 
-### P1：新聞時序聚合（`NewsAdapter.get_direction_bias()`）— 流程通後增強
+### P1：兩來源新聞契約與歷史回放資料 — 流程通後增強
 
-1. 多事件加權，取代單一主導事件推導。  
-2. `implemented_level` 從 `"minimal"` 改為 `"full"`。
+1. ✅ 已將舊的 CryptoPanic／三 RSS 切換成 CoinDesk（幣圈）與 Google News RSS（宏觀）兩個正式入口。
+2. ✅ 任一來源失敗會明確拋出 `NewsSourceUnavailableError`；不可回傳假性中性結果或部分新聞結論。
+3. 保存可重放的新聞事實集，按 `published_at` 與 Binance K 線建立無未來資訊洩漏的訓練資料。
 
 ### P2：主線 B 執行層對齊（2026-06-15 已實作）
 
@@ -297,7 +317,7 @@ v1 → v2 遷移需重訓輸入投影層與輸出頭。
 3. ✅ TradingEngine、ChatEngine、AutonomousOperator 共用同一模型實例。  
 4. ✅ AutonomousOperator 的 paper 執行委派給 TradingEngine，不再維護第二套正式執行器。  
 5. ✅ 真實未來 K 線資料收集器輸出 65 維目標與中英說明；舊 512 維自我標註被拒絕。  
-6. ❌ 尚缺以完整真實資料完成訓練後的 `model/unified_v2_100m.pth`（**屬階段 3「訓練改善」，不阻擋工程自主驗收**）。
+6. ❌ 尚缺新聞—市場歷史回放收集器與以完整真實資料完成訓練後的 `model/unified_v2_100m.pth`（**屬階段 3「訓練改善」，不阻擋工程自主驗收**）。
 
 ### P4：目標層級自動回饋（`planning/goal_manager.py`）— 非本階段阻塞
 
@@ -325,7 +345,8 @@ v1 → v2 遷移需重訓輸入投影層與輸出頭。
 6. **reflection_loop**：已接 CLI；依賴記憶樣本是否真實累積。  
 7. **模型能力**：unified v2 路徑可跑，目前 `trained: false`；**只可驗證資料流與工程閉環，不可當智能已達成**。  
 8. **資料遷移**：舊 512 維 signal_history 不能當 v2 ground truth。  
-9. **新聞語意**：Fusion 層 direction_bias（minimal）與 `_fuse_signals` 的 event_score 加權尚未完全統一。
+9. **新聞語意**：`ai_input_v2.news_memory` 與獨立 `strategy` 已接入 AI，輸出包含持有時間／有效期限；目前仍是 `trained: false`，只能驗證工程資料流。
+10. **新聞來源與歷史資料**：正式兩來源、fail-fast 契約與運行時經濟日曆已接通；歷史新聞—市場配對收集器尚未實作。
 
 ### 5.2 正式驗證（現行哲學）
 

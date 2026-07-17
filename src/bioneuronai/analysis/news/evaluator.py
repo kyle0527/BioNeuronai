@@ -8,7 +8,7 @@ RuleBasedEvaluator - 新聞大腦
 1. 使用關鍵字規則檢測重大事件
 2. 產生事件並存入 event_memory 資料庫
 3. 檢測事件結束條件 (Hard Stop) 並自動解析事件
-4. 為 strategy_fusion 提供 event_score
+4. 保存事件重要性與有效期，供 AI 後續判斷方向
 
 遵循 CODE_FIX_GUIDE.md 規範
 """
@@ -56,7 +56,7 @@ class RuleBasedEvaluator:
     1. 使用關鍵字規則檢測重大事件
     2. 產生事件並存入 event_memory 資料庫
     3. 檢測事件結束條件 (Hard Stop) 並自動解析事件
-    4. 為 strategy_fusion 提供 event_score
+    4. 保存事件重要性與有效期，不以規則固定多空
 
     使用範例：
         from bioneuronai.analysis.news import RuleBasedEvaluator
@@ -71,7 +71,7 @@ class RuleBasedEvaluator:
         )
 
         if event_info:
-            print(f"檢測到事件: {event_info['event_type']}, 分數: {event_info['score']}")
+            print(f"檢測到事件: {event_info['event_type']}, 重要性: {event_info['importance']}")
     """
 
     # 預設規則定義
@@ -87,8 +87,10 @@ class RuleBasedEvaluator:
                 "ceasefire", "peace agreement", "truce", "war ended",
                 "conflict resolved", "de-escalation"
             ],
-            base_score=-0.8,
-            decay_hours=72
+            base_importance=10.0,
+            minimum_importance=2.0,
+            duration_hours=720,
+            decay_mode="linear",
         ),
 
         # 駭客/安全事件
@@ -103,8 +105,10 @@ class RuleBasedEvaluator:
                 "funds recovered", "hacker identified", "security restored",
                 "patch deployed", "vulnerability fixed", "compensation announced"
             ],
-            base_score=-0.7,
-            decay_hours=48
+            base_importance=7.0,
+            minimum_importance=1.0,
+            duration_hours=48,
+            decay_mode="linear",
         ),
 
         # 監管風險
@@ -119,8 +123,10 @@ class RuleBasedEvaluator:
                 "case dismissed", "settlement reached", "charges dropped",
                 "regulatory approval", "compliance achieved", "ban lifted"
             ],
-            base_score=-0.6,
-            decay_hours=168  # 7天
+            base_importance=6.0,
+            minimum_importance=1.5,
+            duration_hours=504,
+            decay_mode="linear",
         ),
 
         # 總體經濟
@@ -135,8 +141,10 @@ class RuleBasedEvaluator:
                 "rate cut", "fed pauses", "inflation cools", "recovery",
                 "economic rebound", "bailout approved", "liquidity restored"
             ],
-            base_score=-0.5,
-            decay_hours=120  # 5天
+            base_importance=5.0,
+            minimum_importance=1.0,
+            duration_hours=360,
+            decay_mode="linear",
         ),
 
         # 交易所問題
@@ -151,8 +159,10 @@ class RuleBasedEvaluator:
                 "withdrawals resumed", "trading resumed", "exchange recovered",
                 "liquidity restored", "operations normal"
             ],
-            base_score=-0.65,
-            decay_hours=48
+            base_importance=6.5,
+            minimum_importance=1.0,
+            duration_hours=144,
+            decay_mode="linear",
         ),
 
         # 正面事件：ETF批准
@@ -163,8 +173,10 @@ class RuleBasedEvaluator:
                 "spot etf approved"
             ],
             termination_keywords=[],  # 正面事件不需要結束條件
-            base_score=0.8,
-            decay_hours=72
+            base_importance=8.0,
+            minimum_importance=1.0,
+            duration_hours=216,
+            decay_mode="linear",
         ),
 
         # 正面事件：機構採用
@@ -175,8 +187,10 @@ class RuleBasedEvaluator:
                 "hedge fund buys", "corporate treasury", "mass adoption"
             ],
             termination_keywords=[],
-            base_score=0.6,
-            decay_hours=48
+            base_importance=6.0,
+            minimum_importance=1.0,
+            duration_hours=144,
+            decay_mode="linear",
         ),
     ]
 
@@ -244,7 +258,8 @@ class RuleBasedEvaluator:
         headline: str,
         source: str = "unknown",
         source_confidence: float = 0.5,
-        affected_symbols: Optional[str] = None
+        affected_symbols: Optional[str] = None,
+        price_at_creation: float = 0.0,
     ) -> Optional[Dict[str, Any]]:
         """
         評估單則新聞標題
@@ -273,7 +288,8 @@ class RuleBasedEvaluator:
                         matched_keyword=keyword,
                         source=source,
                         source_confidence=source_confidence,
-                        affected_symbols=affected_symbols
+                        affected_symbols=affected_symbols,
+                        price_at_creation=price_at_creation,
                     )
                     return event_info
 
@@ -286,7 +302,8 @@ class RuleBasedEvaluator:
         matched_keyword: str,
         source: str,
         source_confidence: float,
-        affected_symbols: Optional[str]
+        affected_symbols: Optional[str],
+        price_at_creation: float,
     ) -> Dict[str, Any]:
         """創建事件並存入資料庫，同步建立 NewsEventContract"""
         # 生成事件 ID
@@ -303,14 +320,21 @@ class RuleBasedEvaluator:
             'event_id': event_id,
             'event_type': rule.event_type,
             'headline': headline,
-            'score': rule.base_score,
+            # event_memory 的舊 score 欄位不能再承載規則式多空；方向交給 AI。
+            'score': 0.0,
+            'importance': rule.base_importance,
             'status': 'ACTIVE',
             'termination_condition': termination_desc,
             'embedding_id': None,  # 預留給未來 NLP
             'source': source,
             'source_confidence': source_confidence,
             'affected_symbols': affected_symbols,
-            'metadata': f"matched: {matched_keyword}; decay_hours: {rule.decay_hours}"
+            'metadata': (
+                f"matched: {matched_keyword}; importance: {rule.base_importance}; "
+                f"minimum_importance: {rule.minimum_importance}; "
+                f"duration_hours: {rule.duration_hours}; decay_mode: {rule.decay_mode}; "
+                "direction: ai"
+            )
         }
 
         # 存入資料庫
@@ -325,6 +349,7 @@ class RuleBasedEvaluator:
             rule=rule,
             headline=headline,
             affected_symbols=affected_symbols,
+            price_at_creation=price_at_creation,
         )
 
         return event_info
@@ -334,6 +359,7 @@ class RuleBasedEvaluator:
         rule: EventRule,
         headline: str,
         affected_symbols: Optional[str],
+        price_at_creation: float,
     ) -> None:
         """為偵測到的事件建立 NewsEventContract（失敗不影響主流程）"""
         try:
@@ -350,8 +376,11 @@ class RuleBasedEvaluator:
                 event_type=rule.event_type,
                 symbol=symbol,
                 headline=headline,
-                initial_impact=rule.base_score,
-                decay_hours=float(rule.decay_hours),
+                initial_importance=rule.base_importance / 10.0,
+                minimum_importance=rule.minimum_importance / 10.0,
+                duration_hours=float(rule.duration_hours),
+                price_at_creation=price_at_creation,
+                decay_mode=rule.decay_mode,
             )
         except Exception as exc:
             logger.warning("建立 NewsEventContract 失敗（不中斷主流程）: %s", exc)
@@ -424,7 +453,8 @@ class RuleBasedEvaluator:
                 headline=article.title,
                 source=article.source,
                 source_confidence=article.source_credibility,
-                affected_symbols=','.join(article.coins_mentioned) if article.coins_mentioned else None
+                affected_symbols=','.join(article.coins_mentioned) if article.coins_mentioned else None,
+                price_at_creation=article.price_at_news,
             )
 
             if event_info:
@@ -439,7 +469,7 @@ class RuleBasedEvaluator:
 
     def cleanup_expired_events(self) -> int:
         """
-        清理過期事件 (根據 decay_hours)
+        清理過期事件（根據 duration_hours）
 
         Returns:
             清理的事件數量
@@ -450,23 +480,23 @@ class RuleBasedEvaluator:
         active_events = db.get_active_events()
 
         for event in active_events:
-            # 從 metadata 解析 decay_hours
+            # 從 metadata 解析事件有效時間
             metadata = event.get('metadata', '')
-            decay_hours = 24  # 預設
+            duration_hours = 24  # 預設
 
-            if 'decay_hours:' in metadata:
+            if 'duration_hours:' in metadata:
                 try:
-                    decay_str = metadata.split('decay_hours:')[1].strip()
-                    decay_hours = int(decay_str.split(';')[0].strip())
+                    duration_str = metadata.split('duration_hours:')[1].strip()
+                    duration_hours = int(duration_str.split(';')[0].strip())
                 except (ValueError, IndexError):
                     pass
 
             # 檢查是否過期
             created_at = datetime.fromisoformat(event['created_at'])
-            if datetime.now() > created_at + timedelta(hours=decay_hours):
+            if datetime.now() > created_at + timedelta(hours=duration_hours):
                 db.resolve_event(
                     event['event_id'],
-                    resolution_note=f"Auto-expired after {decay_hours} hours"
+                    resolution_note=f"Auto-expired after {duration_hours} hours"
                 )
                 cleaned += 1
 

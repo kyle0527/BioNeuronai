@@ -32,7 +32,9 @@
   `ReplayRunRecorder`、`list_runs()`、`load_run()`。
 - `service.py`
   對 API / CLI 友善的高階入口：
-  `run_simulation_summary()`、`run_backtest_summary()`、`collect_signal_training_data()`、`list_runtime_runs()`、`get_runtime_run()`。
+  `run_simulation_summary()`、`run_backtest_summary()`、`collect_signal_training_data()`、`list_runtime_runs()`、`get_runtime_run()`、`run_strategy_suite_backtest()`（含 Walk-Forward）。
+- `walk_forward.py`
+  滾動多窗 IS/OOS（自舊 `archived/backtesting/walk_forward` 接回）與 single split；由 `strategy-backtest --walk-forward` 實際跑出結果，不用單元測試充當驗收。
 - `web.py`
   載入 `backtest/ui/index.html`。
 - `data/`

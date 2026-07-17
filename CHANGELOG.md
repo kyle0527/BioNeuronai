@@ -2,6 +2,17 @@
 
 > **版本命名**：套件正式版為 **v2.1**（`pyproject.toml`）。CHANGELOG 中的 v3.x / v4.x 為歷史里程碑標籤；文件中的 **v2.2** 僅指 roadmap / 訓練後驗證期，不是已發布套件版。現況以 `docs/PROJECT_STATUS.md` 為準。
 
+## [Recovery + Docs] - 2026-07-17
+
+### 舊 archive 全量比對與能力接回
+
+- 新增 `docs/archive/COMPARISON_REGISTER.md`：purge 舊物逐類決策（HOME／MERGE／KEEP-NEW／NEVER／SKIP tests）。
+- 考古原文目錄 `docs/archive/recovered_from_git/`（不可 import）。
+- **Walk-Forward 多窗**接回：`backtest/walk_forward.py`；`strategy-backtest --walk-forward` 預設 `rolling`；`readiness-gate` 固定 `single` 以免 fold 爆炸。
+- **新聞方向契約**：pretrade／plan 用事件重要性與風險類型；fusion `get_direction_bias` 固定 NEUTRAL；`analyzer.should_trade` 改 legacy 報告用。
+- 手冊同步：08／09／12／14／15／18；keywords／daily_report／data／strategies README；根 README 與 PROJECT_STATUS。
+- **尚未**開始正式 paper／CLI 操作驗收（刻意排在文件就緒之後）。
+
 ## [Refactor] - 2026-07-11
 
 ### v1 大封存與統一模型主線

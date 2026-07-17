@@ -6,7 +6,7 @@ v2.2 Phase 1.2 核心功能：讓新聞影響力具備「時間維度」。
 
 設計目標：
 - 每個重大新聞生成一個 Contract，包含衰減參數與到期時間
-- 影響力隨時間呈指數或線性衰減，避免利多無限期延長
+- 事件重要性隨時間呈指數或線性衰減；方向由 AI 而非事件規則決定
 - 到期後自動記錄真實 PnL，標記為高品質 Meta-Learner 訓練資料
 
 遵循 CODE_FIX_GUIDE.md 規範
@@ -36,9 +36,8 @@ URGENCY_MEDIUM = "medium"      # |impact| >= 0.2
 URGENCY_LOW = "low"            # |impact| < 0.2
 
 # ── 訓練標籤常量 ──────────────────────────────────────────────────────────────
-LABEL_CONFIRMED_BULLISH = "confirmed_bullish"
-LABEL_CONFIRMED_BEARISH = "confirmed_bearish"
-LABEL_FALSE_SIGNAL = "false_signal"
+LABEL_REALIZED_UP = "realized_up"
+LABEL_REALIZED_DOWN = "realized_down"
 LABEL_NEGLIGIBLE = "negligible"  # 價格變化幅度太小
 
 # ── 驗證閾值 ─────────────────────────────────────────────────────────────────
@@ -46,14 +45,13 @@ LABEL_NEGLIGIBLE = "negligible"  # 價格變化幅度太小
 NEGLIGIBLE_PNL_THRESHOLD = 0.5  # 單位：百分比
 
 
-def _urgency_from_impact(impact: float) -> str:
-    """根據初始影響力決定緊急程度"""
-    abs_impact = abs(impact)
-    if abs_impact >= 0.7:
+def _urgency_from_importance(importance: float) -> str:
+    """根據初始重要性決定緊急程度。"""
+    if importance >= 0.7:
         return URGENCY_CRITICAL
-    if abs_impact >= 0.4:
+    if importance >= 0.4:
         return URGENCY_HIGH
-    if abs_impact >= 0.2:
+    if importance >= 0.2:
         return URGENCY_MEDIUM
     return URGENCY_LOW
 
@@ -71,7 +69,8 @@ class NewsEventContract:
         event_type        : 事件類型，與 EventRule.event_type 一致（如 HACK, ETF_APPROVAL）
         symbol            : 影響的主要交易對（如 BTCUSDT）
         headline          : 觸發合約的新聞標題
-        initial_impact    : 初始影響力，範圍 [-1.0, +1.0]，正值看漲、負值看跌
+        initial_importance: 初始重要性，範圍 [0.0, 1.0]，不預先判斷多空
+        minimum_importance: 有效期結束前保留的重要性下限
         urgency           : 緊急程度（critical / high / medium / low）
         decay_mode        : 衰減模式（exponential / linear）
         decay_rate        : 指數模式：半衰期（小時）；線性模式：無意義（使用 expires_at 計算）
@@ -82,14 +81,15 @@ class NewsEventContract:
         resolved_at       : 驗證完成時間
         resolution_price  : 驗證時的市場價格
         realized_pnl_pct  : 實際價格變化百分比 (resolution_price - price_at_creation) / price_at_creation * 100
-        training_label    : 訓練標籤（confirmed_bullish / confirmed_bearish / false_signal / negligible）
+        training_label    : 真實市場結果標籤（realized_up / realized_down / negligible）
     """
 
     contract_id: str
     event_type: str
     symbol: str
     headline: str
-    initial_impact: float
+    initial_importance: float
+    minimum_importance: float
     urgency: str
     decay_mode: str
     decay_rate: float
@@ -104,15 +104,15 @@ class NewsEventContract:
 
     # ── 核心方法 ──────────────────────────────────────────────────────────────
 
-    def get_current_impact(self, at_time: Optional[datetime] = None) -> float:
+    def get_current_importance(self, at_time: Optional[datetime] = None) -> float:
         """
-        計算當前衰減後的影響力。
+        計算當前衰減後的重要性。
 
         Args:
             at_time: 計算時間點；None 使用 datetime.now()
 
         Returns:
-            衰減後的影響力，已解析或已到期時返回 0.0
+            衰減後的重要性，已解析或已到期時返回 0.0
         """
         if self.resolved:
             return 0.0
@@ -134,7 +134,9 @@ class NewsEventContract:
                 return 0.0
             decay_factor = max(0.0, 1.0 - elapsed_hours / total_hours)
 
-        return self.initial_impact * decay_factor
+        return self.minimum_importance + (
+            self.initial_importance - self.minimum_importance
+        ) * decay_factor
 
     def is_expired(self, at_time: Optional[datetime] = None) -> bool:
         """判斷合約是否已到期（未必已驗證）"""
@@ -173,15 +175,9 @@ class NewsEventContract:
         if abs(self.realized_pnl_pct) < NEGLIGIBLE_PNL_THRESHOLD:
             self.training_label = LABEL_NEGLIGIBLE
         else:
-            # 判斷預測方向與實際方向是否一致
-            predicted_up = self.initial_impact > 0
-            actual_up = self.realized_pnl_pct > 0
-            if predicted_up == actual_up:
-                self.training_label = (
-                    LABEL_CONFIRMED_BULLISH if actual_up else LABEL_CONFIRMED_BEARISH
-                )
-            else:
-                self.training_label = LABEL_FALSE_SIGNAL
+            self.training_label = (
+                LABEL_REALIZED_UP if self.realized_pnl_pct > 0 else LABEL_REALIZED_DOWN
+            )
 
         logger.info(
             "✅ 合約驗證完成 [%s] %s | PnL=%.2f%% | label=%s",
@@ -205,6 +201,11 @@ class NewsEventContract:
     def from_dict(cls, data: Dict) -> "NewsEventContract":
         """從字典還原合約物件"""
         d = dict(data)
+        # 舊資料使用帶方向的 initial_impact；載入時只保留其絕對強度，
+        # 避免既有殘值繼續把事件規則當成固定多空。
+        if "initial_importance" not in d and "initial_impact" in d:
+            d["initial_importance"] = abs(float(d.pop("initial_impact")))
+        d.setdefault("minimum_importance", 0.0)
         d["created_at"] = datetime.fromisoformat(d["created_at"])
         d["expires_at"] = datetime.fromisoformat(d["expires_at"])
         d["resolved_at"] = (
@@ -261,10 +262,11 @@ class NewsEventContractManager:
         event_type: str,
         symbol: str,
         headline: str,
-        initial_impact: float,
-        decay_hours: float,
+        initial_importance: float,
+        minimum_importance: float,
+        duration_hours: float,
         price_at_creation: float = 0.0,
-        decay_mode: str = DECAY_EXPONENTIAL,
+        decay_mode: str = DECAY_LINEAR,
     ) -> NewsEventContract:
         """
         建立並持久化一份新的事件合約。
@@ -273,8 +275,9 @@ class NewsEventContractManager:
             event_type        : 事件類型（HACK / REGULATION / ETF_APPROVAL 等）
             symbol            : 影響的交易對
             headline          : 觸發新聞標題
-            initial_impact    : 初始影響力 [-1.0, +1.0]
-            decay_hours       : 影響力半衰期（指數模式）或有效總時長（線性模式）
+            initial_importance: 初始重要性 [0.0, 1.0]，不帶方向
+            minimum_importance: 有效期結束前保留的重要性下限
+            duration_hours    : 有效總時長；不代表預測方向
             price_at_creation : 建立時的市場價格（0 表示未知）
             decay_mode        : DECAY_EXPONENTIAL 或 DECAY_LINEAR
 
@@ -282,26 +285,83 @@ class NewsEventContractManager:
             新建的 NewsEventContract
         """
         now = datetime.now()
+        normalized_symbol = symbol.strip().upper() or "CRYPTO"
+        normalized_headline = " ".join(headline.casefold().split())
+
+        # 同一輪新聞分析可能從不同來源或重試路徑重複命中同一事件。
+        # 事件合約代表「事件」而不是「文章筆數」，因此尚未到期的同事件
+        # 必須共用同一份合約，避免戰略重要性被重複報導人為放大。
+        for existing in self._contracts.values():
+            if existing.resolved or existing.is_expired(now):
+                continue
+            if existing.symbol.strip().upper() != normalized_symbol:
+                continue
+            if existing.event_type.casefold() != event_type.casefold():
+                continue
+            existing_headline = " ".join(existing.headline.casefold().split())
+            if existing_headline == normalized_headline:
+                logger.info(
+                    "重用有效新聞事件合約 [%s/%s] contract_id=%s",
+                    event_type,
+                    normalized_symbol,
+                    existing.contract_id,
+                )
+                return existing
+
+            # 同一事件類型出現新的報導，視為事件進展而不是另一份獨立記憶。
+            # 規則只更新重要性與有效時間；多空方向仍完全留給 AI 判斷。
+            current_importance = existing.get_current_importance(now)
+            existing.headline = headline
+            existing.initial_importance = max(
+                current_importance,
+                float(initial_importance),
+            )
+            existing.minimum_importance = min(
+                existing.initial_importance,
+                max(existing.minimum_importance, float(minimum_importance)),
+            )
+            existing.urgency = _urgency_from_importance(
+                existing.initial_importance
+            )
+            existing.decay_mode = decay_mode
+            existing.decay_rate = float(duration_hours)
+            existing.created_at = now
+            existing.expires_at = max(
+                existing.expires_at,
+                now + timedelta(hours=duration_hours),
+            )
+            if price_at_creation > 0:
+                existing.price_at_creation = float(price_at_creation)
+            self._save()
+            logger.info(
+                "更新有效新聞事件合約 [%s/%s] importance=%.2f expires=%s",
+                event_type,
+                normalized_symbol,
+                existing.initial_importance,
+                existing.expires_at.isoformat(),
+            )
+            return existing
+
         # Use UUID4 for uniqueness; include a short SHA-256 prefix of content for readability
         content_hash = hashlib.sha256(
-            f"{event_type}_{symbol}_{headline}".encode()
+            f"{event_type}_{normalized_symbol}_{normalized_headline}".encode()
         ).hexdigest()[:8]
         contract_id = f"{content_hash}_{uuid.uuid4().hex[:8]}"
 
-        # 到期時間：指數衰減取 3 倍半衰期；線性衰減直接用 decay_hours
-        expires_at = now + timedelta(
-            hours=decay_hours * 3 if decay_mode == DECAY_EXPONENTIAL else decay_hours
-        )
+        if not 0.0 <= minimum_importance <= initial_importance <= 1.0:
+            raise ValueError("事件重要性必須符合 0 <= minimum <= initial <= 1")
+        expires_at = now + timedelta(hours=duration_hours)
 
         contract = NewsEventContract(
             contract_id=contract_id,
             event_type=event_type,
-            symbol=symbol,
+            symbol=normalized_symbol,
             headline=headline,
-            initial_impact=float(initial_impact),
-            urgency=_urgency_from_impact(initial_impact),
+            initial_importance=float(initial_importance),
+            minimum_importance=float(minimum_importance),
+            urgency=_urgency_from_importance(initial_importance),
             decay_mode=decay_mode,
-            decay_rate=float(decay_hours),
+            decay_rate=float(duration_hours),
             created_at=now,
             expires_at=expires_at,
             price_at_creation=float(price_at_creation),
@@ -311,10 +371,10 @@ class NewsEventContractManager:
         self._save()
 
         logger.info(
-            "📋 新合約建立 [%s/%s] impact=%.2f urgency=%s expires=%s",
+            "📋 新合約建立 [%s/%s] importance=%.2f urgency=%s expires=%s",
             event_type,
             symbol,
-            initial_impact,
+            initial_importance,
             contract.urgency,
             expires_at.strftime("%Y-%m-%d %H:%M"),
         )
@@ -342,8 +402,60 @@ class NewsEventContractManager:
             if not c.resolved and not c.is_expired(now)
         ]
         if symbol:
-            active = [c for c in active if c.symbol == symbol]
-        return sorted(active, key=lambda c: c.created_at, reverse=True)
+            normalized_symbol = symbol.strip().upper()
+            active = [
+                contract
+                for contract in active
+                if contract.symbol.strip().upper() in {normalized_symbol, "CRYPTO"}
+            ]
+
+        # 舊資料可能已在去重邏輯加入前重複寫入。讀取時仍需去重，
+        # 否則歷史殘值會持續扭曲彙總事件強度。
+        deduplicated: Dict[tuple[str, str, str], NewsEventContract] = {}
+        for contract in sorted(active, key=lambda item: item.created_at, reverse=True):
+            key = (
+                contract.symbol.strip().upper(),
+                contract.event_type.casefold(),
+                " ".join(contract.headline.casefold().split()),
+            )
+            deduplicated.setdefault(key, contract)
+        return list(deduplicated.values())
+
+    def get_memory_snapshot(
+        self,
+        symbol: Optional[str] = None,
+        at_time: Optional[datetime] = None,
+    ) -> Dict:
+        """輸出平常交易判斷使用的濃縮事件記憶。
+
+        原始新聞與完整標題保留在新聞檔案及事件合約內供查證／訓練；交易
+        迴圈只讀事件類型、衰減後重要性與剩餘時間，避免每輪重讀全文。
+        此方法只負責確定性計算，不判斷多空方向。
+        """
+        now = at_time or datetime.now()
+        active = self.get_active_contracts(symbol=symbol, at_time=now)
+        return {
+            "snapshot_at": now.isoformat(),
+            "symbol": symbol.strip().upper() if symbol else None,
+            "aggregate_intensity": self.get_aggregated_intensity(
+                symbol=symbol,
+                at_time=now,
+            ),
+            "active_events": [
+                {
+                    "contract_id": contract.contract_id,
+                    "event_type": contract.event_type,
+                    "current_importance": contract.get_current_importance(now),
+                    "remaining_hours": max(
+                        0.0,
+                        (contract.expires_at - now).total_seconds() / 3600.0,
+                    ),
+                    "urgency": contract.urgency,
+                    "expires_at": contract.expires_at.isoformat(),
+                }
+                for contract in active
+            ],
+        }
 
     def get_aggregated_intensity(
         self,
@@ -351,7 +463,7 @@ class NewsEventContractManager:
         at_time: Optional[datetime] = None,
     ) -> float:
         """
-        彙總所有有效合約的衰減後影響力，正規化至 [-1.0, +1.0]。
+        彙總所有有效合約的衰減後重要性，正規化至 [0.0, 1.0]。
 
         用於 Meta-Learner feature_extractor 的 event_intensity 欄位（[6] 維）。
 
@@ -360,14 +472,14 @@ class NewsEventContractManager:
             at_time : 計算時間點
 
         Returns:
-            彙總影響力 [-1.0, +1.0]，0.0 表示無有效合約
+            彙總重要性 [0.0, 1.0]，0.0 表示無有效合約
         """
         active = self.get_active_contracts(symbol=symbol, at_time=at_time)
         if not active:
             return 0.0
 
-        total = sum(c.get_current_impact(at_time) for c in active)
-        # 使用 tanh 壓縮至 [-1, +1]，多個同向事件會累加
+        total = sum(c.get_current_importance(at_time) for c in active)
+        # 使用 tanh 壓縮；多個事件只增加重要性，不形成規則式方向。
         return float(math.tanh(total))
 
     def validate_expired_contracts(
@@ -387,12 +499,24 @@ class NewsEventContractManager:
             current_prices = {}
 
         validated = 0
+        changed = False
         now = datetime.now()
 
         for contract in list(self._contracts.values()):
             if contract.resolved:
                 continue
             if not contract.is_expired(now):
+                continue
+
+            if contract.price_at_creation <= 0:
+                contract.resolved = True
+                contract.resolved_at = now
+                contract.training_label = None
+                changed = True
+                logger.warning(
+                    "舊事件合約 %s 缺少建立時價格，已結束但不產生訓練標籤",
+                    contract.contract_id,
+                )
                 continue
 
             price = current_prices.get(contract.symbol, 0.0)
@@ -406,10 +530,12 @@ class NewsEventContractManager:
 
             contract.validate(price)
             validated += 1
+            changed = True
 
-        if validated > 0:
+        if changed:
             self._save()
-            logger.info("🔄 驗證閉環：共驗證 %d 份到期合約", validated)
+        if validated > 0:
+            logger.info("🔄 驗證閉環：共產生 %d 份真實結果標籤", validated)
 
         return validated
 
@@ -420,7 +546,7 @@ class NewsEventContractManager:
         只返回 label 不為 None 且有效價格的合約。
 
         Returns:
-            訓練資料字典列表，各包含 initial_impact, realized_pnl_pct, training_label 等欄位
+            訓練資料字典列表，各包含 initial_importance, realized_pnl_pct, training_label 等欄位
         """
         training_records = []
         for contract in self._contracts.values():

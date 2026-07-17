@@ -4,8 +4,13 @@
 # Stage 2: runtime  (lean production image)
 # ============================================================
 
+# Global build arguments must be declared before any FROM that consumes them.
+ARG PYTHON_IMAGE=python:3.13-slim
+ARG PYTORCH_IMAGE=pytorch/pytorch:2.8.0-cuda12.6-cudnn9-runtime
+ARG WORKSPACE_ROOT=/workspace
+
 # ---------- Stage 1: builder ----------
-FROM python:slim AS builder
+FROM ${PYTHON_IMAGE} AS builder
 
 # System dependencies for ta-lib and compilation
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -31,13 +36,14 @@ WORKDIR /install
 COPY pyproject.toml requirements-lock.txt ./
 
 RUN pip install --upgrade pip --no-cache-dir \
-    && pip install --prefix=/install/pkg --no-cache-dir -r requirements-lock.txt
+    && pip install --prefix=/install/pkg --no-cache-dir \
+        --extra-index-url https://download.pytorch.org/whl/cpu \
+        -r requirements-lock.txt
 
 
 # ---------- Optional Stage: GPU training ----------
-ARG PYTORCH_IMAGE=pytorch/pytorch:2.4.1-cuda12.1-cudnn9-runtime
-ARG WORKSPACE_ROOT=/workspace
 FROM ${PYTORCH_IMAGE} AS training
+ARG WORKSPACE_ROOT
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
@@ -80,7 +86,7 @@ CMD ["--help"]
 
 
 # ---------- Stage 2: runtime ----------
-FROM python:slim AS runtime
+FROM ${PYTHON_IMAGE} AS runtime
 
 LABEL maintainer="BioNeuronAI Team" \
       version="2.1" \

@@ -3760,6 +3760,202 @@
         "ingested_at": "2026-07-11T14:55:28.766824",
         "ingested_by": "NewsAdapter"
       }
+    },
+    {
+      "id": "news_ethusdt_9412e6ec9cbf81d7",
+      "title": "What Is Robinhood Chain? The Ethereum Layer-2 Network for Tokenized Stocks",
+      "content": "Robinhood Chain is an Ethereum layer-2 network built with Arbitrum technology for tokenized assets, crypto apps, and on-chain financial products.",
+      "doc_type": "news_archive",
+      "created_at": "2026-07-12T14:04:19.748347",
+      "updated_at": "2026-07-12T14:04:19.748348",
+      "tags": [
+        "news",
+        "ethusdt",
+        "decrypt.co"
+      ],
+      "metadata": {
+        "symbol": "ETHUSDT",
+        "news_source": "decrypt.co",
+        "url": "https://decrypt.co/resources/what-robinhood-chain-ethereum-layer-2-network-tokenized-stocks",
+        "published_at": "2026-07-11T16:21:34",
+        "analysis_hours": 24,
+        "overall_sentiment_score": 0.0,
+        "article_sentiment": "neutral",
+        "article_sentiment_score": 0.0,
+        "importance_score": 6.62,
+        "relevance_score": 2.0,
+        "key_events": [],
+        "ingested_at": "2026-07-12T14:04:19.748299",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_ethusdt_7a0401f0d5518f58",
+      "title": "Ethereum climbs 3% on tokenization boom: Can bulls push ETH price past $1,800?",
+      "content": "<p style=\"float:right; margin:0 0 10px 15px; width:240px;\"><img src=\"https://s3-images.ctmedia.io/media/article-covers/hi-major-alts-that-compete-with-ether-are-surging-why2.jpg\" alt=\"Ethereum climbs",
+      "doc_type": "news_archive",
+      "created_at": "2026-07-12T12:45:14.314173",
+      "updated_at": "2026-07-12T12:45:14.314173",
+      "tags": [
+        "news",
+        "ethusdt",
+        "cointelegraph.com"
+      ],
+      "metadata": {
+        "symbol": "ETHUSDT",
+        "news_source": "cointelegraph.com",
+        "url": "https://cointelegraph.com/markets/ethereum-climbs-3-on-tokenization-boom-can-bulls-push-eth-price-past-1800?utm_source=rss_feed&utm_medium=rss&utm_campaign=rss_partner_inbound",
+        "published_at": "2026-07-11T12:55:18",
+        "analysis_hours": 24,
+        "overall_sentiment_score": 0.0,
+        "article_sentiment": "neutral",
+        "article_sentiment_score": 0.0,
+        "importance_score": 8.39,
+        "relevance_score": 2.0,
+        "key_events": [],
+        "ingested_at": "2026-07-12T12:45:14.314114",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_ethusdt_b1b96932790483c1",
+      "title": "AI found an Ethereum bug that could take validators offline, but humans had to prove it",
+      "content": "The Ethereum Foundation pointed coordinated AI agents at the software its validators run and got a remotely triggerable crash out of it. It also got a pile of confident, well-written findings that wer",
+      "doc_type": "news_archive",
+      "created_at": "2026-07-12T11:57:44.596288",
+      "updated_at": "2026-07-12T11:57:44.596288",
+      "tags": [
+        "news",
+        "ethusdt",
+        "www.coindesk.com"
+      ],
+      "metadata": {
+        "symbol": "ETHUSDT",
+        "news_source": "www.coindesk.com",
+        "url": "https://www.coindesk.com/tech/2026/07/10/ai-found-an-ethereum-bug-that-could-take-validators-offline-but-humans-had-to-prove-it",
+        "published_at": "2026-07-11T12:00:00",
+        "analysis_hours": 24,
+        "overall_sentiment_score": -0.375,
+        "article_sentiment": "negative",
+        "article_sentiment_score": -1.0,
+        "importance_score": 9.0,
+        "relevance_score": 2.0,
+        "key_events": [],
+        "ingested_at": "2026-07-12T11:57:44.596217",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_btcusdt_ad26803014fc9c27",
+      "title": "Bitcoin treasury company Empery Digital sold about half of its BTC stack",
+      "content": "It's a sign of the times as the troubled company swaps its bitcoin treasury ambitions for AI data centers.",
+      "doc_type": "news_archive",
+      "created_at": "2026-07-12T12:13:48.038872",
+      "updated_at": "2026-07-12T12:13:48.038873",
+      "tags": [
+        "news",
+        "btcusdt",
+        "www.coindesk.com"
+      ],
+      "metadata": {
+        "symbol": "BTCUSDT",
+        "news_source": "www.coindesk.com",
+        "url": "https://www.coindesk.com/markets/2026/07/11/bitcoin-treasury-company-empery-digital-sold-about-half-of-btc-stack",
+        "published_at": "2026-07-11T12:25:05",
+        "analysis_hours": 24,
+        "overall_sentiment_score": 0.0,
+        "article_sentiment": "neutral",
+        "article_sentiment_score": 0.0,
+        "importance_score": 8.0,
+        "relevance_score": 2.0,
+        "key_events": [],
+        "ingested_at": "2026-07-12T12:13:48.038834",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_btcusdt_927c5783dc84534e",
+      "title": "Bitcoin price gains nearly 10% in July, but traders still see BTC copying 2022 bear market",
+      "content": "<p style=\"float:right; margin:0 0 10px 15px; width:240px;\"><img src=\"https://s3-images.ctmedia.io/media/article-covers/hi-bull-or-bear-how-sec-actions-correlate-with-market-prices2-1.jpg\" alt=\"Bitcoin",
+      "doc_type": "news_archive",
+      "created_at": "2026-07-12T11:10:25.245134",
+      "updated_at": "2026-07-12T11:10:25.245135",
+      "tags": [
+        "news",
+        "btcusdt",
+        "cointelegraph.com"
+      ],
+      "metadata": {
+        "symbol": "BTCUSDT",
+        "news_source": "cointelegraph.com",
+        "url": "https://cointelegraph.com/markets/bitcoin-price-gains-nearly-10-in-july-but-traders-still-see-btc-copying-2022-bear-market?utm_source=rss_feed&utm_medium=rss&utm_campaign=rss_partner_inbound",
+        "published_at": "2026-07-11T11:21:07",
+        "analysis_hours": 24,
+        "overall_sentiment_score": -0.556,
+        "article_sentiment": "negative",
+        "article_sentiment_score": -1.0,
+        "importance_score": 10.0,
+        "relevance_score": 2.0,
+        "key_events": [],
+        "ingested_at": "2026-07-12T11:10:25.245093",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_btcusdt_0d4d0bf28398d434",
+      "title": "Stablecoin market cap has shrunk by $10 billion since May, but analyst sees no reason to panic",
+      "content": "The market shrank by $7.7 billion in June alone, the largest dollar amount since May 2022's Terra-Luna crash, but stablecoins will likely resume their long-term growth, one analyst said.",
+      "doc_type": "news_archive",
+      "created_at": "2026-07-12T22:17:03.906812",
+      "updated_at": "2026-07-12T22:17:03.906813",
+      "tags": [
+        "news",
+        "btcusdt",
+        "coindesk"
+      ],
+      "metadata": {
+        "symbol": "BTCUSDT",
+        "news_source": "coindesk",
+        "url": "https://www.coindesk.com/markets/2026/07/12/stablecoin-market-cap-has-shrunk-by-usd10-billion-since-may-but-analyst-sees-no-reason-to-panic",
+        "published_at": "2026-07-12T13:00:00",
+        "analysis_hours": 11,
+        "overall_sentiment_score": -0.145,
+        "article_sentiment": "negative",
+        "article_sentiment_score": -0.24137931034482754,
+        "importance_score": 5.26,
+        "relevance_score": 0.3,
+        "key_events": [],
+        "ingested_at": "2026-07-12T22:17:03.906729",
+        "ingested_by": "NewsAdapter"
+      }
+    },
+    {
+      "id": "news_btcusdt_af56f6c8b90cb420",
+      "title": "Series of data affecting gold prices next week, investors should note - Laodong.vn",
+      "content": "Series of data affecting gold prices next week, investors should note Laodong.vn",
+      "doc_type": "news_archive",
+      "created_at": "2026-07-12T22:17:03.906843",
+      "updated_at": "2026-07-12T22:17:03.906843",
+      "tags": [
+        "news",
+        "btcusdt",
+        "laodong.vn"
+      ],
+      "metadata": {
+        "symbol": "BTCUSDT",
+        "news_source": "Laodong.vn",
+        "url": "https://news.google.com/rss/articles/CBMitgFBVV95cUxNOGpCcjdtVTJncTgtY3RlQW5CQ24xUExHMDkzXzJjTDQ1SGQxVTIwdl9JXzhnTjFlRW5YdHpEeUFHVXpxZ083NFF6WUhCdm1ySnJvT05Gbml4bUMzMmJfSjFSTjlub2ZQcjlpVFFjNzBqbFdXa3IzcW81d29rOUdjVnVpUjdOWGIxY0NXcWdMenJuZVl3bDN2RGRqOHBOakpaZEdjWHVyUTM1aVJtLUpOdGZqWGhRZw?oc=5",
+        "published_at": "2026-07-12T12:34:29",
+        "analysis_hours": 11,
+        "overall_sentiment_score": -0.145,
+        "article_sentiment": "neutral",
+        "article_sentiment_score": -0.145,
+        "importance_score": 3.48,
+        "relevance_score": 0.3,
+        "key_events": [],
+        "ingested_at": "2026-07-12T22:17:03.906729",
+        "ingested_by": "NewsAdapter"
+      }
     }
   ]
 }

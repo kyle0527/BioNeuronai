@@ -1461,6 +1461,9 @@ class InferenceEngine:
         self.use_v2_mode: bool = True
         self._tokenizer: Optional[Any] = None
         self.last_numeric_patches_: Optional[np.ndarray] = None
+        self.last_model_output_: Optional[np.ndarray] = None
+        self.last_text_token_ids_: Optional[List[int]] = None
+        self.last_context_text_: str = ""
 
         logger.info("InferenceEngine ")
 
@@ -1547,12 +1550,14 @@ class InferenceEngine:
         if getattr(model, "numeric_encoder", None) is not None:
             inference_features = self.feature_pipeline.to_v2_patch(feature_seq)
             self.last_numeric_patches_ = inference_features
-            text_ids = self._encode_context(
+            self.last_context_text_ = (
                 context_text or self._default_context(symbol, current_price, regime_analysis)
             )
+            text_ids = self._encode_context(self.last_context_text_)
         output, latency_ms = self.predictor.predict(
             inference_features, text_ids=text_ids
         )
+        self.last_model_output_ = output.copy()
 
         # 4. 解析訊號
         signal = self.signal_interpreter.interpret(
@@ -1584,9 +1589,26 @@ class InferenceEngine:
         token_ids = tokenizer.encode(
             text, max_length=128, truncation=True, add_special_tokens=True
         )
+        self.last_text_token_ids_ = list(token_ids)
         return torch.tensor(
             [token_ids], dtype=torch.long, device=self.model_loader.device
         )
+
+    def get_last_inference_snapshot(self) -> Dict[str, Any]:
+        """回傳剛完成推論的實際模型輸入與原始輸出，供決策帳本保存。"""
+        if self.last_numeric_patches_ is None or self.last_model_output_ is None:
+            raise RuntimeError("尚無可保存的模型推論快照")
+        model = self.model_loader.get_model()
+        tokenizer = self._get_tokenizer()
+        return {
+            "model_name": getattr(model, "model_name", UNIFIED_MODEL_NAME),
+            "model_trained": bool(getattr(model, "is_trained", False)),
+            "tokenizer_version": getattr(tokenizer, "version", "unknown"),
+            "context_text": self.last_context_text_,
+            "text_token_ids": list(self.last_text_token_ids_ or []),
+            "numeric_patches": self.last_numeric_patches_.tolist(),
+            "raw_signal": self.last_model_output_.tolist(),
+        }
 
     @staticmethod
     def _default_context(

@@ -1,126 +1,91 @@
-"""
-英中雙語 Tokenizer
-=================
-專為英文和中文設計的簡單 tokenizer
+"""中文與英文金融文本的正式 BPE tokenizer。
+
+這個包裝維持專案既有 ``BilingualTokenizer`` 介面，但把舊的逐字／貪婪
+切分實作替換為 Hugging Face ``tokenizers`` 的 ByteLevel BPE。詞彙表由真實
+中英文新聞與訓練語料建立，並固定在 unified_v2_100m 的 16,000 token 上限內。
 """
 
+from __future__ import annotations
+
+import hashlib
 import json
-import re
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, Iterable, List, Optional
+
+from tokenizers import Tokenizer, decoders, models, normalizers, pre_tokenizers, trainers
 
 
 class BilingualTokenizer:
-    """英中雙語 Tokenizer
+    """專案唯一的中英 BPE tokenizer。
 
-    特點:
-    - 支持英文和中文
-    - 使用 BPE (Byte Pair Encoding)
-    - 詞彙表大小可配置
+    ByteLevel BPE 能把未見的幣名、機構名或事件名稱拆成可重用子詞／位元組，
+    不需要為每個新關鍵字額外寫規則。模型與 tokenizer 的 vocabulary size 必須
+    一致，因此正式訓練與推論都使用同一個儲存檔案。
     """
+
+    DEFAULT_SPECIAL_TOKENS: Dict[str, str] = {
+        "pad_token": "[PAD]",
+        "unk_token": "[UNK]",
+        "bos_token": "[BOS]",
+        "eos_token": "[EOS]",
+        "sep_token": "[SEP]",
+        "cls_token": "[CLS]",
+        "mask_token": "[MASK]",
+    }
 
     def __init__(
         self,
-        vocab_size: int = 30000,
-        special_tokens: Optional[Dict[str, str]] = None
-    ):
+        vocab_size: int = 16_000,
+        special_tokens: Optional[Dict[str, str]] = None,
+    ) -> None:
         self.vocab_size = vocab_size
-
-        # 特殊 tokens
-        if special_tokens is None:
-            special_tokens = {
-                "pad_token": "[PAD]",
-                "unk_token": "[UNK]",
-                "bos_token": "[BOS]",
-                "eos_token": "[EOS]",
-                "sep_token": "[SEP]",
-                "cls_token": "[CLS]",
-                "mask_token": "[MASK]",
-            }
-
-        self.special_tokens = special_tokens
-        self.special_token_ids: Dict[str, int] = {}
-
-        # 詞彙表
+        self.special_tokens = dict(special_tokens or self.DEFAULT_SPECIAL_TOKENS)
+        self._tokenizer = self._new_backend()
         self.vocab: Dict[str, int] = {}
         self.id_to_token: Dict[int, str] = {}
+        self.special_token_ids: Dict[str, int] = {}
+        self._sync_metadata()
 
-        # 初始化特殊 tokens
-        self._init_special_tokens()
+    def _new_backend(self) -> Tokenizer:
+        tokenizer = Tokenizer(models.BPE(unk_token=self.special_tokens["unk_token"], byte_fallback=True))
+        tokenizer.normalizer = normalizers.Sequence([normalizers.NFKC()])
+        tokenizer.pre_tokenizer = pre_tokenizers.ByteLevel(add_prefix_space=False)
+        tokenizer.decoder = decoders.ByteLevel()
+        tokenizer.add_special_tokens(list(self.special_tokens.values()))
+        return tokenizer
 
-    def _init_special_tokens(self):
-        """初始化特殊 tokens"""
-        idx = 0
-        for key, token in self.special_tokens.items():
-            self.vocab[token] = idx
-            self.id_to_token[idx] = token
-            self.special_token_ids[key] = idx
-            idx += 1
-
+    def _sync_metadata(self) -> None:
+        self.vocab = self._tokenizer.get_vocab()
+        self.id_to_token = {token_id: token for token, token_id in self.vocab.items()}
+        self.special_token_ids = {
+            key: token_id
+            for key, token in self.special_tokens.items()
+            if (token_id := self._tokenizer.token_to_id(token)) is not None
+        }
         self.pad_token_id = self.special_token_ids.get("pad_token", 0)
         self.unk_token_id = self.special_token_ids.get("unk_token", 1)
         self.bos_token_id = self.special_token_ids.get("bos_token", 2)
         self.eos_token_id = self.special_token_ids.get("eos_token", 3)
 
-    def build_vocab(self, texts: List[str]):
-        """從文本構建詞彙表"""
-        print("構建英中雙語詞彙表...")
+    def build_vocab(self, texts: Iterable[str]) -> None:
+        """以真實中英文文本訓練固定大小的 ByteLevel BPE 詞彙表。"""
+        corpus = [text.strip() for text in texts if isinstance(text, str) and text.strip()]
+        if not corpus:
+            raise ValueError("建立 tokenizer 需要至少一筆真實中英文文本")
 
-        # 基礎字符集（英文字母、數字、中文常用字符）
-        base_chars = set()
+        trainer = trainers.BpeTrainer(
+            vocab_size=self.vocab_size,
+            min_frequency=2,
+            max_token_length=24,
+            special_tokens=list(self.special_tokens.values()),
+            initial_alphabet=pre_tokenizers.ByteLevel.alphabet(),
+        )
+        self._tokenizer = self._new_backend()
+        self._tokenizer.train_from_iterator(corpus, trainer=trainer)
+        self._sync_metadata()
 
-        for text in texts:
-            # 英文單詞
-            words = re.findall(r'[a-zA-Z]+', text)
-            for word in words:
-                base_chars.update(list(word.lower()))
-
-            # 中文字符
-            chinese_chars = re.findall(r'[\u4e00-\u9fff]', text)
-            base_chars.update(chinese_chars)
-
-            # 數字和標點
-            others = re.findall(r'[0-9\s\.,!?;:\-]', text)
-            base_chars.update(others)
-
-        # 添加基礎字符到詞彙表
-        current_id = len(self.vocab)
-        for char in sorted(base_chars):
-            if char not in self.vocab:
-                self.vocab[char] = current_id
-                self.id_to_token[current_id] = char
-                current_id += 1
-
-        # 添加常用英文詞和中文詞
-        common_words = self._get_common_words(texts)
-        for word in common_words[:self.vocab_size - current_id]:
-            if word not in self.vocab:
-                self.vocab[word] = current_id
-                self.id_to_token[current_id] = word
-                current_id += 1
-
-        print(f"[tokenizer] 詞彙表已構建: {len(self.vocab)} tokens")
-
-    def _get_common_words(self, texts: List[str]) -> List[str]:
-        """獲取常用詞"""
-        word_counts: Dict[str, int] = {}
-
-        for text in texts:
-            # 英文單詞
-            words = re.findall(r'[a-zA-Z]+', text.lower())
-            for word in words:
-                word_counts[word] = word_counts.get(word, 0) + 1
-
-            # 中文詞（2-4字）
-            chinese_text = re.sub(r'[^\u4e00-\u9fff]', '', text)
-            for length in [2, 3, 4]:
-                for i in range(len(chinese_text) - length + 1):
-                    word = chinese_text[i:i+length]
-                    word_counts[word] = word_counts.get(word, 0) + 1
-
-        # 按頻率排序
-        sorted_words = sorted(word_counts.items(), key=lambda x: x[1], reverse=True)
-        return [word for word, _ in sorted_words]
+        if len(self.vocab) > self.vocab_size:
+            raise RuntimeError("BPE tokenizer 詞彙數超過設定上限")
 
     def encode(
         self,
@@ -129,195 +94,59 @@ class BilingualTokenizer:
         max_length: Optional[int] = None,
         truncation: bool = False,
     ) -> List[int]:
-        """編碼文本為 token IDs"""
-        tokens = self._tokenize(text)
-        ids = []
-
+        """把中英文本編碼成 token IDs。"""
+        ids = list(self._tokenizer.encode(text).ids)
         if add_special_tokens:
-            ids.append(self.bos_token_id)
-
-        for token in tokens:
-            ids.append(self.vocab.get(token, self.unk_token_id))
-
-        if add_special_tokens:
-            ids.append(self.eos_token_id)
+            ids = [self.bos_token_id, *ids, self.eos_token_id]
 
         if truncation and max_length is not None and len(ids) > max_length:
-            # 截斷時保留 EOS（若有）
-            if add_special_tokens:
-                ids = ids[:max_length - 1] + [self.eos_token_id]
-            else:
-                ids = ids[:max_length]
-
+            if add_special_tokens and max_length >= 2:
+                return ids[: max_length - 1] + [self.eos_token_id]
+            return ids[:max_length]
         return ids
 
     def decode(self, ids: List[int], skip_special_tokens: bool = True) -> str:
-        """解碼 token IDs 為文本"""
-        tokens = []
-
-        for id in ids:
-            if skip_special_tokens and id in self.special_token_ids.values():
-                continue
-            tokens.append(self.id_to_token.get(id, self.special_tokens["unk_token"]))
-
-        # 合併 tokens
-        text = ""
-        for token in tokens:
-            # 中文字符直接連接
-            if re.match(r'[\u4e00-\u9fff]', token):
-                text += token
-            # 英文單詞用空格分隔
-            elif re.match(r'[a-zA-Z]', token):
-                if text and not re.match(r'[\u4e00-\u9fff]', text[-1]):
-                    text += " "
-                text += token
-            else:
-                text += token
-
-        return text.strip()
+        """由 token IDs 還原文本。"""
+        values = ids
+        if skip_special_tokens:
+            special_ids = set(self.special_token_ids.values())
+            values = [token_id for token_id in ids if token_id not in special_ids]
+        return self._tokenizer.decode(values, skip_special_tokens=skip_special_tokens)
 
     def _tokenize(self, text: str) -> List[str]:
-        """分詞"""
-        tokens = []
+        """保留給既有診斷與使用端的 token 顯示介面。"""
+        return list(self._tokenizer.encode(text).tokens)
 
-        # 先按空格和標點分割
-        parts = re.split(r'(\s+|[.,!?;:\-])', text)
+    @property
+    def version(self) -> str:
+        """回傳 tokenizer 內容雜湊，供每小時決策快照記錄。"""
+        return hashlib.sha256(self._tokenizer.to_str().encode("utf-8")).hexdigest()[:16]
 
-        for part in parts:
-            if not part or part.isspace():
-                continue
-
-            # 中文字符逐字分割
-            if re.match(r'[\u4e00-\u9fff]', part):
-                # 先嘗試找多字詞
-                i = 0
-                while i < len(part):
-                    matched = False
-                    for length in [4, 3, 2]:
-                        if i + length <= len(part):
-                            word = part[i:i+length]
-                            if word in self.vocab:
-                                tokens.append(word)
-                                i += length
-                                matched = True
-                                break
-                    if not matched:
-                        tokens.append(part[i])
-                        i += 1
-            else:
-                # 英文單詞
-                word = part.lower()
-                if word in self.vocab:
-                    tokens.append(word)
-                else:
-                    # 分解為字符
-                    tokens.extend(list(word))
-
-        return tokens
-
-    def save(self, path: str):
-        """保存 tokenizer"""
+    def save(self, path: str) -> None:
+        """以 Hugging Face tokenizer.json 格式儲存。"""
         path_obj = Path(path)
         path_obj.parent.mkdir(parents=True, exist_ok=True)
-
-        # JSON 不支援整數鍵，將 id_to_token 的 key 轉為字串
-        data = {
-            "vocab": self.vocab,
-            "id_to_token": {str(k): v for k, v in self.id_to_token.items()},
-            "special_tokens": self.special_tokens,
-            "special_token_ids": self.special_token_ids,
-            "vocab_size": self.vocab_size,
-        }
-
-        with open(path_obj, 'w', encoding='utf-8') as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-
-        print(f"[tokenizer] Tokenizer 已保存: {path}")
+        self._tokenizer.save(str(path_obj))
 
     @classmethod
-    def load(cls, path: str) -> 'BilingualTokenizer':
-        """載入 tokenizer"""
-        with open(path, 'r', encoding='utf-8') as f:
-            data = json.load(f)
+    def load(cls, path: str) -> "BilingualTokenizer":
+        """讀取正式 BPE artifact；拒絕舊的自製詞典格式。"""
+        path_obj = Path(path)
+        with path_obj.open("r", encoding="utf-8") as file:
+            payload = json.load(file)
+        if "model" not in payload or "pre_tokenizer" not in payload:
+            raise ValueError(
+                f"{path_obj} 是舊版逐字詞典，不可用於正式 v2 tokenizer；"
+                "請以真實新聞語料重新建立 BPE artifact。"
+            )
 
-        # 向下相容舊版僅存 vocab 的 JSON 格式，避免訓練入口第一次啟動就重寫詞彙檔。
-        vocab = data.get("vocab", data)
-        vocab_size = data.get("vocab_size", max(len(vocab), 30000))
-
-        tokenizer = cls(vocab_size=vocab_size)
-        tokenizer.vocab = vocab
-
-        id_to_token = data.get("id_to_token")
-        if id_to_token is None:
-            tokenizer.id_to_token = {int(v): k for k, v in tokenizer.vocab.items()}
-        else:
-            # JSON 鍵為字串，還原為整數
-            tokenizer.id_to_token = {int(k): v for k, v in id_to_token.items()}
-
-        tokenizer.special_tokens = data.get("special_tokens", tokenizer.special_tokens)
-        tokenizer.special_token_ids = data.get("special_token_ids", tokenizer.special_token_ids)
-
-        tokenizer.pad_token_id = tokenizer.special_token_ids.get("pad_token", 0)
-        tokenizer.unk_token_id = tokenizer.special_token_ids.get("unk_token", 1)
-        tokenizer.bos_token_id = tokenizer.special_token_ids.get("bos_token", 2)
-        tokenizer.eos_token_id = tokenizer.special_token_ids.get("eos_token", 3)
-
+        tokenizer = cls(vocab_size=16_000)
+        tokenizer._tokenizer = Tokenizer.from_file(str(path_obj))
+        tokenizer._sync_metadata()
+        tokenizer.vocab_size = len(tokenizer.vocab)
         return tokenizer
 
 
-def create_bilingual_tokenizer(vocab_size: int = 30000) -> BilingualTokenizer:
-    """創建英中雙語 tokenizer"""
-
-    # 示例訓練數據（英文 + 中文）
-    training_texts = [
-        "Hello, how are you today?",
-        "你好，今天過得怎麼樣？",
-        "This is a machine learning model.",
-        "這是一個機器學習模型。",
-        "I love programming and artificial intelligence.",
-        "我喜歡編程和人工智慧。",
-        "The weather is nice today.",
-        "今天天氣很好。",
-        "Let's learn together!",
-        "讓我們一起學習！",
-        "Python is a great programming language.",
-        "Python 是一個很棒的編程語言。",
-        "Welcome to the future of AI.",
-        "歡迎來到人工智慧的未來。",
-    ] * 10  # 重複增加樣本
-
-    tokenizer = BilingualTokenizer(vocab_size=vocab_size)
-    tokenizer.build_vocab(training_texts)
-
-    return tokenizer
-
-
-if __name__ == "__main__":
-    print("=" * 70)
-    print("🌏 創建英中雙語 Tokenizer")
-    print("=" * 70)
-
-    # 創建 tokenizer
-    tokenizer = create_bilingual_tokenizer(vocab_size=30000)
-
-    # 測試編碼和解碼
-    print("\n📝 測試編碼和解碼:")
-    test_texts = [
-        "Hello world!",
-        "你好世界！",
-        "I love AI and machine learning.",
-        "我愛人工智慧和機器學習。",
-    ]
-
-    for text in test_texts:
-        print(f"\n原文: {text}")
-        ids = tokenizer.encode(text)
-        decoded = tokenizer.decode(ids)
-        print(f"IDs: {ids[:20]}..." if len(ids) > 20 else f"IDs: {ids}")
-        print(f"解碼: {decoded}")
-
-    # 保存
-    save_path = "tokenizer/bilingual_tokenizer.pkl"
-    tokenizer.save(save_path)
-
-    print("\n✅ 完成!")
+def create_bilingual_tokenizer(vocab_size: int = 16_000) -> BilingualTokenizer:
+    """建立尚未訓練的 tokenizer 實例；呼叫端必須提供真實語料後再使用。"""
+    return BilingualTokenizer(vocab_size=vocab_size)

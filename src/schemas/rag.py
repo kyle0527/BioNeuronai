@@ -238,8 +238,7 @@ class KnowledgeDocumentSchema(BaseModel):
 class EventContext(BaseModel):
     """事件上下文 - 來自新聞大腦的環境資訊
 
-    用於對接「新聞判斷與記憶中樞」(RuleBasedEvaluator)，
-    提供事件驅動的交易調整。
+    用於對接新聞事件與記憶中樞，保存供 AI 後續判斷的事件狀態。
 
     遵循 Pydantic v2 最佳實踐：使用 BaseModel 而非 dataclass，
     以獲得完整的驗證、序列化和 JSON Schema 支援。
@@ -247,7 +246,7 @@ class EventContext(BaseModel):
     最後更新: 2026-01-25
 
     Attributes:
-        event_score: 環境評分 (-10 到 +10)，負值看空，正值看多
+        event_score: 相容欄位；規則式事件固定為 0，不預先判多空
         event_type: 事件類型 (使用 EventType 枚舉或字串)
         intensity: 強度等級 (LOW/MEDIUM/HIGH/EXTREME)
         decay_factor: 衰減因子，表示事件影響的持續性 (0-1)
@@ -259,7 +258,7 @@ class EventContext(BaseModel):
         default=0.0,
         ge=-10.0,
         le=10.0,
-        description="環境評分：-10(極度看空) 到 +10(極度看多)"
+        description="相容欄位；規則式事件固定為 0，方向由 AI 後續判斷"
     )
     event_type: Optional[str] = Field(
         default=None,
@@ -352,8 +351,10 @@ class EventRule(BaseModel):
         event_type: 事件類型識別碼
         trigger_keywords: 觸發關鍵字列表
         termination_keywords: 結束/Hard Stop 關鍵字列表
-        base_score: 基礎分數 (-1.0 到 1.0，負=利空)
-        decay_hours: 事件衰減時間 (小時)
+        base_importance: 初始重要性 (0 到 10)，不代表多空
+        minimum_importance: 在有效期結束前保留的重要性下限 (0 到 10)
+        duration_hours: 事件有效時間 (小時)
+        decay_mode: 重要性衰減方式；不包含方向判斷
         affected_symbols: 影響的交易對，None=全部
     """
     event_type: str = Field(
@@ -369,17 +370,28 @@ class EventRule(BaseModel):
         default_factory=list,
         description="結束/Hard Stop 關鍵字列表"
     )
-    base_score: float = Field(
+    base_importance: float = Field(
         ...,
-        ge=-1.0,
-        le=1.0,
-        description="基礎分數：-1.0(極度利空) 到 1.0(極度利多)"
+        ge=0.0,
+        le=10.0,
+        description="事件初始重要性：0（可忽略）到 10（最高）；不預設多空"
     )
-    decay_hours: int = Field(
+    minimum_importance: float = Field(
+        default=0.0,
+        ge=0.0,
+        le=10.0,
+        description="有效期內的最低重要性；必須小於等於初始重要性"
+    )
+    duration_hours: int = Field(
         default=24,
         ge=1,
         le=720,
-        description="事件衰減時間 (小時)"
+        description="事件有效時間（小時）"
+    )
+    decay_mode: str = Field(
+        default="linear",
+        pattern="^(linear|exponential)$",
+        description="重要性衰減方式；不承載方向"
     )
     affected_symbols: Optional[List[str]] = Field(
         default=None,
@@ -393,8 +405,10 @@ class EventRule(BaseModel):
                     "event_type": "HACK",
                     "trigger_keywords": ["hack", "exploit", "breach", "stolen"],
                     "termination_keywords": ["recovered", "patched", "secured"],
-                    "base_score": -0.8,
-                    "decay_hours": 48,
+                    "base_importance": 7.0,
+                    "minimum_importance": 1.0,
+                    "duration_hours": 48,
+                    "decay_mode": "linear",
                     "affected_symbols": None,
                 }
             ]

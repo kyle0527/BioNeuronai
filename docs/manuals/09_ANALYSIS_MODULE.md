@@ -1,7 +1,7 @@
 # 分析模組操作手冊
 
 > **套件版本**：v2.1
-> **更新日期**：2026-06-15
+> **更新日期**：2026-07-12
 > **現況權威**：[`../PROJECT_STATUS.md`](../PROJECT_STATUS.md)
 
 ---
@@ -29,10 +29,19 @@
 ## 2. 這個功能實際在做什麼分析
 
 ### 1. 新聞情緒分析 (News Analysis)
-- 從 CryptoPanic API 與 RSS Feeds 抓取最新的加密貨幣新聞。
-- 過濾目標幣種（如 `BTCUSDT`）的相關新聞。
-- 使用內建的關鍵字詞庫（181 個關鍵字）與規則模型，對每篇新聞進行評分（-1 ~ +1）。
-- 自動將分析結果寫入 RAG 知識庫，供 AI 模型與交易引擎參考。
+
+新聞模組是**戰略資訊層**：一般程式負責來源、抓取、去重、原始資料歸檔、事件記憶、重要性衰減與到期。啟動時抓取一次；持續自主運作時在本地時間每小時第 5 分鐘更新。完整新聞只在更新時處理，平常交易決策只讀濃縮事件記憶。策略模組獨立以市場資料形成戰術候選；統一 AI 只負責綜合判斷與最終決定。
+
+| 項目 | 現行程式事實 | 已確認目標規格 |
+|------|-------------|----------------|
+| 幣圈來源 | **CoinDesk RSS** | 幣圈與產業新聞 |
+| 宏觀來源 | **Google News RSS 的固定宏觀查詢** | 戰爭、制裁、能源、Fed/FOMC、通膨、衰退、美國／歐洲經濟、ECB 等 |
+| 來源數 | **僅 2 個入口** | 一個幣圈、一個宏觀 |
+| 來源失敗 | 任一來源即該輪明確錯誤 | 不降級、不以部分新聞或假性中性結論繼續 |
+
+上表是目前程式的正式契約；`news` 指令會在同一輪抓取兩類新聞，任一來源無法取得或解析時即失敗。
+
+每篇文章會保留實際發布時間、來源、標題、RSS 摘要、URL、原文語言與關鍵字／事件標籤，正式即時根目錄為 `data/bioneuronai/trading/sop/`。事件合約保存初始重要性、最低保留重要性、有效期與衰減方式。事件規則不儲存固定多空；AI 在每次交易決策時依事件記憶、策略與市場狀態自行判斷方向。
 
 ### 2. 宏觀市場掃描 / 每日計畫 (Daily Plan)
 - 呼叫多個外部 API（Alternative.me, CoinGecko, DefiLlama）。
@@ -50,8 +59,10 @@
 2. **回撤與風險檢查**：帳戶是否處於過大回撤中。
 3. **過度交易檢查**：是否超過每日最大交易次數。
 4. **資金與保證金檢查**：可用餘額是否足夠。
-5. **RAG / 新聞防護**：近期是否有重大黑天鵝或反向強烈新聞。
+5. **RAG / 新聞防護**：以**事件合約重要性**與 HACK／WAR／REGULATION 等風險類型判斷是否需謹慎；**不**用規則 signed 多空分數（該欄位現役固定 0）。  
 6. **參數檢查**：槓桿與止損設定是否合理。
+
+> 新聞模組不輸出 LONG／SHORT。`NewsAdapter.get_direction_bias` 與 strategy fusion 均固定 `NEUTRAL`，只帶 importance／strength。
 
 ---
 
@@ -70,7 +81,7 @@ python main.py news --symbol BTCUSDT
 - `--hours`: 指定抓取過去幾小時的新聞（若不指定，系統會自動根據上次抓取時間做自適應抓取）。
 
 **預期輸出：**
-CLI 會列出抓到的新聞標題、各自的情緒分數，以及最終的綜合情緒評分（如 `+0.45 偏多`），並顯示成功寫入知識庫的筆數。
+CLI 會列出抓到的新聞標題、各自的情緒分數，以及最終的綜合情緒評分，並顯示成功寫入知識庫的筆數。它會同時讀取 CoinDesk 與 Google News RSS；任一來源失敗會明確報錯，而不是回傳空新聞。
 
 ### 2. 每日交易計畫 (`plan`)
 
@@ -116,7 +127,7 @@ python main.py pretrade --symbol BTCUSDT --action long
   "max_items": 10
 }
 ```
-**回傳**：包含新聞情緒、文章數、標題、關鍵字與操作建議。CryptoPanic 免費方案失敗時，系統會使用可用 RSS / fallback 來源並回傳明確狀態。
+**回傳**：包含新聞情緒、文章數、標題、關鍵字與操作建議。正式來源契約完成後，任一指定來源抓取失敗必須回傳明確錯誤狀態；不得改用未列入契約的來源，也不得以空文章偽裝成功。
 
 ### 2. 每日計畫 API
 
@@ -146,14 +157,17 @@ python main.py plan --symbol BTCUSDT --output daily_plan.json
 
 分析產出會進入不同執行路徑，請對照 [04_CLI_OPERATION.md](04_CLI_OPERATION.md) §2：
 
-### 新聞 → 策略融合
+### 新聞、策略與 AI 的固定邊界
 
-- `AIStrategyFusion.generate_fusion_signal()` 接收 `event_score`（來自新聞分析，約 -10～+10）。
-- `get_direction_bias()` 優先使用 `NewsAdapter` 方向偏好；與技術共識衝突時可作為 **Directional Guard** 攔截（2026-06-12 起）。
-- 極端 `event_score` 仍會觸發 `_apply_asymmetric_filter` 非對稱過濾。
+- 事件規則目前只產生 `event_importance`、有效期與事件描述；既有 `event_score` 固定為 0，避免舊規則繼續直接左右交易方向。
+- `get_direction_bias()` 在事件存在時仍使用相容欄位，但固定回傳 `NEUTRAL`。
+- `AutonomousOperator` 的 `ai_input_v2` 將 `news_memory`、`strategy`、`market` 分開保存；只有 AI 推論時才融合。
+- 決策帳本保存文章 ID 與新聞更新摘要，不重複保存或每輪重讀完整新聞。
+
+固定責任邊界：**新聞模組管理資訊與記憶；策略模組管理戰術計算與策略保存／切換；統一 AI 只做判斷和最終決定。** 三者不互相覆蓋，新聞或策略都不能繞過 AI 直接下單。
 
 **主線 A**：`TradingEngine._fuse_signals()` 在即時 tick 中帶入 event_score。
-**主線 B**：`autonomous` 透過 plan/pretrade 間接使用分析結果，不經 TradingEngine fusion 路徑。
+**主線 B**：`autonomous` 直接讀濃縮 `news_memory`、獨立策略候選與市場 patch，交由 shared InferenceEngine 產生最終 65 維決策；原始新聞不進入平常循環。
 
 ### Plan → 策略選擇 / 自主規劃
 
@@ -174,7 +188,7 @@ python main.py plan --symbol BTCUSDT --output daily_plan.json
 ## 6. 常見問題與除錯
 
 **Q: 為什麼新聞分析 (`news`) 總是回傳 0 分？**
-- A: 可能是近期沒有該交易對的重大新聞，或者您的 `.env` 中 `CRYPTOPANIC_API_TOKEN` 沒有正確設定。預設使用免費版 API。
+- A: 先分辨兩種情況：兩個來源都成功但近期沒有符合條件的文章，才是有效的零篇／中性；CoinDesk 或 Google News RSS 任一抓取失敗都是明確錯誤，不能降級。
 
 **Q: Pre-trade 一直被 Reject，說「Futures 餘額為 0」？**
 - A: 這是 Binance 正式網路的安全機制。如果您的 `.env` 設為 `BINANCE_TESTNET=false`，但正式期貨帳戶中沒有入金，系統為了保護您會拒絕模擬下單。您可以將 `BINANCE_TESTNET` 改為 `true`，或在正式帳戶劃轉小額資金。

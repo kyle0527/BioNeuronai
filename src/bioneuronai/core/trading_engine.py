@@ -814,24 +814,11 @@ class TradingEngine:
             if not klines or len(klines) < 20:
                 return None
 
-            # 從 NewsAdapter 取得事件上下文，傳入策略層
-            event_context = None
-            event_score = 0.0
-            if self.news_adapter is not None:
-                try:
-                    event_context = self.news_adapter.get_event_context(symbol)
-                    if event_context is not None:
-                        event_score = float(getattr(event_context, "event_score", 0.0))
-                except Exception as _ec_err:
-                    logger.debug("EventContext 取得失敗: %s", _ec_err)
-
             final_signal = self.generate_trading_signal(
                 symbol=symbol,
                 current_price=current_price,
                 klines=klines,
                 display_ai=True,
-                event_score=event_score,
-                event_context=event_context,
             )
 
             if final_signal:
@@ -857,16 +844,19 @@ class TradingEngine:
         """
         產生正式交易信號。
 
-        統一 live / replay 使用同一條策略主線：
-        1. StrategySelector / AI Fusion 產生策略信號
-        2. 可用時再融合 AI inference signal
+        統一 live / replay 使用同一條責任鏈：
+        1. StrategySelector 只產生戰術候選
+        2. AI 讀取市場、濃縮新聞記憶與策略候選後作最終決策
+
+        ``event_score`` 與 ``event_context`` 僅保留舊呼叫端相容性；新聞規則
+        不再把固定方向傳入策略或覆寫 AI。
         """
         strategy_signal = self._generate_strategy_signal(
             symbol=symbol,
             current_price=current_price,
             klines=klines,
-            event_score=event_score,
-            event_context=event_context,
+            event_score=0.0,
+            event_context=None,
         )
 
         ai_signal: Optional[AITradingSignal] = None
@@ -876,7 +866,7 @@ class TradingEngine:
                     symbol=symbol,
                     current_price=current_price,
                     klines=klines,
-                    context_text=self._build_ai_context(event_context, event_score),
+                    context_text=self._build_ai_context(symbol, strategy_signal),
                 )
                 if ai_signal and display_ai:
                     self._display_ai_signal(ai_signal, current_price)
@@ -897,20 +887,41 @@ class TradingEngine:
         return final_signal
 
     @staticmethod
-    def _build_ai_context(event_context: Optional[Any], event_score: float) -> str:
-        """把既有新聞 EventContext 轉成統一模型的中英文字脈絡。"""
-        if event_context is None:
-            return "目前沒有已確認的重大新聞事件。 No confirmed major news event."
-        headline = str(getattr(event_context, "headline", "") or "")
-        category = str(getattr(event_context, "category", "") or "")
-        source_confidence = float(
-            getattr(event_context, "source_confidence", 0.0) or 0.0
+    def _build_ai_context(symbol: str, strategy_signal: Optional[Any]) -> str:
+        """建立 AI 使用的濃縮事件記憶與獨立策略候選，不讀新聞全文。"""
+        event_parts: List[str] = []
+        try:
+            from ..analysis.news.event_contract import get_contract_manager
+
+            memory = get_contract_manager().get_memory_snapshot(symbol=symbol)
+            for event in memory.get("active_events", [])[:3]:
+                event_parts.append(
+                    f"{event.get('event_type', 'UNKNOWN')} "
+                    f"importance={float(event.get('current_importance', 0.0)):.3f} "
+                    f"remaining_hours={float(event.get('remaining_hours', 0.0)):.1f}"
+                )
+        except Exception as exc:
+            logger.debug("濃縮新聞事件記憶讀取失敗: %s", exc)
+
+        news_context = (
+            "; ".join(event_parts)
+            if event_parts
+            else "no active strategic event"
+        )
+        strategy_action = str(
+            getattr(strategy_signal, "action", None)
+            or getattr(strategy_signal, "signal_type", "HOLD")
+        )
+        strategy_confidence = float(
+            getattr(strategy_signal, "confidence", 0.0) or 0.0
         )
         return (
-            f"新聞事件分數 {event_score:.3f}，分類 {category}，標題 {headline}，"
-            f"來源可信度 {source_confidence:.3f}。 "
-            f"News event score {event_score:.3f}; category {category}; headline {headline}; "
-            f"source confidence {source_confidence:.3f}."
+            f"新聞事件記憶：{news_context}。"
+            f"策略戰術候選：action={strategy_action}, confidence={strategy_confidence:.3f}；"
+            "最終方向由 AI 判斷。 "
+            f"News event memory: {news_context}. "
+            f"Strategy candidate: action={strategy_action}, "
+            f"confidence={strategy_confidence:.3f}; AI makes the final decision."
         )
 
     def _record_decision(
@@ -1336,17 +1347,26 @@ class TradingEngine:
             baseline_volume = float(np.mean(volumes[:-1])) or 1.0
             volume_ratio = max(0.0, min(1.0, float(volumes[-1]) / max(baseline_volume, 1.0)))
 
+        # 新聞記憶不保存固定多空，舊 RL 欄位維持中性；只提供事件強度相關
+        # 的有效時間與數量，避免 RL 策略在每次判斷時重新抓新聞全文。
         news_sentiment = 0.0
         news_duration_hours = 0.0
         related_news_count = 0
-        if self.news_analyzer:
-            try:
-                analysis = self.news_analyzer.analyze_news(symbol, hours=4)
-                news_sentiment = float(analysis.sentiment_score)
-                news_duration_hours = float(analysis.signal_valid_hours)
-                related_news_count = int(analysis.total_articles)
-            except Exception as e:
-                logger.debug(f"RL 市場狀態新聞分析失敗: {e}")
+        try:
+            from ..analysis.news.event_contract import get_contract_manager
+
+            memory = get_contract_manager().get_memory_snapshot(symbol=symbol)
+            active_events = memory.get("active_events", [])
+            related_news_count = len(active_events)
+            news_duration_hours = max(
+                (
+                    float(event.get("remaining_hours", 0.0))
+                    for event in active_events
+                ),
+                default=0.0,
+            )
+        except Exception as exc:
+            logger.debug("RL 市場狀態事件記憶讀取失敗: %s", exc)
 
         return RLMarketState(
             price=price,
@@ -1489,24 +1509,22 @@ class TradingEngine:
         symbol: str,
         current_price: float
     ) -> Optional[TradingSignal]:
-        """三模態信號融合：策略（主）+ AI 推論（輔）+ 新聞情緒（過濾）"""
-        # Early Return: 僅有 AI 信號
-        if ai_signal and not strategy_signal:
-            return self._convert_ai_signal_to_trading_signal(ai_signal, symbol, current_price)
+        """將 AI 最終決策轉為交易信號；策略僅是 AI 的戰術候選輸入。
 
-        # Early Return: 僅有策略信號
-        if strategy_signal and not ai_signal:
-            return self._create_strategy_only_signal(strategy_signal, symbol)
-
-        # 三模態融合
-        if ai_signal and strategy_signal and hasattr(strategy_signal, 'action'):
-            weights = self._get_modal_weights(getattr(ai_signal, 'market_regime', ''))
-            news_score = self._get_news_modal_score(symbol)
-            return self._fuse_both_signals(
-                ai_signal, strategy_signal, symbol, current_price, weights, news_score
-            )
-
-        return None
+        方法名稱保留以維持既有呼叫架構。未取得 AI 決策時不得讓策略或新聞
+        規則自行下單；AI 回傳 HOLD 時也不建立交易信號。
+        """
+        if ai_signal is None:
+            if strategy_signal is not None:
+                logger.info("策略已產生候選，但沒有 AI 最終決策；本輪不建立交易信號")
+            return None
+        if self._get_ai_action(ai_signal) == "HOLD":
+            return None
+        return self._convert_ai_signal_to_trading_signal(
+            ai_signal,
+            symbol,
+            current_price,
+        )
 
     def _create_strategy_only_signal(
         self,
@@ -2356,6 +2374,13 @@ class TradingEngine:
                         self.is_monitoring = False
                         return
                 else:
+                    if self.paper_trading:
+                        logger.warning(
+                            "非互動環境偵測到新聞風險；保留 Paper 行情監控，"
+                            "並停用自動開新倉"
+                        )
+                        self.auto_trade = False
+                        return
                     logger.error("非互動環境偵測到新聞風險/系統警告，保守停止監控")
                     logger.info("已停止監控")
                     self.is_monitoring = False
@@ -2365,6 +2390,10 @@ class TradingEngine:
 
         except Exception as e:
             logger.error(f"RAG 新聞檢查失敗: {e}")
+            if self.paper_trading:
+                logger.warning("Paper 行情監控保留，並停用自動開新倉")
+                self.auto_trade = False
+                return
             if sys.stdin is None or not sys.stdin.isatty():
                 logger.error("非互動環境無法確認新聞檢查異常，保守停止監控")
                 self.is_monitoring = False

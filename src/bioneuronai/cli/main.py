@@ -469,7 +469,8 @@ def _print_autonomous_record(record: dict) -> None:
         print(f"    trained: {ai_decision.get('trained')}")
         print(f"    signal: {ai_signal.get('signal_type')}")
         print(f"    confidence: {ai_signal.get('confidence')}")
-        print(f"    explanation: {ai_decision.get('explanation')}")
+        print(f"    hold_period: {ai_decision.get('decision_hold_period')}")
+        print(f"    valid_until: {ai_decision.get('decision_valid_until')}")
 
     pretrade_summary = record.get("pretrade_summary", [])
     if pretrade_summary:
@@ -844,6 +845,13 @@ def cmd_strategy_backtest(args: argparse.Namespace) -> None:
             commission_bps=args.commission_bps,
             slippage_bps=args.slippage_bps,
             walk_forward=args.walk_forward,
+            walk_forward_mode=getattr(args, "walk_forward_mode", "rolling"),
+            wf_train_days=getattr(args, "wf_train_days", 90),
+            wf_test_days=getattr(args, "wf_test_days", 30),
+            wf_step_days=getattr(args, "wf_step_days", 30),
+            wf_split_ratio=getattr(args, "wf_split_ratio", 0.7),
+            wf_param_grid=getattr(args, "wf_param_grid", None),
+            wf_max_grid_candidates=getattr(args, "wf_max_grid_candidates", 48),
         )
     except FileNotFoundError:
         logger.error(
@@ -897,26 +905,70 @@ def cmd_strategy_backtest(args: argparse.Namespace) -> None:
             f"{item.get('run_dir')}"
         )
 
-    # Walk-forward IS vs OOS 比較表
+    # Walk-forward 報告（實際 CLI 產物；非 pytest）
     wf = result.get("walk_forward")
     if wf and wf.get("enabled"):
-        print("\n  Walk-Forward IS/OOS 比較")
-        print(f"  IS 期間: {wf.get('is_period')}  OOS 期間: {wf.get('oos_period')}")
-        oos_ranking = {item['template_key']: item for item in wf.get('oos_ranking', [])}
-        print(f"  {'':22} {'IS 報酬%':>10} {'OOS 報酬%':>10} {'IS Sharpe':>10} {'OOS Sharpe':>11}")
-        print(f"  {'-'*65}")
-        for item in result["ranking"]:
-            tk = item['template_key']
-            is_st = item.get("stats", {})
-            oos_item = oos_ranking.get(tk, {})
-            oos_st = oos_item.get("stats", {})
+        mode = wf.get("mode") or "single"
+        print(f"\n  Walk-Forward（mode={mode}）")
+        if mode == "rolling":
             print(
-                f"  {tk[:22]:22} "
-                f"{float(is_st.get('total_return') or 0):>10.4f} "
-                f"{float(oos_st.get('total_return') or 0):>10.4f} "
-                f"{float(is_st.get('sharpe_ratio') or 0):>10.2f} "
-                f"{float(oos_st.get('sharpe_ratio') or 0):>11.2f}"
+                f"  窗數={wf.get('total_windows')}  "
+                f"train={wf.get('train_window_days')}d "
+                f"test={wf.get('test_window_days')}d "
+                f"step={wf.get('step_days')}d  "
+                f"param_optimize={wf.get('param_optimize')} "
+                f"grid_candidates={wf.get('grid_candidates', 0)}"
             )
+            print(
+                f"  avg train metric={wf.get('avg_train_metric')}  "
+                f"avg test metric={wf.get('avg_test_metric')}  "
+                f"avg degradation%={wf.get('avg_degradation_pct')}"
+            )
+            print(
+                f"  overfit folds={wf.get('overfitting_windows')}/"
+                f"{wf.get('total_windows')} "
+                f"rate={float(wf.get('overfitting_rate') or 0):.1%}  "
+                f"robustness={wf.get('robustness_score')} "
+                f"is_robust={wf.get('is_robust')}"
+            )
+            print(f"  {'fold':>4} {'train period':24} {'test period':24} "
+                  f"{'train':>10} {'test':>10} {'deg%':>8} overfit")
+            print(f"  {'-'*90}")
+            for fold in wf.get("folds") or []:
+                w = fold.get("window") or {}
+                print(
+                    f"  {int(w.get('window_id') or 0):>4} "
+                    f"{str(w.get('train_start'))}→{str(w.get('train_end')):12} "
+                    f"{str(w.get('test_start'))}→{str(w.get('test_end')):12} "
+                    f"{float(fold.get('train_metric') or 0):>10.4f} "
+                    f"{float(fold.get('test_metric') or 0):>10.4f} "
+                    f"{float(fold.get('degradation_pct') or 0):>8.1f} "
+                    f"{'YES' if fold.get('is_overfitting') else 'no'}"
+                )
+        else:
+            print(f"  IS 期間: {wf.get('is_period')}  OOS 期間: {wf.get('oos_period')}")
+            oos_ranking = {
+                item["template_key"]: item for item in wf.get("oos_ranking", [])
+            }
+            print(
+                f"  {'':22} {'IS 報酬%':>10} {'OOS 報酬%':>10} "
+                f"{'IS Sharpe':>10} {'OOS Sharpe':>11}"
+            )
+            print(f"  {'-'*65}")
+            for item in result["ranking"]:
+                tk = item["template_key"]
+                is_st = item.get("stats", {})
+                oos_item = oos_ranking.get(tk, {})
+                oos_st = oos_item.get("stats", {})
+                print(
+                    f"  {tk[:22]:22} "
+                    f"{float(is_st.get('total_return') or 0):>10.4f} "
+                    f"{float(oos_st.get('total_return') or 0):>10.4f} "
+                    f"{float(is_st.get('sharpe_ratio') or 0):>10.2f} "
+                    f"{float(oos_st.get('sharpe_ratio') or 0):>11.2f}"
+                )
+    elif wf and not wf.get("enabled"):
+        print(f"\n  Walk-Forward 未啟用完整結果: {wf.get('reason')}")
     elif wf and not wf.get("enabled"):
         print(f"\n  Walk-forward 未啟用: {wf.get('reason', '')}")
 
@@ -1209,7 +1261,36 @@ def _build_parser() -> argparse.ArgumentParser:
                      metavar="BPS",
                      help="每筆成交滑點（基點，1 bp = 0.01%%）  (預設: 1.0)")
     sbp.add_argument("--walk-forward", action="store_true", dest="walk_forward",
-                     help="開啟 Walk-Forward IS/OOS 驗證（需一同提供 --start-date 和 --end-date）")
+                     help="開啟 Walk-Forward 驗證（需 --start-date 與 --end-date；預設 rolling 多窗）")
+    sbp.add_argument(
+        "--walk-forward-mode",
+        dest="walk_forward_mode",
+        choices=["rolling", "single"],
+        default="rolling",
+        help="rolling=多窗滾動（舊版能力拿回）；single=一次 70/30 IS/OOS 切分",
+    )
+    sbp.add_argument("--wf-train-days", type=int, default=90, dest="wf_train_days",
+                     help="rolling 模式訓練窗天數（預設 90）")
+    sbp.add_argument("--wf-test-days", type=int, default=30, dest="wf_test_days",
+                     help="rolling 模式測試窗天數（預設 30）")
+    sbp.add_argument("--wf-step-days", type=int, default=30, dest="wf_step_days",
+                     help="rolling 模式滾動步長天數（預設 30）")
+    sbp.add_argument("--wf-split-ratio", type=float, default=0.7, dest="wf_split_ratio",
+                     help="single 模式 IS 佔比（預設 0.7）")
+    sbp.add_argument(
+        "--wf-param-grid",
+        default=None,
+        dest="wf_param_grid",
+        metavar="FILE",
+        help="rolling 時 IS 參數網格 JSON（舊 WalkForwardTester.param_grid；見 config/wf_param_grid.example.json）",
+    )
+    sbp.add_argument(
+        "--wf-max-grid-candidates",
+        type=int,
+        default=48,
+        dest="wf_max_grid_candidates",
+        help="param_grid 最多嘗試組合數（預設 48）",
+    )
     sbp.set_defaults(func=cmd_strategy_backtest, close_open_positions_on_end=True, walk_forward=False)
 
     # ── readiness-gate ───────────────────────────────────────────────────────

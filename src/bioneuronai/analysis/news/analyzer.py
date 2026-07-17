@@ -5,7 +5,7 @@
 CryptoNewsAnalyzer - 主要新聞分析類
 
 功能：
-- 從多種來源獲取加密貨幣新聞 (CryptoPanic, RSS)
+- 從兩個正式來源獲取幣圈與宏觀新聞（CoinDesk RSS、Google News RSS）
 - 情緒分析與評分
 - 關鍵字提取與事件檢測
 - 重要性評分 (來源權威、時效性、相關性)
@@ -27,6 +27,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple, cast
 
 # 2. 本地模組
+from ..._paths import PROJECT_ROOT
 from .models import NewsAnalysisResult, NewsArticle
 
 # 設置日誌
@@ -57,7 +58,7 @@ class CryptoNewsAnalyzer:
     加密貨幣新聞分析器
 
     核心功能：
-    1. 從 CryptoPanic API 和 RSS 獲取新聞
+    1. 從 CoinDesk RSS 與 Google News RSS 取得完整戰略新聞快照
     2. 情緒分析 (正面/負面/中性)
     3. 關鍵字提取與事件檢測
     4. 重要性評分 (0-10)
@@ -200,7 +201,7 @@ class CryptoNewsAnalyzer:
         """
         Args:
             enable_rag_ingest: 是否將新聞注入 RAG 知識庫。
-            news_fetcher:      NewsDataFetcher 實例（用於 CryptoPanic + RSS HTTP 請求）。
+            news_fetcher:      NewsDataFetcher 實例（用於兩個正式 RSS HTTP 請求）。
                                若未提供，自動建立預設實例。
         """
         self._cache: Dict[str, Tuple[NewsAnalysisResult, datetime]] = {}
@@ -219,11 +220,13 @@ class CryptoNewsAnalyzer:
                 logger.warning(f"NewsDataFetcher 建立失敗，新聞抓取將不可用: {exc}")
                 self._news_fetcher = None
 
-        # 新聞記錄文件路徑
-        self._news_records_dir = Path(__file__).parent.parent.parent.parent / "data" / "bioneuronai" / "trading" / "sop"
+        # 新聞、事件記憶與交易資料統一以 repo/data 為唯一正式資料根目錄。
+        self._news_records_dir = PROJECT_ROOT / "data" / "bioneuronai" / "trading" / "sop"
         self._news_records_file = self._news_records_dir / "news_records.json"
         self._news_fetch_state_file = self._news_records_dir / "news_fetch_state.json"
         self._news_records_dir.mkdir(exist_ok=True, parents=True)
+        self._migrate_legacy_news_files()
+        self._last_event_updates: List[Dict[str, Any]] = []
 
         logger.info("✅ CryptoNewsAnalyzer 初始化完成")
 
@@ -265,6 +268,10 @@ class CryptoNewsAnalyzer:
         # 分析新聞
         result = self._analyze_articles(symbol, articles)
 
+        # 新聞模組用一般程式更新事件記憶；只保存事件、重要性與有效時間，
+        # 不在此處決定交易多空。
+        self._last_event_updates = self._update_event_memory(result.articles)
+
         # Analysis -> RAG 知識入庫（B.6）
         self._ingest_analysis_to_rag(result=result, symbol=symbol, hours=window_hours)
 
@@ -276,6 +283,59 @@ class CryptoNewsAnalyzer:
             self._cache[cache_key] = (result, datetime.now())
 
         return result
+
+    @property
+    def last_event_updates(self) -> List[Dict[str, Any]]:
+        """回傳最近一次新聞更新所建立／更新的事件摘要。"""
+        return list(self._last_event_updates)
+
+    def _migrate_legacy_news_files(self) -> None:
+        """把舊 ``src/data`` 新聞資料搬到正式 ``data`` 根目錄。"""
+        legacy_dir = PROJECT_ROOT / "src" / "data" / "bioneuronai" / "trading" / "sop"
+        if legacy_dir.resolve() == self._news_records_dir.resolve():
+            return
+
+        for filename in ("news_records.json", "news_fetch_state.json"):
+            legacy = legacy_dir / filename
+            canonical = self._news_records_dir / filename
+            if not legacy.exists():
+                continue
+            if canonical.exists():
+                self._merge_legacy_json(legacy, canonical, filename)
+            else:
+                legacy.replace(canonical)
+            logger.info("新聞資料已遷移至正式資料根目錄: %s", canonical)
+
+    @staticmethod
+    def _merge_legacy_json(legacy: Path, canonical: Path, filename: str) -> None:
+        """合併兩份既有 JSON 後移除舊路徑，避免雙重事實來源。"""
+        legacy_data = json.loads(legacy.read_text(encoding="utf-8"))
+        canonical_data = json.loads(canonical.read_text(encoding="utf-8"))
+        if filename == "news_records.json":
+            merged: Dict[str, Dict[str, Any]] = {}
+            for item in [*canonical_data, *legacy_data]:
+                if not isinstance(item, dict):
+                    continue
+                key = str(item.get("news_id") or item.get("url") or item.get("title"))
+                merged[key] = item
+            payload: Any = list(merged.values())
+        else:
+            payload = dict(legacy_data)
+            payload.update(dict(canonical_data))
+        canonical.write_text(
+            json.dumps(payload, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+        legacy.unlink()
+
+    @staticmethod
+    def _update_event_memory(articles: List[NewsArticle]) -> List[Dict[str, Any]]:
+        """使用既有事件規則更新濃縮事件記憶，不產生交易方向。"""
+        if not articles:
+            return []
+        from .evaluator import get_rule_evaluator
+
+        return get_rule_evaluator().evaluate_news_batch(articles)
 
     def _resolve_analysis_window(
         self,
@@ -400,28 +460,24 @@ class CryptoNewsAnalyzer:
         return summary
 
     def should_trade(self, symbol: str = "BTCUSDT", hours: Optional[int] = None) -> Tuple[bool, str]:
-        """
-        判斷是否適合交易
+        """[Legacy 報告用] 粗略風險提示，**不得**作為自主／交易主線閘門。
 
-        Returns:
-            (是否可交易, 原因)
+        正式風控請走 pretrade + 事件合約重要性 + AI 決策。
+        此方法僅保留：安全事件標籤存在時提示謹慎；不再用情緒分數決定多空可交易性。
         """
         result = self.analyze_news(symbol, hours=hours)
 
-        # 檢查危險事件
-        danger_events = [EVENT_SECURITY]
+        danger_events = [EVENT_SECURITY, EVENT_REGULATION]
         if any(e in result.key_events for e in danger_events):
-            return False, "存在安全事件/駭客風險"
+            return False, "存在安全/監管類事件標籤（報告提示，非 AI 方向）"
 
-        # 檢查極端負面情緒
-        if result.sentiment_score < -0.5:
-            return False, f"新聞情緒過度負面 ({result.sentiment_score:.2f})"
+        if result.total_articles < 1:
+            return True, "本輪無文章；是否下單由 pretrade/AI 決定"
 
-        # 新聞太少無法判斷
-        if result.total_articles < 2:
-            return True, "新聞資料不足，謹慎交易"
-
-        return True, f"情緒正常: {result.overall_sentiment} ({result.sentiment_score:+.2f})"
+        return True, (
+            f"報告用摘要: articles={result.total_articles} "
+            f"sentiment={result.overall_sentiment}（方向交 AI）"
+        )
 
     def evaluate_pending_news(self) -> Dict[str, int]:
         """評估待處理的新聞，更新關鍵字權重
@@ -493,10 +549,34 @@ class CryptoNewsAnalyzer:
         return unique_articles
 
     def _collect_articles(self, coin: str) -> List[NewsArticle]:
-        """聚合各來源新聞。"""
+        """取得兩個必要來源的完整快照，不把來源失敗降級成空新聞。"""
+        if self._news_fetcher is None:
+            raise RuntimeError("NewsDataFetcher 不可用，無法取得兩個正式新聞來源")
+
+        raw_items = self._news_fetcher.fetch_strategic_news()
         articles: List[NewsArticle] = []
-        articles.extend(self._fetch_from_cryptopanic(coin))
-        articles.extend(self._fetch_from_rss(coin))
+        for item in raw_items:
+            try:
+                title = str(item["title"])
+                summary = str(item.get("summary") or "")[:200]
+                full_text = f"{title} {summary}"
+                # 關鍵字只用於附註與後續事件分析；不能把宏觀文章因為不含幣名而丟棄。
+                matched_keywords = self._check_content_relevance(full_text, coin)
+                articles.append(
+                    NewsArticle(
+                        title=title,
+                        source=str(item.get("source") or item.get("source_id") or "unknown"),
+                        url=str(item.get("url") or ""),
+                        published_at=item["published_at"],
+                        summary=summary,
+                        keywords=matched_keywords,
+                        source_id=str(item.get("source_id") or ""),
+                        source_scope=str(item.get("source_scope") or ""),
+                        language=str(item.get("language") or ""),
+                    )
+                )
+            except (KeyError, TypeError, ValueError) as exc:
+                logger.warning("正式新聞來源回傳無法正規化的文章，已略過：%s", exc)
         return articles
 
     @staticmethod
@@ -516,73 +596,6 @@ class CryptoNewsAnalyzer:
             seen_titles.add(title_key)
             unique_articles.append(article)
         return unique_articles
-
-    def _fetch_from_cryptopanic(self, coin: str) -> List[NewsArticle]:
-        """透過注入的 NewsDataFetcher 從 CryptoPanic API 獲取新聞"""
-        if self._news_fetcher is None:
-            logger.warning("_fetch_from_cryptopanic: NewsDataFetcher 不可用，跳過")
-            return []
-
-        raw_items = self._news_fetcher.fetch_cryptopanic(coin)
-        articles: List[NewsArticle] = []
-        for item in raw_items:
-            try:
-                articles.append(
-                    NewsArticle(
-                        title=item["title"],
-                        source=item["source"],
-                        url=item["url"],
-                        published_at=item["published_at"],
-                        summary=item["summary"],
-                    )
-                )
-            except Exception:
-                continue
-        return articles
-
-    def _fetch_from_rss(self, coin: str) -> List[NewsArticle]:
-        """透過注入的 NewsDataFetcher 從 RSS Feeds 獲取新聞"""
-        if self._news_fetcher is None:
-            logger.warning("_fetch_from_rss: NewsDataFetcher 不可用，跳過")
-            return []
-
-        articles: List[NewsArticle] = []
-        try:
-            for feed_url in self._news_fetcher.rss_feeds:
-                feed_articles = self._process_single_rss_feed(feed_url, coin)
-                articles.extend(feed_articles)
-        except Exception as e:
-            logger.warning(f"RSS 獲取失敗: {e}")
-        return articles
-
-    def _process_single_rss_feed(self, feed_url: str, coin: str) -> List[NewsArticle]:
-        """透過注入的 NewsDataFetcher 處理單個 RSS 源，並套用相關性過濾"""
-        if self._news_fetcher is None:
-            return []
-
-        articles: List[NewsArticle] = []
-        raw_items = self._news_fetcher.fetch_rss_feed(feed_url, coin)
-        for item in raw_items:
-            try:
-                title_text = item["title"]
-                desc_text = (item.get("summary") or "")[:200]
-                full_text = f"{title_text} {desc_text}"
-                matched_keywords = self._check_content_relevance(full_text, coin)
-                if not matched_keywords:
-                    continue
-                articles.append(
-                    NewsArticle(
-                        title=title_text,
-                        source=feed_url.split("/")[2] if "/" in feed_url else feed_url,
-                        url=item.get("url", ""),
-                        published_at=item["published_at"],
-                        summary=desc_text,
-                        keywords=matched_keywords,
-                    )
-                )
-            except Exception as e:
-                logger.debug(f"RSS 條目處理失敗: {e}")
-        return articles
 
     def _check_content_relevance(self, full_text: str, coin: str) -> List[str]:
         """檢查內容相關性"""
@@ -654,6 +667,7 @@ class CryptoNewsAnalyzer:
 
         for article in articles:
             article.target_coin = target_coin
+            article.coins_mentioned = [symbol]
 
             # 情緒分析
             sentiment, score = self._analyze_sentiment(article.title + " " + article.summary)
@@ -679,10 +693,9 @@ class CryptoNewsAnalyzer:
             # 重要性評分
             article.importance_score = self._calculate_importance_score(article, target_coin)
 
-            # 保存記錄
-            if current_price > 0 and article.keywords:
-                article.price_at_news = current_price
-                self._save_news_record(article, current_price)
+            # 所有正式來源文章都保存供查證與歷史訓練；是否命中關鍵字不影響歸檔。
+            article.price_at_news = current_price
+            self._save_news_record(article, current_price)
 
         # 按重要性排序
         articles.sort(key=lambda x: x.importance_score, reverse=True)
@@ -1075,6 +1088,10 @@ class CryptoNewsAnalyzer:
                 'title': article.title,
                 'url': article.url,
                 'source': article.source,
+                'source_id': article.source_id,
+                'source_scope': article.source_scope,
+                'language': article.language,
+                'summary': article.summary,
                 'keywords': article.keywords,
                 'target_coin': article.target_coin,
                 'symbol': article.target_coin + 'USDT',
@@ -1094,9 +1111,25 @@ class CryptoNewsAnalyzer:
                 except Exception:
                     records = []
 
-            if not any(r['news_id'] == news_id for r in records):
+            existing_record = next(
+                (stored for stored in records if stored.get("news_id") == news_id),
+                None,
+            )
+            if existing_record is None:
                 records.append(record)
+            else:
+                # 舊新聞記錄可能來自來源契約切換前，缺少語言、摘要與正式來源
+                # 識別欄位。相同真實文章再次抓到時補齊事實，而非另寫重複紀錄。
+                existing_record.update(
+                    {
+                        key: value
+                        for key, value in record.items()
+                        if key in {"source", "source_id", "source_scope", "language", "summary", "keywords", "category"}
+                        and value
+                    }
+                )
 
+            if existing_record is None or article.source_id:
                 cutoff = (datetime.now() - timedelta(days=30)).isoformat()
                 records = [r for r in records if r['timestamp'] > cutoff]
 

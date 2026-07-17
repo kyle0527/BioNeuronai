@@ -22,7 +22,7 @@
 
 日常開發、閱讀手冊、執行不需要金鑰的 CLI 時，根目錄只保留 `.env.example`。
 
-只有要使用 Binance、CryptoPanic、GCP Secret Manager、testnet 或 live 交易時，才由範本建立正式 `.env`：
+只有要使用 Binance、GCP Secret Manager、testnet 或 live 交易時，才由範本建立正式 `.env`：
 
 ```powershell
 Copy-Item .env.example .env
@@ -45,7 +45,6 @@ Test-Path .env
 | `BINANCE_TESTNET` | `true` 測試網，`false` 正式網 | 否 |
 | `ALLOW_LIVE_TRADING` | API / UI 正式網自動交易開關；只有設為 `1` / `true` / `yes` 才允許 `live_auto` | 否 |
 | `ALLOWED_ORIGINS` | API CORS allowlist | 否 |
-| `CRYPTOPANIC_API_TOKEN` | CryptoPanic 新聞 API | 是 |
 | `API_PORT` | Docker API 對外 port | 否 |
 | `FRONTEND_PORT` | Docker frontend 對外 port | 否 |
 | `VITE_API_BASE_URL` | 前端 build 時寫入的 API URL | 否 |
@@ -127,5 +126,5 @@ Get-Content .env |
 |---|---|---|
 | CORS 錯誤 | `ALLOWED_ORIGINS` 未包含前端網址 | 加入目前瀏覽器實際 origin，例如 `http://127.0.0.1:5176` |
 | Binance 驗證失敗 | key/secret 錯、testnet/live 不一致 | 檢查 `.env` 與 Binance 後台 |
-| news 無結果 | 沒有 token 或免費 API 限制 | 設定 `CRYPTOPANIC_API_TOKEN` 或稍後重試 |
+| news 執行失敗 | CoinDesk 或 Google News RSS 無法取得／解析 | 檢查網路與來源回應；本輪會明確失敗，不使用替代來源 |
 | Docker port 衝突 | 8000 或 3000 被占用 | 調整 `API_PORT`、`FRONTEND_PORT` |

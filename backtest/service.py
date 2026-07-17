@@ -14,7 +14,7 @@ from collections import deque
 from copy import deepcopy
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union  # List used by wf_param_grid type
 
 import numpy as np
 
@@ -303,21 +303,10 @@ def _compute_walk_forward_split(
     end_date: Optional[str],
     split_ratio: float = 0.7,
 ) -> Optional[str]:
-    """計算 Walk-Forward IS/OOS 切割日期（split_ratio% 為 IS，其餘為 OOS）。"""
-    if not start_date or not end_date:
-        return None
-    from datetime import datetime as _dt
-    from datetime import timedelta as _td
-    try:
-        start = _dt.strptime(start_date, "%Y-%m-%d")
-        end = _dt.strptime(end_date, "%Y-%m-%d")
-    except ValueError:
-        return None
-    total_days = (end - start).days
-    if total_days <= 0:
-        return None
-    split_days = max(1, int(total_days * split_ratio))
-    return (start + _td(days=split_days)).strftime("%Y-%m-%d")
+    """計算單次 IS/OOS 切割日期（相容入口；實作見 walk_forward 模組）。"""
+    from .walk_forward import compute_single_split_date
+
+    return compute_single_split_date(start_date, end_date, split_ratio)
 
 
 def _template_entry_signal(
@@ -809,6 +798,13 @@ def run_strategy_suite_backtest(
     commission_bps: float = 5.5,
     slippage_bps: float = 1.0,
     walk_forward: bool = False,
+    walk_forward_mode: str = "rolling",
+    wf_train_days: int = 90,
+    wf_test_days: int = 30,
+    wf_step_days: int = 30,
+    wf_split_ratio: float = 0.7,
+    wf_param_grid: Optional[Union[str, Path, Dict[str, Any], List[Any]]] = None,
+    wf_max_grid_candidates: int = 48,
     update_golden_profile: bool = True,
 ) -> Dict[str, Any]:
     """逐一用正式策略實例跑 replay，保留每個策略的進出場紀錄。
@@ -816,18 +812,94 @@ def run_strategy_suite_backtest(
     Args:
         commission_bps:  Taker commission in basis points (5.5 bps = 0.055%, Binance VIP0 +10% buffer).
         slippage_bps:    Slippage per fill in basis points (1 bp = 0.01%).
-        walk_forward:    若為 True 且 start_date/end_date 已設定，
-                         自動在 70%/30% 切割點執行 IS+OOS 兩段回測。
+        walk_forward:    若為 True 且 start_date/end_date 已設定，執行 Walk-Forward 驗證。
+        walk_forward_mode:
+            ``rolling`` — 多窗滾動（舊版 walk_forward 設計，預設）；
+            ``single`` — 單次 IS/OOS 切分（相容舊 CLI 行為）。
+            rolling 若產生 0 窗，自動降級為 single。
+        wf_train_days / wf_test_days / wf_step_days: rolling 窗參數。
+        wf_split_ratio: single 模式 IS 佔比（預設 0.7）。
+        wf_param_grid: rolling 時可選；IS 窗參數網格（舊 WalkForwardTester.param_grid）。
+        wf_max_grid_candidates: 網格最多組合數（預設 48）。
     """
     from bioneuronai.strategies.selector.core import StrategySelector
 
-    resolved_root = resolve_data_dir(data_dir)
+    from .walk_forward import (
+        generate_rolling_windows,
+        run_rolling_walk_forward,
+    )
 
-    # Walk-forward: modify end_date to IS period, run OOS separately afterward
+    resolved_root = resolve_data_dir(data_dir)
+    mode = (walk_forward_mode or "rolling").strip().lower()
+    if mode not in {"rolling", "single"}:
+        mode = "rolling"
+
+    # ── Rolling multi-window: dedicated path (no truncated main ranking) ──
+    if walk_forward and mode == "rolling" and start_date and end_date:
+        windows = generate_rolling_windows(
+            start_date,
+            end_date,
+            train_window_days=wf_train_days,
+            test_window_days=wf_test_days,
+            step_days=wf_step_days,
+        )
+        if windows:
+            shared_kwargs: Dict[str, Any] = {
+                "symbol": symbol,
+                "interval": interval,
+                "balance": balance,
+                "data_dir": resolved_root,
+                "warmup_bars": warmup_bars,
+                "close_open_positions_on_end": close_open_positions_on_end,
+                "execution_mode": execution_mode,
+                "parameter_overrides": parameter_overrides,
+                "commission_bps": commission_bps,
+                "slippage_bps": slippage_bps,
+            }
+            wf_block = run_rolling_walk_forward(
+                run_strategy_suite_backtest,
+                start_date=start_date,
+                end_date=end_date,
+                train_window_days=wf_train_days,
+                test_window_days=wf_test_days,
+                step_days=wf_step_days,
+                param_grid=wf_param_grid,
+                max_grid_candidates=wf_max_grid_candidates,
+                **shared_kwargs,
+            )
+            # Full-period suite for ranking/golden profile (actual end-to-end run)
+            full = run_strategy_suite_backtest(
+                symbol=symbol,
+                interval=interval,
+                balance=balance,
+                start_date=start_date,
+                end_date=end_date,
+                data_dir=resolved_root,
+                warmup_bars=warmup_bars,
+                close_open_positions_on_end=close_open_positions_on_end,
+                execution_mode=execution_mode,
+                parameter_overrides=parameter_overrides,
+                commission_bps=commission_bps,
+                slippage_bps=slippage_bps,
+                walk_forward=False,
+                update_golden_profile=update_golden_profile,
+            )
+            full["walk_forward"] = wf_block
+            return full
+        logger.warning(
+            "Walk-forward rolling 無法產生窗口，降級為 single split（%s → %s）",
+            start_date,
+            end_date,
+        )
+        mode = "single"
+
+    # Walk-forward single: main loop = IS period only; OOS appended below
     _original_end_date = end_date
     _wf_split_date: Optional[str] = None
-    if walk_forward:
-        _wf_split_date = _compute_walk_forward_split(start_date, end_date)
+    if walk_forward and mode == "single":
+        _wf_split_date = _compute_walk_forward_split(
+            start_date, end_date, split_ratio=wf_split_ratio
+        )
         if _wf_split_date:
             end_date = _wf_split_date  # main loop = IS period only
 
@@ -935,8 +1007,8 @@ def run_strategy_suite_backtest(
         "ranking": ranking,
     }
 
-    # Walk-forward OOS pass
-    if walk_forward and _wf_split_date and _original_end_date:
+    # Walk-forward single-split OOS pass
+    if walk_forward and mode == "single" and _wf_split_date and _original_end_date:
         oos_pass = run_strategy_suite_backtest(
             symbol=symbol,
             interval=interval,
@@ -951,19 +1023,22 @@ def run_strategy_suite_backtest(
             commission_bps=commission_bps,
             slippage_bps=slippage_bps,
             walk_forward=False,  # 避免無限遞迴
-            update_golden_profile=update_golden_profile,
+            update_golden_profile=False,
         )
         result["walk_forward"] = {
             "enabled": True,
+            "mode": "single",
+            "split_ratio": wf_split_ratio,
             "split_date": _wf_split_date,
             "is_period": f"{start_date} ~ {_wf_split_date}",
             "oos_period": f"{_wf_split_date} ~ {_original_end_date}",
             "oos_executable_count": oos_pass.get("executable_count", 0),
             "oos_ranking": oos_pass.get("ranking", []),
         }
-    elif walk_forward and not _wf_split_date:
+    elif walk_forward and mode == "single" and not _wf_split_date:
         result["walk_forward"] = {
             "enabled": False,
+            "mode": "single",
             "reason": "walk_forward 需要同時提供 --start-date 和 --end-date",
         }
 

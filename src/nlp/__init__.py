@@ -6,7 +6,7 @@ NLP (Natural Language Processing) Module
 主要模組：
 - tiny_llm_v2: 約 100M 參數的統一數值與中英文字模型
 - chat_engine: 雙語交易對話引擎（中/英）
-- tokenizers: BPE 和雙語分詞器
+- bilingual_tokenizer: 統一的中英 ByteLevel BPE tokenizer
 - quantization: 模型量化工具
 - lora: LoRA 微調支持
 - generation_utils: 文本生成工具
@@ -37,8 +37,13 @@ def get_create_chat_engine():
     return create_chat_engine
 
 def get_bpe_tokenizer():
-    from .bpe_tokenizer import BPETokenizer
-    return BPETokenizer
+    """相容入口：回傳正式的統一中英 BPE tokenizer。
+
+    舊版 ``BPETokenizer`` 是未接入 v2 模型的手寫實作。正式執行路徑、
+    訓練與推論都必須使用同一個 ``BilingualTokenizer``，避免兩套詞彙
+    與 token id 空間混用。
+    """
+    return get_bilingual_tokenizer()
 
 def get_bilingual_tokenizer():
     from .bilingual_tokenizer import BilingualTokenizer
