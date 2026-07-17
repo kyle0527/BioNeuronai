@@ -44,6 +44,25 @@ BioNeuronAI 不是傳統的「預測模型」——它是一個在虛擬交易�
 
 ---
 
+## Google Colab（GPU 訓練／smoke）
+
+專案要求 **Python 3.13**；Colab 系統常為 3.12。請用 **micromamba 3.13** 腳本，勿直接在系統 3.12 上 `pip install -e .`。
+
+1. Colab：**Runtime → GPU**（如 T4）  
+2. 上傳或 clone 後開啟 [`notebooks/BioNeuronAI_Colab.ipynb`](notebooks/BioNeuronAI_Colab.ipynb)  
+3. 或：
+
+```python
+!git clone https://github.com/kyle0527/BioNeuronai.git
+%cd BioNeuronai
+!bash tools/colab/setup_colab.sh
+```
+
+說明：[`docs/manuals/21_COLAB.md`](docs/manuals/21_COLAB.md)、[`tools/colab/README.md`](tools/colab/README.md)。  
+**Paper 長跑交易**請用本機，見 [`docs/manuals/14_TESTNET_AND_LIVE_TRADING.md`](docs/manuals/14_TESTNET_AND_LIVE_TRADING.md)。
+
+---
+
 ## 快速啟動
 
 ```bash

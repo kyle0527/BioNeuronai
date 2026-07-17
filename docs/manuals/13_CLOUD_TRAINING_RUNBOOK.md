@@ -15,6 +15,16 @@ This runbook describes the unified v2 training path on a cloud GPU. The runtime 
 
 ---
 
+## Google Colab
+
+For a browser GPU path (Tesla T4 etc.), use:
+
+- Notebook: [`notebooks/BioNeuronAI_Colab.ipynb`](../../notebooks/BioNeuronAI_Colab.ipynb)
+- Setup: [`tools/colab/setup_colab.sh`](../../tools/colab/setup_colab.sh)
+- Manual: [`21_COLAB.md`](21_COLAB.md)
+
+Colab system Python is often 3.12; the setup script installs **Python 3.13** via micromamba to match `requires-python`. Use the env binary at `/content/micromamba/envs/bioneuronai/bin/python`.
+
 ## Goals
 
 - Do not overwrite `model/unified_v2_100m.pth` during cloud experiments; promote through `config/active_model.json` only after validation.

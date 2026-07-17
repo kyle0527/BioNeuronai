@@ -85,6 +85,7 @@
 | 01 | [01_MANUAL_OPERATION_VERIFICATION_PLAN.md](01_MANUAL_OPERATION_VERIFICATION_PLAN.md) | 手冊操作驗收矩陣 | **2026-06-15** Level 2 autonomous、Level 3 paper-live |
 | 12 | [12_NLP_TRAINING.md](12_NLP_TRAINING.md) | TinyLLM / unified trainer | 訓練手冊，暫不列入一般使用者操作主線 |
 | 13 | [13_CLOUD_TRAINING_RUNBOOK.md](13_CLOUD_TRAINING_RUNBOOK.md) | 雲端 GPU 訓練 | 訓練/雲端手冊，暫不列入一般使用者操作主線 |
+| 21 | [21_COLAB.md](21_COLAB.md) | Google Colab（micromamba 3.13 + GPU） | clone、安裝、smoke、可選短訓練；Paper 長跑仍用本機 |
 
 ---
 
