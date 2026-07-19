@@ -109,11 +109,11 @@ TradeManager 目前支援四種交易模式：
 | mode | 行情來源 | 執行層 | AI 載入 |
 |---|---|---|---|
 | `monitor_only` | 依 `testnet` 選擇 connector | 不自動送單 | `load_ai_model` 預設 true |
-| `paper_live` | Binance mainnet public market data | 本地 `VirtualAccount`，不送 Binance order | 強制載入 |
-| `testnet_auto` | Binance testnet | Binance testnet order API | 強制載入 |
-| `live_auto` | Binance mainnet | Binance mainnet order API | 強制載入 |
+| `paper_live` | Binance mainnet public market data | 本地 `VirtualAccount` 價格同步，不送單 | 可選 |
+| `testnet_auto` | — | 已拒絕；請使用 autonomous 單一決策線 | — |
+| `live_auto` | — | 已拒絕；請使用 autonomous 單一決策線 | — |
 
-`live_auto` 另外需要 `ALLOW_LIVE_TRADING=1` 與 `confirm_live=I_UNDERSTAND_LIVE_RISK`。`paper_live` 不需要 live guard，因為它不送出真實訂單。
+`auto_trade=true`、`testnet_auto` 與 `live_auto` 都會被拒絕。API trade manager 僅提供觀測；自動決策與 paper 下單統一由 CLI `autonomous` 處理。
 
 ### `models.py`
 

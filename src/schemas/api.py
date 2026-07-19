@@ -294,8 +294,8 @@ class TradeStartRequest(BaseModel):
     mode: Literal["monitor_only", "paper_live", "testnet_auto", "live_auto"] = Field(
         default="monitor_only",
         description=(
-            "交易模式：monitor_only 僅監控；paper_live 主網行情+虛擬成交；"
-            "testnet_auto 測試網自動交易；live_auto 正式網自動交易"
+            "交易模式：monitor_only 僅監控；paper_live 主網行情+本機虛擬帳戶價格同步。"
+            "testnet_auto 與 live_auto 僅為相容欄位，會被拒絕；自動決策請使用 autonomous。"
         ),
     )
     paper_initial_balance: float = Field(
@@ -305,7 +305,7 @@ class TradeStartRequest(BaseModel):
     )
     auto_trade: bool = Field(
         default=False,
-        description="是否允許交易引擎收到非 HOLD 訊號後自動送單",
+        description="相容欄位；目前直接自動下單已停用，設定 true 會被拒絕",
     )
     load_ai_model: bool = Field(
         default=True,

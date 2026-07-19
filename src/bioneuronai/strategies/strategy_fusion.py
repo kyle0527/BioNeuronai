@@ -506,47 +506,28 @@ class AIStrategyFusion:
         setup: Optional[TradeSetup],
         event_score: float
     ) -> Optional[TradeSetup]:
-        """非對稱過濾器 - 根據新聞大腦評分過濾信號
+        """策略 setup 過濾點（保留呼叫架構；不再依規則多空攔截）。
 
-        這是「司令部(News)對前線(Strategy)下達的交戰規則(ROE)」。
-        在極端環境下，對逆勢信號實施嚴格過濾，對順勢信號快速放行。
+        舊行為：以 signed ``event_score``（-10~+10）當「司令部 ROE」，
+        在極空／極多環境攔截逆勢 setup。這與現行契約衝突：
+
+        - 新聞／事件規則 **不** 輸出 LONG／SHORT
+        - 最終方向由 AI 綜合事件重要性、策略候選與市場後決定
+
+        現役：函式與參數簽名保留（相容呼叫點、避免拆架構），
+        ``event_score`` 僅作相容參數（主線已固定 0），**不再**依方向過濾。
 
         Args:
-            strategy_name: 策略名稱
+            strategy_name: 策略名稱（保留供日誌／相容）
             setup: 原始交易設置
-            event_score: 環境評分 (-10 到 +10)
+            event_score: 相容欄位；規則路徑應為 0，不承載多空
 
         Returns:
-            過濾後的交易設置，被攔截則返回 None
+            原 setup；無 setup 時回傳 None
         """
+        del strategy_name, event_score  # 不再用於方向攔截
         if not setup:
             return None
-
-        # 環境閾值定義 (可由 AI 優化)
-        EXTREME_BEARISH = -5.0  # 極度看空
-        EXTREME_BULLISH = 5.0   # 極度看多
-
-        # --- 情境 A: 環境極度看空 (如：戰爭+監管) ---
-        if event_score < EXTREME_BEARISH:
-            if setup.direction == 'long':
-                # 對「做多」信號實施「禁飛令」：只有最強信號才放行
-                if setup.signal_strength != SignalStrength.VERY_STRONG:
-                    logger.info(
-                        f"[非對稱過濾] 環境極空({event_score:.1f})，"
-                        f"攔截 {strategy_name} 的普通做多信號"
-                    )
-                    return None
-            # 對「做空」信號：順風，直接放行
-
-        # --- 情境 B: 環境極度看多 ---
-        elif event_score > EXTREME_BULLISH:
-            if setup.direction == 'short' and setup.signal_strength != SignalStrength.VERY_STRONG:
-                    logger.info(
-                        f"[非對稱過濾] 環境極多({event_score:.1f})，"
-                        f"攔截 {strategy_name} 的普通做空信號"
-                    )
-                    return None
-
         return setup
 
     def get_direction_bias(self, symbol: str = "BTCUSDT", event_score: float = 0.0) -> dict:
@@ -656,36 +637,37 @@ class AIStrategyFusion:
         self,
         ohlcv_data: np.ndarray,
         additional_data: Optional[Dict] = None,
-        event_score: float = 0.0,  # 來自新聞大腦的環境評分 (-10 到 +10)
-        event_context: Optional[EventContext] = None  # 詳細事件上下文
+        event_score: float = 0.0,  # 相容欄位；規則路徑固定 0，不承載多空
+        event_context: Optional[EventContext] = None  # 事件類型／強度（重要性），非方向
     ) -> FusionSignal:
-        """生成融合信號
+        """生成融合信號（策略戰術候選；最終方向交 AI）。
 
         Args:
             ohlcv_data: OHLCV K線數據
             additional_data: 額外市場數據
-            event_score: 環境評分，來自新聞分析大腦 (-10 看空, +10 看多, 0 中性)
-            event_context: 詳細事件上下文，包含事件類型、強度等資訊
+            event_score: 相容欄位；規則式事件固定 0，**不**再表示看多／看空
+            event_context: 事件類型、強度、衰減等；可調策略權重，不決定 LONG/SHORT
 
         Returns:
-            FusionSignal: 融合後的交易信號
+            FusionSignal: 融合後的交易信號（候選共識，非新聞規則多空）
         """
         signal = FusionSignal(
             signal_id=f"FS_{datetime.now().strftime('%Y%m%d%H%M%S')}_{uuid.uuid4().hex[:8]}",
             timestamp=datetime.now(),
         )
 
-        # 0. 處理事件上下文，計算有效的 event_score
+        # 0. 事件上下文：類型權重可調；signed score 不再當多空
         # 若上游傳入 dict，統一轉為 EventContext 物件
         if isinstance(event_context, dict):
             try:
                 event_context = EventContext(**event_context)
             except Exception:
                 event_context = None
-        effective_event_score = event_score
+        # 相容：保留 effective_event_score 變數（主線 get_effective_score 應為 0）
+        effective_event_score = float(event_score or 0.0)
         if event_context:
-            effective_event_score = event_context.get_effective_score()
-            # 根據事件類型調整策略權重
+            effective_event_score = float(event_context.get_effective_score() or 0.0)
+            # 根據事件**類型**調整策略權重（非方向）
             self._adjust_weights_by_event(event_context)
 
         # 1. 識別市場狀態
@@ -706,7 +688,7 @@ class AIStrategyFusion:
                 # 入場條件評估
                 setup = strategy.evaluate_entry_conditions(analysis, ohlcv_data)
 
-                # 應用非對稱過濾器 (基於事件評分)
+                # 過濾點保留；現役不依 signed event_score 做多空 ROE
                 setup = self._apply_asymmetric_filter(name, setup, effective_event_score)
 
                 trade_setups[name] = setup
@@ -761,11 +743,14 @@ class AIStrategyFusion:
         # 6.
         self._make_final_decision(signal)
 
-        # 6.5 計算 AI 宏觀微觀對齊度
+        # 6.5 宏觀／微觀對齊度
+        # 規則新聞不再提供 signed 多空；macro 固定中性 0，避免把 event_score 當方向。
+        # effective_event_score 僅相容保留（主線應為 0），此處不參與對齊計算。
+        _ = effective_event_score
         if signal.consensus_direction:
             from bioneuronai.risk_management.confidence_calibrator import get_confidence_calibrator
             calibrator = get_confidence_calibrator()
-            macro_sentiment = min(1.0, max(-1.0, effective_event_score / 10.0))
+            macro_sentiment = 0.0
             signal.alignment_score = calibrator.compute_alignment(
                 macro_sentiment=macro_sentiment,
                 micro_direction=signal.consensus_direction,

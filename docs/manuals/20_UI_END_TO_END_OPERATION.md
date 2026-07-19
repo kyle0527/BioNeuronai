@@ -30,6 +30,8 @@
 
 目前正式 UI 主線是 `frontend/devops-d/`。`frontend/trading/` 與 `frontend/admin-da/` 原始碼保留，但不是第一階段操作主線。
 
+> **2026-07-20 方向記錄**：三套面板會收斂為一個 `frontend/app`，並搭配手動啟動器。舊面板完成元件移植與實測後封存；在此之前，本手冊仍只描述現行 `devops-d`。
+
 **UI 覆蓋範圍**：本流程涵蓋 API/UI 可及功能（主線 A `trade`、回測、分析）。**主線 B `autonomous` 無 UI 入口**，盤前值班請在 UI 流程前後以 CLI 執行：
 
 ```powershell
@@ -37,6 +39,8 @@ python main.py autonomous --mode advisor --symbol BTCUSDT --output output\ui_shi
 ```
 
 並檢查 `data\bioneuronai\planning\autonomous\decision_ledger.jsonl`（見 [04_CLI_OPERATION.md](04_CLI_OPERATION.md) §6）。
+
+目標版會讓面板透過專屬 runtime API 啟動／停止唯一 paper autonomous runtime；那不是本節現行 API 的既有能力，尚不得以 UI 驗收宣稱完成。
 
 ---
 

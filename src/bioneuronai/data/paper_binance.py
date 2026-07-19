@@ -50,11 +50,43 @@ class PaperBinanceFuturesConnector(BinanceFuturesConnector):
         self.log_dir.mkdir(parents=True, exist_ok=True)
         self.orders_log = self.log_dir / "orders.jsonl"
         self.account_log = self.log_dir / "account_snapshots.jsonl"
+        self.state_file = self.log_dir / "paper_state.json"
+        self._restored_from_state = self._restore_virtual_account()
+        self.virtual_account.set_state_change_callback(self._persist_virtual_account)
+        if not self._restored_from_state:
+            self._persist_virtual_account(self.virtual_account.export_state())
         logger.info(
-            "Paper live connector enabled: market_data=%s, initial_balance=%.2f",
+            "Paper live connector enabled: market_data=%s, initial_balance=%.2f, restored=%s",
             "testnet" if testnet else "mainnet",
-            initial_balance,
+            self.virtual_account.initial_balance,
+            self._restored_from_state,
         )
+
+    def _persist_virtual_account(self, state: Dict[str, Any]) -> None:
+        """原子保存可恢復的帳戶事實；失敗由 VirtualAccount 記錄但不阻斷成交。"""
+        payload = {
+            "saved_at": datetime.now().isoformat(),
+            "mode": "paper_live",
+            "virtual_account": state,
+        }
+        temporary = self.state_file.with_suffix(".tmp")
+        temporary.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+        temporary.replace(self.state_file)
+
+    def _restore_virtual_account(self) -> bool:
+        """只接受完整可驗證 state；損壞檔案不會覆蓋新帳戶。"""
+        if not self.state_file.exists():
+            return False
+        try:
+            payload = json.loads(self.state_file.read_text(encoding="utf-8"))
+            state = payload.get("virtual_account") if isinstance(payload, dict) else None
+            self.virtual_account.restore_state(state)
+            logger.info("Paper virtual account restored | positions=%d open_orders=%d",
+                        len(self.virtual_account.positions), len(self.virtual_account.open_orders))
+            return True
+        except (OSError, ValueError, TypeError, KeyError, json.JSONDecodeError) as exc:
+            logger.warning("Paper state restore skipped: %s", exc)
+            return False
 
     def _refresh_virtual_price(self, symbol: str, fallback_price: Optional[float] = None) -> float:
         price = fallback_price or 0.0
@@ -117,6 +149,19 @@ class PaperBinanceFuturesConnector(BinanceFuturesConnector):
         **kwargs: Any,
     ) -> Optional[OrderResult]:
         """Execute locally and persist an order record; never call Binance POST."""
+        client_order_id = str(kwargs.get("client_order_id") or "").strip() or None
+        existing = self.virtual_account.get_order_by_client_id(client_order_id)
+        if existing is not None:
+            logger.info("PAPER intent deduplicated: %s", client_order_id)
+            return self._to_order_result(
+                existing,
+                symbol,
+                side,
+                order_type,
+                quantity,
+                price,
+            )
+
         current_price = self._refresh_virtual_price(symbol, fallback_price=price)
         execution_price = price if order_type.upper() == "LIMIT" else current_price
 
@@ -129,6 +174,7 @@ class PaperBinanceFuturesConnector(BinanceFuturesConnector):
             stop_price=kwargs.get("stop_price"),
             reduce_only=bool(kwargs.get("reduce_only", False)),
             time_in_force=kwargs.get("time_in_force"),
+            client_order_id=client_order_id,
         )
 
         opposite_side = "SELL" if side.upper() == "BUY" else "BUY"
@@ -141,6 +187,7 @@ class PaperBinanceFuturesConnector(BinanceFuturesConnector):
                 quantity=quantity,
                 stop_price=float(stop_loss),
                 reduce_only=True,
+                client_order_id=f"{client_order_id}:stop" if client_order_id else None,
             )
             child_orders.append(stop_order.to_dict())
         if take_profit:
@@ -151,6 +198,9 @@ class PaperBinanceFuturesConnector(BinanceFuturesConnector):
                 quantity=quantity,
                 stop_price=float(take_profit),
                 reduce_only=True,
+                client_order_id=(
+                    f"{client_order_id}:take_profit" if client_order_id else None
+                ),
             )
             child_orders.append(tp_order.to_dict())
 
@@ -180,6 +230,8 @@ class PaperBinanceFuturesConnector(BinanceFuturesConnector):
         return {
             "mode": "paper_live",
             "log_dir": str(self.log_dir),
+            "state_file": str(self.state_file),
+            "restored_from_state": self._restored_from_state,
             "account": self.virtual_account.get_account_snapshot(),
             "stats": self.virtual_account.get_stats(),
             "positions": [position.to_dict() for position in self.virtual_account.get_all_positions()],

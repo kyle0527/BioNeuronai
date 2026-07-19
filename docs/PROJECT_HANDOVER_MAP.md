@@ -1,9 +1,11 @@
 # BioNeuronai 接手地圖
-**版本**: v2.1
-**更新日期**: 2026-07-11（模型相關敘述對齊統一 v2；模組依賴圖與資料流仍為有效參考）
-**目的**: 提供接手開發時最需要的兩份資訊
-1. 模組依賴圖與實際資料流
-2. 核心檔案與舊版殘留/過渡檔案清單
+**版本**: v2.1  
+**更新日期**: 2026-07-18（CLI 全表面補齊；與 `ARCHITECTURE_OVERVIEW.md` 對齊；全專案架構圖優先）  
+**目的**: 提供接手開發時最需要的兩份資訊  
+1. 模組依賴圖與實際資料流  
+2. 核心檔案與舊版殘留/過渡檔案清單  
+
+> **完整架構／F1–F4 流程以 [`ARCHITECTURE_OVERVIEW.md`](ARCHITECTURE_OVERVIEW.md) 為準。** 本文偏接手與依賴細節。
 
 ## 目錄
 
@@ -55,20 +57,33 @@ flowchart TD
     CLI --> NEWS[news]
     CLI --> BACKTEST[backtest]
     CLI --> STRATBT[strategy-backtest]
-    CLI --> SIMULATE[simulate] (舊版紙交易)
+    CLI --> READY[readiness-gate]
+    CLI --> SIMULATE[simulate]
     CLI --> TRADE[trade]
-    CLI --> EVOLVE[evolve] (過渡期)
+    CLI --> AUTO[autonomous]
+    CLI --> REFLECT[reflect]
+    CLI --> COLLECT[collect-signal-data]
+    CLI --> EVOLVE[evolve]
     CLI --> CHAT[chat]
+    CLI --> BTDATA[backtest-data]
+    CLI --> BTRUNS[backtest-runs]
 
     PLAN --> TPC[TradingPlanController]
-    PRETRADE --> PTC[PretradeAutomation]
+    PRETRADE --> PTC[PreTradeCheckSystem]
     NEWS --> CNA[CryptoNewsAnalyzer]
     TRADE --> TE[TradingEngine]
-    BACKTEST --> BTE[BacktestEngine]
+    AUTO --> AO[AutonomousOperator]
+    AO --> TE
+    AO --> TPC
+    AO --> PTC
+    BACKTEST --> BTE[backtest service]
     STRATBT --> SS[StrategySelector/Evaluator]
-    SIMULATE --> MOCKSIM[MockBinanceConnector]
+    READY --> BTE
+    SIMULATE --> MOCKSIM[MockConnector]
     EVOLVE --> ARENA[StrategyArena]
     CHAT --> CE[nlp/chat_engine.ChatEngine]
+    REFLECT --> MEM[EpisodicMemory / reflection_loop]
+    COLLECT --> TRAINDATA[signal JSONL for unified_trainer]
 
     API --> CNA
     API --> TE

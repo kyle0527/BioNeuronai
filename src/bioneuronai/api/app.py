@@ -74,7 +74,8 @@ class TradeManager:
         return task_running or engine_monitoring or self._monitoring_requested
 
     def _auto_trade_requested(self, req: TradeStartRequest) -> bool:
-        return req.auto_trade or req.mode in {"paper_live", "testnet_auto", "live_auto"}
+        """API trade manager 只保留行情觀測；自主交易統一走 AutonomousOperator。"""
+        return False
 
     def _validate_live_guard(self, req: TradeStartRequest) -> None:
         if req.mode != "live_auto":
@@ -88,24 +89,15 @@ class TradeManager:
             raise RuntimeError("正式網交易需提供 confirm_live=I_UNDERSTAND_LIVE_RISK")
 
     def _validate_start_request(self, req: TradeStartRequest, api_key: str, api_secret: str) -> None:
-        auto_requested = self._auto_trade_requested(req)
-
-        if req.mode == "monitor_only" and req.auto_trade:
-            raise RuntimeError("auto_trade=true 時請改用 paper_live、testnet_auto 或 live_auto 模式")
+        if req.auto_trade or req.mode in {"testnet_auto", "live_auto"}:
+            raise RuntimeError(
+                "API 直接自動交易已停用；請使用 autonomous 的單一決策流程。"
+            )
 
         if req.mode == "paper_live" and req.testnet:
             raise RuntimeError("paper_live 使用正式行情但虛擬成交，請使用 testnet=false")
 
-        if req.mode == "testnet_auto" and not req.testnet:
-            raise RuntimeError("testnet_auto 必須使用 testnet=true")
-
-        if req.mode == "live_auto" and req.testnet:
-            raise RuntimeError("live_auto 必須使用 testnet=false")
-
-        if auto_requested and req.mode != "paper_live" and (not api_key or not api_secret):
-            raise RuntimeError("自動交易需提供 Binance API Key/Secret 或設定環境變數")
-
-        self._validate_live_guard(req)
+        del api_key, api_secret
 
     def _task_state(self) -> Dict[str, Any]:
         if self._trade_task is None:
@@ -156,8 +148,7 @@ class TradeManager:
         api_secret = str(req.api_secret or os.getenv("BINANCE_API_SECRET") or "")
         self._validate_start_request(req, api_key, api_secret)
 
-        auto_requested = self._auto_trade_requested(req)
-        should_load_ai_model = req.load_ai_model or auto_requested
+        should_load_ai_model = req.load_ai_model
         engine = TradingEngine(
             api_key=api_key,
             api_secret=api_secret,
@@ -170,10 +161,7 @@ class TradeManager:
         if should_load_ai_model and not engine.load_ai_model(req.model_name, warmup=req.warmup_model):
             raise RuntimeError(f"AI 模型載入失敗: {req.model_name}")
 
-        if auto_requested:
-            engine.enable_auto_trading()
-        else:
-            engine.disable_auto_trading()
+        engine.disable_auto_trading()
 
         self._trade_engine = engine
         self._trade_mode = req.mode
@@ -186,7 +174,7 @@ class TradeManager:
             if self._trade_engine is None:
                 return
             try:
-                await asyncio.to_thread(self._trade_engine.start_monitoring, req.symbol)
+                await asyncio.to_thread(self._trade_engine.start_market_observer, req.symbol)
             except Exception:
                 logger.exception("交易監控背景任務失敗")
                 raise

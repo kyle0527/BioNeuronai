@@ -7,6 +7,7 @@
 """
 
 import asyncio
+from datetime import datetime, timedelta
 from types import SimpleNamespace
 
 import pytest
@@ -37,6 +38,37 @@ class StubPretradeChecker:
         }
 
 
+class StubInferenceEngine:
+    """固定且完整的 v2 推論快照，避免閉環測試載入實際大模型。"""
+
+    def __init__(self):
+        self.raw_signal = [0.0] * 65
+        self.raw_signal[0] = 3.0  # LONG
+        self.raw_signal[19] = 1.0  # 5m hold period
+
+    def predict(self, **_kwargs):
+        return SimpleNamespace(
+            to_dict=lambda: {
+                "symbol": "BTCUSDT",
+                "signal_type": "LONG",
+                "confidence": 0.8,
+                "suggested_leverage": 1,
+                "suggested_position_size": 0.1,
+                "market_regime": "ranging_wide",
+            }
+        )
+
+    def get_last_inference_snapshot(self):
+        return {
+            "model_name": "test-unified-v2",
+            "model_trained": True,
+            "tokenizer_version": "test",
+            "text_token_ids": [1, 2, 3],
+            "numeric_patches": [[0.0] * 64 for _ in range(16)],
+            "raw_signal": self.raw_signal,
+        }
+
+
 class FakeVirtualAccount:
     def __init__(self):
         self._close_callback = None
@@ -63,7 +95,8 @@ class FakeConnector:
 
     def place_order(self, **kwargs):
         self.orders.append(kwargs)
-        return SimpleNamespace(to_dict=lambda: dict(kwargs))
+        return SimpleNamespace(status="FILLED", order_id="paper-test-order", price=self.price,
+                               to_dict=lambda: dict(kwargs))
 
     def get_paper_state(self):
         return {"orders": len(self.orders)}
@@ -94,6 +127,14 @@ def make_operator(tmp_path, mode="paper_auto", execute_paper=True, connector=Non
     )
     operator._paper_connector = connector or FakeConnector()
     operator._paper_connector.virtual_account.set_close_callback(operator._on_paper_close)
+    operator.inference_engine = StubInferenceEngine()
+    operator._collect_strategy_snapshot = lambda _klines: {
+        "candidate_signals": [], "actionable_candidate": None,
+    }
+    operator._refresh_news_memory_if_due = lambda _klines: {"refreshed": False}
+    operator._collect_news_memory_snapshot = lambda: {
+        "active_events": [], "economic_calendar": {"events": []},
+    }
     return operator
 
 
@@ -103,6 +144,7 @@ def test_cycle_executes_paper_trade_and_logs_learning_state(tmp_path):
 
     assert record["final_action"] == AutonomousAction.PAPER_TRADE.value
     assert record["paper_execution"] is not None
+    assert record["paper_execution"]["intent_id"].startswith("autonomous-")
     assert record["learning_state"] is not None
     assert "BTCUSDT" in operator._open_executions
 
@@ -148,6 +190,152 @@ def test_run_forever_executes_multiple_cycles(tmp_path):
     assert len(records) == 3
     assert all(r["final_action"] == AutonomousAction.ADVISE_ONLY.value for r in records)
     assert [r["cycle"] for r in records] == [1, 2, 3]
+
+
+def test_live_market_source_uses_closed_bars_and_records_health(tmp_path):
+    """live 決策只採用已收盤 K 線，且把新鮮度寫入 AI／ledger 輸入。"""
+    operator = make_operator(tmp_path, mode="advisor", execute_paper=False)
+    now_ms = int(datetime.now().timestamp() * 1000)
+    operator.config.market_source = "live"
+    operator.trading_engine = SimpleNamespace(
+        get_recent_klines=lambda **_kwargs: [
+            {
+                "open_time": now_ms - 3_600_000,
+                "close_time": now_ms - 1,
+                "open": "100",
+                "high": "101",
+                "low": "99",
+                "close": "100",
+                "volume": "1",
+            },
+            {
+                "open_time": now_ms,
+                "close_time": now_ms + 3_600_000,
+                "open": "100",
+                "high": "102",
+                "low": "98",
+                "close": "101",
+                "volume": "2",
+            },
+        ]
+    )
+
+    klines = operator._load_klines()
+
+    assert len(klines) == 1
+    assert operator._last_market_data_health["source"] == "binance_rest"
+    assert operator._last_market_data_health["is_complete"] is True
+    assert operator._last_market_data_health["is_fresh"] is True
+
+    record = asyncio.run(operator.run_once())
+    assert record["market_source"] == "live"
+    assert record["market_data_health"]["source"] == "binance_rest"
+    assert record["ai_input_snapshot"]["market"]["source"] == "live"
+
+
+def test_live_market_source_rejects_stale_bars(tmp_path):
+    operator = make_operator(tmp_path, mode="advisor", execute_paper=False)
+    now_ms = int(datetime.now().timestamp() * 1000)
+    operator.config.market_source = "live"
+    operator.config.market_data_max_age_seconds = 1
+    operator.trading_engine = SimpleNamespace(
+        get_recent_klines=lambda **_kwargs: [
+            {"open_time": now_ms - 20_000, "close_time": now_ms - 10_000}
+        ]
+    )
+
+    with pytest.raises(RuntimeError, match="not fresh"):
+        operator._load_klines()
+
+    assert operator._last_market_data_health["is_fresh"] is False
+
+
+def test_live_run_forever_starts_observer_without_a_second_decision_loop(tmp_path):
+    """連續 live 自主流程只向引擎要求觀測，決策仍由 operator 執行。"""
+    operator = make_operator(tmp_path, mode="advisor", execute_paper=False)
+    now_ms = int(datetime.now().timestamp() * 1000)
+
+    class LiveEngine:
+        def __init__(self):
+            self.observer_symbols = []
+            self.stop_calls = 0
+
+        def get_recent_klines(self, **_kwargs):
+            return [{
+                "open_time": now_ms - 3_600_000,
+                "close_time": now_ms - 1,
+                "open": "100",
+                "high": "101",
+                "low": "99",
+                "close": "100",
+                "volume": "1",
+            }]
+
+        def start_market_observer(self, symbol, on_ticker):
+            self.observer_symbols.append(symbol)
+            on_ticker({"E": now_ms, "c": "100", "h": "101", "l": "99"})
+
+        def stop_monitoring(self):
+            self.stop_calls += 1
+
+    engine = LiveEngine()
+    operator.config.market_source = "live"
+    operator.trading_engine = engine
+
+    records = asyncio.run(operator.run_forever(max_cycles=1, interval_scale=0.0))
+
+    assert len(records) == 1
+    assert engine.observer_symbols == ["BTCUSDT"]
+    assert engine.stop_calls == 1
+    assert records[0]["last_live_tick"]["price"] == "100"
+
+
+def test_recovered_paper_position_reenters_autonomous_guard(tmp_path):
+    """重啟後恢復的實倉會阻止重複進場，並重新受自主風控管理。"""
+    operator = make_operator(tmp_path, mode="paper_auto", execute_paper=True)
+    operator._paper_connector.virtual_account.positions["BTCUSDT"] = SimpleNamespace(
+        side="LONG",
+        quantity=0.25,
+        entry_price=100.0,
+    )
+
+    operator._reconcile_paper_positions(operator._paper_connector)
+
+    execution = operator._open_executions["BTCUSDT"]
+    assert execution["side"] == "BUY"
+    assert execution["quantity"] == 0.25
+    assert execution["recovered"] is True
+    assert operator._has_open_position(operator._paper_connector, "BTCUSDT") is True
+
+
+def test_expired_live_ai_decision_is_settled_once_with_accuracy_metrics(tmp_path):
+    """未下單的 AI 判斷也要以真實到期價格驗證，不能只記錄當下訊號。"""
+    operator = make_operator(tmp_path, mode="advisor", execute_paper=False)
+    operator.config.market_source = "live"
+    operator._get_live_evaluation_price = lambda: 110.0
+    expired_at = (datetime.now() - timedelta(minutes=5)).isoformat()
+    operator.ledger.append({
+        "type": "autonomous_cycle",
+        "decision_id": "expired-long-1",
+        "symbol": "BTCUSDT",
+        "ai_input_snapshot": {"market": {"current_price": 100.0}},
+        "ai_decision": {
+            "decision_valid_until": expired_at,
+            "signal": {"signal_type": "LONG", "confidence": 0.8},
+        },
+    })
+
+    outcomes = operator._settle_expired_ai_decisions()
+
+    assert len(outcomes) == 1
+    evaluation = outcomes[0]["evaluation"]
+    assert evaluation["correct"] is True
+    assert evaluation["price_return_pct"] == pytest.approx(0.1)
+    assert evaluation["brier_score"] == pytest.approx(0.04)
+    assert operator._settle_expired_ai_decisions() == []
+    metrics = operator.ledger.summarize()["ai_decision_accuracy"]
+    assert metrics["evaluated_count"] == 1
+    assert metrics["directional_accuracy"] == 1.0
 
 
 def test_run_forever_stops_on_drawdown_stop(tmp_path):

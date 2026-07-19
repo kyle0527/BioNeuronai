@@ -188,16 +188,21 @@ class TradingPlanController:
             step4_result = await self._step4_sentiment_analysis(symbol)
             plan["steps_results"][4] = step4_result
 
-            # 提取事件資訊供後續步驟使用
-            event_score = step4_result.get("event_score", 0.0)
+            # 提取事件資訊供後續步驟使用（event_score 固定 0；風險看 importance）
+            event_score = float(step4_result.get("event_score", 0.0) or 0.0)
+            event_importance = float(step4_result.get("event_importance", 0.0) or 0.0)
             event_context = step4_result.get("event_context")
             plan["event_score"] = event_score
+            plan["event_importance"] = event_importance
             plan["event_context"] = event_context
 
-            # 如果事件分數過低，發出警告
-            if event_score < -0.5:
-                logger.warning(f"⚠️ 重大負面事件！Event Score: {event_score:+.3f}")
-                logger.warning("   建議暫停交易或大幅降低倉位")
+            # 高事件重要性 → 風險提示（不映射多空）
+            if event_importance >= 0.7:
+                logger.warning(
+                    "⚠️ 高事件重要性！importance=%.3f（方向交 AI，不因規則降倉方向）",
+                    event_importance,
+                )
+                logger.warning("   建議：提高 pretrade 審慎度或降低風險乘數（非規則做空／做多）")
 
             # 步驟 5: 策略性能評估
             logger.info(f"\n{'='*70}")

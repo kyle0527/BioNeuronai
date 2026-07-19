@@ -10,7 +10,7 @@ import time
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Callable, Dict, List, Optional, Union
 
 import numpy as np
 
@@ -694,6 +694,15 @@ class TradingEngine:
             logger.error(f" K : {e}")
             return self._klines_cache.get(cache_key, [])
 
+    def get_recent_klines(
+        self,
+        symbol: str,
+        interval: str = "1h",
+        limit: int = 300,
+    ) -> List[Dict[str, Any]]:
+        """提供自主流程讀取已轉換的 K 線，不建立另一個市場資料適配器。"""
+        return self._get_klines(symbol=symbol, interval=interval, limit=limit)
+
     def _convert_klines_to_dict(self, klines: List[List]) -> List[Dict]:
         """將 Binance K 線數據從 List[List] 轉換為 List[Dict]"""
         result = []
@@ -747,10 +756,21 @@ class TradingEngine:
         return self.connector.get_ticker_price(symbol)
 
     def start_monitoring(self, symbol: str) -> None:
-        """開始監控指定交易對
+        """相容入口：現在只啟動唯讀觀測，不再產生 ticker 直連交易。"""
+        logger.warning(
+            "start_monitoring 已收斂為行情觀測；自動決策請使用 AutonomousOperator"
+        )
+        self.start_market_observer(symbol)
 
-        Args:
-            symbol: 交易對符號 (例: BTCUSDT, ETHUSDT, SOLUSDT)
+    def start_market_observer(
+        self,
+        symbol: str,
+        on_ticker: Optional[Callable[[Dict[str, Any]], None]] = None,
+    ) -> None:
+        """啟動唯讀行情觀測，供 AutonomousOperator 更新紙上帳戶價格。
+
+        這個入口刻意不產生訊號、不呼叫策略、也不送單；交易決策只能由
+        ``AutonomousOperator`` 的 plan → pretrade → adaptation 流程完成。
         """
         if self.is_monitoring:
             logger.warning("已在監控中，請先停止現有監控")
@@ -758,57 +778,42 @@ class TradingEngine:
 
         self.is_monitoring = True
 
-        # RAG
-        if self.enable_rag_news_check and self.news_checker:
-            self._check_breaking_news_before_start(symbol)
-            if not self.is_monitoring:
-                logger.warning("新聞風險檢查未通過，已停止監控啟動流程")
-                return
-
-        #
-        if self.enable_news_analysis and self.news_analyzer:
-            self._show_news_analysis(symbol)
-
-        #
-        account_info = self.connector.get_account_info()
-        if account_info:
-            initial_balance = float(account_info.get('totalWalletBalance', 0))
-            self.risk_manager.update_balance(initial_balance)
-            logger.info(f" : ${initial_balance:,.2f}")
-
-        def on_ticker_update(data) -> None:
-            """"""
+        def on_ticker_update(data: Dict[str, Any]) -> None:
             try:
                 if not self.is_monitoring:
                     return
+                self._update_paper_price_from_ticker(data, symbol)
+                if on_ticker is not None:
+                    on_ticker(data)
+            except Exception as exc:
+                logger.error("行情觀測 callback 失敗: %s", exc, exc_info=True)
 
-                signal: Optional[TradingSignal] = self._process_market_data(data, symbol)
+        logger.info("啟動唯讀行情觀測 | %s", symbol)
+        self.connector.subscribe_ticker_stream(
+            symbol.lower(), on_ticker_update, auto_reconnect=True
+        )
 
-                if signal:
-                    self._handle_trading_signal(signal)
-
-            except Exception as e:
-                logger.error(f": {e}", exc_info=True)
-
-        #  WebSocket
-        logger.info(f"   {symbol} ...")
-        self.connector.subscribe_ticker_stream(symbol.lower(), on_ticker_update, auto_reconnect=True)
+    def _update_paper_price_from_ticker(self, data: Dict[str, Any], symbol: str) -> None:
+        """同步 tick 價格至既有 VirtualAccount，讓既有 SL/TP 照常生效。"""
+        if not self.paper_trading or not hasattr(self.connector, "virtual_account"):
+            return
+        try:
+            current_price = float(data["c"])
+            high = float(data.get("h", current_price))
+            low = float(data.get("l", current_price))
+            self.connector.virtual_account.update_price(
+                symbol, current_price, high=high, low=low
+            )
+        except (KeyError, TypeError, ValueError) as exc:
+            logger.debug("VirtualAccount price update 失敗: %s", exc)
 
     def _process_market_data(self, data: Dict, symbol: str) -> Optional[TradingSignal]:
         """"""
         try:
             current_price = float(data['c'])
 
-            # Paper trading：每個 tick 同步更新 VirtualAccount 價格，確保 SL/TP 即時觸發
-            if self.paper_trading and hasattr(self.connector, "virtual_account"):
-                try:
-                    high = float(data.get('h', current_price))
-                    low = float(data.get('l', current_price))
-                    self.connector.virtual_account.update_price(
-                        symbol, current_price, high=high, low=low
-                    )
-                except Exception as _pu_err:
-                    logger.debug("VirtualAccount price update 失敗: %s", _pu_err)
+            # 舊監控入口保留相容性；紙上帳戶價格更新與唯讀觀測共用同一實作。
+            self._update_paper_price_from_ticker(data, symbol)
 
             klines = self._get_klines(symbol, interval="1m", limit=200)
             if not klines or len(klines) < 20:
@@ -949,41 +954,36 @@ class TradingEngine:
             if self.inference_engine is not None:
                 feats = getattr(self.inference_engine, "last_features_", None)
                 if feats is not None:
-                    raw_feats = feats.reshape(16, 64)
+                    raw_feats = np.asarray(feats, dtype=np.float32).reshape(16, 64)
                 raw_logits = getattr(final_signal, "raw_output", None)
 
-            if raw_feats is None:
-                raw_feats = np.zeros((16, 64), dtype=np.float32)
-            if raw_logits is None:
-                raw_logits = np.zeros(512, dtype=np.float32)
+            if raw_feats is None or raw_logits is None:
+                logger.warning("[ActionRecord] missing real inference snapshot; skip T0 | %s", symbol)
+                return
+            raw_logits = np.asarray(raw_logits, dtype=np.float32)
+            if raw_feats.shape != (16, 64) or raw_logits.shape != (65,):
+                logger.warning(
+                    "[ActionRecord] incompatible inference snapshot; skip T0 | %s features=%s raw=%s",
+                    symbol,
+                    raw_feats.shape,
+                    raw_logits.shape,
+                )
+                return
 
-            # 把 TradingSignal 欄位對應到 decoded 字典格式（相容 ActionRecord.fill_decision）
-            from schemas.enums import SignalType
-            direction = "NEUTRAL"
-            if hasattr(final_signal, "signal_type"):
-                st = final_signal.signal_type
-                if st == SignalType.BUY:
-                    direction = "LONG"
-                elif st == SignalType.SELL:
-                    direction = "SHORT"
-
-            import torch
+            # 依 unified-v2 的 65 維輸出頭解碼；不以固定機率或固定風控值補造資料。
+            sigmoid = lambda value: 1.0 / (1.0 + np.exp(-float(value)))
             decoded = {
-                "direction_probs": torch.tensor([
-                    1.0 if direction == "LONG" else 0.0,
-                    1.0 if direction == "NEUTRAL" else 0.0,
-                    1.0 if direction == "SHORT" else 0.0,
-                ]),
-                "confidence_probs": torch.tensor([0.1, 0.3, 0.6]),
-                "leverage_probs": torch.zeros(10),
-                "position_size": torch.tensor(float(getattr(final_signal, "suggested_position_size", 0.0) or 0.0)),
-                "stop_loss_pct": torch.tensor(0.02),
-                "take_profit_pct": torch.tensor(0.04),
-                "hold_period_probs": torch.zeros(10),
-                "multi_tf_align": torch.zeros(5),
-                "pattern_probs": torch.zeros(20),
-                "uncertainty": torch.tensor(1.0 - float(getattr(final_signal, "confidence", 0.5))),
-                "regime_probs": torch.zeros(10),
+                "direction_probs": self._softmax(raw_logits[0:3]),
+                "confidence_probs": self._softmax(raw_logits[3:6]),
+                "leverage_probs": self._softmax(raw_logits[6:16]),
+                "position_size": sigmoid(raw_logits[16]),
+                "stop_loss_pct": sigmoid(raw_logits[17]) * 0.10,
+                "take_profit_pct": sigmoid(raw_logits[18]) * 0.20,
+                "hold_period_probs": self._softmax(raw_logits[19:29]),
+                "multi_tf_align": np.tanh(raw_logits[29:34]),
+                "pattern_probs": 1.0 / (1.0 + np.exp(-raw_logits[34:54])),
+                "uncertainty": sigmoid(raw_logits[54]),
+                "regime_probs": self._softmax(raw_logits[55:65]),
             }
 
             market_snapshot = {
@@ -999,7 +999,7 @@ class TradingEngine:
             record.fill_decision(
                 symbol=symbol,
                 numeric_patches=raw_feats,
-                raw_signal=raw_logits[:65] if len(raw_logits) >= 65 else np.pad(raw_logits, (0, 65 - len(raw_logits))),
+                raw_signal=raw_logits,
                 decoded=decoded,
                 market_snapshot=market_snapshot,
             )
@@ -1873,8 +1873,15 @@ class TradingEngine:
         quantity: float,
         stop_loss: Optional[float] = None,
         take_profit: Optional[float] = None,
+        learning_context: Optional[Dict[str, Any]] = None,
+        client_order_id: Optional[str] = None,
     ) -> Optional[OrderResult]:
-        """執行已通過 planning/pretrade/adaptation 的訂單，作為統一執行入口。"""
+        """執行已通過 planning/pretrade/adaptation 的訂單，作為統一執行入口。
+
+        ``learning_context`` 僅接受當輪統一模型實際產生的輸入與輸出快照。
+        在訂單確認成交後，才會將它寫成 ActionRecord 的 T0/T1；缺少快照時
+        不會用預設值補造訓練資料。
+        """
         normalized_side = side.strip().upper()
         if normalized_side not in {"BUY", "SELL"}:
             raise ValueError(f"unsupported order side: {side}")
@@ -1887,10 +1894,108 @@ class TradingEngine:
             quantity=quantity,
             stop_loss=stop_loss,
             take_profit=take_profit,
+            client_order_id=client_order_id,
         )
         if result is not None and result.status == "ERROR":
             raise RuntimeError(f"prepared order failed: {result.error}")
+        if result is not None and str(result.status).upper() == "FILLED":
+            self._record_prepared_order_action(
+                symbol=symbol,
+                side=normalized_side,
+                quantity=quantity,
+                stop_loss=stop_loss,
+                take_profit=take_profit,
+                result=result,
+                learning_context=learning_context,
+            )
         return result
+
+    def _record_prepared_order_action(
+        self,
+        *,
+        symbol: str,
+        side: str,
+        quantity: float,
+        stop_loss: Optional[float],
+        take_profit: Optional[float],
+        result: OrderResult,
+        learning_context: Optional[Dict[str, Any]],
+    ) -> None:
+        """以已成交訂單與真實模型快照建立 ActionRecord 的 T0/T1。"""
+        if self.episodic_memory is None:
+            return
+        if symbol in self._pending_action_records:
+            logger.warning("[ActionRecord] pending record exists; skip prepared order | %s", symbol)
+            return
+        if not isinstance(learning_context, dict):
+            logger.warning("[ActionRecord] no verified AI snapshot; skip prepared order | %s", symbol)
+            return
+
+        try:
+            patches = np.asarray(learning_context.get("numeric_patches"), dtype=np.float32)
+            raw_signal = np.asarray(learning_context.get("raw_signal"), dtype=np.float32)
+        except (TypeError, ValueError):
+            logger.warning("[ActionRecord] invalid AI snapshot values; skip prepared order | %s", symbol)
+            return
+        if patches.shape != (16, 64) or raw_signal.shape != (65,):
+            logger.warning(
+                "[ActionRecord] incomplete AI snapshot; skip prepared order | %s patches=%s raw=%s",
+                symbol,
+                patches.shape,
+                raw_signal.shape,
+            )
+            return
+
+        try:
+            from bioneuronai.core.action_record import ActionRecord
+
+            signal = learning_context.get("signal")
+            signal = signal if isinstance(signal, dict) else {}
+            entry_price = float(getattr(result, "price", 0.0) or 0.0)
+            if entry_price <= 0:
+                entry_price = float(learning_context.get("price_at_decision", 0.0) or 0.0)
+            if entry_price <= 0:
+                logger.warning("[ActionRecord] filled order has no verifiable price; skip | %s", symbol)
+                return
+
+            record = ActionRecord(symbol=symbol)
+            record.numeric_patches = patches.tolist()
+            record.raw_signal = raw_signal.tolist()
+            record.direction = "LONG" if side == "BUY" else "SHORT"
+            record.confidence = float(signal.get("confidence", 0.0) or 0.0)
+            record.uncertainty = float(1.0 / (1.0 + np.exp(-float(raw_signal[54]))))
+            record.suggested_leverage = int(signal.get("suggested_leverage", 1) or 1)
+            record.suggested_position_size = float(
+                signal.get("suggested_position_size", 0.0) or 0.0
+            )
+            record.market_regime = str(signal.get("market_regime", "UNKNOWN") or "UNKNOWN")
+            record.price_at_decision = float(
+                learning_context.get("price_at_decision", entry_price) or entry_price
+            )
+            record.text_context = str(learning_context.get("text_context", "") or "")
+            record.multi_tf_align = np.tanh(raw_signal[29:34]).tolist()
+            record.detected_patterns = (1.0 / (1.0 + np.exp(-raw_signal[34:54]))).tolist()
+            record.regime_probs = self._softmax(raw_signal[55:65]).tolist()
+            record.embedding = raw_signal[55:65].tolist()
+            record.fill_entry(
+                order_id=str(result.order_id),
+                entry_price=entry_price,
+                leverage=record.suggested_leverage,
+                position_size=quantity * entry_price,
+                stop_loss=float(stop_loss or 0.0),
+                take_profit=float(take_profit or 0.0),
+            )
+            self._pending_action_records[symbol] = record
+            self._pending_strategy_names[symbol] = "autonomous_paper"
+            logger.info("[ActionRecord] prepared order T0/T1 recorded | %s order=%s", symbol, result.order_id)
+        except Exception as exc:  # pragma: no cover - audit trail must not block a filled order
+            logger.warning("[ActionRecord] prepared order record failed | %s: %s", symbol, exc)
+
+    @staticmethod
+    def _softmax(values: np.ndarray) -> np.ndarray:
+        shifted = values - np.max(values)
+        exp_values = np.exp(shifted)
+        return exp_values / np.sum(exp_values)
 
     def notify_trade_closed(
         self,
@@ -1956,7 +2061,10 @@ class TradingEngine:
 
                     # 觸發 LoRA 在線更新（如果 learner 已初始化）
                     if self.online_learner is not None:
-                        update_metrics = self.online_learner.record_outcome(experience)
+                        update_metrics = self.online_learner.record_outcome(
+                            experience,
+                            memory_already_recorded=True,
+                        )
                         if update_metrics:
                             logger.info(
                                 "[LoRA] 在線更新完成 | step=%d loss=%.5f",

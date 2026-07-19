@@ -1,11 +1,14 @@
 # BioNeuronAI 系統架構總覽
 
 **套件版本**：v2.1（`pyproject.toml`）  
-**更新日期**：2026-07-11  
+**更新日期**：2026-07-18  
 
-> 本文件描述程式碼**實際執行**的架構，而非空想設計。  
+> 本文件描述程式碼**實際執行**的架構與運作流程，而非空想設計。  
 > **優先級與驗證哲學**以 [`CURRENT_DIRECTION.md`](CURRENT_DIRECTION.md) 為準。  
-> **模組完成度**以 [`PROJECT_STATUS.md`](PROJECT_STATUS.md) 為準；本文件為架構導覽。
+> **模組完成度**以 [`PROJECT_STATUS.md`](PROJECT_STATUS.md) 為準。  
+> **工作順序**以 [`archive/WORK_ORDER.md`](archive/WORK_ORDER.md) 為準（五步＝**全專案**）。  
+> 接手依賴細節另見 [`PROJECT_HANDOVER_MAP.md`](PROJECT_HANDOVER_MAP.md)。  
+> 圖源：[`assets/architecture.mmd`](assets/architecture.mmd)、[`assets/tinyllm_inference_flow.mmd`](assets/tinyllm_inference_flow.mmd)。
 
 ---
 
@@ -13,20 +16,19 @@
 
 0. [與現行方向的對齊](#0-與現行方向的對齊)
 1. [整體架構圖](#1-整體架構圖)
-2. [雙執行主線](#2-雙執行主線)
-3. [主線 A：信號生成時序](#3-主線-a信號生成時序)
-4. [分層說明](#4-分層說明)
-   - [4.1 入口層](#41-入口層)
-   - [4.2 核心交易層](#42-核心交易層)
-   - [4.3 信號生成層](#43-信號生成層)
-   - [4.4 新聞層](#44-新聞層)
-   - [4.5 記憶與學習層](#45-記憶與學習層)
-   - [4.6 資料與風控層](#46-資料與風控層)
-5. [TinyLLM 模型架構](#5-tinyllm-模型架構)
-   - [v1（已封存）](#v1已封存)
-   - [v2（唯一現役架構）](#v2唯一現役架構)
-6. [待完成缺口](#6-待完成缺口)
-7. [部署模式](#7-部署模式)
+2. [全專案入口表面](#2-全專案入口表面)
+3. [雙執行主線](#3-雙執行主線)
+4. [運作流程圖](#4-運作流程圖)
+   - [F1 主線 A](#41-f1-主線-a交易-tick)
+   - [F2 主線 B](#42-f2-主線-b自主迴圈)
+   - [F3 回測／WF](#43-f3-回測與-walk-forward)
+   - [F4 新聞事件](#44-f4-新聞事件不規則多空)
+5. [分層與模組關係](#5-分層與模組關係)
+6. [TinyLLM 模型架構](#6-tinyllm-模型架構)
+7. [步驟 3 全案待調清單（分析登錄）](#7-步驟-3-全案待調清單分析登錄)
+8. [待完成缺口](#8-待完成缺口)
+9. [部署模式](#9-部署模式)
+10. [修訂紀錄](#10-修訂紀錄)
 
 ---
 
@@ -34,11 +36,14 @@
 
 | 架構意涵 | 現行方向 |
 |----------|----------|
-| 雙 CLI 入口 | 控制方式不同；**模型與 paper 執行層應共用** |
-| 預設「AI 自主」敘事 | 以 **`autonomous` 長跑** 為主路徑；`trade --paper-live` 為 tick／T0–T2 觀測 |
-| 交易即訓練 | 終局：平倉 → 記帳 → Hub／LoRA；工程未穩時可降級為只記錄 |
+| 雙 CLI 入口 | 控制方式不同；**模型與 paper 執行層共用** |
+| 預設「AI 自主」 | **`autonomous` 長跑** 為主路徑；`trade --paper-live` 為 tick／T0–T2 觀測 |
+| 新聞 | 事件**重要性**＋記憶；規則**不**輸出 LONG／SHORT |
+| 交易即訓練 | 終局：平倉 → 記帳 → Hub／LoRA；工程未穩可只記錄 |
 | 驗證 | 虛擬帳戶真實操作 + 歷史回測；**非** pytest 完成標準 |
+| Colab | **訓練算力支線**，不取代本地主線、不算步驟 5 完成 |
 | 商用多帳戶等 | 架構可擴，**本階段不實作、不阻塞** |
+| 產品操作入口 | 目前以 CLI + `frontend/devops-d` 分開；目標收斂成手動啟動器 + 單一產品面板 + 唯一 `AutonomousOperator` runtime，尚待實作 |
 
 ---
 
@@ -48,260 +53,389 @@
 flowchart TD
     USER[使用者 / 外部系統]
 
-    subgraph 入口層
-        CLI[CLI\nmain.py / cli/main.py]
-        API[FastAPI\napi/app.py :8000]
-        FE[前端\nfrontend/devops-d\nReact + Vite]
+    subgraph ENTRY[入口層]
+        MAIN[main.py]
+        CLI[cli/main.py]
+        API[api/app.py]
+        FE[frontend/*]
     end
 
-    subgraph 主線A[主線 A — TradingEngine]
-        TE[TradingEngine\ncore/trading_engine.py]
-        WS[WebSocket\nBinance ticker stream]
-        AR[ActionRecord\nT0/T1/T2]
+    subgraph LINE_A[主線 A — TradingEngine]
+        TE[core/trading_engine.py]
+        WS[Binance WebSocket ticker]
+        AR[ActionRecord T0/T1/T2]
     end
 
-    subgraph 主線B[主線 B — AutonomousOperator]
-        AO[AutonomousOperator\nplanning/autonomous_operator.py]
-        LEDGER[DecisionLedger\nJSONL]
+    subgraph LINE_B[主線 B — AutonomousOperator]
+        AO[planning/autonomous_operator.py]
+        PLAN[TradingPlanController]
+        PRE[PreTradeCheckSystem]
+        ADAPT[AdaptationController]
+        LEDGER[DecisionLedger JSONL]
     end
 
-    subgraph 信號生成層
-        SS[StrategySelector\n主信號來源]
-        SF[StrategyFusion\n含 direction_bias 框架]
-        IE[InferenceEngine\nunified_v2_100m]
-        ML[Meta-Learner\n17K 參數]
+    subgraph SIGNAL[信號 / 策略]
+        SS[StrategySelector]
+        SF[AIStrategyFusion 戰術候選]
+        IE[InferenceEngine shared]
     end
 
-    subgraph 新聞層
-        NA[NewsAdapter\nevent_score + direction_bias]
-        NE[EventContract\n衰減驗證]
-        PTC[PreTradeCheck\nRAG 下單前攔截]
+    subgraph NEWS[新聞 / RAG]
+        CNA[CryptoNewsAnalyzer]
+        EC[EventContract 重要性/衰減]
+        NA[NewsAdapter direction=NEUTRAL]
+        RAG[src/rag]
     end
 
-    subgraph 記憶與學習層
-        EM[EpisodicMemory\n熱緩衝 50k]
-        OL[OnlineLearner\nLoRA 微更新]
-        HUB[AdaptiveLearningHub\n策略權重 EWMA]
-        TM2[TinyLLM v2\n三模態 + MoE]
+    subgraph LEARN[記憶 / 學習]
+        EM[EpisodicMemory]
+        OL[OnlineLearner / LoRA]
+        HUB[AdaptiveLearningHub]
     end
 
-    subgraph 資料與風控層
-        BC[BinanceFuturesConnector]
-        PB[PaperBinanceFuturesConnector]
-        VA[VirtualAccount]
-        RM[RiskManager\nKelly + 回撤]
-        DB[DatabaseManager\nSQLite 9 張表]
+    subgraph DATA[資料 / 帳戶 / 風控]
+        BFC[BinanceFuturesConnector]
+        PAPER[Paper connector + VirtualAccount]
+        RM[risk_management]
+        CFG[config/active_model.json]
     end
 
-    USER --> CLI & API & FE
-    CLI & API --> TE & AO
+    subgraph BT[回測]
+        BTS[backtest/ service + walk_forward]
+    end
+
+    subgraph ARCH[封存 NEVER]
+        LEG[archived/legacy_v1_*]
+    end
+
+    USER --> MAIN --> CLI
+    USER --> API
     FE --> API
+    CLI --> TE & AO & BTS & CNA & PLAN & PRE
+    API --> TE & BTS & CNA
+
     WS --> TE
     TE --> SS & IE & AR
-    SS --> SF & ML
-    NA --> TE & SF
-    PTC --> TE & AO
+    SS --> SF
+    AO --> PLAN & PRE & ADAPT & LEDGER
+    AO -->|execute_prepared_order| TE
+    AO -->|get_shared_inference_engine| IE
+    TE --> IE
+    CNA --> EC & NA & RAG
+    NA -.->|NEUTRAL only| SF
     AR --> EM --> OL
     TE --> HUB
-    AO --> LEDGER --> HUB
-    TE --> BC & PB
-    AO --> TE
-    PB --> VA
-    TE --> RM & DB
+    TE --> BFC & PAPER & RM
+    PAPER --> AR
+    CFG --> IE
+    LEG -.->|不載入| IE
 ```
+
+靜態圖源：[`assets/architecture.mmd`](assets/architecture.mmd)（與上文同步維護）。
 
 ---
 
-## 2. 雙執行主線
+## 2. 全專案入口表面
+
+### 2.1 CLI（`python main.py <command>` → `cli/main.py`）
+
+| 命令 | 主要落到 | 角色 |
+|------|----------|------|
+| `status` | 健康檢查 | 煙霧測試 |
+| `trade` | `TradingEngine` | 主線 A |
+| `autonomous` | `AutonomousOperator` | 主線 B（預設自主） |
+| `plan` | `TradingPlanController` | 每日 SOP 計畫 |
+| `pretrade` | `PreTradeCheckSystem` | 進場前驗核 |
+| `news` | `CryptoNewsAnalyzer` | 新聞抓取／分析 |
+| `reflect` | reflection_loop | 記憶反思 |
+| `chat` | ChatEngine + shared IE | 對話（同模型） |
+| `backtest` | `backtest` + 引擎 | 歷史 replay |
+| `strategy-backtest` | 策略套件 + WF | 策略／walk-forward |
+| `readiness-gate` | readiness_gate | 上線門檻 |
+| `simulate` | Mock 推進 | 紙交易模擬 |
+| `backtest-data` / `backtest-runs` | catalog／runtime | 資料與 run 查詢 |
+| `collect-signal-data` | 訓練 JSONL 收集 | 訓練資料支線 |
+| `evolve` | StrategyArena | 過渡／競技場 |
+
+### 2.2 API（`api/app.py` + `api/routes/*`）
+
+| 路由模組 | 大致責任 |
+|----------|----------|
+| `trading.py` | 交易／引擎相關 |
+| `analysis.py` | 分析 |
+| `backtest.py` | 回測 API |
+| `chat.py` | 對話 |
+| `dashboard.py` | 儀表板 |
+| `system.py` | 系統／模型狀態 |
+| `training.py` | 訓練相關 |
+
+### 2.3 前端
+
+| 目錄 | 角色 |
+|------|------|
+| `frontend/devops-d` | 現行 Operations Dashboard（唯一目前主線） |
+| `frontend/trading` | 現存交易 UI；僅供挑選可驗證元件，預定封存 |
+| `frontend/admin-da` | 現存管理 UI；含舊／未對齊控制，預定封存 |
+| `frontend/design-system` | 設計預覽 |
+
+前端經 HTTP 打 API，**不**直接 import 核心 Python 套件。
+
+> `frontend/app` 是已確認的單一產品面板目標，不是本圖已存在的目錄；本圖維持 as-is，完成實作與驗收後才替換前端結構。
+
+### 2.4 設定與封存
+
+| 路徑 | 角色 |
+|------|------|
+| `config/active_model.json` | 唯一現役模型宣告（`unified_v2_100m`，`trained: false` 直至有權重） |
+| `config/event_rules.json`、`trading_costs.py` 等 | 事件／成本 SSOT |
+| `archived/legacy_v1_*` | **NEVER** 進現役 loader |
+| `tools/colab/`、`notebooks/*Colab*` | 訓練／遠端算力支線 |
+
+---
+
+## 3. 雙執行主線
 
 | 維度 | 主線 A：TradingEngine | 主線 B：AutonomousOperator |
 |------|----------------------|---------------------------|
-| CLI | `python main.py trade [--paper-live]` | `python main.py autonomous [--execute-paper]` |
-| 角色定位 | 即時 tick 監控與 T0–T2 觀測 | **預設 AI 自主長跑**（規劃閉環） |
-| 驅動方式 | WebSocket 即時 tick | 定時規劃迴圈（`run_forever`，`--cycles N`） |
-| 決策來源 | StrategySelector + shared InferenceEngine | Plan → shared InferenceEngine → Pretrade → AdaptationController |
-| 下單觸發 | `auto_trade=True` / `--paper-live` | `--mode paper_auto` + `--execute-paper` 且 adaptation 允許 |
-| Paper 執行 | 引擎內 | **委派** `TradingEngine.execute_prepared_order()` |
-| 模型 | `unified_v2_100m` shared | **同一** shared instance |
-| ActionRecord T0/T1/T2 | ✅ 引擎主路徑 | 平倉經 shared callback 進入引擎鏈；B 以 ledger 為主審計 |
-| EpisodicMemory / LoRA | ✅（平倉回調） | ✅（`_on_shared_paper_close` → `_on_paper_close`） |
-| Decision Ledger | ❌ | ✅ |
-| AdaptiveLearningHub | ✅ | ✅ |
-| 完整學習閉環 | ✅ | ✅（ledger + 共用執行與平倉回調） |
+| CLI | `trade [--paper-live]` | `autonomous [--execute-paper]` |
+| 定位 | 即時 tick、T0–T2 觀測 | **預設 AI 自主長跑** |
+| 驅動 | WebSocket → `start_monitoring` → `_process_market_data` | `run_once` / `run_forever` 定時規劃 |
+| 決策 | StrategySelector 候選 + shared IE 最終 | Plan → shared IE → Pretrade → Adaptation |
+| 下單 | `auto_trade` / `--paper-live` → `execute_trade` | `paper_auto` + `--execute-paper` → `execute_prepared_order` |
+| Paper 執行 | 引擎 connector | **委派同一** `TradingEngine` |
+| 模型 | `get_shared_inference_engine()` | **同一** shared instance |
+| ActionRecord | 引擎主路徑 T0/T1/T2 | 平倉經 `_on_shared_paper_close` → 引擎 + ledger |
+| Decision Ledger | 無 | 有（JSONL） |
+| 學習鏈 | 平倉 → EM → LoRA → Hub | 同上（shared close）+ ledger outcome |
 
-**主線 B 執行層（2026-06-15 起，並與 2026-07-11 方向一致）**：
-
-- `_execute_paper_order()` 優先採 pretrade `order_parameters.quantity`（× `risk_multiplier`）；無效時 fallback `paper_notional_fraction`
-- 下單前檢查既有持倉；重複進場回傳 `skipped=existing_position`
-- Paper connector 取自 TradingEngine；平倉 callback 同時回寫引擎學習鏈與 autonomous ledger
-- 平倉回填 `confidence_calibrator.record_outcome_by_index()`；可選 `--reflect-every` 觸發 reflection_loop
-- **不得**再描述為「B 線永遠獨立帳戶、永遠無 LoRA」
+**不得**再寫成：B 線永遠獨立 paper 連接器、永遠無 LoRA、新聞規則決定多空。
 
 ---
 
-## 3. 主線 A：信號生成時序
+## 4. 運作流程圖
 
+### 4.1 F1 主線 A（交易 tick）
+
+```text
+python main.py trade [--paper-live] --symbol BTCUSDT
+  → TradingEngine(...)
+  → load_ai_model(unified_v2_100m)   # trained 可能 false
+  → start_monitoring(symbol)
+       → WebSocket ticker
+       → _process_market_data
+            ├─ [paper] VirtualAccount.update_price → SL/TP 觸發
+            ├─ klines 拉取
+            └─ generate_trading_signal
+                 ├─ StrategySelector / Fusion → 戰術候選（event_score 固定 0）
+                 ├─ InferenceEngine.predict → AI 最終 LONG/SHORT/HOLD
+                 └─ _fuse_signals → 正式 TradingSignal
+       → auto_trade? execute_trade → [T1] 進場
+  → 平倉（SL/TP/…）
+       → VirtualAccount callback
+       → notify_trade_closed / _on_paper_close
+            → [T2] ActionRecord → EpisodicMemory → OnlineLearner → Hub
 ```
-1. WebSocket 收到 ticker data
-2. _process_market_data(data, symbol)
-   a. VirtualAccount.update_price(symbol, close, high, low)
-      → _check_trigger_orders()             ← 每 tick 即時觸發 SL/TP
-   b. NewsEventContractManager.get_memory_snapshot(symbol) → 濃縮事件記憶
-3. generate_trading_signal(...)
-   a. [T0] _record_decision()               → ActionRecord
-   b. _generate_strategy_signal()
-      → StrategySelector.get_actionable_signal(event_score=event_score)
-         → AIStrategyFusion.generate_fusion_signal() → 戰術候選
-   c. InferenceEngine.predict()
-      → unified_v2_100m（16×64 市場數值 + 濃縮新聞記憶 + 策略摘要 → 65 維決策）
-   d. _fuse_signals()                       → 只轉換 AI 最終 LONG / SHORT / HOLD
-4. _handle_trading_signal(signal)
-   → auto_trade=False (預設) → 記錄 log，不下單
-   → auto_trade=True → execute_trade() → [T1] ActionRecord.fill_entry()
-5. [T2] 平倉（SL_HIT / TP_HIT / LIQUIDATION / MANUAL）
-   → VirtualAccount 回調 → notify_trade_closed()
-      → ActionRecord.fill_exit() → EpisodicMemory → OnlineLearner → LoRA
-      → AdaptiveLearningHub → 重注入 StrategySelector 權重
+
+### 4.2 F2 主線 B（自主迴圈）
+
+```text
+python main.py autonomous --mode paper_auto --execute-paper --cycles N
+  → AutonomousOperator(config)
+  → run_once / run_forever
+       1. TradingPlanController.create_comprehensive_plan
+       2. _run_unified_ai (shared InferenceEngine)
+       3. PreTradeCheckSystem（技術／基本面／風險）
+       4. AdaptationController → can_execute / risk_multiplier / action
+       5. [若 PAPER_TRADE + execute_paper]
+            → _execute_paper_order
+                 ├─ 已有持倉 → skipped=existing_position
+                 └─ TradingEngine.execute_prepared_order(...)
+       6. DecisionLedger 寫入
+       7. 等待 adaptation.next_interval_minutes → 下一輪
+  → 平倉
+       → _on_shared_paper_close
+            ├─ TradingEngine._on_paper_close（T2／記憶／LoRA／Hub）
+            └─ autonomous ledger / calibrator outcome
+```
+
+### 4.3 F3 回測與 Walk-Forward
+
+```text
+歷史 zip（backtest/data/...）
+  → python main.py backtest | strategy-backtest | readiness-gate
+  → backtest/service + data_stream + MockConnector
+  → 可評估 TradingEngine / 策略套件
+  → walk_forward：rolling 多窗 或 single（readiness 用 single）
+  → runtime 產物：backtest/runtime/<run_id>/
+```
+
+回測**不**取代日常 paper 自主；與主線共用策略／引擎概念，資料路徑獨立。
+
+### 4.4 F4 新聞事件（不規則多空）
+
+```text
+CoinDesk RSS + Google News RSS（fail-fast）
+  → CryptoNewsAnalyzer
+  → EventContract（重要性、有效期、衰減）
+  → NewsAdapter.get_direction_bias → direction 固定 NEUTRAL
+  → 濃縮 memory_snapshot → InferenceEngine / pretrade（重要性）
+  → 最終 LONG/SHORT 只由 AI（或執行閘門）決定，不用關鍵字規則判多空
 ```
 
 ---
 
-## 4. 分層說明
+## 5. 分層與模組關係
 
-### 4.1 入口層
+### 5.1 套件地圖（全專案）
 
-| 模組 | 路徑 | 說明 |
-|---|---|---|
-| CLI | `src/bioneuronai/cli/main.py` | 統一命令列：`trade` / `autonomous` / `pretrade` / `backtest` 等 |
-| FastAPI | `src/bioneuronai/api/app.py` | HTTP API，localhost:8000 |
-| 前端 | `frontend/devops-d/` | Operations Dashboard，React 19 + Vite 7 |
+| 區塊 | 路徑 | 職責一句話 | 主要上游 | 主要下游 | 現役 |
+|------|------|------------|----------|----------|:----:|
+| 入口 | `main.py` | 統一轉 CLI | 使用者 | `cli/main.py` | ✅ |
+| CLI | `cli/main.py` | 全命令表面 | main | TE/AO/backtest/… | ✅ |
+| API | `api/` | HTTP 表面 | FE／外部 | 同核心模組 | ✅ |
+| 核心交易 | `core/trading_engine.py` | 主線 A＋統一 paper 執行 | CLI/API/AO | connector/IE/AR | ✅ |
+| 推論 | `core/inference_engine.py` | 唯一模型 holder（shared） | TE/AO/chat | unified_v2 | ✅ |
+| 記帳 T0–T2 | `core/action_record.py` | 決策／進出場快照 | TE | EM/OL | ✅ |
+| 在線學習 | `core/online_learner.py` | LoRA 微更新 | TE close | model | ✅ |
+| Hub | `core/adaptive_hub.py` | 策略權重 EWMA | TE/AO | selector | ✅ |
+| 自主 | `planning/autonomous_operator.py` | 主線 B 編排 | CLI | plan/pre/adapt/TE | ✅ |
+| 計畫 | `planning/plan_controller.py` | 10 步 SOP | AO/CLI plan | 市場／策略 | ✅ |
+| 進場前 | `planning/pretrade_automation.py` | 技術／基本面／風險 | AO/CLI | quantity 等 | ✅ |
+| 適應 | `planning/adaptation_controller.py` | 可否執行／風險乘數 | AO | paper 決策 | ✅ |
+| Ledger | `planning/decision_ledger.py` | B 線審計 JSONL | AO | 磁碟 | ✅ |
+| 策略選擇 | `strategies/selector/` | 主信號來源 | TE | fusion/子策略 | ✅ |
+| 融合 | `strategies/strategy_fusion.py` | 戰術候選；bias=NEUTRAL | selector | TE | ✅ |
+| 子策略 | `strategies/*_trading.py` 等 | 單一風格 setup | fusion | — | ✅ |
+| 新聞 | `analysis/news/` | 抓取／合約／評估 | CLI/AO | adapter/RAG | ✅ |
+| RAG | `src/rag/` | 檢索／入庫 | news | pretrade/KB | ✅ |
+| Schemas | `src/schemas/` | Pydantic SSOT | 全系統 | — | ✅ |
+| 交易所 | `data/binance_futures.py` 等 | REST/WS | TE | 市場 | ✅ |
+| 虛擬帳戶 | `trading/virtual_account.py` | paper 持倉／SLTP | paper connector | close cb | ✅ |
+| 風控 | `risk_management/` | 倉位／校準等 | TE/pretrade | — | ✅ |
+| 記憶 | `memory/episodic_memory.py` | 熱／冷情節 | TE | OL | ✅ |
+| 回測 | `backtest/` | 正式 replay | CLI/API | runtime | ✅ |
+| 訓練 | `training/`、collect-signal | 離線／資料 | CLI | 模型檔 | ⚠️ 支線 |
+| 前端 | `frontend/*` | UI | 使用者 | API | ✅ |
+| Colab 工具 | `tools/colab/` | 遠端 3.13+GPU | 人 | 訓練 | ⚠️ 支線 |
+| v1 封存 | `archived/legacy_v1_*` | 舊模型 | — | **禁止 loader** | 📦 |
 
-### 4.2 核心交易層
+### 5.2 核心交易層要點
 
-`core/trading_engine.py` 是主線 A 的核心。
+- `auto_trade=False` 預設只監控。  
+- `--paper-live` 會開 auto_trade + paper connector。  
+- `execute_prepared_order`：B 線／規劃通過後的**統一下單入口**。  
+- `notify_trade_closed` / `_on_paper_close`：T2 + 記憶 + LoRA + Hub。
 
-關鍵初始化參數：
-- `auto_trade=False`：預設只監控，不執行
-- `enable_ai_model=True`：AI 推論引擎初始化（模型需另外 `load_ai_model()`）
-- `paper_trading=False`：預設用真實連接器（testnet/mainnet）
+### 5.3 信號生成層要點
 
-關鍵方法：
-- `start_monitoring(symbol)`：啟動 WebSocket 監控
-- `notify_trade_closed(...)`：平倉後觸發 T2 + LoRA + hub 更新
+- StrategySelector：多子策略 + Meta-Learner 權重。  
+- Fusion：只產戰術候選；`get_direction_bias` **強制 NEUTRAL**；不再用 signed event_score 做多空 ROE。  
+- InferenceEngine：16×64 + 新聞記憶 + 策略摘要 → 65 維；`trained=false` 時須誠實標示。
 
-`planning/autonomous_operator.py` 是主線 B 的編排器；規劃方式獨立，但 AI 推論與 paper 訂單執行都共用 TradingEngine 的現役實例與入口。
+### 5.4 新聞層要點
 
-### 4.3 信號生成層
-
-**StrategySelector**（`strategies/selector/`）是主信號來源：
-- 5 種子策略 + Meta-Learner（17K 參數）動態權重
-- 透過 `AIStrategyFusion.generate_fusion_signal()` 產出融合信號
-
-**InferenceEngine**（`core/inference_engine.py`）是全專案唯一 AI 模型持有者：
-- `unified_v2_100m`：16×64 市場 patch、新聞事件記憶與策略摘要進入同一 Transformer
-- 平常自主迴圈只產生 65 維結構化決策；中英文人類報告僅在使用者要求時生成
-- 無訓練 checkpoint 時建立固定 seed 的未訓練基線，明確標記 `trained=false`
-
-### 4.4 新聞層
-
-新聞目前只負責提供戰略事件事實；它不以關鍵字規則直接決定交易方向：
-
-| 角色 | 位置 | 狀態 |
+| 角色 | 位置 | 契約 |
 |------|------|------|
-| 事件重要性與有效期 | `RuleBasedEvaluator` / `NewsEventContract` | ✅ 規則只保存重要性、下限、有效期與衰減 |
-| 既有方向相容輸出 | `NewsAdapter.get_direction_bias()` | ✅ 固定回傳 `NEUTRAL`，不可由規則決定 LONG／SHORT |
-| 正式來源與抓取失敗契約 | `NewsDataFetcher` | ✅ CoinDesk RSS + Google News RSS；任一失敗即明確錯誤 |
-| 原始新聞更新排程 | `AutonomousOperator` | ✅ 啟動時一次；長跑時對齊本地時間每小時 `HH:05` |
-| 平常 AI 新聞輸入 | `NewsEventContractManager.get_memory_snapshot()` | ✅ 只含事件類型、衰減後重要性、剩餘時間與經濟日曆，不含原文 |
-
-設計分工固定如下：新聞模組以一般程式負責來源、抓取、去重、歸檔、事件記憶、衰減與到期；策略模組獨立形成戰術候選及保存／切換策略；統一 AI 只讀兩者輸出與市場數值，做最終方向、倉位、槓桿、止損止盈及有效期判斷。交易執行器只執行最終決策，不反向修改新聞或策略判斷。
-
-### 4.5 記憶與學習層
-
-| 模組 | 狀態 | 說明 |
-|---|---|---|
-| TinyLLM v2 | ✅ 唯一現役模型 | 交易、聊天、自主規劃共用同一模型實例 |
-| ActionRecord | ✅ 主線 A | T0/T1/T2 全接通 |
-| EpisodicMemory | ✅ 主線 A | 熱緩衝 50k + 極端事件冷庫 |
-| OnlineLearner | ✅ 主線 A | LoRA 微更新，每 100 筆觸發 |
-| AdaptiveLearningHub | ✅ A + B | 策略×幣對 EWMA → 動態權重，JSON 持久化 |
-| GoalTracker | 🧩 監測版 | 寫入 ledger；風險自動回饋未實作 |
-| AutonomousOperator | ✅ 主線 B | `run_forever` + outcome 回寫 ledger |
-| 歷史 RL 訓練 | ✅ 離線 | `training/rl_trainer.py`（2026-06-12） |
-
-### 4.6 資料與風控層
-
-| 模組 | 說明 |
-|---|---|
-| BinanceFuturesConnector | REST + WebSocket，testnet / mainnet |
-| PaperBinanceFuturesConnector | 真實行情 + 本地虛擬成交 |
-| VirtualAccount | 持倉、SL/TP 觸發、平倉回調 |
-| RiskManager | Kelly 倉位、最大回撤 10% |
-| DatabaseManager | SQLite，9 張表 |
+| 來源 | CoinDesk + Google News RSS | 任一失敗 → 錯誤，不假中性成功 |
+| 重要性／衰減 | EventContract | 不映射 LONG/SHORT |
+| 相容 bias | NewsAdapter | `direction=NEUTRAL` |
+| 平常 AI 輸入 | memory_snapshot | 類型／重要性／剩餘時間，非全文規則多空 |
 
 ---
 
-## 5. TinyLLM 模型架構
+## 6. TinyLLM 模型架構
 
 ### v1（已封存）
 
 ```
-輸入: 1024 維扁平向量（10 類市場特徵）
-  ↓ 12 層 Transformer
-  ↓ Signal Head: Linear(768 → 512)
-
-輸出: 512 維
-  [0:23]   有效信號
-  [23:512] 潛在嵌入空間（479 維，無監督目標）
+1024 扁平 → Transformer → 512 維（大量空置）
+位置：archived/legacy_v1_20260711/  — loader 拒絕
 ```
 
-### v2（唯一現役架構）
+### v2（唯一現役）
 
 ```
-輸入: 16×64 patch + 文字 token（可選）+ 圖像 token（可選）
-架構: 8 層、768 維、12 heads、MoE（2 專家，top-1，每 4 層）+ LoRA
-輸出: 65 維全監督
-總參數: 98,403,413（16k vocabulary）
-目前狀態: 端到端可運行，但尚無完成驗證的訓練 checkpoint
+16×64 patch + 文字（可選）+ 圖像（可選）
+→ 8 層 / 768d / MoE + LoRA
+→ 65 維全監督
+≈ 98.4M 參數；active_model：trained false 直至 unified_v2_100m.pth
+TradingEngine / AutonomousOperator / Chat 共用 get_shared_inference_engine()
 ```
+
+推論細節圖：[`assets/tinyllm_inference_flow.mmd`](assets/tinyllm_inference_flow.mmd)。
 
 ---
 
-## 6. 待完成缺口
+## 7. 步驟 3 全案待調清單（分析登錄）
 
-> 優先級以「預設流程跑通」為先，見 [`CURRENT_DIRECTION.md`](CURRENT_DIRECTION.md)。
+> 本階段以**畫對架構／流程**為主；下列供步驟 3 全案調整使用。  
+> 遵守 `CODE_FIX_GUIDE.md`：改現有檔、維持架構。
 
-| 缺口 | 狀態 | 與本階段關係 | 修正方向 |
-|---|---|---|---|
-| 預設自主長跑與對帳驗收 | 🧩 P0 | **本階段主戰場** | 真實 paper／ledger／重啟；非 pytest |
-| 新聞時序聚合長跑驗證 | 🧩 P1 | 流程通後增強 | 驗證同類事件更新、重要性衰減／延長與到期結果 |
-| TinyLLM v2 真實資料訓練 | 🧩 | 階段 3；不阻擋工程自主 | 標籤 → 訓練 → promotion → `unified_v2_100m.pth` |
-| GoalTracker 自動回饋 | 🧩 P4 | 非阻塞 | `recommended_risk_scale` → AdaptationController |
-| 主線 B 長時間穩定性 | 🧩 | **本階段** | 真實行情驗證共用執行與平倉回寫 |
-| AI 最終決策長跑穩定性 | 🧩 | **本階段** | 策略只供候選，執行只採 AI 有效決策 |
-| 多帳戶／API 認證等 | 延後 | **非本階段** | 預設流程通後再加 |
+| ID | 區塊 | 觀察 | 建議（步驟 3） |
+|----|------|------|----------------|
+| S3-DOC-1 | `main.py` 頂部 docstring | 命令列表缺 autonomous／reflect／WF 等 | 與 `cli/main.py` 對齊 |
+| S3-DOC-2 | `PROJECT_HANDOVER_MAP` CLI 圖 | 曾缺 autonomous 等（本輪已補） | 保持與 CLI 同步 |
+| S3-DOC-3 | 舊 assets 圖語意 | 曾誤導（本輪已重寫 mmd） | 審圖後凍結 |
+| S3-A | 新聞／RAG | domain 權重表仍可能含舊站名等 | 掃現役註解／README |
+| S3-B | 策略／引擎 | 主路徑已 unified | 文件與 log 用詞一致 |
+| S3-C | autonomous | quantity／持倉／ledger 已接；長跑對帳屬步驟 5 | 勿提早宣稱完成 |
+| S3-D | backtest | WF 已接；資料覆蓋限制見 backtest docs | 步驟 5／手冊 |
+| S3-E | config | event_rules 勿被 Colab export 蓋成重要性全 0 | 保護本地 SSOT |
+| S3-F | CLI/API 表面 | 命令多；整套 manuals 未對齊 | 步驟 4 |
+| S3-G | frontend | 多 app；與 API 契約需對表 | 步驟 3 批次 G |
+| S3-H | Colab/tools | 僅訓練支線 | 文件勿寫成日常主入口 |
+
+**已在步驟 3 切片做過（仍≠全案完成）**：fusion 取消 signed ROE、KB `event_score=0`、plan 改 importance、schema 範例、rag 說明來源敘述。
 
 ---
 
-## 7. 部署模式
+## 8. 待完成缺口
+
+| 缺口 | 與本階段關係 |
+|------|----------------|
+| 預設自主長跑與對帳驗收 | 步驟 5（圖正確後） |
+| 全案步驟 3 接線／殘留 | 依第 7 節清單 |
+| 整套 manuals | 步驟 4 |
+| v2 真實訓練權重 | 訓練階段；Colab 可輔助；不擋工程自主圖 |
+| GoalTracker 自動回饋 | 非阻塞 |
+| 多帳戶／API 認證 | 延後 |
+
+---
+
+## 9. 部署模式
 
 ```bash
-# 主線 A：監控（不下單）
+# 主線 A：監控
 python main.py trade --symbol BTCUSDT
 
-# 主線 A：Paper trading（完整學習閉環）
+# 主線 A：Paper（tick + 學習鏈）
 python main.py trade --paper-live --paper-balance 10000
 
-# 主線 B：自主規劃（建議模式）
+# 主線 B：自主（建議）
 python main.py autonomous --mode advisor --symbol BTCUSDT
+python main.py autonomous --mode paper_auto --execute-paper --cycles 10
 
-# 主線 B：自主 paper 執行
-python main.py autonomous --mode paper_auto --execute-paper --symbol BTCUSDT
+# 回測 / WF
+python main.py strategy-backtest --walk-forward ...
+python main.py readiness-gate ...
 
-# API 服務
+# API
 uvicorn bioneuronai.api.app:app --host 0.0.0.0 --port 8000
+
+# 健康
+python main.py status
 ```
 
 ---
 
-*最後更新：2026-06-15*
+## 10. 修訂紀錄
+
+| 日期 | 說明 |
+|------|------|
+| 2026-06-15 | 雙主線與學習閉環敘述 |
+| 2026-07-11 | unified v2、方向文件對齊 |
+| 2026-07-18 | **全專案**架構圖＋F1–F4 流程；CLI 全表面；模組關係表；步驟 3 待調清單；新聞 NEUTRAL／共用執行層；與 WORK_ORDER「先圖後調」一致 |
+
+---
+
+*架構真相來源：本地 repo 現行程式與 CLI，而非 Export／Colab 快照。*

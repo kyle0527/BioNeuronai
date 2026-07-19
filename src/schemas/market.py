@@ -84,3 +84,57 @@ class MarketData(BaseModel):
             ]
         }
     }
+
+
+class MarketDataHealth(BaseModel):
+    """可供決策守門層使用的市場資料完整性與新鮮度紀錄。"""
+
+    source: str = Field(..., description="資料來源，例如 historical 或 binance_rest")
+    symbol: str = Field(..., description="交易對符號")
+    interval: str = Field(..., description="K 線週期")
+    received_at: datetime = Field(
+        default_factory=datetime.now,
+        description="本程序收到並檢查資料的時間",
+    )
+    latest_open_time: Optional[datetime] = Field(
+        default=None,
+        description="最新已採用 K 線的開盤時間",
+    )
+    latest_close_time: Optional[datetime] = Field(
+        default=None,
+        description="最新已採用 K 線的收盤時間",
+    )
+    age_seconds: Optional[float] = Field(
+        default=None,
+        ge=0,
+        description="收到資料時距離最新已收 K 線收盤的秒數",
+    )
+    is_complete: bool = Field(..., description="最新採用的 K 線是否已收盤")
+    is_fresh: bool = Field(..., description="資料是否在允許的新鮮度範圍內")
+    reason: Optional[str] = Field(default=None, description="資料不適用時的原因")
+
+    @field_validator("symbol")
+    @classmethod
+    def validate_health_symbol(cls, value: str) -> str:
+        """統一交易對格式以便 ledger 與資料來源比對。"""
+        normalized = value.upper().strip()
+        if not normalized or not normalized.isalnum():
+            raise ValueError("交易對必須是非空英數字字串")
+        return normalized
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "source": "binance_rest",
+                    "symbol": "BTCUSDT",
+                    "interval": "1h",
+                    "latest_open_time": "2026-07-19T09:00:00",
+                    "latest_close_time": "2026-07-19T09:59:59.999000",
+                    "age_seconds": 11.2,
+                    "is_complete": True,
+                    "is_fresh": True,
+                }
+            ]
+        }
+    }

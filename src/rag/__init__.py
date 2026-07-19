@@ -29,8 +29,8 @@ BioNeuronai RAG 模塊 (Retrieval-Augmented Generation)
 
     整合使用:
     - analysis.market_keywords → 505 個市場關鍵字（7 大類）
-    - analysis.news_analyzer → CryptoPanic + RSS 新聞
-    - services.news_adapter → ingest_news_analysis（B.3 唯一寫入入口）
+    - analysis.news_analyzer → CoinDesk（幣圈）+ Google News RSS（宏觀）；fail-fast 雙來源
+    - services.news_adapter → ingest_news_analysis（B.3 唯一寫入入口）；規則不輸出多空
 """
 
 import logging

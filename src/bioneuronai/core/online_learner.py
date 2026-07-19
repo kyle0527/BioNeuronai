@@ -77,11 +77,23 @@ class OnlineLearner:
             device,
         )
 
-    def record_outcome(self, experience: ExperienceRecord) -> Optional[Dict[str, float]]:
-        """交易出場後呼叫，累計達到閾值則觸發更新。"""
+    def record_outcome(
+        self,
+        experience: ExperienceRecord,
+        *,
+        memory_already_recorded: bool = False,
+    ) -> Optional[Dict[str, float]]:
+        """交易出場後呼叫，累計達到閾值則觸發更新。
+
+        ``TradingEngine`` 會先把完整的 T2 記錄寫入 ``EpisodicMemory``，再
+        呼叫此方法以判斷是否該更新 LoRA。該路徑必須傳入
+        ``memory_already_recorded=True``，避免同一筆真實成交結果被推入記憶
+        兩次；直接使用 learner 的呼叫端則保留原本的自動寫入行為。
+        """
         if experience.outcome == "PENDING":
             return None
-        self.memory.push(experience)
+        if not memory_already_recorded:
+            self.memory.push(experience)
         self._pending_count += 1
         if self._pending_count >= self.update_every_n:
             self._pending_count = 0

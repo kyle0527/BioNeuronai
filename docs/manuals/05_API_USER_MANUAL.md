@@ -68,7 +68,7 @@
 
 BioNeuronai API 是以 **FastAPI + uvicorn** 建立的 REST 服務，將目前 UI 與外部自動化需要的主要功能封裝為 HTTP 端點，供：
 
-- **Operations Dashboard 前端** (`frontend/devops-d/`) 呼叫
+- **目前 Operations Dashboard 前端** (`frontend/devops-d/`) 呼叫
 - **外部程式** 或自動化腳本整合
 - **Swagger UI** 互動測試（`/docs`）
 
@@ -83,6 +83,8 @@ API 伺服器本身不含業務邏輯，它只是把呼叫轉發給對應的模�
 | Replay 回測 | `backtest` / `simulate` 等 | ✅ `/api/v1/backtest/*` |
 
 `plan` 亦僅 CLI（`python main.py plan`），API 未暴露 `/api/v1/plan`。雙主線詳見 [04_CLI_OPERATION.md](04_CLI_OPERATION.md) §2。
+
+> **已決定、尚未實作**：未來單一產品面板會使用 `/api/v1/runtime/start`、`/api/v1/runtime/stop`、`/api/v1/runtime/status` 管理唯一 `AutonomousOperator` paper runtime。這些端點在完成前不存在；現有 `/api/v1/trade/*` 只代表 observer 相容控制，不能冒充 autonomous 啟停。
 
 ---
 

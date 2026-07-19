@@ -42,6 +42,8 @@
 
 BioNeuronai Operations Dashboard 是一個 **React 19 + Vite 7** 前端應用。Docker 模式由 nginx 服務於 `port 3000`；本地開發模式由 Vite 提供，port 會依可用性落在 `5173-5180`。它提供：
 
+> **文件狀態（2026-07-20）**：本文件以下內容描述現行 `frontend/devops-d`。已決定將 `devops-d`、`trading`、`admin-da` 收斂為單一產品面板 `frontend/app`，但尚未實作或封存。完成前，本文件不得被解讀為「UI 已能啟動完整 autonomous runtime」。
+
 - **Operations Overview**：API 健康、runtime mode、執行目標、模型狀態、paper-live 帳戶
 - **Live Market Chart**：Binance Futures public K 線圖，顯示當下正在更新的 candle
 - **新聞情緒分析** 視覺化
@@ -67,6 +69,8 @@ BioNeuronai Operations Dashboard 是一個 **React 19 + Vite 7** 前端應用。
 | `plan` | ❌ | 僅 CLI |
 
 若目標是「從打開 UI 到完成一輪操作並關機」，請先看 [20_UI_END_TO_END_OPERATION.md](20_UI_END_TO_END_OPERATION.md)。本文件為各面板功能參考。
+
+目標版只保留：自主運作、AI 決策、paper 帳戶、市場／驗證與 AI 對話；直接送單／平倉、訓練、模型 promotion、API playground 與多模式交易控制會移出日常面板。
 
 ---
 

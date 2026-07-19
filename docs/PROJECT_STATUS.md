@@ -11,13 +11,14 @@
 
 | 步驟 | 內容 | 狀態 |
 |:----:|------|:----:|
-| **1** | 全部檢查完 | 🔄 **已重置重做** → 見 `archive/STEP1_RECHECK.md` |
-| **2** | 該移的移回來 | 🔄 **證明中** → 見 `archive/MOVE_BACK_CHECKLIST.md`（禁止空口完成） |
-| **3** | 調整完 | ⏸ **禁止**（1–2 未穩前不做） |
-| **4** | 修使用者手冊 | ⏸ |
-| **5** | 才依照手冊真實操作 | ⏸ |
+| **1** | 全部檢查完（**全專案**） | ✅ → `archive/STEP1_RECHECK.md` |
+| **2** | 該移的移回來（**全專案 HOME**） | ✅ → `archive/MOVE_BACK_CHECKLIST.md` |
+| **3** | 調整完（**全專案**接線／契約／殘留） | 🔄 **進行中・尚未全案完成**（僅完成部分切片）→ `archive/WORK_ORDER.md` |
+| **4** | 修使用者手冊（**整套** manuals） | ⏸ |
+| **5** | 才依照手冊真實操作（**全入口**） | ⏸ |
 
-> 順序權威：`archive/WORK_ORDER.md`。先前完成宣告已撤回。
+> 順序權威：`archive/WORK_ORDER.md`。  
+> **五步＝整個專案**，不是單一功能或單份文件。步驟 3 須遵守 `CODE_FIX_GUIDE.md`（改現有檔、維持架構）。
 
 **標記慣例（誠實原則）**：
 - ✅ 完成：有實作 + 實際運行驗證，或可由正式入口直接驗證
@@ -77,7 +78,17 @@
 | 即時 tick 觀測 | `python main.py trade --paper-live` | WebSocket；完整 T0–T2 觀測 |
 | 長期大區間 | 下載歷史 → `backtest`／`readiness-gate` | 與日常 paper **互補** |
 
-### 0.3 正式驗收（必守）
+### 0.3 產品操作收斂（2026-07-20 已決定，尚待實作）
+
+使用者最終只開啟一個程式入口：啟動時恢復既有 AI／paper 狀態，停止或關機時安全保存，下一次開啟再繼續。這不是作業系統自啟服務。
+
+| 項目 | 現況 | 確定方向 |
+|------|------|----------|
+| 自主 runtime | CLI `autonomous --forever` 可在單一 Python 程序中持續循環；尚無完整 session、每日檢查與受控停止契約。 | 擴充既有 `AutonomousOperator`，不另開第二條 runtime。 |
+| 面板 | `frontend/devops-d` 是目前唯一正式 UI；`trading`、`admin-da` 仍存在，且含舊控制。 | 整合成單一 `frontend/app`；保留已驗證元件，封存其餘面板。 |
+| 操作權限 | 現有 API／舊面板仍有 observer 控制與 direct-order 相容端點。 | 日常 UI 僅能啟動、查看、停止唯一 paper autonomous runtime；不得直接下單、平倉、訓練或 promotion。 |
+
+### 0.4 正式驗收（必守）
 
 | 要 | 不要 |
 |----|------|
@@ -85,13 +96,13 @@
 | 長期：先下載歷史再回測 | 用 mock 單元測試假裝時機正確 |
 | 看 ledger／runtime／帳戶狀態產物 | 用未訓練模型的 PnL 證明「AI 已可用」 |
 
-### 0.4 學習寫入（過渡 vs 終局）
+### 0.5 學習寫入（過渡 vs 終局）
 
 - **終局**：平倉 → 記錄 → Hub／LoRA → 影響後續。  
 - **過渡（流程未穩或 untrained）**：可先「只記錄」或限制寫入，避免噪音／bug 污染狀態；**記帳正確後再開滿**。  
 - **正確證據**：決策／進場／出場可對帳——這是邊跑邊學的前提，不是另開的「訓練專案作業」。
 
-### 0.5 明確延後（非本階段 P0）
+### 0.6 明確延後（非本階段 P0）
 
 多帳戶、多租戶、API 認證、rate limit、產品化告警平台、多實例負載均衡等商用周邊：**後續再加**，不阻塞預設流程驗收。
 
@@ -201,7 +212,7 @@ VirtualAccount 平倉回調
 | **規則式方向框架** | ❌ 已移除 | 關鍵字規則不可再輸出 LONG／SHORT |
 | **時序聚合** | ✅ 已接通（待真實長跑驗證） | 同類事件新進展更新既有記憶；多事件重要性與有效期衰減；不保存固定方向 |
 | **正式來源實作** | ✅ 已完成 | CoinDesk（幣圈）+ Google News RSS（宏觀）；僅兩入口，任一失敗即該輪錯誤，沒有來源降級 |
-| **規則多空殘留清理** | ✅ 2026-07-17 | pretrade／plan／fusion 改重要性或固定 NEUTRAL；`should_trade` 僅 legacy 報告 |
+| **規則多空殘留清理** | ✅ 2026-07-17／18 | pretrade／plan／fusion 重要性或 NEUTRAL；步驟 3 再關 signed ROE 過濾與 KB `event_score` 回填；`should_trade` 僅 legacy |
 | **Walk-Forward 多窗** | ✅ 2026-07-17 接回 | `backtest/walk_forward.py`；CLI 預設 rolling；readiness-gate 用 single |
 
 ### 2.2 AI 模型層

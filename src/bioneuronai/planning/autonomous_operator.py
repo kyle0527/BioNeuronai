@@ -14,12 +14,15 @@ observe → plan → check → adapt → execute → settle cycle.
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import logging
 from dataclasses import asdict, dataclass, is_dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+
+from schemas.market import MarketDataHealth
 
 from .adaptation_controller import (
     AdaptationController,
@@ -63,6 +66,11 @@ class AutonomousOperatorConfig:
     symbol: str = "BTCUSDT"
     intended_action: str = "BUY"
     interval: str = "1h"
+    market_source: str = "historical"
+    market_data_max_age_seconds: float = 0.0
+    evaluate_live_decisions: bool = True
+    decision_evaluation_limit: int = 1000
+    neutral_move_threshold_pct: float = 0.003
     account_balance: float = 10000.0
     klines_limit: int = 300
     max_pairs: int = 3
@@ -90,6 +98,13 @@ class AutonomousOperatorConfig:
         if action == "SHORT":
             return "SELL"
         return action
+
+    def normalized_market_source(self) -> str:
+        """回傳唯一允許的決策 K 線來源。"""
+        source = self.market_source.strip().lower()
+        if source not in {"historical", "live"}:
+            raise ValueError("market_source 必須是 historical 或 live")
+        return source
 
 
 class AutonomousOperator:
@@ -152,6 +167,11 @@ class AutonomousOperator:
         self._news_analyzer: Optional[Any] = None
         self._last_news_refresh_slot: Optional[str] = None
         self._last_news_refresh_summary: Optional[Dict[str, Any]] = None
+        self._last_market_data_health: Optional[Dict[str, Any]] = None
+        self._last_live_tick: Optional[Dict[str, Any]] = None
+        self._live_price_stream_started = False
+        self._recovered_position_symbols: set[str] = set()
+        self._last_ai_decision_outcomes: List[Dict[str, Any]] = []
 
     def register_state_provider(self, name: str, provider: Any) -> None:
         """註冊額外的學習狀態來源（如 LoRA learner 的 get_stats）。
@@ -168,10 +188,15 @@ class AutonomousOperator:
         started_at = datetime.now()
         self._cycle_count += 1
 
+        # paper 自主線重啟後先把既有實倉接回 ledger／風控視野；不等待本輪新訊號。
+        if self.config.execute_paper:
+            self._reconcile_paper_positions(self._get_paper_connector())
+
         # 1. 結算上一輪留下的倉位（觸發 SL/TP → outcome 回寫）
         settled = self._settle_open_positions()
 
         klines = self._load_klines()
+        self._last_ai_decision_outcomes = self._settle_expired_ai_decisions()
 
         plan = await self.plan_controller.create_comprehensive_plan(
             klines=klines,
@@ -192,6 +217,7 @@ class AutonomousOperator:
             strategy_snapshot=strategy_snapshot,
         )
         ai_decision = self._run_unified_ai(klines, ai_input_snapshot)
+        decision_id = self._build_decision_id(started_at)
         cycle_action = self._resolve_cycle_action(ai_decision)
         pretrade_results = (
             self._run_pretrade(candidates, cycle_action)
@@ -225,7 +251,12 @@ class AutonomousOperator:
             and adaptation.action == AutonomousAction.PAPER_TRADE
             and adaptation.can_execute
         ):
-            paper_execution = self._execute_paper_order(adaptation.to_dict(), pretrade_results)
+            paper_execution = self._execute_paper_order(
+                adaptation.to_dict(),
+                pretrade_results,
+                ai_input_snapshot=ai_input_snapshot,
+                ai_decision=ai_decision,
+            )
 
         record: Dict[str, Any] = {
             "type": "autonomous_cycle",
@@ -234,10 +265,15 @@ class AutonomousOperator:
             "completed_at": datetime.now().isoformat(),
             "mode": self.config.mode,
             "symbol": self.config.symbol,
+            "decision_id": decision_id,
+            "market_source": self.config.normalized_market_source(),
+            "market_data_health": _serialize(self._last_market_data_health),
+            "last_live_tick": _serialize(self._last_live_tick),
             "intended_action": cycle_action,
             "news_refresh": news_refresh,
             "ai_input_snapshot": ai_input_snapshot,
             "ai_decision": ai_decision,
+            "ai_decision_outcomes": self._last_ai_decision_outcomes,
             "candidates": candidates,
             "plan_status": plan_serialized.get("status"),
             "plan_execution_ready": plan_serialized.get("execution_ready"),
@@ -274,22 +310,26 @@ class AutonomousOperator:
             所有循環的 ledger 紀錄。
         """
         records: List[Dict[str, Any]] = []
-        while max_cycles is None or len(records) < max_cycles:
-            record = await self.run_once()
-            records.append(record)
+        self._start_live_price_stream_if_needed()
+        try:
+            while max_cycles is None or len(records) < max_cycles:
+                record = await self.run_once()
+                records.append(record)
 
-            if record["final_action"] == AutonomousAction.STOP.value:
-                logger.warning("Autonomous loop STOP triggered | cycle=%d", self._cycle_count)
-                break
+                if record["final_action"] == AutonomousAction.STOP.value:
+                    logger.warning("Autonomous loop STOP triggered | cycle=%d", self._cycle_count)
+                    break
 
-            minutes = float(
-                record.get("adaptation", {}).get("next_interval_minutes", 60) or 60
-            )
-            base_sleep = minutes * 60.0
-            until_news_refresh = self._seconds_until_next_news_refresh(datetime.now())
-            sleep_sec = min(base_sleep, until_news_refresh) * max(0.0, interval_scale)
-            if sleep_sec > 0:
-                await asyncio.sleep(sleep_sec)
+                minutes = float(
+                    record.get("adaptation", {}).get("next_interval_minutes", 60) or 60
+                )
+                base_sleep = minutes * 60.0
+                until_news_refresh = self._seconds_until_next_news_refresh(datetime.now())
+                sleep_sec = min(base_sleep, until_news_refresh) * max(0.0, interval_scale)
+                if sleep_sec > 0:
+                    await asyncio.sleep(sleep_sec)
+        finally:
+            self._stop_live_price_stream()
         return records
 
     # ── 閉環：結果結算與學習狀態 ─────────────────────────────────────────
@@ -416,6 +456,139 @@ class AutonomousOperator:
                 logger.warning("settle failed for %s: %s", symbol, exc)
         return list(self._settled_this_cycle)
 
+    def _settle_expired_ai_decisions(self) -> List[Dict[str, Any]]:
+        """以目前 live ticker 結算已到期的 AI 決策，量測準確度但不改模型。"""
+        if (
+            not self.config.evaluate_live_decisions
+            or self.config.normalized_market_source() != "live"
+        ):
+            return []
+
+        current_price = self._get_live_evaluation_price()
+        if current_price <= 0:
+            return []
+        now = datetime.now()
+        records = self.ledger.load_recent(
+            limit=max(1, int(self.config.decision_evaluation_limit or 1000))
+        )
+        evaluated_ids = {
+            str(row.get("decision_id"))
+            for row in records
+            if row.get("type") == "ai_decision_outcome" and row.get("decision_id")
+        }
+        outcomes: List[Dict[str, Any]] = []
+        for record in records:
+            if record.get("type") != "autonomous_cycle":
+                continue
+            decision_id = str(record.get("decision_id") or "")
+            if not decision_id or decision_id in evaluated_ids:
+                continue
+            ai_decision = record.get("ai_decision")
+            if not isinstance(ai_decision, dict):
+                continue
+            valid_until = self._parse_ledger_datetime(ai_decision.get("decision_valid_until"))
+            if valid_until is None or valid_until > now:
+                continue
+            signal = ai_decision.get("signal")
+            signal = signal if isinstance(signal, dict) else {}
+            entry_price = self._decision_entry_price(record)
+            if entry_price <= 0:
+                continue
+            evaluation = self._evaluate_ai_decision(
+                signal=signal,
+                entry_price=entry_price,
+                exit_price=current_price,
+                valid_until=valid_until,
+                settled_at=now,
+            )
+            outcome = {
+                "type": "ai_decision_outcome",
+                "decision_id": decision_id,
+                "symbol": str(record.get("symbol") or self.config.symbol),
+                "market_source": "live_ticker",
+                "evaluation": evaluation,
+            }
+            self.ledger.append(outcome)
+            outcomes.append(outcome)
+        return outcomes
+
+    def _get_live_evaluation_price(self) -> float:
+        """評估只使用當下 ticker，不把延遲 K 線收盤冒充到期價格。"""
+        try:
+            market = self._get_trading_engine().connector.get_ticker_price(
+                self.config.symbol
+            )
+            return float(getattr(market, "close", 0.0) or 0.0)
+        except Exception as exc:
+            logger.warning("AI decision evaluation price unavailable: %s", exc)
+            return 0.0
+
+    @staticmethod
+    def _parse_ledger_datetime(value: Any) -> Optional[datetime]:
+        if not value:
+            return None
+        try:
+            parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+            if parsed.tzinfo is not None:
+                return parsed.astimezone().replace(tzinfo=None)
+            return parsed
+        except (TypeError, ValueError):
+            return None
+
+    @staticmethod
+    def _decision_entry_price(record: Dict[str, Any]) -> float:
+        snapshot = record.get("ai_input_snapshot")
+        market = snapshot.get("market") if isinstance(snapshot, dict) else {}
+        try:
+            return float(market.get("current_price", 0.0) or 0.0)
+        except (TypeError, ValueError):
+            return 0.0
+
+    def _evaluate_ai_decision(
+        self,
+        *,
+        signal: Dict[str, Any],
+        entry_price: float,
+        exit_price: float,
+        valid_until: datetime,
+        settled_at: datetime,
+    ) -> Dict[str, Any]:
+        signal_type = str(signal.get("signal_type") or "").upper()
+        direction = "LONG" if "LONG" in signal_type else (
+            "SHORT" if "SHORT" in signal_type else "NEUTRAL"
+        )
+        price_return_pct = (exit_price - entry_price) / entry_price
+        threshold = max(0.0, float(self.config.neutral_move_threshold_pct or 0.0))
+        if direction == "LONG":
+            correct = price_return_pct > 0
+        elif direction == "SHORT":
+            correct = price_return_pct < 0
+        else:
+            correct = abs(price_return_pct) <= threshold
+        confidence = min(1.0, max(0.0, float(signal.get("confidence", 0.0) or 0.0)))
+        target = 1.0 if correct else 0.0
+        return {
+            "direction": direction,
+            "confidence": confidence,
+            "entry_price": entry_price,
+            "exit_price": exit_price,
+            "price_return_pct": price_return_pct,
+            "correct": correct,
+            "brier_score": (confidence - target) ** 2,
+            "neutral_move_threshold_pct": threshold,
+            "valid_until": valid_until.isoformat(),
+            "settled_at": settled_at.isoformat(),
+            "evaluation_delay_seconds": max(
+                0.0, (settled_at - valid_until).total_seconds()
+            ),
+        }
+
+    def _build_decision_id(self, started_at: datetime) -> str:
+        return (
+            f"ai-decision-{self.config.symbol.upper()}-"
+            f"{started_at.strftime('%Y%m%dT%H%M%S%f')}-{self._cycle_count}"
+        )
+
     def _on_paper_close(
         self,
         symbol: str,
@@ -423,6 +596,8 @@ class AutonomousOperator:
         entry_price: float,
         exit_price: float,
         exit_reason: str,
+        *,
+        record_learning_hub: bool = True,
     ) -> None:
         """VirtualAccount 平倉回調 → outcome 回寫 ledger + 學習中樞。"""
         execution = self._open_executions.pop(symbol, None)
@@ -452,7 +627,7 @@ class AutonomousOperator:
         except Exception as exc:  # pragma: no cover - defensive
             logger.warning("ledger outcome append failed: %s", exc)
 
-        if self.learning_hub is not None:
+        if record_learning_hub and self.learning_hub is not None:
             try:
                 self.learning_hub.record_trade(
                     strategy_name=strategy, symbol=symbol, pnl_pct=pnl_pct
@@ -558,6 +733,11 @@ class AutonomousOperator:
     # ── 既有步驟 ─────────────────────────────────────────────────────────
 
     def _load_klines(self) -> List[Dict[str, Any]]:
+        if self.config.normalized_market_source() == "live":
+            return self._load_live_klines()
+        return self._load_historical_klines()
+
+    def _load_historical_klines(self) -> List[Dict[str, Any]]:
         try:
             from backtest import DEFAULT_DATA_DIR, HistoricalDataStream
 
@@ -572,9 +752,146 @@ class AutonomousOperator:
                 target_open_time,
                 limit=self.config.klines_limit,
             )
-            return list(klines or [])
-        except Exception:
+            normalized = list(klines or [])
+            self._record_market_data_health(
+                source="historical",
+                klines=normalized,
+                is_fresh=bool(normalized),
+                reason=None if normalized else "historical_klines_unavailable",
+            )
+            return normalized
+        except Exception as exc:
+            self._record_market_data_health(
+                source="historical",
+                klines=[],
+                is_fresh=False,
+                reason=f"historical_load_failed: {exc}",
+            )
             return []
+
+    def _load_live_klines(self) -> List[Dict[str, Any]]:
+        """透過現役 connector 取得已收盤的即時 K 線，拒絕半根 K 線進入決策。"""
+        engine = self._get_trading_engine()
+        klines = engine.get_recent_klines(
+            symbol=self.config.symbol,
+            interval=self.config.interval,
+            limit=self.config.klines_limit,
+        )
+        now = datetime.now()
+        now_ms = int(now.timestamp() * 1000)
+        closed = []
+        for item in klines:
+            close_time = self._kline_close_time_ms(item)
+            if close_time is not None and close_time <= now_ms:
+                closed.append(item)
+        max_age = self._market_data_max_age_seconds()
+        latest_close = self._kline_close_time_ms(closed[-1]) if closed else None
+        age_seconds = (
+            max(0.0, (now_ms - latest_close) / 1000.0)
+            if latest_close is not None
+            else None
+        )
+        is_fresh = bool(closed) and age_seconds is not None and age_seconds <= max_age
+        reason = None if is_fresh else "live_klines_stale_or_unavailable"
+        self._record_market_data_health(
+            source="binance_rest",
+            klines=closed,
+            is_fresh=is_fresh,
+            reason=reason,
+            received_at=now,
+            age_seconds=age_seconds,
+        )
+        if not is_fresh:
+            raise RuntimeError(
+                f"live market data is not fresh: age={age_seconds}, max_age={max_age}, bars={len(closed)}"
+            )
+        return closed
+
+    @staticmethod
+    def _kline_close_time_ms(kline: Dict[str, Any]) -> Optional[int]:
+        value = kline.get("close_time")
+        try:
+            return int(value) if value is not None else None
+        except (TypeError, ValueError):
+            return None
+
+    def _market_data_max_age_seconds(self) -> float:
+        configured = float(self.config.market_data_max_age_seconds or 0.0)
+        if configured > 0:
+            return configured
+        return float(self._interval_seconds(self.config.interval) * 2)
+
+    @staticmethod
+    def _interval_seconds(interval: str) -> int:
+        unit_seconds = {"m": 60, "h": 3600, "d": 86400, "w": 604800, "M": 2592000}
+        normalized = str(interval or "").strip()
+        if len(normalized) < 2 or normalized[-1] not in unit_seconds:
+            raise ValueError(f"unsupported Binance kline interval: {interval}")
+        try:
+            amount = int(normalized[:-1])
+        except ValueError as exc:
+            raise ValueError(f"unsupported Binance kline interval: {interval}") from exc
+        if amount <= 0:
+            raise ValueError(f"unsupported Binance kline interval: {interval}")
+        return amount * unit_seconds[normalized[-1]]
+
+    def _record_market_data_health(
+        self,
+        *,
+        source: str,
+        klines: List[Dict[str, Any]],
+        is_fresh: bool,
+        reason: Optional[str],
+        received_at: Optional[datetime] = None,
+        age_seconds: Optional[float] = None,
+    ) -> None:
+        latest = klines[-1] if klines else {}
+        open_time = latest.get("open_time")
+        close_time = self._kline_close_time_ms(latest)
+        self._last_market_data_health = MarketDataHealth(
+            source=source,
+            symbol=self.config.symbol,
+            interval=self.config.interval,
+            received_at=received_at or datetime.now(),
+            latest_open_time=self._kline_time_to_datetime(open_time),
+            latest_close_time=self._kline_time_to_datetime(close_time),
+            age_seconds=age_seconds,
+            is_complete=bool(klines),
+            is_fresh=is_fresh,
+            reason=reason,
+        ).model_dump()
+
+    @staticmethod
+    def _kline_time_to_datetime(value: Any) -> Optional[datetime]:
+        try:
+            return datetime.fromtimestamp(int(value) / 1000) if value is not None else None
+        except (TypeError, ValueError, OSError):
+            return None
+
+    def _start_live_price_stream_if_needed(self) -> None:
+        """把舊 paper-live 的 tick 能力併入自主線，不建立第二套決策。"""
+        if self.config.normalized_market_source() != "live" or self._live_price_stream_started:
+            return
+        engine = self._get_trading_engine()
+        engine.start_market_observer(self.config.symbol, on_ticker=self._record_live_tick)
+        self._live_price_stream_started = True
+
+    def _record_live_tick(self, data: Dict[str, Any]) -> None:
+        """保存即時價格流的最後觀測，供 ledger 稽核但不在 callback 內決策。"""
+        self._last_live_tick = {
+            "received_at": datetime.now().isoformat(),
+            "event_time": data.get("E"),
+            "price": data.get("c"),
+            "high": data.get("h"),
+            "low": data.get("l"),
+        }
+
+    def _stop_live_price_stream(self) -> None:
+        if not self._live_price_stream_started:
+            return
+        if self.trading_engine is not None:
+            self.trading_engine.stop_monitoring()
+        self._live_price_stream_started = False
 
     def _extract_candidates(self, plan: Dict[str, Any]) -> List[str]:
         symbols: List[str] = []
@@ -759,9 +1076,11 @@ class AutonomousOperator:
             "symbol": self.config.symbol,
             "market": {
                 "interval": self.config.interval,
+                "source": self.config.normalized_market_source(),
                 "klines_count": len(klines),
                 "latest_kline": _serialize(latest),
                 "current_price": current_price,
+                "data_health": _serialize(self._last_market_data_health),
             },
             "news_memory": news_memory,
             "strategy": strategy_snapshot,
@@ -926,6 +1245,65 @@ class AutonomousOperator:
             )
         return self._paper_connector
 
+    def _reconcile_paper_positions(self, connector: Any) -> None:
+        """把持久化恢復的 paper 實倉接回自主風控，避免重啟後重複進場。"""
+        virtual_account = getattr(connector, "virtual_account", None)
+        positions = getattr(virtual_account, "positions", None) if virtual_account else None
+        if not positions:
+            return
+        try:
+            from bioneuronai.trading.virtual_account import PositionSide
+        except ImportError:  # pragma: no cover - injected compatibility connector
+            PositionSide = None
+
+        for symbol, position in positions.items():
+            symbol_key = str(symbol).upper()
+            quantity = float(getattr(position, "quantity", 0.0) or 0.0)
+            if quantity <= 0 or symbol_key in self._recovered_position_symbols:
+                continue
+            if symbol_key in self._open_executions:
+                self._recovered_position_symbols.add(symbol_key)
+                continue
+            side_value = getattr(position, "side", None)
+            is_long = (
+                side_value == getattr(PositionSide, "LONG", None)
+                or str(getattr(side_value, "value", side_value)).upper() == "LONG"
+            )
+            execution = self._open_executions.setdefault(
+                symbol_key,
+                {
+                    "side": "BUY" if is_long else "SELL",
+                    "quantity": quantity,
+                    "entry_price": float(getattr(position, "entry_price", 0.0) or 0.0),
+                    "strategy": "autonomous_paper_recovered",
+                    "opened_at": None,
+                    "opened_cycle": self._cycle_count,
+                    "recovered": True,
+                    "learning_snapshot_recoverable": False,
+                },
+            )
+            self._recovered_position_symbols.add(symbol_key)
+            try:
+                self.ledger.append({
+                    "type": "autonomous_paper_recovery",
+                    "symbol": symbol_key,
+                    "position": {
+                        "side": execution["side"],
+                        "quantity": execution["quantity"],
+                        "entry_price": execution["entry_price"],
+                    },
+                    "learning_snapshot_recoverable": False,
+                    "reason": "paper_state_restored_or_preexisting_position",
+                })
+            except Exception as exc:  # pragma: no cover - recovery guard still applies
+                logger.warning("recovered paper position ledger append failed: %s", exc)
+            logger.warning(
+                "Recovered paper position into autonomous guard | %s side=%s qty=%.8f",
+                symbol_key,
+                execution["side"],
+                quantity,
+            )
+
     def _get_trading_engine(self) -> Any:
         """延遲建立唯一 TradingEngine；planning 不再持有第二套執行器。"""
         if self.trading_engine is None:
@@ -936,6 +1314,15 @@ class AutonomousOperator:
                 paper_trading=True,
                 paper_initial_balance=self.config.paper_initial_balance,
             )
+        engine_hub = getattr(self.trading_engine, "adaptive_hub", None)
+        if engine_hub is not None:
+            self.learning_hub = engine_hub
+        learner = getattr(self.trading_engine, "online_learner", None)
+        if learner is not None:
+            self.register_state_provider("online_learner", learner.get_stats)
+        memory = getattr(self.trading_engine, "episodic_memory", None)
+        if memory is not None:
+            self.register_state_provider("episodic_memory", memory.get_stats)
         return self.trading_engine
 
     def _on_shared_paper_close(
@@ -952,13 +1339,21 @@ class AutonomousOperator:
                 symbol, realized_pnl, entry_price, exit_price, exit_reason
             )
         self._on_paper_close(
-            symbol, realized_pnl, entry_price, exit_price, exit_reason
+            symbol,
+            realized_pnl,
+            entry_price,
+            exit_price,
+            exit_reason,
+            record_learning_hub=getattr(self.trading_engine, "adaptive_hub", None) is None,
         )
 
     def _execute_paper_order(
         self,
         adaptation: Dict[str, Any],
         pretrade_results: List[Dict[str, Any]],
+        *,
+        ai_input_snapshot: Dict[str, Any],
+        ai_decision: Optional[Dict[str, Any]],
     ) -> Dict[str, Any]:
         selected_symbol = adaptation.get("selected_symbol") or self.config.symbol
         selected = next(
@@ -1010,6 +1405,25 @@ class AutonomousOperator:
 
         selected_action = str(adaptation.get("selected_action") or "").upper()
         side = "BUY" if selected_action == "BUY" else "SELL"
+        intent_id = self._build_paper_intent_id(
+            symbol=str(selected_symbol),
+            side=side,
+            quantity=quantity,
+            stop_loss=stop_loss,
+            take_profit=take_profit,
+            ai_input_snapshot=ai_input_snapshot,
+            ai_decision=ai_decision,
+        )
+        model_input = ai_input_snapshot.get("model_input")
+        model_input = model_input if isinstance(model_input, dict) else {}
+        decision_signal = (ai_decision or {}).get("signal")
+        learning_context = {
+            "numeric_patches": model_input.get("numeric_patches"),
+            "raw_signal": (ai_decision or {}).get("raw_signal"),
+            "signal": decision_signal if isinstance(decision_signal, dict) else {},
+            "price_at_decision": ai_input_snapshot.get("market", {}).get("current_price"),
+            "text_context": ai_input_snapshot.get("natural_language_context"),
+        }
         if self.trading_engine is not None or self._paper_connector is None:
             order = self._get_trading_engine().execute_prepared_order(
                 symbol=str(selected_symbol),
@@ -1017,6 +1431,8 @@ class AutonomousOperator:
                 quantity=quantity,
                 stop_loss=float(stop_loss) if stop_loss else None,
                 take_profit=float(take_profit) if take_profit else None,
+                learning_context=learning_context,
+                client_order_id=intent_id,
             )
         else:
             order = connector.place_order(
@@ -1026,6 +1442,13 @@ class AutonomousOperator:
                 quantity=quantity,
                 stop_loss=float(stop_loss) if stop_loss else None,
                 take_profit=float(take_profit) if take_profit else None,
+                client_order_id=intent_id,
+            )
+
+        if order is None or str(getattr(order, "status", "")).upper() != "FILLED":
+            status = getattr(order, "status", None) if order is not None else None
+            raise RuntimeError(
+                f"paper execution failed: order not filled for {selected_symbol} (status={status})"
             )
 
         self._open_executions[symbol_key] = {
@@ -1037,6 +1460,7 @@ class AutonomousOperator:
             "opened_cycle": self._cycle_count,
             "calibration_record_index": self._calibration_index_from_pretrade(selected),
             "quantity_source": qty_source,
+            "intent_id": intent_id,
         }
 
         return {
@@ -1044,11 +1468,45 @@ class AutonomousOperator:
             "side": side,
             "quantity": quantity,
             "quantity_source": qty_source,
+            "intent_id": intent_id,
             "notional": quantity * price,
             "price": price,
             "order": order.to_dict() if order else None,
             "paper_state": connector.get_paper_state(),
         }
+
+    def _build_paper_intent_id(
+        self,
+        *,
+        symbol: str,
+        side: str,
+        quantity: float,
+        stop_loss: Any,
+        take_profit: Any,
+        ai_input_snapshot: Dict[str, Any],
+        ai_decision: Optional[Dict[str, Any]],
+    ) -> str:
+        """以同一已收盤資料與 AI 輸出產生穩定 intent id，供重試／重啟去重。"""
+        market = ai_input_snapshot.get("market") if isinstance(ai_input_snapshot, dict) else {}
+        market = market if isinstance(market, dict) else {}
+        latest = market.get("latest_kline") if isinstance(market.get("latest_kline"), dict) else {}
+        raw_signal = (ai_decision or {}).get("raw_signal")
+        payload = {
+            "source": market.get("source"),
+            "symbol": symbol.upper(),
+            "side": side,
+            "interval": market.get("interval"),
+            "close_time": latest.get("close_time"),
+            "open_time": latest.get("open_time"),
+            "quantity": round(float(quantity), 12),
+            "stop_loss": float(stop_loss) if stop_loss else None,
+            "take_profit": float(take_profit) if take_profit else None,
+            "raw_signal": raw_signal,
+        }
+        digest = hashlib.sha256(
+            json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str).encode("utf-8")
+        ).hexdigest()
+        return f"autonomous-{digest[:24]}"
 
 
 __all__ = ["AutonomousOperator", "AutonomousOperatorConfig"]

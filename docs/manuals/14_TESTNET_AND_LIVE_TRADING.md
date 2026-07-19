@@ -13,13 +13,13 @@
 
 ## 目錄
 
-1. [現行方向與雙執行主線（必讀）](#1-現行方向與雙執行主線必讀)
+1. [現行方向與單一自主決策線（必讀）](#1-現行方向與單一自主決策線必讀)
    - [1.1 本階段要證明什麼](#11-本階段要證明什麼)
-   - [1.2 雙入口](#12-雙入口)
+   - [1.2 入口責任](#12-入口責任)
 2. [前置檢查](#2-前置檢查)
 3. [Testnet 啟動](#3-testnet-啟動)
-4. [Paper-live 啟動（主線 A）](#4-paper-live-啟動主線-a)
-5. [Autonomous 自主流程（主線 B，本階段核心）](#5-autonomous-自主流程主線-b本階段核心)
+4. [Paper-live 行情觀測](#4-paper-live-行情觀測)
+5. [Autonomous 自主流程（唯一決策線）](#5-autonomous-自主流程唯一決策線)
    - [5.1 Advisor](#51-advisor-模式預設不送單)
    - [5.2 Paper-auto](#52-paper-auto-模式工程自主主路徑)
    - [5.3 Ledger 與 outcome](#53-ledger-與-outcome)
@@ -32,7 +32,7 @@
 
 ---
 
-## 1. 現行方向與雙執行主線（必讀）
+## 1. 現行方向與單一自主決策線（必讀）
 
 ### 1.1 本階段要證明什麼
 
@@ -44,20 +44,20 @@
 
 優先順序：工程自主 → 穩定 → 訓練改善 → 終局邊跑邊學。見 [`CURRENT_DIRECTION.md`](../CURRENT_DIRECTION.md)。
 
-### 1.2 雙入口
+### 1.2 入口責任
 
-控制方式不同；**模型與 paper 執行層應共用**。勿混用驗收標籤。
+自動決策與下單只有 `autonomous` 一條線。`trade`／API trade manager 僅保留行情觀測與 VirtualAccount 價格同步。
 
-| 維度 | 主線 A：`trade` | 主線 B：`autonomous`（**預設 AI 自主**） |
+| 維度 | `trade`（觀測） | `autonomous`（**唯一 AI 自主**） |
 |------|-----------------|------------------------------------------|
 | CLI | `python main.py trade ...` | `python main.py autonomous ...` |
-| 執行核心 | TradingEngine + WebSocket | AutonomousOperator 規劃 + **共用** TradingEngine paper |
+| 執行核心 | TradingEngine `start_market_observer()` + WebSocket | AutonomousOperator 規劃 + **共用** TradingEngine paper |
 | 長時間 | tick 長駐 | `--cycles N`（N>1）`run_forever` |
-| LoRA / Memory | ✅ paper 平倉 | ✅ **經 shared 平倉回調**進引擎鏈 |
+| LoRA / Memory | 不產生交易樣本 | ✅ **經 shared 平倉回調**進引擎鏈 |
 | Decision Ledger | ❌ | ✅ |
-| Paper 下單 | `--paper-live` | `--mode paper_auto` + `--execute-paper` |
+| Paper 下單 | 不下單 | `--mode paper_auto` + `--execute-paper` |
 
-**主線 B 執行層（勿寫成「永遠獨立帳戶、無學習」）**：
+**唯一自主執行層（勿寫成「永遠獨立帳戶、無學習」）**：
 
 - quantity 優先 pretrade；無效 fallback notional fraction  
 - 已有持倉：`skipped=existing_position`  
@@ -123,9 +123,9 @@ python main.py trade --symbol BTCUSDT --testnet
 
 ---
 
-## 4. Paper-live 啟動（主線 A）
+## 4. Paper-live 行情觀測
 
-Paper-live 是 **即時 tick／T0–T2 觀測** 入口（非預設「規劃自主」主路徑）：行情使用 Binance mainnet public data，下單只進本地 `VirtualAccount`，不送 Binance order API。
+Paper-live 是即時 tick 觀測入口：行情使用 Binance mainnet public data，僅同步本地 `VirtualAccount` 的價格，**不產生訊號、不下單、不寫入學習樣本**。
 
 **預設 AI 自主長跑**請優先看第 5 節 `autonomous`。
 CLI：
@@ -137,9 +137,7 @@ python main.py trade --symbol BTCUSDT --paper-live --paper-balance 10000
 成功標準：
 
 - 看到 paper-live / 虛擬實盤模式啟動。
-- AI 模型預設載入，狀態可看到 `ai_model_loaded=true`。
-- log 目錄位於 `data/bioneuronai/trading/paper_live/`。
-- 任何訂單紀錄都寫入本地 JSONL，不會送到 Binance。
+- 可用 `Ctrl+C` 停止；不會出現本入口產生的訂單紀錄。
 
 2026-05-19 本機 API 已完成短流程驗證：`mode=paper_live` 可啟動，狀態顯示 `running=true`、`engine.ai_model_loaded=true`、`engine.paper_trading=true`、paper account balance `10000`；隨後呼叫 `/api/v1/trade/stop` 可停止並回到 `running=false`。這只代表啟停與本地虛擬執行層可用，不代表已完成長時間績效驗證。
 
@@ -151,7 +149,7 @@ $body = @{
   testnet = $false
   mode = "paper_live"
   paper_initial_balance = 10000
-  auto_trade = $true
+  auto_trade = $false
   load_ai_model = $true
   model_name = "unified_v2_100m"
   warmup_model = $false
@@ -166,22 +164,24 @@ Invoke-RestMethod `
 
 ---
 
-## 5. Autonomous 自主流程（主線 B，本階段核心）
+## 5. Autonomous 自主流程（唯一決策線）
 
-`autonomous` 是 **預設 AI 自主** 入口：規劃 → pretrade → adaptation →（可選）paper 執行 → ledger。  
+`autonomous` 是唯一 AI 自主入口：規劃 → pretrade → adaptation →（可選）paper 執行 → ledger。
 Paper **不是**另一套永久隔離的交易島，而是透過 **共用 TradingEngine** 下單與平倉回調（學習鏈 + ledger）。
+
+> **目前驗收範圍（2026-07-19）**：僅執行本章 CLI／Paper 流程與產物對帳；前端與 Docker 暫停至核心流程收尾。
 
 建議順序：
 
 1. advisor 單輪確認規劃鏈  
 2. `paper_auto --execute-paper --cycles N` 驗工程自主與記帳  
-3. 需要 tick 級觀測再加 `trade --paper-live`  
+3. 需要 tick 級觀測才另開 `trade --paper-live`；它不參與決策
 4. 流程穩後再開滿在線改善／基線訓練  
 
 ### 5.1 Advisor 模式（預設，不送單）
 
 ```powershell
-python main.py autonomous --mode advisor --symbol BTCUSDT --output output\autonomous_advisor.json
+python main.py autonomous --mode advisor --market-source live --symbol BTCUSDT --output output\autonomous_advisor.json
 ```
 
 終端常見欄位：
@@ -193,6 +193,7 @@ python main.py autonomous --mode advisor --symbol BTCUSDT --output output\autono
 - Pretrade 區塊（`pretrade_summary`）  
 
 若 `final_action` 為 `advise_only`／`observe`，或 pretrade 為 WAIT／REJECT，本輪應停在觀察。
+AI signal 為 `neutral`／HOLD 時，`pretrade_summary` 可為空，因為系統不應以預設 BUY／SELL 繞過 AI 決策；這同樣是正確的安全結果。
 
 ### 5.2 Paper-auto 模式（工程自主主路徑）
 
@@ -201,10 +202,13 @@ python main.py autonomous --mode advisor --symbol BTCUSDT --output output\autono
 python main.py autonomous --mode paper_auto --symbol BTCUSDT --output output\autonomous_paper_auto.json
 
 # 條件通過且 adaptation 允許時，送本機 paper 單
-python main.py autonomous --mode paper_auto --symbol BTCUSDT --execute-paper --paper-balance 10000
+python main.py autonomous --mode paper_auto --market-source live --symbol BTCUSDT --execute-paper --paper-balance 10000
 
 # 持續 N 輪（本階段核心驗收；輪間隔依 next_interval_minutes）
 python main.py autonomous --mode paper_auto --symbol BTCUSDT --execute-paper --cycles 24 --paper-balance 10000
+
+# AI 自主常駐（直到安全 STOP 或 Ctrl+C；不會設定 Windows 開機自啟）
+python main.py autonomous --mode paper_auto --market-source live --execute-paper --forever --paper-balance 10000
 ```
 
 成功時關注：
@@ -238,7 +242,7 @@ Get-Content data\bioneuronai\planning\autonomous\decision_ledger.jsonl -Tail 5
 
 ### 5.4 不建議的操作
 
-- 同 symbol 同時跑 `trade --paper-live` 與 `autonomous --execute-paper` 而不協調持倉  
+- 將 `trade --paper-live` 誤認為可下單入口；下單只由 `autonomous` 產生
 - 假設 `testnet_auto`／`live_guarded` 一定會自動下單（以實作與 ledger 為準，常為需人工確認）  
 - 用 pytest 代替本節真實操作  
 - 在記帳未對前，把 LoRA／Hub 狀態變化當成「已改善成功」的唯一證據  
@@ -246,6 +250,8 @@ Get-Content data\bioneuronai\planning\autonomous\decision_ledger.jsonl -Tail 5
 ---
 
 ## 6. API 啟停交易
+
+API 的 `testnet_auto`、`live_auto` 與 `auto_trade=true` 已被明確拒絕；此入口只啟動行情觀測。自主 paper 執行請使用第 5 節的 CLI。
 
 先啟動 API：
 
@@ -314,6 +320,8 @@ Live 不是日常驗證入口。啟動前必須完成：
 
 ## 8. Live 啟動
 
+`trade --live` 與 API `live_auto` 不再是自動下單入口。正式網執行尚未開放；須先完成 paper 長跑、重啟對帳與模型治理 gate。本節的舊 live 範例僅保留作環境設定參考，不能用於送單。
+
 Testnet 的 `.env` 應設定：
 
 ```dotenv
@@ -329,13 +337,12 @@ API 啟動：
 $body = @{
   symbol = "BTCUSDT"
   testnet = $false
-  mode = "live_auto"
+  mode = "monitor_only"
   paper_initial_balance = 10000
-  auto_trade = $true
+  auto_trade = $false
   load_ai_model = $true
   model_name = "unified_v2_100m"
   warmup_model = $false
-  confirm_live = "I_UNDERSTAND_LIVE_RISK"
 } | ConvertTo-Json
 
 Invoke-RestMethod `
@@ -345,7 +352,7 @@ Invoke-RestMethod `
   -ContentType "application/json"
 ```
 
-CLI live 啟動仍需依 `main.py trade --live` 的互動確認流程；API / UI 路線則由 `ALLOW_LIVE_TRADING=1` 與 `confirm_live=I_UNDERSTAND_LIVE_RISK` 雙重限制。
+API 目前只能啟動觀測；paper 自動執行必須從 CLI `autonomous` 進入。
 
 ---
 
@@ -367,12 +374,6 @@ API 模式：
 Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/v1/trade/stop" -Method POST
 ```
 
-Docker 模式：
-
-```powershell
-docker compose stop trade
-```
-
 確認是否仍有交易程序：
 
 ```powershell
@@ -392,7 +393,7 @@ Get-CimInstance Win32_Process -Filter "name = 'python.exe'" |
 
 | 現象 | 立即動作 |
 |------|----------|
-| 短時間單邊暴漲跌、成交量暴增 | **暫停新開倉**（停 `autonomous --execute-paper`／`trade --paper-live`） |
+| 短時間單邊暴漲跌、成交量暴增 | **暫停新開倉**（停 `autonomous --execute-paper`） |
 | 止損可能被穿透 | 交易所端檢查並手動平倉或收緊保護 |
 | 長影線閃崩後快速恢復 | 勿立刻報復性重進；先等穩定再決定 |
 | 資金費率極端 | 評估是否在收費前減倉；**不以費率本身當交易理由** |
@@ -415,10 +416,10 @@ Get-CimInstance Win32_Process -Filter "name = 'python.exe'" |
 |---|---|---|
 | 無法讀取帳戶 | API key 錯誤、權限不足、testnet/mainnet 不一致 | 重新確認 `.env` 與 Binance 權限 |
 | `pretrade` 一直 REJECT | 餘額不足、風控條件不通過、新聞/RAG 風險 | 依 reject 理由處理，不要繞過 |
-| `autonomous` 有結果但沒有真的開始監控 | 正常；單輪 advisor 不啟動 TradingEngine | 長時間監控用 `trade --paper-live`；定時規劃用 `--cycles N` |
+| `autonomous` 有結果但沒有真的開始監控 | 正常；單輪 advisor 只做一輪決策 | 長時間自主使用 `--market-source live --cycles N` |
 | autonomous paper 倉位與 pretrade 不符 | pretrade quantity 無效，fallback `notional_fraction` | 檢查 pretrade 輸出；確認 `quantity_source` |
-| 同 symbol 重複進場 | 2026-06-15 已跳過（`skipped=existing_position`） | 若仍發生，檢查是否雙主線並行於不同 connector |
-| `reflect` 樣本不足 | EpisodicMemory 空 | 先跑 `trade --paper-live` 累積平倉記錄 |
+| 同 symbol 重複進場 | 2026-06-15 已跳過（`skipped=existing_position`） | 檢查 autonomous ledger 與 VirtualAccount 狀態 |
+| `reflect` 樣本不足 | EpisodicMemory 空 | 先跑能真正平倉的 autonomous paper 累積記錄 |
 | start 後無法再次 start | API 交易 task 已在運行 | 先呼叫 `/api/v1/trade/stop` |
-| paper-live 有訂單但 Binance 沒成交 | 正常；paper-live 只寫本地虛擬帳戶 | 查看 `data/bioneuronai/trading/paper_live/` |
+| trade paper-live 沒有訂單 | 正常；它只同步價格 | 用 autonomous paper 的 ledger 與 paper log 驗證成交 |
 | testnet 可用但 live 不可用 | 正式期貨帳戶未開通或未入金 | 到 Binance 檢查 Futures 狀態 |

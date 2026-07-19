@@ -1,28 +1,43 @@
+%% BioNeuronAI system architecture (live code, 2026-07-18)
+%% Source of truth: docs/ARCHITECTURE_OVERVIEW.md
 flowchart TD
-    user[User / External System] --> cli[CLI]
-    user --> dashboard[Operations Dashboard]
-    dashboard --> api[FastAPI API]
-    cli --> api
+    user[User / External] --> mainPy[main.py]
+    user --> api[FastAPI api/app.py]
+    user --> fe[frontend apps]
+    mainPy --> cli[cli/main.py]
+    fe --> api
 
-    api --> pretrade[Pretrade Automation]
-    api --> backtest[Replay / Backtest]
-    api --> chat[ChatEngine]
-    api --> trade[TradingEngine]
+    cli --> te[TradingEngine]
+    cli --> ao[AutonomousOperator]
+    cli --> bt[backtest service]
+    cli --> news[CryptoNewsAnalyzer]
+    cli --> plan[TradingPlanController]
+    cli --> pre[PreTradeCheckSystem]
+    api --> te
+    api --> bt
+    api --> news
 
-    market[Binance / Historical Klines] --> features[1024-d Feature Pipeline]
-    news[News / External Signals] --> rag[RAG Retriever]
-    rag --> pretrade
-    rag --> trade
+    ws[Binance WebSocket] --> te
+    te --> ss[StrategySelector]
+    te --> ie[InferenceEngine shared unified_v2]
+    te --> ar[ActionRecord T0 T1 T2]
+    ss --> fusion[AIStrategyFusion candidates]
+    fusion -.->|direction NEUTRAL only| newsAdapter[NewsAdapter]
+    news --> contracts[EventContract importance]
+    news --> newsAdapter
+    newsAdapter --> rag[src/rag]
 
-    features --> window[16-step Rolling Window]
-    window --> tinyllm[TinyLLM GPT Blocks]
-    tinyllm --> signal[Signal Head]
-    tinyllm --> text[Text Generation Head]
+    ao --> plan
+    ao --> pre
+    ao --> adapt[AdaptationController]
+    ao --> ledger[DecisionLedger]
+    ao -->|execute_prepared_order| te
+    ao --> ie
 
-    signal --> selector[Strategy Selector]
-    selector --> fusion[Strategy Fusion]
-    fusion --> risk[Kelly / Drawdown / Exposure Risk]
-    pretrade --> risk
-    risk --> execution[Mock / Testnet / Live Execution]
-    text --> chat
-    backtest --> selector
+    ar --> mem[EpisodicMemory]
+    mem --> lora[OnlineLearner LoRA]
+    te --> hub[AdaptiveLearningHub]
+    te --> paper[Paper connector VirtualAccount]
+    te --> binance[BinanceFuturesConnector]
+    cfg[config/active_model.json] --> ie
+    archived[archived legacy v1 NEVER] -.->|not loaded| ie

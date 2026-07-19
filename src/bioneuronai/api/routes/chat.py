@@ -379,7 +379,7 @@ async def _handle_chat_tool(
             testnet=False,
             mode="paper_live",
             paper_initial_balance=_extract_balance(req.message),
-            auto_trade=True,
+            auto_trade=False,
             load_ai_model=True,
             model_name="unified_v2_100m",
             warmup_model=False,

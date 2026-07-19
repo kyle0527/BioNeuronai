@@ -111,11 +111,18 @@ def cmd_trade(args: argparse.Namespace) -> None:
     """
     use_live = getattr(args, "live", False)
     use_paper_live = getattr(args, "paper_live", False)
-    auto_trade = bool(getattr(args, "auto_trade", False) or use_paper_live)
+    auto_trade = bool(getattr(args, "auto_trade", False))
 
     if use_live and use_paper_live:
         logger.error("--live 與 --paper-live 不可同時使用")
         sys.exit(1)
+
+    if auto_trade:
+        logger.error(
+            "trade --auto-trade 已停用：自動決策與下單請使用 autonomous "
+            "--market-source live --mode paper_auto --execute-paper。"
+        )
+        sys.exit(2)
 
     if use_live:
         confirm = input("\n[警告] 即將使用真實網路交易，確認請輸入 YES: ")
@@ -124,7 +131,7 @@ def cmd_trade(args: argparse.Namespace) -> None:
             return
 
     if use_paper_live:
-        mode = "虛擬實盤（主網行情 / 本機虛擬成交）"
+        mode = "行情觀測（主網行情 / 本機虛擬帳戶價格同步）"
     else:
         mode = "真實網路" if use_live else "測試網"
     print(f"\n{'='*60}")
@@ -150,12 +157,8 @@ def cmd_trade(args: argparse.Namespace) -> None:
             paper_initial_balance=float(getattr(args, "paper_balance", 10000.0)),
         )
         print("  TradingEngine 已初始化")
-        if auto_trade:
-            engine.enable_auto_trading()
-            print("  自動交易: 已啟用")
-        else:
-            engine.disable_auto_trading()
-            print("  自動交易: 未啟用（僅監控）")
+        engine.disable_auto_trading()
+        print("  自動交易: 未啟用（僅觀測；決策與下單統一由 autonomous 處理）")
 
         model_name = getattr(args, "model_name", "unified_v2_100m")
         if getattr(args, "load_ai_model", True):
@@ -176,9 +179,8 @@ def cmd_trade(args: argparse.Namespace) -> None:
             )()
             print(f"  Paper Log: {paper_state.get('log_dir', 'N/A')}")
 
-        print("\n  按 Ctrl+C 停止交易\n")
-        # TradingEngine 正確入口：start_monitoring(symbol) 內建 WebSocket 監控迴圈
-        engine.start_monitoring(args.symbol)
+        print("\n  按 Ctrl+C 停止行情觀測\n")
+        engine.start_market_observer(args.symbol)
 
     except KeyboardInterrupt:
         print("\n  交易已停止。")
@@ -238,9 +240,11 @@ def cmd_plan(args: argparse.Namespace) -> None:
 
     output_path: Optional[str] = getattr(args, "output", None)
     if output_path:
-        with open(output_path, "w", encoding="utf-8") as f:
+        output_file = Path(output_path)
+        output_file.parent.mkdir(parents=True, exist_ok=True)
+        with output_file.open("w", encoding="utf-8") as f:
             json.dump(report, f, ensure_ascii=False, indent=2, default=str)
-        print(f"  報告已儲存至: {output_path}")
+        print(f"  報告已儲存至: {output_file}")
 
 
 def _load_plan_klines(args: argparse.Namespace) -> list[dict]:
@@ -356,9 +360,11 @@ def cmd_pretrade(args: argparse.Namespace) -> None:
 
         output_path: Optional[str] = getattr(args, "output", None)
         if output_path:
-            with open(output_path, "w", encoding="utf-8") as f:
+            output_file = Path(output_path)
+            output_file.parent.mkdir(parents=True, exist_ok=True)
+            with output_file.open("w", encoding="utf-8") as f:
                 json.dump(result, f, ensure_ascii=False, indent=2, default=str)
-            print(f"  結果已儲存至: {output_path}")
+            print(f"  結果已儲存至: {output_file}")
 
     except Exception as exc:
         logger.error("進場前檢查失敗: %s", exc)
@@ -409,6 +415,8 @@ def cmd_autonomous(args: argparse.Namespace) -> None:
         symbol=args.symbol,
         intended_action=args.action,
         interval=args.interval,
+        market_source=args.market_source,
+        market_data_max_age_seconds=float(args.market_data_max_age_seconds),
         account_balance=float(args.balance),
         klines_limit=int(args.klines_limit),
         max_pairs=int(args.max_pairs),
@@ -422,7 +430,10 @@ def cmd_autonomous(args: argparse.Namespace) -> None:
         reflection_sample_size=int(getattr(args, "reflection_sample_size", 50) or 50),
     )
 
-    cycles = max(1, int(getattr(args, "cycles", 1) or 1))
+    run_forever = bool(getattr(args, "forever", False))
+    cycles: Optional[int] = None if run_forever else max(
+        1, int(getattr(args, "cycles", 1) or 1)
+    )
     try:
         operator = AutonomousOperator(config)
         if cycles == 1:
@@ -441,9 +452,11 @@ def cmd_autonomous(args: argparse.Namespace) -> None:
     output_path: Optional[str] = getattr(args, "output", None)
     if output_path:
         payload = records[0] if len(records) == 1 else records
-        with open(output_path, "w", encoding="utf-8") as f:
+        output_file = Path(output_path)
+        output_file.parent.mkdir(parents=True, exist_ok=True)
+        with output_file.open("w", encoding="utf-8") as f:
             json.dump(payload, f, ensure_ascii=False, indent=2, default=str)
-        print(f"  結果已儲存至: {output_path}")
+        print(f"  結果已儲存至: {output_file}")
 
 
 def _print_autonomous_record(record: dict) -> None:
@@ -451,6 +464,13 @@ def _print_autonomous_record(record: dict) -> None:
     print("  決策摘要")
     print(f"    mode: {record.get('mode')}")
     print(f"    symbol: {record.get('symbol')}")
+    health = record.get("market_data_health") or {}
+    print(f"    market_source: {record.get('market_source')}")
+    print(
+        "    market_data: "
+        f"fresh={health.get('is_fresh')} age_seconds={health.get('age_seconds')} "
+        f"reason={health.get('reason')}"
+    )
     print(f"    candidates: {', '.join(record.get('candidates', []))}")
     print(f"    plan_status: {record.get('plan_status')}")
     print(f"    plan_execution_ready: {record.get('plan_execution_ready')}")
@@ -460,6 +480,15 @@ def _print_autonomous_record(record: dict) -> None:
     print(f"    confidence_floor: {adaptation.get('confidence_floor')}")
     print(f"    next_interval_minutes: {adaptation.get('next_interval_minutes')}")
     print(f"    reasons: {', '.join(adaptation.get('reasons', []))}")
+
+    accuracy = (record.get("ledger_summary") or {}).get("ai_decision_accuracy") or {}
+    if accuracy.get("evaluated_count"):
+        print(
+            "    ai_accuracy: "
+            f"evaluated={accuracy.get('evaluated_count')} "
+            f"directional={accuracy.get('directional_accuracy')} "
+            f"brier={accuracy.get('mean_brier_score')}"
+        )
 
     ai_decision = record.get("ai_decision") or {}
     ai_signal = ai_decision.get("signal") or {}
@@ -605,8 +634,10 @@ def cmd_evolve(args: argparse.Namespace) -> None:
                 "total_return": best.total_return,
                 "parameters": best.parameters,
             }
-            Path(args.output).write_text(json.dumps(result, indent=2, ensure_ascii=False))
-            print(f"  結果已儲存至: {args.output}")
+            output_file = Path(args.output)
+            output_file.parent.mkdir(parents=True, exist_ok=True)
+            output_file.write_text(json.dumps(result, indent=2, ensure_ascii=False))
+            print(f"  結果已儲存至: {output_file}")
 
     except KeyboardInterrupt:
         print("\n  演化已中止。")
@@ -1388,17 +1419,17 @@ def _build_parser() -> argparse.ArgumentParser:
     brp.set_defaults(func=cmd_backtest_runs)
 
     # ── trade ─────────────────────────────────────────────────────────────────
-    tp = subparsers.add_parser("trade", help="監控 / 虛擬實盤 / 測試網 / 實盤交易")
+    tp = subparsers.add_parser("trade", help="唯讀行情觀測（自動決策請使用 autonomous）")
     tp.add_argument("--symbol", default="BTCUSDT", metavar="SYMBOL",
                     help="交易對  (預設: BTCUSDT)")
     tp.add_argument("--testnet", action="store_true", default=True,
                     help="使用測試網  (預設)")
     tp.add_argument("--paper-live", action="store_true",
-                    help="使用主網即時行情，但所有下單只進本機虛擬帳戶")
+                    help="使用主網即時行情，並同步本機虛擬帳戶價格；不會下單")
     tp.add_argument("--paper-balance", type=float, default=10000.0, metavar="AMOUNT",
                     help="paper-live 虛擬帳戶初始 USDT 餘額 (預設: 10000)")
     tp.add_argument("--auto-trade", action="store_true",
-                    help="允許收到非 HOLD 訊號後送到目前執行層；paper-live 會自動啟用")
+                    help="已停用；請改用 autonomous --market-source live")
     tp.add_argument("--load-ai-model", action="store_true", default=True,
                     help="啟動時載入 AI 模型 (預設)")
     tp.add_argument("--no-ai-model", action="store_false", dest="load_ai_model",
@@ -1452,7 +1483,8 @@ def _build_parser() -> argparse.ArgumentParser:
         "autonomous",
         help="自主運行：plan -> pretrade -> adaptation -> ledger（--cycles N 進入持續閉環）",
     )
-    autop.add_argument(
+    autonomous_duration = autop.add_mutually_exclusive_group()
+    autonomous_duration.add_argument(
         "--cycles",
         type=int,
         default=1,
@@ -1476,6 +1508,24 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     autop.add_argument("--interval", default="1h", metavar="INTERVAL",
                        help="K線週期  (預設: 1h)")
+    autop.add_argument(
+        "--market-source",
+        choices=["historical", "live"],
+        default="historical",
+        help="決策 K 線來源；live 使用 Binance 已收盤 K 線（預設: historical）",
+    )
+    autonomous_duration.add_argument(
+        "--forever",
+        action="store_true",
+        help="持續運行自主迴圈，直到安全 STOP 或 Ctrl+C；不建立系統開機自啟",
+    )
+    autop.add_argument(
+        "--market-data-max-age-seconds",
+        type=float,
+        default=0.0,
+        metavar="SECONDS",
+        help="live K 線最大允許延遲；0=該週期兩倍（預設: 0）",
+    )
     autop.add_argument("--balance", type=float, default=10000.0, metavar="AMOUNT",
                        help="計劃用帳戶餘額  (預設: 10000)")
     autop.add_argument("--klines-limit", type=int, default=300, metavar="N",

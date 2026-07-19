@@ -569,13 +569,14 @@ class NewsAdapter:
 
         sentiment_score = weighted_score / total_weight if total_weight > 0 else 0.0
         sentiment_score = max(-1.0, min(1.0, sentiment_score))
-        event_score_10 = max(-10.0, min(10.0, sentiment_score * 10.0))
+        # 文章情緒可進 metadata／sentiment_score 供觀測；event_score 固定 0（不預判多空）
+        importance_proxy = min(10.0, abs(sentiment_score) * 10.0)
         latest_meta = getattr(latest_doc, "metadata", {}) or {}
 
         return EventContext(
-            event_score=event_score_10,
+            event_score=0.0,
             event_type="NEWS_SENTIMENT",
-            intensity=self._score_to_intensity(event_score_10),
+            intensity=self._score_to_intensity(importance_proxy),
             decay_factor=1.0,
             source_confidence=max(0.1, min(1.0, float(getattr(latest_doc, "score", 0.5) or 0.5))),
             affected_symbols=[symbol],
@@ -586,6 +587,8 @@ class NewsAdapter:
             active_event_count=0,
             metadata={
                 "source": "internal_knowledge_base",
+                "event_importance": round(importance_proxy, 4),
+                "article_sentiment_for_display_only": round(sentiment_score, 4),
                 "doc_ids": [getattr(doc, "id", "") for doc in docs],
                 "latest_doc_id": getattr(latest_doc, "id", None),
                 "latest_url": latest_meta.get("url"),

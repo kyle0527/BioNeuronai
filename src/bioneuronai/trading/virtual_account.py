@@ -51,6 +51,7 @@ class VirtualOrder:
     stop_price: Optional[float] = None  # 止損/止盈觸發價
     reduce_only: bool = False
     time_in_force: Optional[str] = None
+    client_order_id: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -65,8 +66,10 @@ class VirtualOrder:
             'status': self.status.value,
             'time': int(self.timestamp.timestamp() * 1000),
             'commission': str(self.commission),
+            'stopPrice': str(self.stop_price or 0),
             'reduceOnly': self.reduce_only,
             'timeInForce': self.time_in_force or "",
+            'clientOrderId': self.client_order_id or "",
         }
 
 
@@ -190,6 +193,7 @@ class VirtualAccount:
         # 訂單管理
         self.open_orders: Dict[str, VirtualOrder] = {}  # 未成交訂單
         self.order_history: List[VirtualOrder] = []
+        self._client_orders: Dict[str, VirtualOrder] = {}
 
         # 交易記錄
         self.trade_history: List[TradeRecord] = []
@@ -211,6 +215,7 @@ class VirtualAccount:
         # 平倉回調（供 TradingEngine 接收出場通知，避免循環 import）
         self._on_position_closed: Optional[Callable] = None
         self._last_close_info: Optional[Dict[str, Any]] = None
+        self._on_state_changed: Optional[Callable[[Dict[str, Any]], None]] = None
 
         logger.info(f"虛擬帳戶初始化: 餘額 {initial_balance} USDT, 槓桿 {leverage}x")
         logger.info(f"費率: Maker {maker_fee*100:.2f}%, Taker {taker_fee*100:.2f}%")
@@ -221,6 +226,153 @@ class VirtualAccount:
         callback 簽名：(symbol, realized_pnl, entry_price, exit_price, exit_reason) -> None
         """
         self._on_position_closed = callback
+
+    def set_state_change_callback(
+        self, callback: Optional[Callable[[Dict[str, Any]], None]]
+    ) -> None:
+        """註冊持久化回呼；帳戶事實改變時由 connector 原子保存。"""
+        self._on_state_changed = callback
+
+    def _notify_state_changed(self) -> None:
+        if self._on_state_changed is None:
+            return
+        try:
+            self._on_state_changed(self.export_state())
+        except Exception as exc:  # pragma: no cover - persistence must not block fills
+            logger.warning("虛擬帳戶狀態保存失敗: %s", exc)
+
+    def export_state(self) -> Dict[str, Any]:
+        """匯出續跑所需的完整帳戶事實，不包含策略或模型狀態。"""
+        return {
+            "schema_version": 1,
+            "account": {
+                "initial_balance": self.initial_balance,
+                "balance": self.balance,
+                "maker_fee": self.maker_fee,
+                "taker_fee": self.taker_fee,
+                "slippage_rate": self.slippage_rate,
+                "leverage": self.leverage,
+                "margin_call_level": self.margin_call_level,
+                "liquidation_level": self.liquidation_level,
+            },
+            "positions": [position.to_dict() for position in self.positions.values()],
+            "open_orders": [order.to_dict() for order in self.open_orders.values()],
+            "client_orders": {
+                client_order_id: order.to_dict()
+                for client_order_id, order in self._client_orders.items()
+            },
+            "stats": dict(self.stats),
+            "current_prices": dict(self._current_prices),
+        }
+
+    def restore_state(self, state: Dict[str, Any]) -> None:
+        """還原已驗證的帳戶事實，讓重啟後不遺失倉位與保護單。"""
+        if not isinstance(state, dict) or state.get("schema_version") != 1:
+            raise ValueError("unsupported virtual account state")
+        account = state.get("account")
+        positions = state.get("positions")
+        open_orders = state.get("open_orders")
+        client_orders = state.get("client_orders", {})
+        stats = state.get("stats")
+        current_prices = state.get("current_prices")
+        if not all(isinstance(item, dict) for item in (account, stats, current_prices)):
+            raise ValueError("invalid virtual account state payload")
+        if (
+            not isinstance(positions, list)
+            or not isinstance(open_orders, list)
+            or not isinstance(client_orders, dict)
+        ):
+            raise ValueError("invalid virtual account state collections")
+
+        restored_positions: Dict[str, VirtualPosition] = {}
+        for raw in positions:
+            if not isinstance(raw, dict):
+                raise ValueError("invalid virtual position")
+            symbol = str(raw["symbol"]).upper()
+            quantity = abs(float(raw["positionAmt"]))
+            entry_price = float(raw["entryPrice"])
+            if not symbol or quantity <= 0 or entry_price <= 0:
+                raise ValueError("invalid restored position values")
+            side = PositionSide(str(raw["positionSide"]).upper())
+            restored_positions[symbol] = VirtualPosition(
+                symbol=symbol,
+                side=side,
+                quantity=quantity,
+                entry_price=entry_price,
+                mark_price=float(raw.get("markPrice") or entry_price),
+                unrealized_pnl=float(raw.get("unRealizedProfit") or 0.0),
+                leverage=int(raw.get("leverage") or account.get("leverage") or 1),
+                margin=float(raw.get("isolatedMargin") or 0.0),
+                liquidation_price=float(raw.get("liquidationPrice") or 0.0),
+            )
+
+        def restore_order(raw: Dict[str, Any]) -> VirtualOrder:
+            if not isinstance(raw, dict):
+                raise ValueError("invalid virtual open order")
+            order_id = str(raw["orderId"])
+            timestamp_ms = int(raw.get("time") or 0)
+            order = VirtualOrder(
+                order_id=order_id,
+                symbol=str(raw["symbol"]).upper(),
+                side=OrderSide(str(raw["side"]).upper()),
+                order_type=OrderType(str(raw["type"]).upper()),
+                quantity=float(raw["origQty"]),
+                price=float(raw["price"]) or None,
+                status=OrderStatus(str(raw["status"]).upper()),
+                filled_quantity=float(raw.get("executedQty") or 0.0),
+                filled_price=float(raw.get("avgPrice") or 0.0),
+                commission=float(raw.get("commission") or 0.0),
+                timestamp=datetime.fromtimestamp(timestamp_ms / 1000),
+                stop_price=float(raw.get("stopPrice") or 0.0) or None,
+                reduce_only=bool(raw.get("reduceOnly", False)),
+                time_in_force=str(raw.get("timeInForce") or "") or None,
+                client_order_id=str(raw.get("clientOrderId") or "") or None,
+            )
+            return order
+
+        restored_orders: Dict[str, VirtualOrder] = {}
+        for raw in open_orders:
+            order = restore_order(raw)
+            if order.status != OrderStatus.NEW or order.quantity <= 0:
+                raise ValueError("invalid restored open order")
+            restored_orders[order.order_id] = order
+
+        restored_client_orders: Dict[str, VirtualOrder] = {}
+        for client_order_id, raw in client_orders.items():
+            normalized_client_id = str(client_order_id).strip()
+            if not normalized_client_id:
+                raise ValueError("invalid client order id")
+            order = restore_order(raw)
+            if order.client_order_id not in {None, normalized_client_id}:
+                raise ValueError("client order id mismatch")
+            order.client_order_id = normalized_client_id
+            restored_client_orders[normalized_client_id] = restored_orders.get(
+                order.order_id, order
+            )
+
+        self.initial_balance = float(account["initial_balance"])
+        self.balance = float(account["balance"])
+        self.maker_fee = float(account["maker_fee"])
+        self.taker_fee = float(account["taker_fee"])
+        self.slippage_rate = float(account["slippage_rate"])
+        self.leverage = int(account["leverage"])
+        self.margin_call_level = float(account["margin_call_level"])
+        self.liquidation_level = float(account["liquidation_level"])
+        self.positions = restored_positions
+        self.open_orders = restored_orders
+        self._client_orders = restored_client_orders
+        self.order_history = []
+        self.trade_history = []
+        self.stats = {
+            key: float(value) if key not in {"total_trades", "winning_trades", "losing_trades"} else int(value)
+            for key, value in stats.items()
+        }
+        self._current_prices = {
+            str(symbol).upper(): float(price)
+            for symbol, price in current_prices.items()
+        }
+        self._last_close_info = None
+        self._update_available_balance()
 
     def update_price(
         self,
@@ -316,6 +468,7 @@ class VirtualAccount:
         stop_price: Optional[float] = None,
         reduce_only: bool = False,
         time_in_force: Optional[str] = None,
+        client_order_id: Optional[str] = None,
     ) -> VirtualOrder:
         """
         下單 - 模擬 Binance 下單接口
@@ -333,6 +486,13 @@ class VirtualAccount:
         Returns:
             VirtualOrder: 訂單對象
         """
+        normalized_client_order_id = str(client_order_id or "").strip() or None
+        if normalized_client_order_id:
+            existing = self._client_orders.get(normalized_client_order_id)
+            if existing is not None:
+                logger.info("重複 paper intent 已去重: %s", normalized_client_order_id)
+                return existing
+
         order_id = str(uuid.uuid4())[:8].upper()
         order_side = OrderSide(side.upper())
         order_type_enum = OrderType(order_type.upper())
@@ -348,12 +508,16 @@ class VirtualAccount:
             stop_price=stop_price,
             reduce_only=reduce_only,
             time_in_force=time_in_force,
+            client_order_id=normalized_client_order_id,
         )
 
         if quantity <= 0:
             order.status = OrderStatus.REJECTED
             logger.warning(f"⚠️ 訂單拒絕: 無效數量 {quantity} {symbol}")
             self.order_history.append(order)
+            if normalized_client_order_id:
+                self._client_orders[normalized_client_order_id] = order
+                self._notify_state_changed()
             return order
 
         if order_type_enum != OrderType.MARKET and not reduce_only:
@@ -366,6 +530,9 @@ class VirtualAccount:
                     f"(需要 {reservation_required:.2f}, 可用 {self.available_balance:.2f})"
                 )
                 self.order_history.append(order)
+                if normalized_client_order_id:
+                    self._client_orders[normalized_client_order_id] = order
+                    self._notify_state_changed()
                 return order
 
         # 市價單立即撮合
@@ -383,7 +550,11 @@ class VirtualAccount:
             logger.info(f"🎯 條件單設置: {side} {quantity} {symbol} 觸發價 {stop_price}")
 
         self.order_history.append(order)
+        if normalized_client_order_id:
+            self._client_orders[normalized_client_order_id] = order
         self._update_available_balance()
+        if order_type_enum != OrderType.MARKET and order.status == OrderStatus.NEW:
+            self._notify_state_changed()
         return order
 
     def _execute_market_order(self, order: VirtualOrder):
@@ -493,6 +664,7 @@ class VirtualAccount:
             f"✅ 訂單成交: {order.side.value} {order.quantity} {order.symbol} "
             f"@ {fill_price:.2f} (手續費: {commission:.4f})"
         )
+        self._notify_state_changed()
 
     def _update_position(self, order: VirtualOrder) -> float:
         """
@@ -659,6 +831,8 @@ class VirtualAccount:
                 logger.info(f"🎯 觸發條件單: {order.order_type.value} {order.side.value} @ {price:.2f}")
                 self._execute_market_order(order)
             del self.open_orders[order.order_id]
+        if orders_to_execute:
+            self._notify_state_changed()
 
     def _check_liquidation(self, symbol: str, price: float):
         """檢查是否需要強平"""
@@ -723,6 +897,7 @@ class VirtualAccount:
         self._cancel_symbol_orders(symbol)
 
         self._update_available_balance()
+        self._notify_state_changed()
 
     def _cancel_symbol_orders(self, symbol: str):
         """取消某個交易對的所有掛單"""
@@ -801,6 +976,11 @@ class VirtualAccount:
             orders.append(order)
 
         return orders
+
+    def get_order_by_client_id(self, client_order_id: Optional[str]) -> Optional[VirtualOrder]:
+        """查詢同一自主執行意圖是否已經處理，供 connector 避免重複成交。"""
+        normalized = str(client_order_id or "").strip()
+        return self._client_orders.get(normalized) if normalized else None
 
     def has_pending_entry_order(self, symbol: str, side: Optional[str] = None) -> bool:
         """是否存在未成交的開倉掛單。"""
@@ -889,6 +1069,7 @@ class VirtualAccount:
             del self.open_orders[order_id]
             self._update_available_balance()
             logger.info(f"❌ 訂單已取消: {order_id}")
+            self._notify_state_changed()
             return True
         return False
 
@@ -914,6 +1095,7 @@ class VirtualAccount:
         self.positions.clear()
         self.open_orders.clear()
         self.order_history.clear()
+        self._client_orders.clear()
         self.trade_history.clear()
         self._current_prices.clear()
 
@@ -928,3 +1110,4 @@ class VirtualAccount:
         }
 
         logger.info(f"🔄 帳戶已重置: 餘額 {self.initial_balance} USDT")
+        self._notify_state_changed()

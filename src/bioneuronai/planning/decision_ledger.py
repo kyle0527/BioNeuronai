@@ -132,6 +132,32 @@ def summarize_decisions(records: Iterable[Dict[str, Any]]) -> Dict[str, Any]:
     total_realized = wins + losses
     win_rate = wins / total_realized if total_realized else None
 
+    ai_outcomes = [
+        row for row in rows
+        if row.get("type") == "ai_decision_outcome"
+        and isinstance(row.get("evaluation"), dict)
+    ]
+    directional = [
+        row for row in ai_outcomes
+        if row["evaluation"].get("direction") in {"LONG", "SHORT"}
+    ]
+    correct = [row for row in ai_outcomes if row["evaluation"].get("correct") is True]
+    directional_correct = [
+        row for row in directional if row["evaluation"].get("correct") is True
+    ]
+    returns: List[float] = []
+    brier_scores: List[float] = []
+    for row in ai_outcomes:
+        evaluation = row["evaluation"]
+        try:
+            returns.append(float(evaluation.get("price_return_pct")))
+        except (TypeError, ValueError):
+            pass
+        try:
+            brier_scores.append(float(evaluation.get("brier_score")))
+        except (TypeError, ValueError):
+            pass
+
     return {
         "record_count": len(rows),
         "realized_count": total_realized,
@@ -142,6 +168,17 @@ def summarize_decisions(records: Iterable[Dict[str, Any]]) -> Dict[str, Any]:
         "consecutive_losses": consecutive_losses,
         "max_drawdown_pct": max_drawdown_pct,
         "action_counts": action_counts,
+        "ai_decision_accuracy": {
+            "evaluated_count": len(ai_outcomes),
+            "correct_count": len(correct),
+            "accuracy": len(correct) / len(ai_outcomes) if ai_outcomes else None,
+            "directional_count": len(directional),
+            "directional_accuracy": (
+                len(directional_correct) / len(directional) if directional else None
+            ),
+            "average_price_return_pct": sum(returns) / len(returns) if returns else None,
+            "mean_brier_score": sum(brier_scores) / len(brier_scores) if brier_scores else None,
+        },
     }
 
 

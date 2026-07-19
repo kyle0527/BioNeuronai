@@ -91,6 +91,17 @@ def test_pending_outcome_does_not_count(learner):
     assert learner._pending_count == 0
 
 
+def test_already_recorded_outcome_is_not_pushed_twice(learner):
+    """TradingEngine 已寫入 T2 時，learner 只能計數，不能再寫一次記憶。"""
+    experience = make_experience(0)
+    learner.memory.push(experience)
+
+    learner.record_outcome(experience, memory_already_recorded=True)
+
+    assert learner.memory.get_stats()["total_pushed"] == 1
+    assert learner._pending_count == 1
+
+
 def test_update_changes_lora_but_not_backbone(learner):
     model = learner.model
     lora_before = model.lora_A.detach().clone()

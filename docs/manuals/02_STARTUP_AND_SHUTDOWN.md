@@ -34,10 +34,12 @@
 |------|------|----------|----------|
 | CLI | `python main.py <command>` | 單次任務、回測、simulate、paper-live、readiness-gate、chat | 不需常駐服務；最適合確認單一功能是否跑完 |
 | API | `python -m uvicorn bioneuronai.api.app:app --host 127.0.0.1 --port 8000` | UI 後端、Swagger、外部自動化 | UI 依賴 API；未啟動會 `Failed to fetch` |
-| UI | `cd frontend/devops-d; npm run dev` | Operations Dashboard | UI 不直接執行 AI；透過 API 呼叫後端 |
+| UI（目前） | `cd frontend/devops-d; npm run dev` | Operations Dashboard | 目前僅 API／observer 相關操作；不直接啟動完整 autonomous runtime |
 | Docker | `docker compose up api frontend` | 部署、重現環境 | 本輪非主要驗證入口；本機收斂後再重建 image |
 
 更完整說明見 [../STARTUP_MODES.md](../STARTUP_MODES.md)。
+
+> **2026-07-20 已確認的後續入口**：以手動啟動器開啟單一產品面板；面板只控制唯一 paper autonomous runtime 的啟動、狀態與安全停止。此入口尚未實作，完成前仍以本節 CLI 命令為準。
 
 ### 1.2 雙執行主線（交易層，必讀）
 

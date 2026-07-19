@@ -56,11 +56,11 @@ FastAPI 長時間服務：
 python -m uvicorn bioneuronai.api.app:app --host 127.0.0.1 --port 8000
 ```
 
-負責 UI、Swagger、部分交易控制。API **未完整覆蓋**所有 CLI（例如完整 `autonomous` 閉環可能僅 CLI）——以 [`manuals/05_API_USER_MANUAL.md`](manuals/05_API_USER_MANUAL.md) 為準。
+負責 UI、Swagger、部分交易控制。**目前** API 未完整覆蓋 `autonomous` 閉環；後續唯一產品面板會改以專屬 runtime API 啟動／停止 `AutonomousOperator`，但該 API 尚未實作——以 [`manuals/05_API_USER_MANUAL.md`](manuals/05_API_USER_MANUAL.md) 為準。
 
 ### 1.3 UI
 
-主線前端：`frontend/devops-d`：
+目前主線前端是 `frontend/devops-d`：
 
 ```powershell
 cd frontend/devops-d
@@ -68,6 +68,8 @@ npm run dev
 ```
 
 UI 不直接執行核心 AI／下單邏輯；一律經 API。Docker 前端常為 `http://localhost:3000`；本機 Vite 常為 `5173`（占用時遞增）。
+
+已決定的產品目標是「手動開啟一個程式 → 一個面板 → 一條自主 runtime」：未來 `frontend/app` 取代多面板入口，並由啟動器管理本機程序；在完成前，不能把現有 UI 說成已可啟動完整 autonomous runtime。
 
 ### 1.4 Docker
 
@@ -85,7 +87,8 @@ docker compose run --rm status
 | 情境 | 建議入口 |
 |------|----------|
 | 確認功能能不能跑 | **CLI** |
-| **預設 AI 自主流程** | **CLI `autonomous`** |
+| **預設 AI 自主流程（目前）** | **CLI `autonomous`** |
+| **預設 AI 自主流程（目標）** | 單一啟動器 + 單一產品面板；尚待實作與驗收 |
 | 即時 tick／T0–T2 觀測 | CLI `trade --paper-live` |
 | 長期大區間 | CLI：下載歷史 → backtest／readiness-gate |
 | UI 監控 | API + UI |

@@ -313,7 +313,11 @@ class EventContext(BaseModel):
     )
 
     def get_effective_score(self) -> float:
-        """計算有效評分 (考慮衰減和可信度)"""
+        """相容有效評分（event_score × 衰減 × 可信度）。
+
+        主線規則路徑 ``event_score`` 固定 0，故回傳 0；
+        不應再被解讀為看多／看空強度。事件風險請用 metadata 重要性或 intensity。
+        """
         return self.event_score * self.decay_factor * self.source_confidence
 
     model_config = ConfigDict(
@@ -321,7 +325,7 @@ class EventContext(BaseModel):
         json_schema_extra={
             "examples": [
                 {
-                    "event_score": -5.0,
+                    "event_score": 0.0,
                     "event_type": "HACK",
                     "intensity": "HIGH",
                     "decay_factor": 0.8,
@@ -330,8 +334,9 @@ class EventContext(BaseModel):
                     "timestamp": "2026-01-25T10:30:00",
                     "headline": "Major exchange hacked",
                     "source": "event_memory",
-                    "sentiment_score": -0.8,
+                    "sentiment_score": 0.0,
                     "active_event_count": 1,
+                    "metadata": {"event_importance": 7.0},
                 }
             ]
         },

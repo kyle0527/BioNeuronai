@@ -9,6 +9,8 @@
 > **正式驗收**使用 CLI、虛擬帳戶／Paper、歷史回測、必要時 API／Dashboard／Docker。  
 > **不使用** `tests/`、pytest、臨時 mock 腳本作為功能完成或「流程跑通」的依據（它們無法反映真實時機）。
 
+> **目前執行範圍（2026-07-19）**：先完成 **CLI + 自主 AI Paper + 產物對帳**。前端、Dashboard 與 Docker 暫停開發及驗收，待核心流程與手冊收尾後才恢復。
+
 ---
 
 ## 目錄
@@ -113,7 +115,9 @@
 | Backtest | 短區間 `backtest` | 能產生交易統計與 runtime |
 | Frontend | `cd frontend/devops-d && npm run build` | build 成功並產生 `dist/` |
 
-### Level 1：本地 API + Dashboard
+### Level 1：本地 API + Dashboard（目前暫停）
+
+> 此層不屬於目前驗收範圍；保留作核心 CLI 流程收尾後的後續工作。
 
 | 手冊 | 實際入口 | 成功標準 |
 |---|---|---|
